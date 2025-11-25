@@ -28,6 +28,10 @@ class AutofunctionSettings(BaseSettings):
     test: int
 
 
+class CriterionSettings(BaseSettings):
+    detail: list[float]
+
+
 class Settings(BaseSettings):
     acquisition: AcquisitionSettings
     microscope: MicroscopeSettings
