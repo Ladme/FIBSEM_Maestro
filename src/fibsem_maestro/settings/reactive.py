@@ -44,7 +44,7 @@ class Reactive(BaseModel):
             other: Another Reactive instance whose field values are copied into
                 this instance.
         """
-        for field in Reactive.model_fields:
+        for field in type(self).model_fields:
             # bypass __setattr__ to avoid triggering signals per-field
             object.__setattr__(self, field, getattr(other, field))
 
@@ -67,7 +67,7 @@ class Reactive(BaseModel):
         super().__setattr__(name, value)
 
         # call hooks only if this is actually a model field
-        if name in Reactive.model_fields:
+        if name in type(self).model_fields:
             self._call_hooks()
 
     def _call_hooks(self) -> None:

@@ -33,7 +33,7 @@ class BaseSettings(Reactive):
             OSError: If the file cannot be opened or read.
             Exception: Propagated from the serializer on parsing or decoding errors.
         """
-        return BaseSettings(**SerializerCls.load(file))
+        return cls(**SerializerCls.load(file))
 
     def to_file(
         self, file: Path, SerializerCls: type[Serializer] = YamlSerializer
@@ -74,5 +74,5 @@ class BaseSettings(Reactive):
             OSError: If the file cannot be opened or read.
             Exception: Propagated from the serializer on parsing or decoding errors.
         """
-        new_settings = BaseSettings.from_file(file, SerializerCls)
+        new_settings = type(self).from_file(file, SerializerCls)
         self.update(new_settings)
