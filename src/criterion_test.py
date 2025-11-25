@@ -1,13 +1,14 @@
+import os
+
+import numpy as np
 import tifffile
+
 #from autoscript_sdb_microscope_client.structures import AdornedImage
 from fibsem_maestro.image_criteria.criteria import Criterion
+from fibsem_maestro.tools.support import Image
 from tifffile import imread
 
-import os
-import numpy as np
-
 from fibsem_maestro.settings import Settings
-from fibsem_maestro.tools.support import Image
 
 settings_yaml_path = 'fibsem_maestro/GUI/settings.yaml'
 folder_path = "/home/pavelkrep/data/Cryo INS/standard trench/Image90_map/"
@@ -38,7 +39,7 @@ for i, filename in enumerate(os.listdir(folder_path)):
         map = map / np.nanmax(map) * 255
 
         tifffile.imwrite((os.path.join(folder_path, f'map_{i}.tiff')), 255-np.asarray(map, dtype=np.uint8))
-        tifffile.imwrite((os.path.join(folder_path, f'tile.tiff')), tile)
+        tifffile.imwrite((os.path.join(folder_path, 'tile.tiff')), tile)
 #         if i == 1:
 #             best = c
 #         if i == 3:
