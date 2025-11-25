@@ -1,0 +1,24 @@
+acquisition:
+  criterion_name: image_acquisition
+  extended_resolution: true
+  image_name: image_acquisition
+  imaging_enabled: true
+  resolution_threshold: 1
+  sputter: false
+  sputter_grid: 1
+  wd_correction: 1.0e-08
+  y_correction: 0
+microscope:
+  beam_shift_tolerance: 5.0e-08
+  ip_address: 147.251.159.93
+  relative_beam_shift_to_stage:
+  - 1
+  - 1
+  stage_tolerance: 1e-7
+  stage_trials: 3
+simple: 5
+autofunctions:
+  name: 
+    - { test: 7 }
+    - { test: 9 }
+    - { test: 11 }

@@ -2,6 +2,7 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 from pathlib import Path
+from typing import Self
 
 from fibsem_maestro.serializer.serializer import Serializer
 from fibsem_maestro.serializer.yaml_serializer import YamlSerializer
@@ -17,7 +18,7 @@ class BaseSettings(Reactive):
     @classmethod
     def from_file(
         cls, file: Path, SerializerCls: type[Serializer] = YamlSerializer
-    ) -> "BaseSettings":
+    ) -> Self:
         """
         Create a new settings instance by loading data from a file.
 

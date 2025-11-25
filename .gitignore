@@ -16,3 +16,6 @@ htmlcov/
 
 # Documentations
 docs/
+
+# Playground files
+playground.py

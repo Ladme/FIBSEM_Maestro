@@ -30,7 +30,7 @@ class Serializer(ABC):
 
     @classmethod
     @abstractmethod
-    def write(cls, file: Path, content: dict[str, Any]) -> None:
+    def write(cls, file: Path, data: dict[str, Any]) -> None:
         """
         Serialize and write structured data to a file.
 

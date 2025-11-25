@@ -36,17 +36,17 @@ class YamlSerializer(Serializer):
         return data
 
     @classmethod
-    def write(cls, file: Path, content: dict[str, Any]) -> None:
+    def write(cls, file: Path, data: dict[str, Any]) -> None:
         """
         Serialize a dictionary and write it to a YAML file.
 
         Args:
             file: Path to the YAML file to write.
-            content: The data to serialize and store in the file.
+            data: The data to serialize and store in the file.
 
         Raises:
             yaml.YAMLError: If serialization fails.
             OSError: If the file cannot be opened or written to.
         """
         with file.open("w") as output:
-            yaml.dump(content, output, Dumper=CSafeDumper)
+            yaml.dump(data, output, Dumper=CSafeDumper)

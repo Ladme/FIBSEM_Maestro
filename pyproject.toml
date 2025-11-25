@@ -7,10 +7,10 @@ requires-python = "==3.11.2"
 dependencies = ["pydantic>=2.12.4", "pyyaml>=6.0.3"]
 
 [dependency-groups]
-dev = ["pyright>=1.1.407", "ruff>=0.14.6"]
+dev = ["pyright>=1.1.407", "pytest>=9.0.1", "ruff>=0.14.6"]
 
 [tool.ruff]
-exclude = ["src/fibsem_maestro_original", "src/criterion_test.py"]
+exclude = ["src/fibsem_maestro_original", "src/criterion_playground.py"]
 
 [tool.ruff.lint]
 extend-select = [
