@@ -74,7 +74,7 @@ def test_from_file_creates_nested_reactive_children():
 
     assert isinstance(s.child, Node)
     assert s.child.x == 5
-    assert s.child._root is s
+    assert s.child._parent is s
 
 
 def test_to_file_writes_using_serializer():
@@ -107,7 +107,7 @@ def test_reload_overwrites_fields_and_triggers_hooks_once():
     assert counter.count == 1
 
 
-def test_reload_replaces_nested_children_and_preserves_root():
+def test_reload_replaces_nested_children_and_propagates_parent():
     file = Path("nested_reload.yaml")
 
     FakeSerializer._storage.clear()
@@ -129,7 +129,7 @@ def test_reload_replaces_nested_children_and_preserves_root():
     assert s.child is not None
     assert s.child.x == 300
     assert s.child.y == 400
-    assert s.child._root is s
+    assert s.child._parent is s
     assert counter.count == 1
 
 

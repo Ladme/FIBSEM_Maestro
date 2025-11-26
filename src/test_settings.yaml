@@ -18,7 +18,7 @@ microscope:
   stage_trials: 3
 simple: 5
 autofunctions:
-  name: 
+  old: 
     - { test: 7 }
     - { test: 9 }
     - { test: 11 }

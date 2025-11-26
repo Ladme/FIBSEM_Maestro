@@ -4,7 +4,7 @@
 
 from typing import Self
 
-from fibsem_maestro.settings.reactive import Reactive, propagate_root
+from fibsem_maestro.settings.reactive import Reactive, propagate_parent
 
 
 class Node(Reactive):
@@ -27,53 +27,58 @@ class HookCounter:
         self.calls.append(root)
 
 
-def test_root_is_self_initially():
+def test_parent_is_none_initially():
     n = Node()
-    assert n._root is n
+    assert n._parent is None
 
 
-def test_direct_child_inherits_root():
+def test_direct_child_inherits_parent():
     parent = Node(child=Node())
     assert parent.child is not None
-    assert parent.child._root is parent
+    assert parent.child._parent is parent
 
 
-def test_children_list_inherit_root():
+def test_children_list_inherit_parent():
     parent = Node(children_list=[Node(), Node(value=5)])
-    assert all(c._root is parent for c in parent.children_list)
+    assert all(c._parent is parent for c in parent.children_list)
 
 
-def test_children_dict_inherit_root():
+def test_children_dict_inherit_parent():
     parent = Node(children_dict={"a": Node(), "b": Node(value=3)})
-    assert all(c._root is parent for c in parent.children_dict.values())
+    assert all(c._parent is parent for c in parent.children_dict.values())
 
 
-def test_deep_mixed_structure_inherits_root():
+def test_deep_mixed_structure_inherits_parent():
     node = Node(child=Node(children_list=[Node(children_dict={"z": Node()})]))
-    root = node
 
     assert node.child is not None
-    assert node.child._root is root
-    assert node.child.children_list[0]._root is root
-    assert node.child.children_list[0].children_dict["z"]._root is root
+    assert node.child._parent is node
+    assert node.child.children_list[0]._parent is node.child
+    assert (
+        node.child.children_list[0].children_dict["z"]._parent
+        is node.child.children_list[0]
+    )
 
 
-def test_on_change_registers_hook_on_root():
+def test_on_change_registers_hook_on_self():
     n = Node()
     counter = HookCounter()
     n.on_change(counter.hook)
     assert counter.hook in n._hooks
 
 
-def test_on_change_registers_on_root_even_when_called_on_child():
+def test_on_change_registering_on_child_stores_on_child_only():
     parent = Node(child=Node())
-    counter = HookCounter()
     assert parent.child is not None
+
+    counter = HookCounter()
     parent.child.on_change(counter.hook)
-    assert counter.hook in parent._hooks
+
+    assert counter.hook in parent.child._hooks
+    assert counter.hook not in parent._hooks
 
 
-def test_setattr_triggers_hooks():
+def test_setattr_triggers_hooks_on_self():
     n = Node()
     counter = HookCounter()
     n.on_change(counter.hook)
@@ -87,35 +92,36 @@ def test_setattr_does_not_trigger_on_private_attrs():
     counter = HookCounter()
     n.on_change(counter.hook)
 
-    n._root = n
+    n._parent = None
     assert counter.count == 0
 
 
-def test_setattr_propagates_root_into_new_child():
+def test_setattr_propagates_parent_into_new_child():
     parent = Node()
     new_child = Node()
 
     parent.child = new_child
-    assert new_child._root is parent
+    assert new_child._parent is parent
 
 
-def test_setattr_propagates_root_into_new_list_children():
+def test_setattr_propagates_parent_into_new_list_children():
     parent = Node()
     c1, c2 = Node(), Node()
 
     parent.children_list = [c1, c2]
-    assert c1._root is parent
-    assert c2._root is parent
+    assert c1._parent is parent
+    assert c2._parent is parent
 
 
-def test_setattr_propagates_root_into_new_dict_children():
+def test_setattr_propagates_parent_into_new_dict_children():
     parent = Node()
     c1 = Node()
+
     parent.children_dict = {"x": c1}
-    assert c1._root is parent
+    assert c1._parent is parent
 
 
-def test_nested_child_change_triggers_root_hooks_once():
+def test_nested_child_change_triggers_ancestor_hooks_once():
     parent = Node(child=Node(children_list=[Node(), Node()]))
 
     counter = HookCounter()
@@ -134,18 +140,18 @@ def test_update_copies_fields_and_calls_hooks_once():
     a.on_change(counter.hook)
 
     a.update(b)
+
     assert a.value == 99
     assert counter.count == 1
 
 
-def test_update_replaces_children_and_repropagates_root():
+def test_update_replaces_children_and_repropagates_parent():
     a = Node(
         value=1,
         child=Node(value=2),
         children_list=[Node(value=3)],
         children_dict={"x": Node(value=4)},
     )
-
     b = Node(
         value=99,
         child=Node(value=77),
@@ -156,12 +162,13 @@ def test_update_replaces_children_and_repropagates_root():
     a.update(b)
 
     assert a.child is not None
-    assert a.child._root is a
-    assert all(c._root is a for c in a.children_list)
-    assert all(c._root is a for c in a.children_dict.values())
+    assert a.child._parent is a
+    assert all(c._parent is a.child for c in a.children_list) is False
+    assert all(c._parent is a for c in a.children_list)
+    assert all(c._parent is a for c in a.children_dict.values())
 
 
-def test_call_hooks_invokes_all_callbacks():
+def test_call_hooks_invokes_all_callbacks_on_self():
     n = Node()
     c1, c2 = HookCounter(), HookCounter()
 
@@ -174,22 +181,80 @@ def test_call_hooks_invokes_all_callbacks():
     assert c2.count == 1
 
 
-def test_propagate_root_to_reactive():
+def test_call_hooks_invokes_all_callbacks_on_self_and_ancestors():
     root = Node()
+    parent = Node(child=Node())
+    assert parent.child is not None
+
+    root.child = parent
+    assert parent._parent is root
+    assert parent.child._parent is parent
+
+    c_root = HookCounter()
+    c_parent = HookCounter()
+    c_child = HookCounter()
+
+    root.on_change(c_root.hook)
+    parent.on_change(c_parent.hook)
+    parent.child.on_change(c_child.hook)
+
+    parent.child._call_hooks()
+
+    assert c_child.count == 1
+    assert c_parent.count == 1
+    assert c_root.count == 1
+
+    # hooks are called with the node on which they are registered
+    assert c_child.calls[0] is parent.child
+    assert c_parent.calls[0] is parent
+    assert c_root.calls[0] is root
+
+
+def test_descendant_hooks_are_not_called_when_parent_changes():
+    root = Node(child=Node(child=Node()))
+    parent = root.child
+    assert parent is not None
+
+    child = parent.child
+    assert child is not None
+
+    c_root = HookCounter()
+    c_parent = HookCounter()
+    c_child = HookCounter()
+
+    root.on_change(c_root.hook)
+    parent.on_change(c_parent.hook)
+    child.on_change(c_child.hook)
+
+    parent._call_hooks()
+
+    assert c_parent.count == 1
+    assert c_root.count == 1
+
+    assert c_child.count == 0
+
+
+def test_propagate_parent_to_reactive():
+    parent = Node()
     child = Node()
-    propagate_root(root, child)
-    assert child._root is root
+    propagate_parent(parent, child)
+
+    assert child._parent is parent
 
 
-def test_propagate_root_into_list():
-    root = Node()
+def test_propagate_parent_into_list():
+    parent = Node()
     lst = [Node(), Node()]
-    propagate_root(root, lst)
-    assert all(c._root is root for c in lst)
+
+    propagate_parent(parent, lst)
+
+    assert all(c._parent is parent for c in lst)
 
 
-def test_propagate_root_into_dict():
-    root = Node()
+def test_propagate_parent_into_dict():
+    parent = Node()
     d = {"a": Node(), "b": Node()}
-    propagate_root(root, d)
-    assert all(c._root is root for c in d.values())
+
+    propagate_parent(parent, d)
+
+    assert all(c._parent is parent for c in d.values())

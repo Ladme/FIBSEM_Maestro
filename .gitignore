@@ -18,4 +18,5 @@ htmlcov/
 docs/
 
 # Playground files
+test_settings.yaml
 playground.py
