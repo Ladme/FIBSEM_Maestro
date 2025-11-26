@@ -26,7 +26,7 @@ class Serializer(ABC):
         Raises:
             NotImplementedError: If the method is not implemented by a subclass.
         """
-        raise NotImplementedError(f"{cls.__name__}.load is not implemented")
+        raise NotImplementedError(f"{cls.__name__} must implement load")
 
     @classmethod
     @abstractmethod
@@ -41,4 +41,4 @@ class Serializer(ABC):
         Raises:
             NotImplementedError: If the method is not implemented by a subclass.
         """
-        raise NotImplementedError(f"{cls.__name__}.write is not implemented")
+        raise NotImplementedError(f"{cls.__name__} must implement write")

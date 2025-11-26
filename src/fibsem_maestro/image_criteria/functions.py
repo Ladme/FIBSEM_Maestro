@@ -1,10 +1,6 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
-from abc import ABCMeta
-from collections.abc import Callable
-from enum import Enum
-from typing import Any, ClassVar
 
 import numpy as np
 from numpy.typing import NDArray
@@ -12,68 +8,39 @@ from scipy.ndimage import gaussian_filter  # type: ignore
 
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.frc.frc import frc  # type: ignore
-from fibsem_maestro.settings.settings import CriterionSettings
+from fibsem_maestro.image_criteria.registry import CriterionRegistry
+from fibsem_maestro.settings.criterion_settings import CriterionSettings
 
 
-class CriterionFunctionVariant(Enum):
-    BANDPASS = "bandpass"
-    BANDPASS_VARIANCE = "bandpass-var"
-    FFT = "fft"
-    FRC = "frc"
-
-
-class CriterionFunctionMeta(ABCMeta):
-    _registry: ClassVar[
-        dict[
-            CriterionFunctionVariant,
-            Callable[[Image, CriterionSettings], np.floating[Any]],
-        ]
-    ]
-
-    def __call__(
-        cls, variant: CriterionFunctionVariant
-    ) -> Callable[[Image, CriterionSettings], np.floating[Any]]:
-        return cls._registry[variant]
-
-
-class CriterionFunction(metaclass=CriterionFunctionMeta):
-    _registry: dict[
-        CriterionFunctionVariant,
-        Callable[[Image, CriterionSettings], np.floating[Any]],
-    ] = {}
-
-
-def criterion_function(
-    variant: CriterionFunctionVariant,
-):
+@CriterionRegistry.register("bandpass")
+def bandpass_criterion(img: Image, settings: CriterionSettings) -> np.floating:
     """
-    Decorator that registers a criterion function under a given name.
-    """
+    Compute the mean absolute response of a band-pass filtered image.
 
-    def decorator(
-        func: Callable[[Image, CriterionSettings], np.floating[Any]],
-    ) -> Callable[[Image, CriterionSettings], np.floating[Any]]:
-        CriterionFunction._registry[variant] = func
-        return func
+    Args:
+        img (Image): Input image.
+        settings (CriterionSettings): Criterion configuration.
 
-    return decorator
-
-
-@criterion_function(CriterionFunctionVariant.BANDPASS)
-def bandpass_criterion(img: Image, settings: CriterionSettings) -> np.floating[Any]:
-    """
-    Mean value of band-passed image.
+    Returns:
+        np.floating: Mean of the absolute band-passed image.
     """
     img_low = gauss_filter(img, img.pixel_size, settings.detail[0])
     img_high = gauss_filter(img, img.pixel_size, settings.detail[1])
 
-    return np.mean(abs(img_high - img_low))  # mean of absolute images
+    return np.mean(abs(img_high - img_low))
 
 
-@criterion_function(CriterionFunctionVariant.BANDPASS_VARIANCE)
-def bandpass_var_criterion(img: Image, settings: CriterionSettings) -> np.floating[Any]:
+@CriterionRegistry.register("bandpass_var")
+def bandpass_var_criterion(img: Image, settings: CriterionSettings) -> np.floating:
     """
-    Variance of band-passed image.
+    Compute the variance of the band-pass filtered image.
+
+    Args:
+        img (Image): Input image.
+        settings (CriterionSettings): Criterion configuration.
+
+    Returns:
+        np.floating: Variance of the band-passed image.
     """
     img_low = gauss_filter(img, img.pixel_size, settings.detail[0])
     img_high = gauss_filter(img, img.pixel_size, settings.detail[1])
@@ -81,80 +48,129 @@ def bandpass_var_criterion(img: Image, settings: CriterionSettings) -> np.floati
     return np.var(img_high - img_low)
 
 
-@criterion_function(CriterionFunctionVariant.FFT)
-def fft_criterion(img: Image, settings: CriterionSettings) -> np.floating[Any]:
+@CriterionRegistry.register("fft_1d")
+def fft_1d_criterion(img: Image, settings: CriterionSettings) -> np.floating:
     """
-    :param img: The image data. It can be either a 1-dimensional array representing an image line
-    or a 2-dimensional array representing the entire image.
+    Compute the 1D FFT amplitude sum within a frequency band.
 
-    :return: The sum of the amplitudes of the filtered frequencies.
+    Args:
+        img (Image): 1D image or signal vector.
+        settings (CriterionSettings): Criterion configuration.
 
-    This method calculates the FFT (Fast Fourier Transform) of the given image data. It removes frequencies within
-    the specified range and returns the sum of the amplitudes of the remaining frequencies.
+    Returns:
+        np.floating: Sum of FFT amplitudes in the allowed frequency band.
+
+    Raises:
+        ValueError: If the input image is not 1-dimensional.
     """
+    # remove 0 frequency
+    img0 = img - np.mean(img)
+    # fft
+    fft_line = np.fft.fft(img0)
 
-    def fft_criterion1d() -> np.floating[Any]:
-        # remove 0 frequency
-        img0 = img - np.mean(img)
-        # fft
-        fft_line = np.fft.fft(img0)
+    # get freq axis
+    freq = np.fft.fftfreq(len(img), img.pixel_size)  # type: ignore
+    # remove negative frequencies
+    fft_line = fft_line[freq > 0]
+    # remove negative frequencies from freq axis
+    freq = freq[freq > 0]  # type: ignore
 
-        # get freq axis
-        freq = np.fft.fftfreq(len(img), img.pixel_size)  # type: ignore
-        # remove negative frequencies
-        fft_line = fft_line[freq > 0]
-        # remove negative frequencies from freq axis
-        freq = freq[freq > 0]  # type: ignore
+    # filter frequencies
+    band_i = np.where(
+        (freq < 1 / settings.detail[1]) & (freq > 1 / settings.detail[0])  # type: ignore
+    )[0]
 
-        # filter frequencies
-        band_i = np.where(
-            (freq < 1 / settings.detail[1]) & (freq > 1 / settings.detail[0])  # type: ignore
-        )[0]
+    # sum of amplitudes of all filtered frequencies
+    return np.sum(abs(fft_line[band_i]))
 
-        # sum of amplitudes of all filtered frequencies
-        return np.sum(abs(fft_line[band_i]))
 
-    def fft_criterion_2d() -> np.floating[Any]:
-        # remove 0 frequency
-        img0 = img - np.mean(img)
-        # fft
-        fft_img = np.fft.fft2(img0)
+@CriterionRegistry.register("fft_2d")
+def fft_2d_criterion(img: Image, settings: CriterionSettings) -> np.floating:
+    """
+    Compute the 2D FFT amplitude sum within a radial frequency band.
 
-        # get x freq axis
-        freq1 = np.fft.fftfreq(fft_img.shape[0], img.pixel_size)  # type: ignore
-        # get y freq axis
-        freq2 = np.fft.fftfreq(fft_img.shape[1], img.pixel_size)  # type: ignore
+    Args:
+        img (Image): 2D image.
+        settings (CriterionSettings): Criterion configuration.
 
-        freq1 = np.repeat(freq1[:, np.newaxis], freq2.shape[0], axis=1)  # type: ignore
-        freq2 = np.repeat(freq2[:, np.newaxis], freq1.shape[0], axis=1).T  # type: ignore
-        # make freq matrix
-        freq = np.sqrt(freq1**2 + freq2**2)  # type: ignore
+    Returns:
+        np.floating: Sum of FFT amplitudes in the radial frequency band.
 
-        # highest detail frequency
-        high_frequency = 1 / settings.detail[1]
-        # lowest detail frequency
-        low_frequency = 1 / settings.detail[0]
+    Raises:
+        ValueError: If the input image is not 2-dimensional.
+    """
+    # remove 0 frequency
+    img0 = img - np.mean(img)
+    # fft
+    fft_img = np.fft.fft2(img0)
 
-        # make freq filter
-        freq[freq > high_frequency] = 0
-        freq[freq < low_frequency] = 0
-        freq[freq > 0] = 1
+    # get x freq axis
+    freq1 = np.fft.fftfreq(fft_img.shape[0], img.pixel_size)  # type: ignore
+    # get y freq axis
+    freq2 = np.fft.fftfreq(fft_img.shape[1], img.pixel_size)  # type: ignore
 
-        fft_img *= freq  # filter freq
-        return np.sum(abs(fft_img))
+    freq1 = np.repeat(freq1[:, np.newaxis], freq2.shape[0], axis=1)  # type: ignore
+    freq2 = np.repeat(freq2[:, np.newaxis], freq1.shape[0], axis=1).T  # type: ignore
+    # make freq matrix
+    freq = np.sqrt(freq1**2 + freq2**2)  # type: ignore
 
+    # highest detail frequency
+    high_frequency = 1 / settings.detail[1]
+    # lowest detail frequency
+    low_frequency = 1 / settings.detail[0]
+
+    # make freq filter
+    freq[freq > high_frequency] = 0
+    freq[freq < low_frequency] = 0
+    freq[freq > 0] = 1
+
+    fft_img *= freq  # filter freq
+    return np.sum(abs(fft_img))
+
+
+@CriterionRegistry.register("fft")
+def fft_criterion(img: Image, settings: CriterionSettings) -> np.floating:
+    """
+    FFT-based criterion for both 1D and 2D images.
+
+    This function is a unified wrapper that dispatches to either
+    `fft_1d_criterion` or `fft_2d_criterion` depending on the dimensionality
+    of the input image.
+
+    Args:
+        img (Image): Input image (1D or 2D).
+        settings (CriterionSettings): Criterion configuration.
+
+    Returns:
+        np.floating: FFT-based criterion value.
+
+    Raises:
+        NotImplementedError: If the input dimensionality is not 1 or 2.
+    """
     if np.ndim(img) == 1:
-        return fft_criterion1d()
+        return fft_1d_criterion(img, settings)
     if np.ndim(img) == 2:
-        return fft_criterion_2d()
+        return fft_2d_criterion(img, settings)
 
     raise NotImplementedError(
         "Only 1D and 2D images are currently supported for focus criterion."
     )
 
 
-@criterion_function(CriterionFunctionVariant.FRC)
-def frc_criterion(img: Image, settings: CriterionSettings) -> np.floating[Any]:
+@CriterionRegistry.register("frc")
+def frc_criterion(img: Image, settings: CriterionSettings) -> np.floating:
+    """
+    Compute the focal quality based on Fourier Ring Correlation (FRC).
+
+    Args:
+        img (Image): Input image.
+        settings (CriterionSettings): Criterion configuration (unused).
+
+    Returns:
+        np.floating: FRC score, or `np.nan` if FRC computation fails.
+    """
+    _ = settings
+
     try:
         res = frc(img, img.pixel_size)  # type: ignore
     except Exception as e:
@@ -163,9 +179,17 @@ def frc_criterion(img: Image, settings: CriterionSettings) -> np.floating[Any]:
     return res  # type: ignore
 
 
-def gauss_filter(x: Image, px_size: int, detail: float) -> NDArray[np.float64]:
+def gauss_filter(x: Image, px_size: int, detail: float) -> NDArray[np.floating]:
     """
-    Applies a Gaussian filter to the input array.
+    Apply a Gaussian filter to an image.
+
+    Args:
+        x (Image): The input image array.
+        px_size (int): Pixel size in spatial units.
+        detail (float): Detail parameter controlling filter width.
+
+    Returns:
+        NDArray[np.float32]: The Gaussian-filtered image.
     """
     px = detail / px_size
     sigma = 1 / (2 * np.pi * (1 / px))

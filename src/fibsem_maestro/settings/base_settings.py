@@ -15,6 +15,9 @@ class BaseSettings(Reactive):
     Base class for configuration objects with file serialization support.
     """
 
+    # forbid extra fields
+    model_config = {"extra": "forbid"}
+
     @classmethod
     def from_file(
         cls, file: Path, SerializerCls: type[Serializer] = YamlSerializer
