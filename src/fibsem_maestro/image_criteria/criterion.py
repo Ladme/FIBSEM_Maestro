@@ -3,31 +3,191 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+from typing import TYPE_CHECKING
+
+from fibsem_maestro.core.crop_coordinates import CropCoordinates
+from fibsem_maestro.core.image import Image
+from fibsem_maestro.core.tile_coordinates import TileCoordinates
+from fibsem_maestro.image_criteria.error import CriterionError
 from fibsem_maestro.image_criteria.functions import (
     CriterionRegistry,
 )
 from fibsem_maestro.image_criteria.numpy_registry import NumpyRegistry
-from fibsem_maestro.settings.criterion_settings import CriterionSettings
+
+if TYPE_CHECKING:
+    from fibsem_maestro.logging.image.image_logger import ImageLogger
+    from fibsem_maestro.logging.text.text_logger import TextLogger
+    from fibsem_maestro.settings.criterion_settings import CriterionSettings
 
 
 class Criterion:
-    def __init__(self, settings: CriterionSettings):
+    def __init__(
+        self,
+        name: str,
+        settings: CriterionSettings,
+        txt_log: TextLogger,
+        img_log: ImageLogger,
+    ):
+        self.name = name
         self._settings = settings
+        self._txt_log = txt_log
+        self._img_log = img_log
 
-        self._function = CriterionRegistry(self._settings.function)
+        self.criterion_images: list[Image] = []
+
+        # fields set based on the properties of each image
+        self._pixel_size: int | None = None
+        self._tile_size_px: int | None = None
+        self._image_without_border: Image | None = None
+
+        # updateable fields set from settings
+        self.function = CriterionRegistry(self._settings.function)
         self._final_regions_resolution = NumpyRegistry(
             self._settings.final_regions_resolution
         )
         self._final_resolution = NumpyRegistry(self._settings.final_resolution)
+        self._tile_size: int = self._settings.tile_size
+        self._border_fraction: float = self._settings.border
 
         self._settings.on_change(self._update_criterion)
 
+    def iter_tile_coordinates(
+        self,
+        img: Image,
+        overlap: float = 0.0,
+    ) -> Iterable[TileCoordinates]:
+        """
+        Iterate over the coordinates of square tiles covering an image.
+
+        This generator computes a grid of tile positions that scan the image in a
+        sliding-window fashion. Tiles have a fixed size defined by
+        `self._tile_size_px` and may optionally overlap. Each yielded
+        `TileCoordinates` object encodes the top-left coordinate and size of the tile.
+
+        The iteration proceeds row-by-row over the image until no further full tiles
+        fit within the image bounds. Partial tiles (those extending beyond the
+        image edge) are not generated.
+
+        Args:
+            img (Image):
+                The input 2-D image array from which tile coordinates should be
+                computed.
+            overlap (float, optional):
+                Fraction of overlap between adjacent tiles, in the range
+                `0.0`-`1.0`.
+                - `0.0` → tiles touch exactly
+                - `0.5` → 50% overlap
+                - `1.0` → tile origin does not move (all tiles identical)
+                Defaults to `0.0`.
+
+        Yields:
+            TileCoordinates:
+                The coordinates and dimensions of each tile.
+
+        Raises:
+            CriterionError:
+                If `self._tile_size_px` has not been configured.
+        """
+
+        if self._tile_size_px is None:
+            raise CriterionError("Tile size is not set.")
+
+        step = int(self._tile_size_px * (1 - overlap))
+        height, width = img.shape[:2]
+
+        for x in range(0, height - self._tile_size_px + 1, step):
+            for y in range(0, width - self._tile_size_px + 1, step):
+                yield TileCoordinates(
+                    x=x,
+                    y=y,
+                    width=self._tile_size_px,
+                    height=self._tile_size_px,
+                )
+
+    def iter_tiles(
+        self,
+        img: Image,
+        overlap: float = 0.0,
+    ) -> Iterable[Image]:
+        """
+        Iterate over image tiles extracted from the input image.
+
+        This generator yields the actual cropped image regions (tiles) corresponding
+        to the spatial coordinates produced by `iter_tile_coordinates`. Each
+        tile is a `tile_size_px x tile_size_px` NumPy array view into the original
+        image.
+
+        Tiles are returned in row-major order, starting at the top-left corner and
+        progressing left-to-right, top-to-bottom. Only fully contained tiles are
+        produced; regions extending beyond the image boundary are skipped.
+
+        Args:
+            img (Image):
+                The full input 2-D image from which tiles should be extracted.
+            overlap (float, optional):
+                Fraction of overlap between adjacent tiles. Defaults to ``0.0``.
+
+        Yields:
+            Image:
+                A tile extracted from the input image.
+        """
+        for tile in self.iter_tile_coordinates(img, overlap):
+            yield img[
+                tile.x : tile.x + tile.width,
+                tile.y : tile.y + tile.height,
+            ].view(Image)
+
+    def compute_crop_coordinates(self, img: Image) -> CropCoordinates:
+        """
+        Compute the crop region based on the configured border fraction.
+
+        Args:
+            img (Image):
+                Input 2-D image array.
+
+        Returns:
+            CropCoordinates:
+                Coordinates and dimensions of the cropped region.
+        """
+        height, width = img.shape[:2]
+        border_x = int(height * self._border_fraction)
+        border_y = int(width * self._border_fraction)
+
+        return CropCoordinates(
+            x=border_x,
+            y=border_y,
+            width=height - 2 * border_x,
+            height=width - 2 * border_y,
+        )
+
+    def crop_image(self, img: Image) -> Image:
+        """Return the cropped region of an image based on border settings.
+
+        The crop geometry is computed by `compute_crop_coordinates`.
+
+        Args:
+            img (Image):
+                Input 2-D image array.
+
+        Returns:
+            Image:
+                The cropped image region.
+        """
+        coords = self.compute_crop_coordinates(img)
+        return img[
+            coords.x : coords.x + coords.width,
+            coords.y : coords.y + coords.height,
+        ].view(Image)
+
     def _update_criterion(self, settings: CriterionSettings) -> None:
-        self._function = CriterionRegistry(settings.function)
+        self.function = CriterionRegistry(settings.function)
         self._final_regions_resolution = NumpyRegistry(
             settings.final_regions_resolution
         )
         self._final_resolution = NumpyRegistry(settings.final_resolution)
+        self._tile_size = self._settings.tile_size
+        self._border_fraction = self._settings.border
 
     """
     def _tiles_resolution(

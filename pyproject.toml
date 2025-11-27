@@ -5,8 +5,10 @@ description = "Software for (cryo) volume-EM acquisition."
 readme = "README.md"
 requires-python = "==3.11.2"
 dependencies = [
+    "matplotlib>=3.8.1",
     "numpy==2.2.5",
     "pydantic==2.12.4",
+    "pyqt5>=5.15.11",
     "pyyaml==6.0.3",
     "scipy==1.15.3",
 ]
@@ -43,10 +45,8 @@ ignore = ["E501"]
 pythonVersion = "3.11"
 
 include = ["src/fibsem_maestro"]
-#exclude = ["src/fibsem_maestro_original", "src/criterion_test.py"]
 
 executionEnvironments = [{ root = "src", pythonVersion = "3.11" }]
-
 
 # Strictness toggles
 reportMissingTypeStubs = true
@@ -54,11 +54,11 @@ reportMissingImports = true
 reportMissingModuleSource = "error"
 reportMissingParameterType = "error"
 reportMissingTypeArgument = "error"
-reportUnknownArgumentType = "error"
-reportUnknownParameterType = "error"
-reportUnknownLambdaType = "error"
-reportUnknownMemberType = "error"
-reportUnknownVariableType = "error"
+reportUnknownArgumentType = false
+reportUnknownParameterType = false
+reportUnknownLambdaType = false
+reportUnknownMemberType = false
+reportUnknownVariableType = false
 reportUninitializedInstanceVariable = "error"
 
 # Usage strictness

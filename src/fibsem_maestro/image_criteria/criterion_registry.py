@@ -11,11 +11,12 @@ from fibsem_maestro.image_criteria.error import CriterionError
 
 if TYPE_CHECKING:
     from fibsem_maestro.core.image import Image
+    from fibsem_maestro.logging.text_logger import TextLogger
     from fibsem_maestro.settings.criterion_settings import (
         CriterionSettings,
     )
 
-CriterionFunction = Callable[["Image", "CriterionSettings"], np.floating]
+CriterionFunction = Callable[["Image", "CriterionSettings", "TextLogger"], np.floating]
 
 
 class CriterionRegistry:

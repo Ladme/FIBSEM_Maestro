@@ -2,6 +2,8 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
+from typing import cast
+
 import numpy as np
 from numpy.typing import NDArray
 from scipy.ndimage import gaussian_filter  # type: ignore
@@ -9,17 +11,21 @@ from scipy.ndimage import gaussian_filter  # type: ignore
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.frc.frc import frc  # type: ignore
 from fibsem_maestro.image_criteria.criterion_registry import CriterionRegistry
+from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.settings.criterion_settings import CriterionSettings
 
 
 @CriterionRegistry.register("bandpass")
-def bandpass_criterion(img: Image, settings: CriterionSettings) -> np.floating:
+def bandpass_criterion(
+    img: Image, settings: CriterionSettings, _logger: TextLogger
+) -> np.floating:
     """
     Compute the mean absolute response of a band-pass filtered image.
 
     Args:
         img (Image): Input image.
         settings (CriterionSettings): Criterion configuration.
+        _logger (TextLogger): Logger to use for textual logging.
 
     Returns:
         np.floating: Mean of the absolute band-passed image.
@@ -31,13 +37,16 @@ def bandpass_criterion(img: Image, settings: CriterionSettings) -> np.floating:
 
 
 @CriterionRegistry.register("bandpass_var")
-def bandpass_var_criterion(img: Image, settings: CriterionSettings) -> np.floating:
+def bandpass_var_criterion(
+    img: Image, settings: CriterionSettings, _logger: TextLogger
+) -> np.floating:
     """
     Compute the variance of the band-pass filtered image.
 
     Args:
         img (Image): Input image.
         settings (CriterionSettings): Criterion configuration.
+        _logger (TextLogger): Logger to use for textual logging.
 
     Returns:
         np.floating: Variance of the band-passed image.
@@ -49,13 +58,16 @@ def bandpass_var_criterion(img: Image, settings: CriterionSettings) -> np.floati
 
 
 @CriterionRegistry.register("fft_1d")
-def fft_1d_criterion(img: Image, settings: CriterionSettings) -> np.floating:
+def fft_1d_criterion(
+    img: Image, settings: CriterionSettings, _logger: TextLogger
+) -> np.floating:
     """
     Compute the 1D FFT amplitude sum within a frequency band.
 
     Args:
         img (Image): 1D image or signal vector.
         settings (CriterionSettings): Criterion configuration.
+        _logger (TextLogger): Logger to use for textual logging.
 
     Returns:
         np.floating: Sum of FFT amplitudes in the allowed frequency band.
@@ -85,13 +97,16 @@ def fft_1d_criterion(img: Image, settings: CriterionSettings) -> np.floating:
 
 
 @CriterionRegistry.register("fft_2d")
-def fft_2d_criterion(img: Image, settings: CriterionSettings) -> np.floating:
+def fft_2d_criterion(
+    img: Image, settings: CriterionSettings, _logger: TextLogger
+) -> np.floating:
     """
     Compute the 2D FFT amplitude sum within a radial frequency band.
 
     Args:
         img (Image): 2D image.
         settings (CriterionSettings): Criterion configuration.
+        _logger (TextLogger): Logger to use for textual logging.
 
     Returns:
         np.floating: Sum of FFT amplitudes in the radial frequency band.
@@ -105,14 +120,14 @@ def fft_2d_criterion(img: Image, settings: CriterionSettings) -> np.floating:
     fft_img = np.fft.fft2(img0)
 
     # get x freq axis
-    freq1 = np.fft.fftfreq(fft_img.shape[0], img.pixel_size)  # type: ignore
+    freq1 = np.fft.fftfreq(fft_img.shape[0], img.pixel_size)
     # get y freq axis
-    freq2 = np.fft.fftfreq(fft_img.shape[1], img.pixel_size)  # type: ignore
+    freq2 = np.fft.fftfreq(fft_img.shape[1], img.pixel_size)
 
-    freq1 = np.repeat(freq1[:, np.newaxis], freq2.shape[0], axis=1)  # type: ignore
-    freq2 = np.repeat(freq2[:, np.newaxis], freq1.shape[0], axis=1).T  # type: ignore
+    freq1 = np.repeat(freq1[:, np.newaxis], freq2.shape[0], axis=1)
+    freq2 = np.repeat(freq2[:, np.newaxis], freq1.shape[0], axis=1).T
     # make freq matrix
-    freq = np.sqrt(freq1**2 + freq2**2)  # type: ignore
+    freq = np.sqrt(freq1**2 + freq2**2)
 
     # highest detail frequency
     high_frequency = 1 / settings.detail[1]
@@ -129,7 +144,9 @@ def fft_2d_criterion(img: Image, settings: CriterionSettings) -> np.floating:
 
 
 @CriterionRegistry.register("fft")
-def fft_criterion(img: Image, settings: CriterionSettings) -> np.floating:
+def fft_criterion(
+    img: Image, settings: CriterionSettings, logger: TextLogger
+) -> np.floating:
     """
     FFT-based criterion for both 1D and 2D images.
 
@@ -140,6 +157,7 @@ def fft_criterion(img: Image, settings: CriterionSettings) -> np.floating:
     Args:
         img (Image): Input image (1D or 2D).
         settings (CriterionSettings): Criterion configuration.
+        logger (TextLogger): Logger to use for textual logging.
 
     Returns:
         np.floating: FFT-based criterion value.
@@ -148,9 +166,9 @@ def fft_criterion(img: Image, settings: CriterionSettings) -> np.floating:
         NotImplementedError: If the input dimensionality is not 1 or 2.
     """
     if np.ndim(img) == 1:
-        return fft_1d_criterion(img, settings)
+        return fft_1d_criterion(img, settings, logger)
     if np.ndim(img) == 2:
-        return fft_2d_criterion(img, settings)
+        return fft_2d_criterion(img, settings, logger)
 
     raise NotImplementedError(
         "Only 1D and 2D images are currently supported for focus criterion."
@@ -158,13 +176,16 @@ def fft_criterion(img: Image, settings: CriterionSettings) -> np.floating:
 
 
 @CriterionRegistry.register("frc")
-def frc_criterion(img: Image, settings: CriterionSettings) -> np.floating:
+def frc_criterion(
+    img: Image, settings: CriterionSettings, logger: TextLogger
+) -> np.floating:
     """
     Compute the focal quality based on Fourier Ring Correlation (FRC).
 
     Args:
         img (Image): Input image.
         settings (CriterionSettings): Criterion configuration (unused).
+        logger (TextLogger): Logger to use for textual logging.
 
     Returns:
         np.floating: FRC score, or `np.nan` if FRC computation fails.
@@ -172,11 +193,12 @@ def frc_criterion(img: Image, settings: CriterionSettings) -> np.floating:
     _ = settings
 
     try:
-        res = frc(img, img.pixel_size)  # type: ignore
+        res = frc(img, img.pixel_size)
     except Exception as e:
-        logging.warning("FRC error on current tile. " + repr(e))
-        return np.nan
-    return res  # type: ignore
+        logger.warning(f"FRC error on current tile: {e}")
+        return cast("np.floating", np.nan)
+
+    return res
 
 
 def gauss_filter(x: Image, px_size: int, detail: float) -> NDArray[np.floating]:
@@ -193,4 +215,4 @@ def gauss_filter(x: Image, px_size: int, detail: float) -> NDArray[np.floating]:
     """
     px = detail / px_size
     sigma = 1 / (2 * np.pi * (1 / px))
-    return gaussian_filter(x.astype(np.float32), sigma, mode="nearest", truncate=6)  # type: ignore
+    return gaussian_filter(x.astype(np.float32), sigma, mode="nearest", truncate=6)
