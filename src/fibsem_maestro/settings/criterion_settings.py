@@ -4,7 +4,8 @@
 
 from pydantic import field_validator
 
-from fibsem_maestro.image_criteria.registry import CriterionRegistry
+from fibsem_maestro.image_criteria.criterion_registry import CriterionRegistry
+from fibsem_maestro.image_criteria.numpy_registry import NumpyRegistry
 from fibsem_maestro.settings.base_settings import BaseSettings
 
 
@@ -30,4 +31,13 @@ class CriterionSettings(BaseSettings):
             raise ValueError(
                 f"Invalid criterion '{v}'. Allowed: {CriterionRegistry.allowed()}"
             )
+        return v
+
+    @field_validator("final_regions_resolution", "final_resolution")
+    def validate_numpy(cls, v: str):
+        if not NumpyRegistry.has(v):
+            raise ValueError(
+                f"Invalid numpy function '{v}'. Allowed: {NumpyRegistry.allowed()}"
+            )
+
         return v

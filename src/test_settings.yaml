@@ -5,5 +5,5 @@ detail:
 - 1.5e-07
 final_regions_resolution: min
 final_resolution: min
-mask_name: none
+mask_name: null
 tile_size: 0

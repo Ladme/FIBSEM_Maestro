@@ -8,7 +8,7 @@ from scipy.ndimage import gaussian_filter  # type: ignore
 
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.frc.frc import frc  # type: ignore
-from fibsem_maestro.image_criteria.registry import CriterionRegistry
+from fibsem_maestro.image_criteria.criterion_registry import CriterionRegistry
 from fibsem_maestro.settings.criterion_settings import CriterionSettings
 
 

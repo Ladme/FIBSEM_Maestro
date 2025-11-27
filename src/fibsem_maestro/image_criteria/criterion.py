@@ -3,31 +3,33 @@
 
 from __future__ import annotations
 
-from typing import Any
-
-import numpy as np
-
-from fibsem_maestro.core.image import Image
 from fibsem_maestro.image_criteria.functions import (
     CriterionRegistry,
 )
+from fibsem_maestro.image_criteria.numpy_registry import NumpyRegistry
 from fibsem_maestro.settings.criterion_settings import CriterionSettings
 
 
 class Criterion:
     def __init__(self, settings: CriterionSettings):
         self._settings = settings
-        self._function = CriterionRegistry(settings.function)
-        self._final_regions_resolution = settings.final_regions_resolution
-        self._final_resolution = settings.final_resolution
+
+        self._function = CriterionRegistry(self._settings.function)
+        self._final_regions_resolution = NumpyRegistry(
+            self._settings.final_regions_resolution
+        )
+        self._final_resolution = NumpyRegistry(self._settings.final_resolution)
 
         self._settings.on_change(self._update_criterion)
 
     def _update_criterion(self, settings: CriterionSettings) -> None:
         self._function = CriterionRegistry(settings.function)
-        self._final_regions_resolution = settings.final_regions_resolution
-        self._final_resolution = settings.final_resolution
+        self._final_regions_resolution = NumpyRegistry(
+            settings.final_regions_resolution
+        )
+        self._final_resolution = NumpyRegistry(settings.final_resolution)
 
+    """
     def _tiles_resolution(
         self,
         img: Image,
@@ -54,6 +56,7 @@ class Criterion:
             resolution_map = np.zeros_like(self._img_with_border, dtype=np.float64)
 
         return 0.0
+"""
 
 
 """

@@ -5,10 +5,10 @@ description = "Software for (cryo) volume-EM acquisition."
 readme = "README.md"
 requires-python = "==3.11.2"
 dependencies = [
-    "numpy>=2.2.5",
-    "pydantic>=2.12.4",
-    "pyyaml>=6.0.3",
-    "scipy>=1.15.3",
+    "numpy==2.2.5",
+    "pydantic==2.12.4",
+    "pyyaml==6.0.3",
+    "scipy==1.15.3",
 ]
 
 [dependency-groups]
