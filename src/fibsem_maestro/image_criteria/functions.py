@@ -30,8 +30,8 @@ def bandpass_criterion(
     Returns:
         np.floating: Mean of the absolute band-passed image.
     """
-    img_low = gauss_filter(img, img.pixel_size, settings.detail[0])
-    img_high = gauss_filter(img, img.pixel_size, settings.detail[1])
+    img_low = gauss_filter(img, img.pixel_size, settings.detail.low)
+    img_high = gauss_filter(img, img.pixel_size, settings.detail.high)
 
     return np.mean(abs(img_high - img_low))
 
@@ -51,8 +51,8 @@ def bandpass_var_criterion(
     Returns:
         np.floating: Variance of the band-passed image.
     """
-    img_low = gauss_filter(img, img.pixel_size, settings.detail[0])
-    img_high = gauss_filter(img, img.pixel_size, settings.detail[1])
+    img_low = gauss_filter(img, img.pixel_size, settings.detail.low)
+    img_high = gauss_filter(img, img.pixel_size, settings.detail.high)
 
     return np.var(img_high - img_low)
 
@@ -81,16 +81,15 @@ def fft_1d_criterion(
     fft_line = np.fft.fft(img0)
 
     # get freq axis
-    freq = np.fft.fftfreq(len(img), img.pixel_size)  # type: ignore
+    freq = np.fft.fftfreq(len(img), img.pixel_size)
     # remove negative frequencies
     fft_line = fft_line[freq > 0]
     # remove negative frequencies from freq axis
-    freq = freq[freq > 0]  # type: ignore
+    freq = freq[freq > 0]
 
     # filter frequencies
-    band_i = np.where(
-        (freq < 1 / settings.detail[1]) & (freq > 1 / settings.detail[0])  # type: ignore
-    )[0]
+    low_frequency, high_frequency = settings.detail.to_frequency_range()
+    band_i = np.where((freq < high_frequency) & (freq > low_frequency))[0]
 
     # sum of amplitudes of all filtered frequencies
     return np.sum(abs(fft_line[band_i]))
@@ -129,10 +128,8 @@ def fft_2d_criterion(
     # make freq matrix
     freq = np.sqrt(freq1**2 + freq2**2)
 
-    # highest detail frequency
-    high_frequency = 1 / settings.detail[1]
-    # lowest detail frequency
-    low_frequency = 1 / settings.detail[0]
+    # lowest and highest detail frequency
+    low_frequency, high_frequency = settings.detail.to_frequency_range()
 
     # make freq filter
     freq[freq > high_frequency] = 0

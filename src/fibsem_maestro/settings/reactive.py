@@ -21,7 +21,7 @@ class ReactiveNode:
     """
 
     _parent: "ReactiveNode | None" = None
-    _hooks: list[Callable[["ReactiveNode"], None]]
+    _hooks: list[Callable[[Self], None]]
 
     def __init__(self):
         """
@@ -33,7 +33,7 @@ class ReactiveNode:
         self._hooks = []
         self._parent = None
 
-    def on_change(self, hook: Callable[["ReactiveNode"], None]):
+    def on_change(self, hook: Callable[[Self], None]):
         """
         Register a callback invoked when this node or any of its reactive descendants changes.
 

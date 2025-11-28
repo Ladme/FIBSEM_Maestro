@@ -1,3 +1,5 @@
+# type: ignore
+
 import importlib
 import logging
 from threading import Thread

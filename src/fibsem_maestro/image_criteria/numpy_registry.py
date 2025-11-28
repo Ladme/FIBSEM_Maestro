@@ -3,13 +3,12 @@
 
 import inspect
 from collections.abc import Callable
-from typing import Any
 
 import numpy as np
 
 from fibsem_maestro.image_criteria.error import CriterionError
 
-NumpyFunction = Callable[..., np.floating[Any]]
+NumpyFunction = Callable[..., np.floating]
 
 
 def has_numpy_reduction_signature(func: NumpyFunction) -> bool:

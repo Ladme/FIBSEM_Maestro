@@ -1,9 +1,8 @@
-border: 0.7
-function: bandpass
+border_fraction: 0.7
+quality_metric_fn: bandpass
 detail:
-- 8.0e-08
-- 1.5e-07
-final_regions_resolution: min
-final_resolution: min
-mask_name: null
-tile_size: 0
+  low: 8.0e-08
+  high: 1.5e-07
+region_reduction_fn: min
+tile_reduction_fn: min
+tile_size_px: 0

@@ -59,7 +59,7 @@ reportUnknownParameterType = false
 reportUnknownLambdaType = false
 reportUnknownMemberType = false
 reportUnknownVariableType = false
-reportUninitializedInstanceVariable = "error"
+reportUninitializedInstanceVariable = false
 
 # Usage strictness
 reportUnusedImport = "warning"

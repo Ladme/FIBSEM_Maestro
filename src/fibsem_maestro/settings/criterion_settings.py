@@ -2,38 +2,43 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
-from pydantic import field_validator
+from typing import Annotated
+from pydantic import Field, field_validator
 
+from fibsem_maestro.core.detail_band import DetailBand
 from fibsem_maestro.image_criteria.criterion_registry import CriterionRegistry
+from fibsem_maestro.image_criteria.mode import CriterionMode
 from fibsem_maestro.image_criteria.numpy_registry import NumpyRegistry
 from fibsem_maestro.settings.base_settings import BaseSettings
 
 
 class CriterionSettings(BaseSettings):
     # Criterion calculation function.
-    function: str
-    # Ratio of image size that will be excluded from image criterion calculation.
-    border: float
-    # Method for calculating final criterion from all masked areas. Accepts numpy functions (min, mean).
-    final_regions_resolution: str
-    # Method for calculating final criterion from tiles. Accepts numpy functions (min, mean).
-    final_resolution: str
-    # The masking parameters associated with this autofunction - see the mask section.
-    mask_name: str | None
+    resolution_metric_fn: str
+    # Method for calculating final criterion from all masked regions. Accepts numpy functions (min, mean).
+    region_reduction_fn: str
+    # Method for calculating final criterion from all tiles. Accepts numpy functions (min, mean).
+    tile_reduction_fn: str
+    # Fraction of image size that will be excluded from image criterion calculation.
+    border_fraction: Annotated[float, Field(ge=0, le=1)]
     # Bandpass parameters (low and high details to filter out).
-    detail: list[float]
-    # Tile size for criterion calculation in pixels.
-    tile_size: int
+    detail: DetailBand
+    # Tile size for criterion calculation.
+    tile_size: float
+    # Relative overlap between the tiles.
+    relative_overlap: Annotated[float, Field(ge=0, le=1)]
+    # Mode of calculation.
+    calculation_mode: CriterionMode
 
-    @field_validator("function")
+    @field_validator("quality_metric_fn")
     def validate_function(cls, v: str):
         if not CriterionRegistry.has(v):
             raise ValueError(
-                f"Invalid criterion '{v}'. Allowed: {CriterionRegistry.allowed()}"
+                f"Invalid quality_metric_fn '{v}'. Allowed: {CriterionRegistry.allowed()}"
             )
         return v
 
-    @field_validator("final_regions_resolution", "final_resolution")
+    @field_validator("region_reduction_fn", "tile_reduction_fn")
     def validate_numpy(cls, v: str):
         if not NumpyRegistry.has(v):
             raise ValueError(
