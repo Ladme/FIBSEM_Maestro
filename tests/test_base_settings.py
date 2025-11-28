@@ -7,6 +7,7 @@ from typing import Any, ClassVar, Self
 
 from fibsem_maestro.serializer.serializer import Serializer
 from fibsem_maestro.settings.base_settings import BaseSettings
+from fibsem_maestro.settings.reactive import ReactiveNode
 
 
 class FakeSerializer(Serializer):
@@ -36,13 +37,13 @@ class Node(BaseSettings):
 
 class HookCounter:
     count: int
-    calls: list[Node]
+    calls: list[ReactiveNode]
 
     def __init__(self) -> None:
         self.count = 0
         self.calls = []
 
-    def hook(self, root: Node) -> None:
+    def hook(self, root: ReactiveNode) -> None:
         self.count += 1
         self.calls.append(root)
 

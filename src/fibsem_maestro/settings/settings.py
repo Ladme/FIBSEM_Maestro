@@ -1,6 +1,8 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
+from fibsem_maestro.settings.reactive import ReactiveDict
+
 from .base_settings import BaseSettings
 
 
@@ -32,7 +34,7 @@ class Settings(BaseSettings):
     acquisition: AcquisitionSettings
     microscope: MicroscopeSettings
     simple: int
-    autofunctions: dict[str, list[AutofunctionSettings]]
+    autofunctions: ReactiveDict[str, AutofunctionSettings]
 
 
 class SettingsComments(BaseSettings):

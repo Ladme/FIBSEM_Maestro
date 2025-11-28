@@ -7,10 +7,10 @@ from typing import Self
 from fibsem_maestro.serializer.serializer import Serializer
 from fibsem_maestro.serializer.yaml_serializer import YamlSerializer
 
-from .reactive import Reactive
+from .reactive import ReactiveModel
 
 
-class BaseSettings(Reactive):
+class BaseSettings(ReactiveModel):
     """
     Base class for configuration objects with file serialization support.
     """
