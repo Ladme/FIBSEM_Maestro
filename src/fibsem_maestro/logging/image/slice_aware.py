@@ -30,15 +30,13 @@ class SliceAwareImageLogger(ImageLogger):
     curves, or annotations applied as required.
     """
 
-    def __init__(self, owner_cls: type, ctx: LogContext):
+    def __init__(self, ctx: LogContext):
         """Initialize a slice-aware image logger.
 
         Args:
-            owner_cls: The domain class that owns this logger.
             ctx: The logging context providing directory paths.
         """
         self._ctx = ctx
-        self._class_name = owner_cls.__name__
 
     def save_image(
         self,

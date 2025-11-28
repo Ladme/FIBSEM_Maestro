@@ -14,24 +14,26 @@ class SliceAwareTextLogger(TextLogger):
 
     This logger writes messages to a file determined by the current slice number
     stored inside the associated LogContext. When the slice changes, the logger
-    closes old handlers and installs a new FileHandler pointing to the new slice's
-    log file.
-
-    The logger name corresponds to the domain class that owns this logger.
+    closes old handlers and installs a new FileHandler pointing to the new slice's log file.
     """
 
-    def __init__(self, owner_cls: type, ctx: LogContext, log_level: int | None = None):
+    def __init__(
+        self,
+        name: str,
+        ctx: LogContext,
+        log_level: int | None = None,
+    ):
         """
         Initialize a slice-aware logger.
 
         Args:
-            owner_cls: The domain class whose name will be used as the logger name.
+            name: Name to use for the logger.
             ctx: The logging context providing directory paths and default log level.
             log_level: Optional override for the logger's log level. If None,
                 the level from the LogContext is used.
         """
         self._ctx = ctx
-        self._logger_name = owner_cls.__name__
+        self._name = name
         self._log_level = log_level
         self._last_slice = None
 
@@ -58,7 +60,7 @@ class SliceAwareTextLogger(TextLogger):
         Returns:
             The slice-aware `logging.Logger` instance.
         """
-        logger = logging.getLogger(self._logger_name)
+        logger = logging.getLogger(self._name)
         logger.propagate = False
 
         current_slice = self._ctx.slice_ctx.current_slice

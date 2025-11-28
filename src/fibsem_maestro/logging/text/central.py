@@ -10,28 +10,32 @@ from fibsem_maestro.logging.text.text_logger import TextLogger
 
 class CentralTextLogger(TextLogger):
     """
-    Centralized text logger that writes all messages for a given class
-    into a single, non-slice-aware log file.
+    Centralized text logger that writes all messages into a single, non-slice-aware log file.
 
     This logger does not react to slice changes and maintains a single
     FileHandler for the entire lifetime of the object. Messages are emitted
-    under a logger whose name matches the owning domain class.
+    under a logger with the specified name.
     """
 
-    def __init__(self, owner_cls: type, ctx: LogContext, log_level: int | None = None):
+    def __init__(
+        self,
+        name: str,
+        ctx: LogContext,
+        log_level: int | None = None,
+    ):
         """
         Initialize a centralized text logger.
 
         Args:
-            owner_cls: The domain class whose name will be used as the logger name.
+            name: Name to use for the logger.
             ctx: The logging context providing directory paths and default log level.
             log_level: Optional override for the logger's log level. If None,
                 the level from the LogContext is used.
         """
         self._ctx = ctx
-        self._logger_name = owner_cls.__name__
+        self._name = name or ""
 
-        self._logger = logging.getLogger(self._logger_name)
+        self._logger = logging.getLogger(name)
         self._logger.propagate = False
 
         handler = logging.FileHandler(self._ctx.central_logs())
