@@ -3,6 +3,7 @@
 
 
 from dataclasses import dataclass
+
 import numpy as np
 
 from fibsem_maestro.core.image import Image
@@ -32,5 +33,5 @@ class CriterionPerTileResults:
 @dataclass(frozen=True)
 class CriterionResult:
     resolution: np.floating
-    resolution_map: ResolutionMap | None = None
     best_tile: Image | None = None
+    resolution_map: ResolutionMap | None = None

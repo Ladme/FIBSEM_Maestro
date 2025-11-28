@@ -2,21 +2,49 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
-from typing import Annotated
+from typing import Annotated, Literal
+
 from pydantic import Field, field_validator
 
 from fibsem_maestro.core.detail_band import DetailBand
 from fibsem_maestro.image_criteria.criterion_registry import CriterionRegistry
-from fibsem_maestro.image_criteria.mode import CriterionMode
 from fibsem_maestro.image_criteria.numpy_registry import NumpyRegistry
 from fibsem_maestro.settings.base_settings import BaseSettings
+
+
+class BasicMode(BaseSettings):
+    type: Literal["basic"] = "basic"
+    get_best_tile: bool = False
+
+
+class MapMode(BaseSettings):
+    type: Literal["map"] = "map"
+    get_best_tile: bool = False
+
+
+class MaskMode(BaseSettings):
+    type: Literal["mask"] = "mask"
+    # Name of the mask to use.
+    mask_name: str
+    # Method for calculating final criterion from all masked regions. Accepts numpy functions (min, mean).
+    region_reduction_fn: str
+
+    @field_validator("region_reduction_fn")
+    def validate_numpy(cls, v: str):
+        if not NumpyRegistry.has(v):
+            raise ValueError(
+                f"Invalid numpy function '{v}'. Allowed: {NumpyRegistry.allowed()}"
+            )
+
+        return v
+
+
+CriterionMode = Annotated[BasicMode | MapMode | MaskMode, Field(discriminator="type")]
 
 
 class CriterionSettings(BaseSettings):
     # Criterion calculation function.
     resolution_metric_fn: str
-    # Method for calculating final criterion from all masked regions. Accepts numpy functions (min, mean).
-    region_reduction_fn: str
     # Method for calculating final criterion from all tiles. Accepts numpy functions (min, mean).
     tile_reduction_fn: str
     # Fraction of image size that will be excluded from image criterion calculation.
@@ -30,7 +58,7 @@ class CriterionSettings(BaseSettings):
     # Mode of calculation.
     calculation_mode: CriterionMode
 
-    @field_validator("quality_metric_fn")
+    @field_validator("resolution_metric_fn")
     def validate_function(cls, v: str):
         if not CriterionRegistry.has(v):
             raise ValueError(
@@ -38,7 +66,7 @@ class CriterionSettings(BaseSettings):
             )
         return v
 
-    @field_validator("region_reduction_fn", "tile_reduction_fn")
+    @field_validator("tile_reduction_fn")
     def validate_numpy(cls, v: str):
         if not NumpyRegistry.has(v):
             raise ValueError(

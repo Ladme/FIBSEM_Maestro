@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 import itertools
 from typing import TYPE_CHECKING
 
@@ -16,32 +15,43 @@ from fibsem_maestro.image_criteria.error import CriterionError
 from fibsem_maestro.image_criteria.functions import (
     CriterionRegistry,
 )
-from fibsem_maestro.image_criteria.mode import (
-    BasicMode,
-    MapMode,
-    MaskMode,
-)
 from fibsem_maestro.image_criteria.numpy_registry import NumpyRegistry
 from fibsem_maestro.image_criteria.result import (
     CriterionPerTileResults,
     CriterionResult,
     ResolutionMap,
 )
-from fibsem_maestro.masking.mask import Mask
+from fibsem_maestro.settings.criterion_settings import (
+    BasicMode,
+    MapMode,
+    MaskMode,
+)
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from fibsem_maestro.logging.image.image_logger import ImageLogger
     from fibsem_maestro.logging.text.text_logger import TextLogger
+    from fibsem_maestro.masking.mask import Mask
     from fibsem_maestro.settings.criterion_settings import CriterionSettings
+    from fibsem_maestro.settings.mask_settings import MaskSettings
+    from fibsem_maestro.settings.reactive import ReactiveDict
 
 
 # TODO: logging
 class Criterion:
     def __init__(
-        self, settings: CriterionSettings, txt_log: TextLogger, img_log: ImageLogger
+        self,
+        settings: CriterionSettings,
+        masks: ReactiveDict[str, MaskSettings],
+        txt_log: TextLogger,
+        img_log: ImageLogger,
     ):
         self._txt_log = txt_log
         self._img_log = img_log
+
+        # settings for all available masks
+        self._masks = masks
 
         self._apply_settings(settings)
         self._settings.on_change(self._update)
@@ -54,7 +64,6 @@ class Criterion:
         self._settings = settings
 
         self._resolution_metric_fn = CriterionRegistry(settings.resolution_metric_fn)
-        self._region_reduction_fn = NumpyRegistry(settings.region_reduction_fn)
         self._tile_reduction_fn = NumpyRegistry(settings.tile_reduction_fn)
         self._tile_size = settings.tile_size
         self._relative_overlap = settings.relative_overlap
@@ -70,8 +79,9 @@ class Criterion:
             case MapMode() as mode:
                 return self._calculate_resolution_map_mode(image, mode.get_best_tile)
             case MaskMode() as mode:
-                # TODO mask mode
-                raise NotImplementedError("Masking not yet implemented.")
+                return self._calculate_resolution_mask_mode(
+                    image, mode.mask_name, mode.region_reduction_fn
+                )
 
     def _calculate_resolution_basic_mode(
         self, image: Image, get_best_tile: bool
@@ -93,18 +103,28 @@ class Criterion:
     ) -> CriterionResult:
         coordinates = self._iter_tile_coordinates(image, self._relative_overlap)
         # create two copies of the coordinates iterator
+        # one will be used to calculate resolution of the tiles
+        # the other to construct the resolution map
         coors1, coors2 = itertools.tee(coordinates, 2)
         per_tile_results = self._analyze_tiles(image, coors1)
 
         return CriterionResult(
             resolution=per_tile_results.get_overall_resolution(self._tile_reduction_fn),
-            resolution_map=self._create_resolution_map(image, coors2, per_tile_results),
             best_tile=per_tile_results.get_best_tile()[0] if get_best_tile else None,
+            resolution_map=self._create_resolution_map(image, coors2, per_tile_results),
         )
 
     def _calculate_resolution_mask_mode(
-        self, image: Image, mask: Mask
+        self, image: Image, mask_name: str, reduction_fn_name: str
     ) -> CriterionResult:
+        if not (mask_settings := self._masks.get(mask_name)):
+            raise CriterionError(
+                f"Mask name '{mask_name}' does not correspond to any known mask"
+            )
+        mask = Mask(mask_settings, self._txt_log, self._img_log)
+
+        region_reduction_fn = NumpyRegistry(reduction_fn_name)
+
         raise NotImplementedError()
 
     def _analyze_tiles(
@@ -113,7 +133,7 @@ class Criterion:
         tiles_coordinates: Iterable[TileCoordinates],
     ) -> CriterionPerTileResults:
         tiles: list[Image] = []
-        qualities: list[np.floating] = []
+        resolutions: list[np.floating] = []
 
         for tile in tiles_coordinates:
             tile_img = image[
@@ -125,9 +145,9 @@ class Criterion:
             resolution = self._resolution_metric_fn(
                 tile_img, self._settings, self._txt_log
             )
-            qualities.append(resolution)
+            resolutions.append(resolution)
 
-        return CriterionPerTileResults(tiles, qualities)
+        return CriterionPerTileResults(tiles, resolutions)
 
     def _create_resolution_map(
         self,
