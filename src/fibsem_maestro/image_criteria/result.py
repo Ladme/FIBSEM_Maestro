@@ -3,6 +3,7 @@
 
 
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 
@@ -10,7 +11,7 @@ from fibsem_maestro.core.image import Image
 from fibsem_maestro.image_criteria.reductors_registry import NumpyFunction
 
 
-class ResolutionMap(np.ndarray):  # type: ignore
+class ResolutionMap(np.ndarray[Any, np.dtype[np.floating[Any]]]):
     pass
 
 
@@ -27,7 +28,7 @@ class CriterionPerTileResults:
         )
 
     def get_overall_resolution(self, reduction_function: NumpyFunction) -> np.floating:
-        return reduction_function(self.resolution)
+        return reduction_function([x for x in self.resolution if not np.isnan(x)])
 
 
 @dataclass(frozen=True)

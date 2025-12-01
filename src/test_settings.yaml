@@ -1,8 +1,0 @@
-border_fraction: 0.7
-quality_metric_fn: bandpass
-detail:
-  low: 8.0e-08
-  high: 1.5e-07
-region_reduction_fn: min
-tile_reduction_fn: min
-tile_size_px: 0

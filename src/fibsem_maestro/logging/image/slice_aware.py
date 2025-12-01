@@ -2,12 +2,14 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 from collections.abc import Sequence
+from pathlib import Path
 
+import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.patches import Rectangle
+from numpy.typing import NDArray
 
-from fibsem_maestro.core.image import Image
 from fibsem_maestro.logging.context import LogContext
 from fibsem_maestro.logging.image.curve import Curve
 from fibsem_maestro.logging.image.image_logger import ImageLogger
@@ -40,8 +42,8 @@ class SliceAwareImageLogger(ImageLogger):
 
     def save_image(
         self,
-        filename: str,
-        img: Image,
+        filename: Path,
+        img: NDArray[np.floating],
         overlays: Sequence[Overlay] | None = None,
         title: str | None = None,
     ) -> None:
@@ -61,7 +63,7 @@ class SliceAwareImageLogger(ImageLogger):
             title: Optional title to display at the top of the figure.
         """
         fig, ax = plt.subplots()
-        ax.imshow(img.transpose(), cmap="gray")
+        ax.imshow(img, cmap="gray")
 
         if overlays:
             self._set_overlays(ax, overlays)
@@ -73,7 +75,7 @@ class SliceAwareImageLogger(ImageLogger):
         fig.tight_layout()
 
         out_path = self._ctx.images() / f"{filename}.png"
-        fig.savefig(out_path)
+        fig.savefig(out_path, dpi=100)
         plt.close(fig)
 
     def _set_overlays(self, ax: Axes, overlays: Sequence[Overlay]) -> None:
@@ -147,5 +149,5 @@ class SliceAwareImageLogger(ImageLogger):
         fig.tight_layout()
 
         out_path = self._ctx.images() / f"{filename}.png"
-        fig.savefig(out_path)
+        fig.savefig(out_path, dpi=100)
         plt.close(fig)
