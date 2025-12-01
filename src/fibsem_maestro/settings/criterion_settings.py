@@ -8,7 +8,7 @@ from pydantic import Field, field_validator
 
 from fibsem_maestro.core.detail_band import DetailBand
 from fibsem_maestro.image_criteria.criterion_registry import CriterionRegistry
-from fibsem_maestro.image_criteria.numpy_registry import NumpyRegistry
+from fibsem_maestro.image_criteria.reductors_registry import ReductorsRegistry
 from fibsem_maestro.settings.base_settings import BaseSettings
 
 
@@ -30,10 +30,10 @@ class MaskMode(BaseSettings):
     region_reduction_fn: str
 
     @field_validator("region_reduction_fn")
-    def validate_numpy(cls, v: str):
-        if not NumpyRegistry.has(v):
+    def validate_reduction(cls, v: str):
+        if not ReductorsRegistry.has(v):
             raise ValueError(
-                f"Invalid numpy function '{v}'. Allowed: {NumpyRegistry.allowed()}"
+                f"Invalid numpy function '{v}'. Allowed: {ReductorsRegistry.allowed()}"
             )
 
         return v
@@ -67,10 +67,10 @@ class CriterionSettings(BaseSettings):
         return v
 
     @field_validator("tile_reduction_fn")
-    def validate_numpy(cls, v: str):
-        if not NumpyRegistry.has(v):
+    def validate_reduction(cls, v: str):
+        if not ReductorsRegistry.has(v):
             raise ValueError(
-                f"Invalid numpy function '{v}'. Allowed: {NumpyRegistry.allowed()}"
+                f"Invalid numpy function '{v}'. Allowed: {ReductorsRegistry.allowed()}"
             )
 
         return v

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from fibsem_maestro.core.image import Image
-from fibsem_maestro.image_criteria.numpy_registry import NumpyFunction
+from fibsem_maestro.image_criteria.reductors_registry import NumpyFunction
 
 
 class ResolutionMap(np.ndarray):  # type: ignore

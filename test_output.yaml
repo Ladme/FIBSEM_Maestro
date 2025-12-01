@@ -1,0 +1,12 @@
+border_fraction: 0.1
+calculation_mode:
+  mask_name: mask
+  region_reduction_fn: min
+  type: mask
+detail:
+  high: 0.2
+  low: 0.1
+relative_overlap: 0.0
+resolution_metric_fn: bandpass
+tile_reduction_fn: min
+tile_size: 0.1

@@ -15,12 +15,13 @@ from fibsem_maestro.image_criteria.error import CriterionError
 from fibsem_maestro.image_criteria.functions import (
     CriterionRegistry,
 )
-from fibsem_maestro.image_criteria.numpy_registry import NumpyRegistry
+from fibsem_maestro.image_criteria.reductors_registry import ReductorsRegistry
 from fibsem_maestro.image_criteria.result import (
     CriterionPerTileResults,
     CriterionResult,
     ResolutionMap,
 )
+from fibsem_maestro.masking.mask import Mask
 from fibsem_maestro.settings.criterion_settings import (
     BasicMode,
     MapMode,
@@ -32,7 +33,6 @@ if TYPE_CHECKING:
 
     from fibsem_maestro.logging.image.image_logger import ImageLogger
     from fibsem_maestro.logging.text.text_logger import TextLogger
-    from fibsem_maestro.masking.mask import Mask
     from fibsem_maestro.settings.criterion_settings import CriterionSettings
     from fibsem_maestro.settings.mask_settings import MaskSettings
     from fibsem_maestro.settings.reactive import ReactiveDict
@@ -63,8 +63,10 @@ class Criterion:
         """Apply all configurable fields from the given settings object."""
         self._settings = settings
 
-        self._resolution_metric_fn = CriterionRegistry(settings.resolution_metric_fn)
-        self._tile_reduction_fn = NumpyRegistry(settings.tile_reduction_fn)
+        self._resolution_metric_fn = CriterionRegistry.get(
+            settings.resolution_metric_fn
+        )
+        self._tile_reduction_fn = ReductorsRegistry.get(settings.tile_reduction_fn)
         self._tile_size = settings.tile_size
         self._relative_overlap = settings.relative_overlap
         self._border_fraction = settings.border_fraction
@@ -123,7 +125,7 @@ class Criterion:
             )
         mask = Mask(mask_settings, self._txt_log, self._img_log)
 
-        region_reduction_fn = NumpyRegistry(reduction_fn_name)
+        region_reduction_fn = ReductorsRegistry.get(reduction_fn_name)
 
         raise NotImplementedError()
 

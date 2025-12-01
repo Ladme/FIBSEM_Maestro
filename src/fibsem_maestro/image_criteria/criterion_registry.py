@@ -41,7 +41,8 @@ class CriterionRegistry:
 
     _registry: dict[str, CriterionFunction] = {}
 
-    def __new__(cls, name: str) -> CriterionFunction:
+    @classmethod
+    def get(cls, name: str) -> CriterionFunction:
         """
         Return the registered function associated with the given name.
 

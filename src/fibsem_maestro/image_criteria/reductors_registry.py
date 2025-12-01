@@ -54,7 +54,7 @@ def has_numpy_reduction_signature(func: NumpyFunction) -> bool:
     )
 
 
-class NumpyRegistry:
+class ReductorsRegistry:
     """
     Registry of NumPy functions with reduction-like signatures.
 
@@ -66,27 +66,28 @@ class NumpyRegistry:
 
     _registry: dict[str, NumpyFunction] = {}
 
-    def __new__(cls, name: str) -> NumpyFunction:
+    @classmethod
+    def get(cls, name: str) -> NumpyFunction:
         """
-        Return the registered NumPy function associated with the given name.
+        Return the registered reduction function associated with the given name.
 
         Args:
-            name (str): The name of the NumPy function to retrieve.
+            name (str): The name of the reduction function to retrieve.
 
         Returns:
-            NumpyFunction: The corresponding registered NumPy function.
+            NumpyFunction: The corresponding registered reduction function.
 
         Raises:
             CriterionError: If the name is not present in the registry.
         """
         if name not in cls._registry:
-            raise CriterionError(f"NumPy function '{name}' is not registered.")
+            raise CriterionError(f"Reduction function '{name}' is not registered.")
         return cls._registry[name]
 
     @classmethod
     def build(cls) -> None:
         """
-        Populate the registry with compatible NumPy functions.
+        Populate the registry with compatible NumPy reduction functions.
 
         This scans the top-level ``numpy`` module and registers each public
         callable that satisfies `has_numpy_reduction_signature`.
@@ -103,7 +104,7 @@ class NumpyRegistry:
     @classmethod
     def allowed(cls) -> list[str]:
         """
-        Return all registered NumPy function names.
+        Return all registered reduction function names.
 
         Returns:
             list[str]: Sorted list of available function names in the registry.
@@ -116,7 +117,7 @@ class NumpyRegistry:
         Check whether a name exists in the registry.
 
         Args:
-            name (str): Name of the NumPy function.
+            name (str): Name of the reduction function.
 
         Returns:
             bool: `True` if the function is registered, `False` otherwise.
@@ -124,5 +125,5 @@ class NumpyRegistry:
         return name in cls._registry
 
 
-# build the registry of supported numpy functions
-NumpyRegistry.build()
+# build the registry of supported reduction functions
+ReductorsRegistry.build()
