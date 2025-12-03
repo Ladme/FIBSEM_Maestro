@@ -59,7 +59,7 @@ class ReductorsRegistry:
     Registry of NumPy functions with reduction-like signatures.
 
     The registry contains a subset of the public functions available in the
-    top-level ``numpy`` namespace. Only functions that resemble typical NumPy
+    top-level `numpy` namespace. Only functions that resemble typical NumPy
     reduction/statistics operations (e.g., `min`, `max`, `mean`, `nanmean`)
     are included. Detection is performed dynamically via `has_numpy_reduction_signature`.
     """
@@ -89,7 +89,7 @@ class ReductorsRegistry:
         """
         Populate the registry with compatible NumPy reduction functions.
 
-        This scans the top-level ``numpy`` module and registers each public
+        This scans the top-level `numpy` module and registers each public
         callable that satisfies `has_numpy_reduction_signature`.
 
         Note:

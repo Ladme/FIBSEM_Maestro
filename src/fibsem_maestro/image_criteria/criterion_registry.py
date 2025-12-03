@@ -64,7 +64,7 @@ class CriterionRegistry:
         """
         Decorator that registers a criterion function under a given name.
 
-        Example::
+        Example:
 
             @CriterionRegistry.register("bandpass")
             def bandpass_criterion(img, settings):
