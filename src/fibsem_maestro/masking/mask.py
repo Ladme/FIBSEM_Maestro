@@ -18,4 +18,4 @@ class Mask:
         self._img_log = img_log
 
     def mask_image(self, img: Image, line_number: int | None = None) -> list[Image]:
-        return []
+        return [img]

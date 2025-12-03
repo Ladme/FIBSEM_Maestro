@@ -6,12 +6,14 @@ from dataclasses import dataclass
 from typing import cast
 
 import numpy as np
+from numpy.typing import NDArray
 from patchify import patchify, unpatchify  # pyright: ignore[reportMissingTypeStubs]
+from scipy.ndimage import (  # pyright: ignore[reportMissingTypeStubs]
+    binary_fill_holes,
+    zoom,
+)
 
 from fibsem_maestro.core.image import Image
-from scipy.ndimage import zoom, binary_fill_holes  # pyright: ignore[reportMissingTypeStubs]
-
-from numpy.typing import NDArray
 
 
 @dataclass

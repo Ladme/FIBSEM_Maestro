@@ -2,6 +2,7 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 import numpy as np
+
 from fibsem_maestro.core.image import Image
 
 

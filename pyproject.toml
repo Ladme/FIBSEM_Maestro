@@ -3,7 +3,7 @@ name = "fibsem-maestro"
 version = "0.1.0"
 description = "Software for (cryo) volume-EM acquisition."
 readme = "README.md"
-requires-python = "==3.11.2"
+requires-python = "==3.11.13"
 dependencies = [
     "matplotlib>=3.8.1",
     "numpy==2.2.5",

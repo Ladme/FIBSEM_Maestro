@@ -3,14 +3,12 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
 
 from fibsem_maestro.core.crop_coordinates import CropCoordinates
 from fibsem_maestro.core.tile_coordinates import TileCoordinates
-from fibsem_maestro.image_criteria.error import CriterionError
 from fibsem_maestro.image_criteria.functions import (
     CriterionRegistry,
 )
@@ -21,10 +19,8 @@ from fibsem_maestro.image_criteria.result import (
     ResolutionMap,
 )
 from fibsem_maestro.logging.image.overlay import RectangleOverlay
-from fibsem_maestro.masking.mask import Mask
 from fibsem_maestro.settings.criterion_settings import (
     BasicMode,
-    MapMode,
     MaskMode,
     MultiTileMode,
 )
@@ -72,36 +68,71 @@ class Criterion:
         self._calculation_mode = settings.calculation_mode
         self._tiling_mode = settings.tiling_mode
 
-    def calculate_resolution(self, image: Image) -> CriterionResult:
+    def calculate_resolution(self, image: Image) -> np.floating:
         self._txt_log.info("Resolution calculation started.")
+        crop_coordinates = self._compute_crop_coordinates(
+            image, self._settings.border_fraction
+        )
 
         match self._calculation_mode:
-            # TODO: handle 1D images
             case BasicMode() as mode:
-                result = self._calculate_resolution_basic_mode(
-                    image, mode.get_best_tile, mode.border_fraction
-                )
-            case MapMode() as mode:
-                result = self._calculate_resolution_map_mode(image, mode.get_best_tile)
-            case MaskMode() as mode:
-                result = self._calculate_resolution_mask_mode(
+                result = self._calculate_resolution_for_image(image, crop_coordinates)
+                self._log_images(
+                    "image",
                     image,
-                    mode.mask_name,
-                    mode.region_reduction_fn,
-                    mode.border_fraction,
+                    result.tiles_coordinates,
+                    crop_coordinates,
+                    result.best_tile,
+                    result.resolution_map,
                 )
+                resolution = result.resolution
+
+            case MaskMode() as mode:
+                _ = mode
+                raise NotImplementedError("Mask mode is not yet implemented.")
+                # TODO: masking
+                """
+                if not (mask_settings := self._masks.get(mode.mask_name)):
+                    raise CriterionError(
+                        f"Mask name '{mode.mask_name}' does not correspond to any known mask"
+                    )
+
+                mask = Mask(mask_settings, self._txt_log, self._img_log)
+
+                region_reduction_fn = ReductorsRegistry.get(mode.region_reduction_fn)
+
+                regions = mask.mask_image(cropped_image)
+                if not regions:
+                    self._txt_log.error(
+                        "Not enough masked regions for resolution calculation - masking omitted!"
+                    )
+                    regions = [cropped_image]
+
+                per_region_resolutions = []
+                for i, region in enumerate(regions):
+                    result = self._calculate_resolution_for_image(image, region)
+                    self._log_images(
+                        f"image_region_{i}",
+                        image,
+                        result.tiles_coordinates,
+                        crop_coordinates,
+                        result.best_tile,
+                        result.resolution_map,
+                    )
+                    per_region_resolutions.append(result.resolution)
+
+                resolution = region_reduction_fn(
+                    [x for x in per_region_resolutions if x is not np.isnan(x)]
+                )
+                """  # pyright: ignore[reportUnreachable]
 
         self._txt_log.info("Finished resolution calculation.")
-        return result
+        return resolution
 
-    def _calculate_resolution_basic_mode(
-        self,
-        image: Image,
-        get_best_tile: bool,
-        border_fraction: float,
-        index: int | None = None,
+    def _calculate_resolution_for_image(
+        self, image: Image, crop_coordinates: CropCoordinates
     ) -> CriterionResult:
-        crop_coordinates = self._compute_crop_coordinates(image, border_fraction)
+        # crop the image
         cropped_image = self._crop_image(image, crop_coordinates)
 
         # get coordinates of individual tiles
@@ -127,17 +158,18 @@ class Criterion:
 
         per_tile_results = self._analyze_tiles(cropped_image, tiles_coordinates)
 
-        best_tile = per_tile_results.get_best_tile()[0] if get_best_tile else None
+        best_tile = (
+            per_tile_results.get_best_tile()[0]
+            if self._settings.log_best_tile
+            else None
+        )
 
-        self._log_images(
-            f"criterion_{self._name}"
-            if index is None
-            else f"criterion_{self._name}_region_{index}",
-            image,
-            tiles_coordinates,
-            crop_coordinates,
-            best_tile,
-            None,
+        resolution_map = (
+            self._create_resolution_map(
+                image, tiles_coordinates, crop_coordinates, per_tile_results
+            )
+            if self._settings.log_resolution_map
+            else None
         )
 
         return CriterionResult(
@@ -146,94 +178,9 @@ class Criterion:
             )
             if isinstance(self._tiling_mode, MultiTileMode)
             else per_tile_results.resolution[0],
+            tiles_coordinates=tiles_coordinates,
             best_tile=best_tile,
-        )
-
-    def _calculate_resolution_map_mode(
-        self, image: Image, get_best_tile: bool
-    ) -> CriterionResult:
-        # get coordinates of individual tiles
-        coordinates = (
-            list(
-                self._compute_tiles_coordinates(
-                    image,
-                    self._tiling_mode.tile_size,
-                    self._tiling_mode.relative_overlap,
-                )
-            )
-            if isinstance(self._tiling_mode, MultiTileMode)
-            # if this is a single-tile mode, only use a single tile
-            else [
-                TileCoordinates(
-                    x=0,
-                    y=0,
-                    width=image.shape[1],
-                    height=image.shape[0],
-                ),
-            ]
-        )
-
-        per_tile_results = self._analyze_tiles(image, coordinates)
-
-        best_tile = per_tile_results.get_best_tile()[0] if get_best_tile else None
-        resolution_map = self._create_resolution_map(
-            image, coordinates, per_tile_results
-        )
-
-        self._log_images(
-            f"criterion_{self._name}",
-            image,
-            coordinates,
-            None,
-            best_tile,
-            resolution_map,
-        )
-
-        return CriterionResult(
-            resolution=per_tile_results.get_overall_resolution(
-                ReductorsRegistry.get(self._tiling_mode.tile_reduction_fn)
-            )
-            if isinstance(self._tiling_mode, MultiTileMode)
-            else per_tile_results.resolution[0],
-            best_tile=best_tile,
-            resolution_map=self._create_resolution_map(
-                image, coordinates, per_tile_results
-            ),
-        )
-
-    def _calculate_resolution_mask_mode(
-        self,
-        image: Image,
-        mask_name: str,
-        reduction_fn_name: str,
-        border_fraction: float,
-    ) -> CriterionResult:
-        if not (mask_settings := self._masks.get(mask_name)):
-            raise CriterionError(
-                f"Mask name '{mask_name}' does not correspond to any known mask"
-            )
-        mask = Mask(mask_settings, self._txt_log, self._img_log)
-
-        region_reduction_fn = ReductorsRegistry.get(reduction_fn_name)
-
-        regions = mask.mask_image(image)  # TODO: line number
-        if not regions:
-            self._txt_log.error(
-                "Not enough masked regions for resolution calculation - masking omitted!"
-            )
-            regions = [image]
-
-        per_region_resolutions = [
-            self._calculate_resolution_basic_mode(
-                region, False, border_fraction, index
-            ).resolution
-            for (index, region) in enumerate(regions)
-        ]
-
-        return CriterionResult(
-            resolution=region_reduction_fn(
-                [x for x in per_region_resolutions if x is not np.isnan(x)]
-            ),
+            resolution_map=resolution_map,
         )
 
     def _analyze_tiles(
@@ -264,13 +211,17 @@ class Criterion:
         self,
         image: Image,
         tiles_coordinates: Iterable[TileCoordinates],
+        crop_coordinates: CropCoordinates,
         per_tile_results: CriterionPerTileResults,
     ) -> ResolutionMap:
         resolution_map = np.zeros_like(image, dtype=np.float64).view(ResolutionMap)
         for resolution, tile in zip(per_tile_results.resolution, tiles_coordinates):
+            x = tile.x + crop_coordinates.x
+            y = tile.y + crop_coordinates.y
+
             resolution_map[
-                tile.y : tile.y + tile.height,
-                tile.x : tile.x + tile.width,
+                y : y + tile.height,
+                x : x + tile.width,
             ] = resolution
 
         return resolution_map
@@ -343,15 +294,13 @@ class Criterion:
         file: str,
         image: Image,
         tiles_coordinates: Iterable[TileCoordinates],
-        crop_coordinates: CropCoordinates | None,
+        crop_coordinates: CropCoordinates,
     ) -> None:
         overlays = []
         for tile in tiles_coordinates:
             x, y = tile.x, tile.y
-            # if the image was cropped, we have to move the tiles
-            if crop_coordinates is not None:
-                x += crop_coordinates.x
-                y += crop_coordinates.y
+            x += crop_coordinates.x
+            y += crop_coordinates.y
 
             overlays.append(
                 RectangleOverlay(
@@ -375,7 +324,7 @@ class Criterion:
         base_name: str,
         full_image: Image,
         tiles_coordinates: Iterable[TileCoordinates],
-        crop_coordinates: CropCoordinates | None,
+        crop_coordinates: CropCoordinates,
         best_tile: Image | None,
         map: ResolutionMap | None,
     ):

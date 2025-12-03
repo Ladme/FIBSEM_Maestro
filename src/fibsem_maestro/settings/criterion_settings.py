@@ -14,24 +14,6 @@ from fibsem_maestro.settings.base_settings import BaseSettings
 
 class BasicMode(BaseSettings):
     type: Literal["basic"] = "basic"
-    get_best_tile: bool = Field(
-        False, description="Should return the tile with the best resolution."
-    )
-    border_fraction: Annotated[
-        float,
-        Field(
-            ge=0,
-            le=1,
-            description="Fraction of image size that will be excluded from image criterion calculation.",
-        ),
-    ]
-
-
-class MapMode(BaseSettings):
-    type: Literal["map"] = "map"
-    get_best_tile: bool = Field(
-        False, description="Should return the tile with the best resolution."
-    )
 
 
 class MaskMode(BaseSettings):
@@ -41,14 +23,6 @@ class MaskMode(BaseSettings):
         ...,
         description="Method for calculating final criterion from all masked regions. Accepts numpy functions (min, mean).",
     )
-    border_fraction: Annotated[
-        float,
-        Field(
-            ge=0,
-            le=1,
-            description="Fraction of image size that will be excluded from image criterion calculation.",
-        ),
-    ]
 
     @field_validator("region_reduction_fn")
     def validate_reduction(cls, v: str):
@@ -60,9 +34,7 @@ class MaskMode(BaseSettings):
         return v
 
 
-CriterionCalculationMode = Annotated[
-    BasicMode | MapMode | MaskMode, Field(discriminator="type")
-]
+CriterionCalculationMode = Annotated[BasicMode | MaskMode, Field(discriminator="type")]
 
 
 class SingleTileMode(BaseSettings):
@@ -76,7 +48,7 @@ class MultiTileMode(BaseSettings):
         description="Method for calculating final criterion from all tiles. Accepts numpy functions (min, mean).",
     )
     tile_size: Annotated[
-        float, Field(gt=0.0, description="Tile size for criterion calculation.")
+        float, Field(gt=0.0, description="Tile size for criterion calculation (in nm).")
     ]
     relative_overlap: Annotated[
         float, Field(ge=0, le=1, description="Relative overlap between the tiles.")
@@ -102,7 +74,22 @@ class CriterionSettings(BaseSettings):
         ..., description="Criterion calculation function."
     )
     detail: DetailBand = Field(
-        ..., description="Bandpass parameters (low and high details to filter out)."
+        ...,
+        description="Bandpass parameters: low and high details to filter out (in nm).",
+    )
+    border_fraction: Annotated[
+        float,
+        Field(
+            ge=0,
+            le=1,
+            description="Fraction of image size that will be excluded from image criterion calculation.",
+        ),
+    ]
+    log_resolution_map: bool = Field(
+        default=False, description="Should log resolution map(s)."
+    )
+    log_best_tile: bool = Field(
+        default=False, description="Should log the tile with the best resolution."
     )
     calculation_mode: CriterionCalculationMode = Field(
         ..., description="Mode of calculation."
@@ -113,6 +100,6 @@ class CriterionSettings(BaseSettings):
     def validate_function(cls, v: str):
         if not CriterionRegistry.has(v):
             raise ValueError(
-                f"Invalid quality_metric_fn '{v}'. Allowed: {CriterionRegistry.allowed()}"
+                f"Invalid resolution_metric_fn '{v}'. Allowed: {CriterionRegistry.allowed()}"
             )
         return v

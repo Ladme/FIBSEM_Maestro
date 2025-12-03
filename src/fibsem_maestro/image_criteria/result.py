@@ -8,6 +8,7 @@ from typing import Any
 import numpy as np
 
 from fibsem_maestro.core.image import Image
+from fibsem_maestro.core.tile_coordinates import TileCoordinates
 from fibsem_maestro.image_criteria.reductors_registry import NumpyFunction
 
 
@@ -34,5 +35,6 @@ class CriterionPerTileResults:
 @dataclass(frozen=True)
 class CriterionResult:
     resolution: np.floating
+    tiles_coordinates: list[TileCoordinates]
     best_tile: Image | None = None
     resolution_map: ResolutionMap | None = None
