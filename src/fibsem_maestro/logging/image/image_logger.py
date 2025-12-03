@@ -24,7 +24,7 @@ class ImageLogger(ABC):
     @abstractmethod
     def save_image(
         self,
-        filename: Path,
+        filename: str,
         img: NDArray[np.floating],
         overlays: Sequence[Overlay] | None = None,
         title: str | None = None,

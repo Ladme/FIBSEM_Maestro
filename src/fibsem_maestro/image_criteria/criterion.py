@@ -340,7 +340,7 @@ class Criterion:
 
     def _log_image_with_tiles(
         self,
-        file: Path,
+        file: str,
         image: Image,
         tiles_coordinates: Iterable[TileCoordinates],
         crop_coordinates: CropCoordinates | None,
@@ -381,13 +381,11 @@ class Criterion:
     ):
         self._txt_log.info("Logging criterion images.")
         self._log_image_with_tiles(
-            Path(base_name), full_image, tiles_coordinates, crop_coordinates
+            base_name, full_image, tiles_coordinates, crop_coordinates
         )
         if map is not None:
-            self._img_log.save_image(
-                Path(f"{base_name}_map"), map, None, "Resolution map"
-            )
+            self._img_log.save_image(f"{base_name}_map", map, None, "Resolution map")
         if best_tile is not None:
             self._img_log.save_image(
-                Path(f"{base_name}_best_tile"), best_tile, None, "Best tile"
+                f"{base_name}_best_tile", best_tile, None, "Best tile"
             )
