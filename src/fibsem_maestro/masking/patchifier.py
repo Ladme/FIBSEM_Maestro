@@ -7,7 +7,8 @@ from typing import cast
 
 import numpy as np
 from numpy.typing import NDArray
-from patchify import patchify, unpatchify  # pyright: ignore[reportMissingTypeStubs]
+
+# from patchify import patchify, unpatchify  # pyright: ignore[reportMissingTypeStubs]
 from scipy.ndimage import (  # pyright: ignore[reportMissingTypeStubs]
     binary_fill_holes,
     zoom,
