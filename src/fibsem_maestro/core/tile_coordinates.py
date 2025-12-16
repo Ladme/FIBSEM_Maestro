@@ -4,12 +4,13 @@
 
 from dataclasses import dataclass
 
+from fibsem_maestro.core.point import PixelPoint
+
 
 @dataclass(frozen=True)
 class TileCoordinates:
     """Top-left coordinate and size of a tile."""
 
-    x: int
-    y: int
-    width: int
-    height: int
+    origin: PixelPoint
+    width_px: int
+    height_px: int

@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from fibsem_maestro.core.crop_coordinates import CropCoordinates
+from fibsem_maestro.core.point import PixelPoint
 from fibsem_maestro.core.tile_coordinates import TileCoordinates
 from fibsem_maestro.image_criteria.functions import (
     CriterionRegistry,
@@ -148,10 +149,9 @@ class Criterion:
             # if this is a single-tile mode, only use a single tile
             else [
                 TileCoordinates(
-                    x=0,
-                    y=0,
-                    width=cropped_image.shape[1],
-                    height=cropped_image.shape[0],
+                    origin=PixelPoint(0, 0),
+                    width_px=cropped_image.shape[1],
+                    height_px=cropped_image.shape[0],
                 ),
             ]
         )
@@ -216,12 +216,12 @@ class Criterion:
     ) -> ResolutionMap:
         resolution_map = np.zeros_like(image, dtype=np.float64).view(ResolutionMap)
         for resolution, tile in zip(per_tile_results.resolution, tiles_coordinates):
-            x = tile.x + crop_coordinates.x
-            y = tile.y + crop_coordinates.y
+            x = tile.origin.x + crop_coordinates.origin.x
+            y = tile.origin.y + crop_coordinates.origin.y
 
             resolution_map[
-                y : y + tile.height,
-                x : x + tile.width,
+                y : y + tile.height_px,
+                x : x + tile.width_px,
             ] = resolution
 
         return resolution_map
@@ -245,10 +245,9 @@ class Criterion:
         for y in range(0, height - tile_size_px + 1, step):
             for x in range(0, width - tile_size_px + 1, step):
                 yield TileCoordinates(
-                    x=x,
-                    y=y,
-                    width=tile_size_px,
-                    height=tile_size_px,
+                    origin=PixelPoint(x, y),
+                    width_px=tile_size_px,
+                    height_px=tile_size_px,
                 )
 
     def _iter_tiles(
@@ -261,7 +260,10 @@ class Criterion:
             yield self._tile_from_coors(image, tile)
 
     def _tile_from_coors(self, image: Image, tile: TileCoordinates) -> Image:
-        return image[tile.y : tile.y + tile.height, tile.x : tile.x + tile.width]
+        return image[
+            tile.origin.y : tile.origin.y + tile.height_px,
+            tile.origin.x : tile.origin.x + tile.width_px,
+        ]
 
     def _compute_crop_coordinates(
         self, image: Image, border_fraction: float
@@ -274,10 +276,9 @@ class Criterion:
         border_y = int(height * border_fraction)
 
         return CropCoordinates(
-            x=border_x,
-            y=border_y,
-            width=width - 2 * border_x,
-            height=height - 2 * border_y,
+            origin=PixelPoint(border_x, border_y),
+            width_px=width - 2 * border_x,
+            height_px=height - 2 * border_y,
         )
 
     def _crop_image(self, image: Image, coordinates: CropCoordinates) -> Image:
@@ -285,8 +286,8 @@ class Criterion:
         Return the cropped region of the image.
         """
         return image[
-            coordinates.y : coordinates.y + coordinates.height,
-            coordinates.x : coordinates.x + coordinates.width,
+            coordinates.origin.y : coordinates.origin.y + coordinates.height_px,
+            coordinates.origin.x : coordinates.origin.x + coordinates.width_px,
         ]
 
     def _log_image_with_tiles(
@@ -298,16 +299,16 @@ class Criterion:
     ) -> None:
         overlays = []
         for tile in tiles_coordinates:
-            x, y = tile.x, tile.y
-            x += crop_coordinates.x
-            y += crop_coordinates.y
+            x, y = tile.origin.x, tile.origin.y
+            x += crop_coordinates.origin.x
+            y += crop_coordinates.origin.y
 
             overlays.append(
                 RectangleOverlay(
                     x,
                     y,
-                    width=tile.width,
-                    height=tile.height,
+                    width=tile.width_px,
+                    height=tile.height_px,
                     color="red",
                     alpha=1,
                     linewidth=1,

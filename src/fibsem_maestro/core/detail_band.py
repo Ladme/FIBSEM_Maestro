@@ -12,19 +12,24 @@ class DetailBand:
 
     Attributes:
         low (float):
-            Lower spatial scale of the passband, in meters.
+            Lower spatial scale of the passband, in nanometers.
         high (float):
-            Upper spatial scale of the passband, in meters.
+            Upper spatial scale of the passband, in nanometers.
     """
 
-    # low-detail cutoff, in meters
+    # low-detail cutoff, in nanometers
     low: float
-    # high-detail cutoff, in meters
+    # high-detail cutoff, in nanometers
     high: float
+
+    def to_meters(self) -> tuple[float, float]:
+        """Return the DetailBand in meters."""
+        return (self.low * 1e-9, self.high * 1e-9)
 
     def to_frequency_range(self) -> tuple[float, float]:
         """Return the equivalent frequency range (Hz = 1/m)."""
-        return (1.0 / self.low, 1.0 / self.high)
+        band_m = self.to_meters()
+        return (1.0 / band_m[0], 1.0 / band_m[1])
 
     def __post_init__(self):
         if self.low <= 0 or self.high <= 0:

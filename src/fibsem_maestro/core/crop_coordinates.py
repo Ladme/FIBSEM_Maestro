@@ -4,12 +4,13 @@
 
 from dataclasses import dataclass
 
+from fibsem_maestro.core.point import PixelPoint
+
 
 @dataclass(frozen=True)
 class CropCoordinates:
-    """Coordinates and size of a rectangular crop region."""
+    """Top-left coordinate and pixel size of a rectangular crop region."""
 
-    x: int
-    y: int
-    width: int
-    height: int
+    origin: PixelPoint
+    width_px: int
+    height_px: int

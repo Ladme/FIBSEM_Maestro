@@ -19,9 +19,6 @@ class MicroscopeControl(ABC):
     These methods include the basic functionalities needed for controlling
     the various components and parameters of a microscope such as the stage,
     and beams.
-
-    Methods:
-        position - Getter and setter for the position of the microscope stage.
     """
 
     @property
