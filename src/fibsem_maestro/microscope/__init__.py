@@ -1,2 +1,6 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
+
+from .simulated.microscope_control import (
+    SimulatedMicroscopeControl as SimulatedMicroscopeControl,
+)
