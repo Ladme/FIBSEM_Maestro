@@ -23,27 +23,16 @@ class MicroscopeControl(ABC):
 
     @property
     @abstractmethod
-    def position(self):
+    def position(self) -> StagePosition:
         pass
 
     @position.setter
     @abstractmethod
-    def position(self, goal: StagePosition):
+    def position(self, goal: StagePosition) -> None:
         pass
 
-    @property
     @abstractmethod
-    def relative_position(self):
-        pass
-
-    @relative_position.setter
-    @abstractmethod
-    def relative_position(self, goal: StagePosition):
-        pass
-
-    @position.setter
-    @abstractmethod
-    def position(self, goal: StagePosition):
+    def move_relative(self, goal: StagePosition) -> None:
         pass
 
     @property
@@ -51,8 +40,6 @@ class MicroscopeControl(ABC):
     def electron_beam(self) -> BeamControl:
         """
         Returns the electron beam of the microscope.
-
-        :return: The electron_beam instance of BeamControl
         """
         pass
 
@@ -61,7 +48,5 @@ class MicroscopeControl(ABC):
     def ion_beam(self) -> BeamControl:
         """
         Returns the ion beam of the microscope.
-
-        :return: The ion_beam instance of BeamControl
         """
         pass

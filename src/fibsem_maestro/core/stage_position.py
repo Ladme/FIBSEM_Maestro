@@ -8,7 +8,7 @@ from dataclasses import dataclass
 class StagePosition:
     """
     Class representing the stage position
-    Rotation and tilt is in deg
+    Rotation and tilt is in degrees.
     """
 
     x: float
