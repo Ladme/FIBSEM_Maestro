@@ -169,11 +169,7 @@ class BeamControl(ABC):
 
     @property
     @abstractmethod
-    def pixel_size(self) -> int:
-        pass
-
-    @abstractmethod
-    def try_set_pixel_size(self, value: int) -> int:
+    def pixel_size(self) -> float:
         pass
 
     @property

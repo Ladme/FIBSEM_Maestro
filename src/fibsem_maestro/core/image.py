@@ -9,9 +9,9 @@ from numpy.typing import NDArray
 
 
 class Image(np.ndarray[Any, np.dtype[np.floating[Any]]]):
-    pixel_size: int
+    pixel_size: float
 
-    def __new__(cls, image: NDArray[np.floating], pixel_size: int) -> Self:
+    def __new__(cls, image: NDArray[np.floating], pixel_size: float) -> Self:
         obj = np.asarray(image).view(cls)
         obj.pixel_size = pixel_size
         return obj
