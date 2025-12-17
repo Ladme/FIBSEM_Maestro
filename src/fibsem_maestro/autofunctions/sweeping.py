@@ -120,7 +120,7 @@ class Sweeping:
         limits = self._beam.limits(self._sweep_attribute)
 
         for s in sweep_space:
-            if limits[0] < s < limits[1]:
+            if limits[0] <= s <= limits[1]:
                 yield s
             else:
                 self._txt_log.warning(
@@ -142,6 +142,9 @@ class Sweeping:
                 - repetition index,
                 - sweep value within hardware limits.
         """
+        # refresh base attribute value
+        self._base = self._get_attribute_value()
+
         for repetition in range(self._settings.cycles):
             self._txt_log.info(f"Sweep cycle {repetition}/{self._settings.cycles}.")
             for s in self._sweep_inner(repetition):
