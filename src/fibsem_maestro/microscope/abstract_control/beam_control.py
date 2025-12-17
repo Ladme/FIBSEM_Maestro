@@ -22,9 +22,8 @@ class BeamControl(ABC):
         """Working distance in nanometers."""
         pass
 
-    @working_distance.setter
     @abstractmethod
-    def working_distance(self, wd: float) -> None:
+    def try_set_working_distance(self, value: float) -> float:
         pass
 
     @property
@@ -32,9 +31,8 @@ class BeamControl(ABC):
     def stigmator(self) -> Stigmator:
         pass
 
-    @stigmator.setter
     @abstractmethod
-    def stigmator(self, value: Stigmator) -> None:
+    def try_set_stigmator(self, value: Stigmator) -> Stigmator:
         pass
 
     @property
@@ -42,9 +40,8 @@ class BeamControl(ABC):
     def lens_alignment(self) -> LensAlignment:
         pass
 
-    @lens_alignment.setter
     @abstractmethod
-    def lens_alignment(self, value: LensAlignment) -> None:
+    def try_set_lens_alignment(self, value: LensAlignment) -> LensAlignment:
         pass
 
     @property
@@ -52,9 +49,8 @@ class BeamControl(ABC):
     def beam_shift(self) -> BeamShift:
         pass
 
-    @beam_shift.setter
     @abstractmethod
-    def beam_shift(self, value: BeamShift) -> None:
+    def try_set_beam_shift(self, value: BeamShift) -> BeamShift:
         pass
 
     @property
@@ -62,9 +58,8 @@ class BeamControl(ABC):
     def detector_contrast(self) -> float:
         pass
 
-    @detector_contrast.setter
     @abstractmethod
-    def detector_contrast(self, value: float) -> None:
+    def try_set_detector_contrast(self, value: float) -> float:
         pass
 
     @property
@@ -72,9 +67,8 @@ class BeamControl(ABC):
     def detector_brightness(self) -> float:
         pass
 
-    @detector_brightness.setter
     @abstractmethod
-    def detector_brightness(self, value: float) -> None:
+    def try_set_detector_brightness(self, value: float) -> float:
         pass
 
     @property
@@ -82,9 +76,8 @@ class BeamControl(ABC):
     def source_tilt(self) -> SourceTilt:
         pass
 
-    @source_tilt.setter
     @abstractmethod
-    def source_tilt(self, value: SourceTilt) -> None:
+    def try_set_source_tilt(self, value: SourceTilt) -> SourceTilt:
         pass
 
     @abstractmethod
@@ -124,9 +117,8 @@ class BeamControl(ABC):
     def line_integration(self) -> int:
         pass
 
-    @line_integration.setter
     @abstractmethod
-    def line_integration(self, value: int) -> None:
+    def try_set_line_integration(self, value: int) -> int:
         pass
 
     @property
@@ -134,9 +126,8 @@ class BeamControl(ABC):
     def dwell_time(self) -> float:
         pass
 
-    @dwell_time.setter
     @abstractmethod
-    def dwell_time(self, value: float) -> None:
+    def try_set_dwell_time(self, value: float) -> float:
         pass
 
     @property
@@ -144,9 +135,8 @@ class BeamControl(ABC):
     def bit_depth(self) -> int:
         pass
 
-    @bit_depth.setter
     @abstractmethod
-    def bit_depth(self, value: int) -> None:
+    def try_set_bit_depth(self, value: int) -> int:
         pass
 
     @property
@@ -154,9 +144,8 @@ class BeamControl(ABC):
     def resolution(self) -> tuple[int, int]:
         pass
 
-    @resolution.setter
     @abstractmethod
-    def resolution(self, value: tuple[int, int]) -> None:
+    def try_set_resolution(self, value: tuple[int, int]) -> tuple[int, int]:
         pass
 
     @property
@@ -164,9 +153,8 @@ class BeamControl(ABC):
     def horizontal_field_width(self) -> float:
         pass
 
-    @horizontal_field_width.setter
     @abstractmethod
-    def horizontal_field_width(self, value: float) -> None:
+    def try_set_horizontal_field_width(self, value: float) -> float:
         pass
 
     @property
@@ -174,9 +162,8 @@ class BeamControl(ABC):
     def vertical_field_width(self) -> float:
         pass
 
-    @vertical_field_width.setter
     @abstractmethod
-    def vertical_field_width(self, value: float) -> None:
+    def try_set_vertical_field_width(self, value: float) -> float:
         pass
 
     @property
@@ -184,9 +171,8 @@ class BeamControl(ABC):
     def pixel_size(self) -> int:
         pass
 
-    @pixel_size.setter
     @abstractmethod
-    def pixel_size(self, value: int) -> None:
+    def try_set_pixel_size(self, value: int) -> int:
         pass
 
     @property
@@ -194,9 +180,8 @@ class BeamControl(ABC):
     def scanning_area(self) -> ScanningArea:
         pass
 
-    @scanning_area.setter
     @abstractmethod
-    def scanning_area(self, value: ScanningArea) -> None:
+    def try_set_scanning_area(self, value: ScanningArea) -> ScanningArea:
         pass
 
     @property

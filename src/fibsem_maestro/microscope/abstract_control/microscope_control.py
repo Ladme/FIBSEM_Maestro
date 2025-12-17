@@ -21,18 +21,13 @@ class MicroscopeControl(ABC):
     and beams.
     """
 
+    @abstractmethod
+    def __init__(self, ip_address: str):
+        pass
+
     @property
     @abstractmethod
-    def position(self) -> StagePosition:
-        pass
-
-    @position.setter
-    @abstractmethod
-    def position(self, goal: StagePosition) -> None:
-        pass
-
-    @abstractmethod
-    def move_relative(self, goal: StagePosition) -> None:
+    def stage_position(self) -> StagePosition:
         pass
 
     @property
@@ -49,4 +44,12 @@ class MicroscopeControl(ABC):
         """
         Returns the ion beam of the microscope.
         """
+        pass
+
+    @abstractmethod
+    def try_set_stage_position(self, pos: StagePosition) -> StagePosition:
+        pass
+
+    @abstractmethod
+    def try_move_stage_position(self, delta: StagePosition) -> StagePosition:
         pass

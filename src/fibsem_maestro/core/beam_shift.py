@@ -9,3 +9,6 @@ class BeamShift:
     # units are in nanometers
     x: float
     y: float
+
+    def to_tuple(self) -> tuple[float, float]:
+        return (self.x, self.y)
