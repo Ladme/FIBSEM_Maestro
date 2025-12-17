@@ -2,7 +2,6 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
-from fibsem_maestro.settings.reactive import ReactiveDict
 
 from .base_settings import BaseSettings
 
@@ -19,12 +18,6 @@ class AcquisitionSettings(BaseSettings):
     y_correction: int
 
 
-class AutofunctionSettings(BaseSettings):
-    test: int
-
-
 class Settings(BaseSettings):
     microscope: MicroscopeSettings
     acquisition: AcquisitionSettings
-    simple: int
-    autofunctions: ReactiveDict[str, AutofunctionSettings]

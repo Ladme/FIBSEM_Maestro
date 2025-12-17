@@ -1,6 +1,7 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
+import inspect
 from abc import ABC, abstractmethod
 
 from fibsem_maestro.core.beam_shift import BeamShift
@@ -202,3 +203,11 @@ class BeamControl(ABC):
     @abstractmethod
     def limits(self, var: str) -> tuple[float, float]:
         pass
+
+    @classmethod
+    def get_property_names(cls) -> list[str]:
+        props = []
+        for name, obj in inspect.getmembers(cls):
+            if isinstance(obj, property):
+                props.append(name)
+        return props
