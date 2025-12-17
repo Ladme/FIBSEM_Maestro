@@ -15,7 +15,7 @@ class TextLogger(ABC):
     """
 
     @abstractmethod
-    def info(self, msg: str):
+    def info(self, msg: str) -> None:
         """
         Log an informational message.
 
@@ -25,7 +25,7 @@ class TextLogger(ABC):
         pass
 
     @abstractmethod
-    def warning(self, msg: str):
+    def warning(self, msg: str) -> None:
         """
         Log a warning message.
 
@@ -35,7 +35,7 @@ class TextLogger(ABC):
         pass
 
     @abstractmethod
-    def error(self, msg: str):
+    def error(self, msg: str) -> None:
         """
         Log an error message.
 
@@ -45,7 +45,7 @@ class TextLogger(ABC):
         pass
 
     @abstractmethod
-    def debug(self, msg: str):
+    def debug(self, msg: str) -> None:
         """
         Log a debug-level message.
 
