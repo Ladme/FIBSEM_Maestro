@@ -2,3 +2,4 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 from .sweeping_functions import *  # noqa
+from .autofocus import *  # noqa

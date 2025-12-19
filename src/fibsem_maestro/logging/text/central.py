@@ -34,6 +34,7 @@ class CentralTextLogger(TextLogger):
         """
         self._ctx = ctx
         self._name = name or ""
+        self._log_level = log_level
 
         self._logger = logging.getLogger(name)
         self._logger.propagate = False
@@ -45,14 +46,17 @@ class CentralTextLogger(TextLogger):
         self._logger.addHandler(handler)
         self._logger.setLevel(log_level or self._ctx.log_level)
 
-    def info(self, msg: str):
+    def derive(self, name: str) -> "CentralTextLogger":
+        return CentralTextLogger(f"{self._name} > {name}", self._ctx, self._log_level)
+
+    def info(self, msg: str) -> None:
         self._logger.info(msg)
 
-    def warning(self, msg: str):
+    def warning(self, msg: str) -> None:
         self._logger.warning(msg)
 
-    def error(self, msg: str):
+    def error(self, msg: str) -> None:
         self._logger.error(msg)
 
-    def debug(self, msg: str):
+    def debug(self, msg: str) -> None:
         self._logger.debug(msg)

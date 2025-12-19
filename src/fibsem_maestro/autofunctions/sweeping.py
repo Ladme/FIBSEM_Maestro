@@ -83,9 +83,30 @@ class Sweeping:
         self._sweep_attribute = settings.target_attribute
 
         self._sweep_space = SweepingRegistry.get(self._settings.strategy)
-        self._base = self._get_attribute_value()
+        self._base = self.get_attribute_value()
 
-    def _get_attribute_value(self) -> Any:
+    def sweep(self) -> Iterator[tuple[int, float]]:
+        """
+        Perform a full sweep across all configured repetitions.
+
+        This generator iterates over all sweep cycles and yields valid sweep
+        values along with their repetition index.
+
+        Yields:
+            tuple[int, float]:
+                A tuple containing:
+                - repetition index,
+                - sweep value within hardware limits.
+        """
+        # refresh base attribute value
+        self._base = self.get_attribute_value()
+
+        for repetition in range(self._settings.cycles):
+            self._txt_log.info(f"Sweep cycle {repetition}/{self._settings.cycles}.")
+            for s in self._sweep_inner(repetition):
+                yield repetition, s
+
+    def get_attribute_value(self) -> Any:
         """
         Return the current value of the sweeping attribute.
 
@@ -97,6 +118,12 @@ class Sweeping:
                 Current value of the beam attribute being swept.
         """
         return getattr(self._beam, self._sweep_attribute)
+
+    def set_attribute_value(self, value: Any) -> None:
+        """
+        Set the sweeping attribute of the beam to the specified value.
+        """
+        setattr(self._beam, self._sweep_attribute, value)
 
     def _sweep_inner(self, repetition: int) -> Iterator[float]:
         """
@@ -128,24 +155,3 @@ class Sweeping:
                 )
                 # do not yield anything
                 continue
-
-    def sweep(self) -> Iterator[tuple[int, float]]:
-        """
-        Perform a full sweep across all configured repetitions.
-
-        This generator iterates over all sweep cycles and yields valid sweep
-        values along with their repetition index.
-
-        Yields:
-            tuple[int, float]:
-                A tuple containing:
-                - repetition index,
-                - sweep value within hardware limits.
-        """
-        # refresh base attribute value
-        self._base = self._get_attribute_value()
-
-        for repetition in range(self._settings.cycles):
-            self._txt_log.info(f"Sweep cycle {repetition}/{self._settings.cycles}.")
-            for s in self._sweep_inner(repetition):
-                yield repetition, s

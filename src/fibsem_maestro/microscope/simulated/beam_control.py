@@ -85,61 +85,27 @@ class SimulatedBeamControl(BeamControl):
         """Working distance in nanometers."""
         return self._working_distance_nm
 
-    def try_set_working_distance(self, value: float) -> float:
-        """Attempt to set working distance (approximately).
-
-        Adds small relative noise and clamps to limits.
-
-        Args:
-            value (float): Requested working distance (nm).
-
-        Returns:
-            float: Actual working distance after the attempted set (nm).
-        """
-        self._working_distance_nm = self._apply_numeric(
-            "working_distance", value, rel_noise=1e-4
-        )
-        return self._working_distance_nm
+    @working_distance.setter
+    def working_distance(self, value: float):
+        self._working_distance_nm = value
 
     @property
     def stigmator(self) -> Stigmator:
         """Return the current stigmator."""
         return self._stigmator
 
-    def try_set_stigmator(self, value: Stigmator) -> Stigmator:
-        """
-        Attempt to set stigmator (approximately).
-
-        Args:
-            value (Stigmator): Requested stigmator.
-
-        Returns:
-            Stigmator: Actual stigmator after setting.
-        """
-        x = self._apply_numeric("stigmator_x", value.x, abs_noise=0.001)
-        y = self._apply_numeric("stigmator_y", value.y, abs_noise=0.001)
-        self._stigmator = Stigmator(x=x, y=y)
-        return self._stigmator
+    @stigmator.setter
+    def stigmator(self, value: Stigmator) -> None:
+        self._stigmator = value
 
     @property
     def lens_alignment(self) -> LensAlignment:
         """Return the current lens alignment (nm)."""
         return self._lens_alignment
 
-    def try_set_lens_alignment(self, value: LensAlignment) -> LensAlignment:
-        """
-        Attempt to set lens alignment (approximately).
-
-        Args:
-            value (LensAlignment): Requested lens alignment (nm).
-
-        Returns:
-            LensAlignment: Actual lens alignment after setting (nm).
-        """
-        x = self._apply_numeric("lens_alignment_x", value.x, abs_noise=50.0)
-        y = self._apply_numeric("lens_alignment_y", value.y, abs_noise=50.0)
-        self._lens_alignment = LensAlignment(x=x, y=y)
-        return self._lens_alignment
+    @lens_alignment.setter
+    def lens_alignment(self, value: LensAlignment) -> None:
+        self._lens_alignment = value
 
     @property
     def beam_shift(self) -> BeamShift:
@@ -165,31 +131,25 @@ class SimulatedBeamControl(BeamControl):
     def detector_contrast(self) -> float:
         return float(self._detector_contrast)
 
-    def try_set_detector_contrast(self, value: float) -> float:
-        self._detector_contrast = self._apply_numeric(
-            "detector_contrast", value, abs_noise=0.01
-        )
-        return float(self._detector_contrast)
+    @detector_contrast.setter
+    def detector_contrast(self, value: float) -> None:
+        self._detector_contrast = value
 
     @property
     def detector_brightness(self) -> float:
         return float(self._detector_brightness)
 
-    def try_set_detector_brightness(self, value: float) -> float:
-        self._detector_brightness = self._apply_numeric(
-            "detector_brightness", value, abs_noise=0.01
-        )
-        return float(self._detector_brightness)
+    @detector_brightness.setter
+    def detector_brightness(self, value: float) -> None:
+        self._detector_brightness = value
 
     @property
     def source_tilt(self) -> SourceTilt:
         return self._source_tilt
 
-    def try_set_source_tilt(self, value: SourceTilt) -> SourceTilt:
-        x = self._apply_numeric("source_tilt_x", value.x, abs_noise=0.01)
-        y = self._apply_numeric("source_tilt_y", value.y, abs_noise=0.01)
-        self._source_tilt = SourceTilt(x=x, y=y)
-        return self._source_tilt
+    @source_tilt.setter
+    def source_tilt(self, value: SourceTilt) -> None:
+        self._source_tilt = value
 
     def blank(self) -> None:
         self._blanked = True
@@ -219,57 +179,51 @@ class SimulatedBeamControl(BeamControl):
     def line_integration(self) -> int:
         return int(self._line_integration)
 
-    def try_set_line_integration(self, value: int) -> int:
-        self._line_integration = max(1, int(value))
-        return int(self._line_integration)
+    @line_integration.setter
+    def line_integration(self, value: int) -> None:
+        self._line_integration = value
 
     @property
     def dwell_time(self) -> float:
         return float(self._dwell_time)
 
-    def try_set_dwell_time(self, value: float) -> float:
-        self._dwell_time = self._apply_numeric(
-            "dwell_time", float(value), rel_noise=1e-3
-        )
-        return float(self._dwell_time)
+    @dwell_time.setter
+    def dwell_time(self, value: float) -> None:
+        self._dwell_time = value
 
     @property
     def bit_depth(self) -> int:
         return int(self._bit_depth)
 
-    def try_set_bit_depth(self, value: int) -> int:
-        self._bit_depth = 16 if int(value) >= 16 else 8
-        return int(self._bit_depth)
+    @bit_depth.setter
+    def bit_depth(self, value: int) -> None:
+        self._bit_depth = value
 
     @property
     def resolution(self) -> tuple[int, int]:
         return (int(self._resolution[0]), int(self._resolution[1]))
 
-    def try_set_resolution(self, value: tuple[int, int]) -> tuple[int, int]:
-        self._resolution = (max(1, int(value[0])), max(1, int(value[1])))
-        return self.resolution
+    @resolution.setter
+    def resolution(self, value: tuple[int, int]) -> None:
+        self._resolution = value
 
     @property
     def horizontal_field_width(self) -> float:
         """Horizontal field width in nanometers."""
         return float(self._horizontal_field_width_nm)
 
-    def try_set_horizontal_field_width(self, value: float) -> float:
-        self._horizontal_field_width_nm = self._apply_numeric(
-            "horizontal_field_width", value, rel_noise=1e-3
-        )
-        return float(self._horizontal_field_width_nm)
+    @horizontal_field_width.setter
+    def horizontal_field_width(self, value: float) -> None:
+        self._horizontal_field_width_nm = value
 
     @property
     def vertical_field_width(self) -> float:
         """Vertical field width in nanometers."""
         return float(self._vertical_field_width_nm)
 
-    def try_set_vertical_field_width(self, value: float) -> float:
-        self._vertical_field_width_nm = self._apply_numeric(
-            "vertical_field_width", value, rel_noise=1e-3
-        )
-        return float(self._vertical_field_width_nm)
+    @vertical_field_width.setter
+    def vertical_field_width(self, value: float) -> None:
+        self._vertical_field_width_nm = value
 
     @property
     def pixel_size(self) -> float:
@@ -280,9 +234,9 @@ class SimulatedBeamControl(BeamControl):
     def scanning_area(self) -> ScanningArea:
         return self._scanning_area
 
-    def try_set_scanning_area(self, value: ScanningArea) -> ScanningArea:
+    @scanning_area.setter
+    def scanning_area(self, value: ScanningArea) -> None:
         self._scanning_area = value
-        return self._scanning_area
 
     @property
     def beam_shift_to_stage_move(self) -> tuple[float, float]:

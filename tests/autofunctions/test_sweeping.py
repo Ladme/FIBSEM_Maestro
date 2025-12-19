@@ -23,6 +23,10 @@ class InMemoryTextLogger(TextLogger):
         self.warnings: list[str] = []
         self.errors: list[str] = []
 
+    def derive(self, name: str) -> "InMemoryTextLogger":
+        _ = name
+        return InMemoryTextLogger()
+
     def debug(self, msg: str) -> None:
         self.debugs.append(msg)
 
@@ -94,7 +98,7 @@ def test_get_attribute_value_reads_current_beam_state():
     txt_log = InMemoryTextLogger()
 
     eb = microscope.electron_beam
-    actual = eb.try_set_working_distance(5_000_000.0)
+    eb.working_distance = 5_000_000.0
 
     settings = SweepingSettings(
         strategy="basic",
@@ -106,8 +110,28 @@ def test_get_attribute_value_reads_current_beam_state():
     )
     sweeping = Sweeping(microscope, settings, txt_log)
 
-    got = sweeping._get_attribute_value()
-    assert got == actual
+    assert sweeping.get_attribute_value() == 5_000_000.0
+
+
+def test_set_attribute_value_sets_beam_state():
+    microscope = SimulatedMicroscopeControl("127.0.0.1", seed=123)  # pyright: ignore[reportCallIssue]
+    txt_log = InMemoryTextLogger()
+
+    eb = microscope.electron_beam
+    eb.working_distance = 5_000_000.0
+
+    settings = SweepingSettings(
+        strategy="basic",
+        range=(0.0, 0.0),
+        steps=1,
+        cycles=1,
+        target_beam=BeamType.ELECTRON,
+        target_attribute="working_distance",
+    )
+    sweeping = Sweeping(microscope, settings, txt_log)
+    sweeping.set_attribute_value(1_000_000.0)
+
+    assert eb.working_distance == 1_000_000.0
 
 
 def test_sweep_yields_expected_zigzag_sequence_when_in_range():
@@ -115,7 +139,8 @@ def test_sweep_yields_expected_zigzag_sequence_when_in_range():
     txt_log = InMemoryTextLogger()
 
     eb = microscope.electron_beam
-    base = eb.try_set_working_distance(10_000_000.0)
+    base = 10_000_000.0
+    eb.working_distance = base
 
     settings = SweepingSettings(
         strategy="basic",
@@ -152,7 +177,7 @@ def test_sweep_filters_out_of_range_values_and_logs_warning():
     lo, hi = eb.limits("working_distance")
 
     # place base at mid-range so large ranges exceed both ends
-    eb.try_set_working_distance((lo + hi) / 2)
+    eb.working_distance = (lo + hi) / 2
 
     big = (hi - lo) * 2
     settings = SweepingSettings(
@@ -191,7 +216,8 @@ def test_sweep_refreshes_base_each_call():
     sweeping = Sweeping(microscope, settings, txt_log)
 
     # change after construction; sweep() should re-read base
-    new_base = eb.try_set_working_distance(20_000_000.0)
+    new_base = 20_000_000.0
+    eb.working_distance = new_base
 
     out = list(sweeping.sweep())
     vals = [v for _, v in out]

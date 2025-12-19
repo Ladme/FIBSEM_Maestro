@@ -3,6 +3,7 @@
 
 
 from abc import ABC, abstractmethod
+from typing import Self
 
 
 class TextLogger(ABC):
@@ -13,6 +14,24 @@ class TextLogger(ABC):
     textual log messages from domain-level components. Concrete implementations
     determine how and where messages are recorded.
     """
+
+    @abstractmethod
+    def derive(self, name: str) -> Self:
+        """
+        Create a child logger derived from this logger.
+
+        The child logger inherits this logger's configuration and context, but
+        uses a hierarchical name composed from the parent's name and the provided
+        child name.
+
+        Args:
+            name: The name of the child logger. This value is appended to the
+                parent logger's name to form a hierarchical identifier.
+
+        Returns:
+            A new logger instance of the same concrete type as this logger.
+        """
+        pass
 
     @abstractmethod
     def info(self, msg: str) -> None:

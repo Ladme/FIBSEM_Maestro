@@ -37,16 +37,21 @@ class SliceAwareTextLogger(TextLogger):
         self._log_level = log_level
         self._last_slice = None
 
-    def info(self, msg: str):
+    def derive(self, name: str) -> "SliceAwareTextLogger":
+        return SliceAwareTextLogger(
+            f"{self._name} > {name}", self._ctx, self._log_level
+        )
+
+    def info(self, msg: str) -> None:
         self._logger().info(msg)
 
-    def warning(self, msg: str):
+    def warning(self, msg: str) -> None:
         self._logger().warning(msg)
 
-    def error(self, msg: str):
+    def error(self, msg: str) -> None:
         self._logger().error(msg)
 
-    def debug(self, msg: str):
+    def debug(self, msg: str) -> None:
         self._logger().debug(msg)
 
     def _logger(self) -> logging.Logger:

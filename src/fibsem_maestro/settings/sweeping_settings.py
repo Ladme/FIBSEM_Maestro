@@ -4,7 +4,7 @@
 
 from typing import Annotated
 
-from pydantic import Field, field_validator
+from pydantic import ConfigDict, Field, field_validator
 
 from fibsem_maestro.autofunctions.sweeping_registry import SweepingRegistry
 from fibsem_maestro.core.beam_type import BeamType
@@ -13,6 +13,7 @@ from fibsem_maestro.settings.base_settings import BaseSettings
 
 
 class SweepingSettings(BaseSettings):
+    model_config = ConfigDict(use_enum_values=True)
     strategy: Annotated[str, Field(description="Sweeping function to use.")]
     range: Annotated[tuple[float, float], Field(description="Range of variable sweep.")]
     steps: Annotated[int, Field(gt=0, description="Number of steps in sweeping range.")]
