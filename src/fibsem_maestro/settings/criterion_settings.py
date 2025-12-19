@@ -18,11 +18,13 @@ class BasicMode(BaseSettings):
 
 class MaskMode(BaseSettings):
     type: Literal["mask"] = "mask"
-    mask_name: str = Field(..., description="Name of the mask to use.")
-    region_reduction_fn: str = Field(
-        ...,
-        description="Method for calculating final criterion from all masked regions. Accepts numpy functions (min, mean).",
-    )
+    mask_name: Annotated[str, Field(description="Name of the mask to use.")]
+    region_reduction_fn: Annotated[
+        str,
+        Field(
+            description="Method for calculating final criterion from all masked regions. Accepts numpy functions (min, mean).",
+        ),
+    ]
 
     @field_validator("region_reduction_fn")
     def validate_reduction(cls, v: str):
@@ -43,10 +45,12 @@ class SingleTileMode(BaseSettings):
 
 class MultiTileMode(BaseSettings):
     type: Literal["multi"] = "multi"
-    tile_reduction_fn: str = Field(
-        ...,
-        description="Method for calculating final criterion from all tiles. Accepts numpy functions (min, mean).",
-    )
+    tile_reduction_fn: Annotated[
+        str,
+        Field(
+            description="Method for calculating final criterion from all tiles. Accepts numpy functions (min, mean).",
+        ),
+    ]
     tile_size: Annotated[
         float, Field(gt=0.0, description="Tile size for criterion calculation (in nm).")
     ]
@@ -70,13 +74,15 @@ CriterionTilingMode = Annotated[
 
 
 class CriterionSettings(BaseSettings):
-    resolution_metric_fn: str = Field(
-        ..., description="Criterion calculation function."
-    )
-    detail: DetailBand = Field(
-        ...,
-        description="Bandpass parameters: low and high details to filter out (in nm).",
-    )
+    resolution_metric_fn: Annotated[
+        str, Field(description="Criterion calculation function.")
+    ]
+    detail: Annotated[
+        DetailBand,
+        Field(
+            description="Bandpass parameters: low and high details to filter out (in nm).",
+        ),
+    ]
     border_fraction: Annotated[
         float,
         Field(
@@ -85,16 +91,19 @@ class CriterionSettings(BaseSettings):
             description="Fraction of image size that will be excluded from image criterion calculation.",
         ),
     ]
-    log_resolution_map: bool = Field(
-        default=False, description="Should log resolution map(s)."
-    )
-    log_best_tile: bool = Field(
-        default=False, description="Should log the tile with the best resolution."
-    )
-    calculation_mode: CriterionCalculationMode = Field(
-        ..., description="Mode of calculation."
-    )
-    tiling_mode: CriterionTilingMode = Field(..., description="Mode of tiling.")
+    log_resolution_map: Annotated[
+        bool, Field(default=False, description="Should log resolution map(s).")
+    ]
+    log_best_tile: Annotated[
+        bool,
+        Field(
+            default=False, description="Should log the tile with the best resolution."
+        ),
+    ]
+    calculation_mode: Annotated[
+        CriterionCalculationMode, Field(description="Mode of calculation.")
+    ]
+    tiling_mode: Annotated[CriterionTilingMode, Field(description="Mode of tiling.")]
 
     @field_validator("resolution_metric_fn")
     def validate_function(cls, v: str):
