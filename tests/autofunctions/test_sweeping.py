@@ -2,16 +2,17 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 import numpy as np
-from numpy.typing import NDArray
 
 from fibsem_maestro.autofunctions.sweeping import Sweeping
-from fibsem_maestro.autofunctions.sweeping_registry import SweepingRegistry
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.simulated.microscope_control import (
     SimulatedMicroscopeControl,
 )
-from fibsem_maestro.settings.sweeping_settings import SweepingSettings
+from fibsem_maestro.settings.sweeping_settings import (
+    BasicStrategySettings,
+    SweepingSettings,
+)
 
 
 class InMemoryTextLogger(TextLogger):
@@ -40,24 +41,12 @@ class InMemoryTextLogger(TextLogger):
         self.errors.append(msg)
 
 
-# guard against double registration
-if not SweepingRegistry.has("basic_test"):
-
-    @SweepingRegistry.register("basic_test")
-    def basic_sweep_space(
-        base: float, range: tuple[float, float], steps: int, repetition: int
-    ) -> NDArray[np.floating]:
-        if repetition % 2 == 0:
-            return np.linspace(base + range[0], base + range[1], steps)
-        return np.linspace(base + range[1], base + range[0], steps)
-
-
 def test_construct_selects_electron_beam_and_attribute():
     microscope = SimulatedMicroscopeControl("127.0.0.1", seed=123)  # pyright: ignore[reportCallIssue]
     txt_log = InMemoryTextLogger()
 
     settings = SweepingSettings(
-        strategy="basic",
+        strategy=BasicStrategySettings(),
         range=(-1000.0, 1000.0),
         steps=3,
         cycles=1,
@@ -69,7 +58,6 @@ def test_construct_selects_electron_beam_and_attribute():
 
     assert sweeping._beam is microscope.electron_beam
     assert sweeping._sweep_attribute == "working_distance"
-    assert sweeping._sweep_space is SweepingRegistry.get("basic")
 
 
 def test_update_switches_to_ion_beam():
@@ -77,7 +65,7 @@ def test_update_switches_to_ion_beam():
     txt_log = InMemoryTextLogger()
 
     settings = SweepingSettings(
-        strategy="basic",
+        strategy=BasicStrategySettings(),
         range=(-1000.0, 1000.0),
         steps=3,
         cycles=1,
@@ -101,7 +89,7 @@ def test_get_attribute_value_reads_current_beam_state():
     eb.working_distance = 5_000_000.0
 
     settings = SweepingSettings(
-        strategy="basic",
+        strategy=BasicStrategySettings(),
         range=(0.0, 0.0),
         steps=1,
         cycles=1,
@@ -121,7 +109,7 @@ def test_set_attribute_value_sets_beam_state():
     eb.working_distance = 5_000_000.0
 
     settings = SweepingSettings(
-        strategy="basic",
+        strategy=BasicStrategySettings(),
         range=(0.0, 0.0),
         steps=1,
         cycles=1,
@@ -143,7 +131,7 @@ def test_sweep_yields_expected_zigzag_sequence_when_in_range():
     eb.working_distance = base
 
     settings = SweepingSettings(
-        strategy="basic",
+        strategy=BasicStrategySettings(),
         range=(-2000.0, 2000.0),
         steps=5,
         cycles=2,
@@ -181,7 +169,7 @@ def test_sweep_filters_out_of_range_values_and_logs_warning():
 
     big = (hi - lo) * 2
     settings = SweepingSettings(
-        strategy="basic",
+        strategy=BasicStrategySettings(),
         range=(-big, big),
         steps=9,
         cycles=1,
@@ -199,14 +187,16 @@ def test_sweep_filters_out_of_range_values_and_logs_warning():
     assert "out of range" in txt_log.warnings[0].lower()
 
 
-def test_sweep_refreshes_base_each_call():
+def test_sweep_does_not_refresh_base():
     microscope = SimulatedMicroscopeControl("127.0.0.1", seed=123)  # pyright: ignore[reportCallIssue]
     txt_log = InMemoryTextLogger()
 
     eb = microscope.electron_beam
+    original_base = 1_000_000.0
+    eb.working_distance = original_base
 
     settings = SweepingSettings(
-        strategy="basic",
+        strategy=BasicStrategySettings(),
         range=(-1000.0, 1000.0),
         steps=3,
         cycles=1,
@@ -215,11 +205,12 @@ def test_sweep_refreshes_base_each_call():
     )
     sweeping = Sweeping(microscope, settings, txt_log)
 
-    # change after construction; sweep() should re-read base
-    new_base = 20_000_000.0
-    eb.working_distance = new_base
+    # base should not be re-read
+    eb.working_distance = 20_000_000.0
 
     out = list(sweeping.sweep())
     vals = [v for _, v in out]
 
-    assert np.allclose(vals, np.array([new_base - 1000.0, new_base, new_base + 1000.0]))
+    assert np.allclose(
+        vals, np.array([original_base - 1000.0, original_base, original_base + 1000.0])
+    )

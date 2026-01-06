@@ -71,10 +71,18 @@ class Criterion:
 
     def calculate_resolution(self, image: Image) -> np.floating:
         self._txt_log.info("Resolution calculation started.")
+
+        # handle 1D images - no cropping, no tiling, no masking
+        if len(image.shape) == 1:
+            resolution = self._resolution_metric_fn(
+                image, self._settings, self._txt_log
+            )
+            self._txt_log.info("Finished resolution calculation.")
+            return resolution
+
         crop_coordinates = self._compute_crop_coordinates(
             image, self._settings.border_fraction
         )
-
         match self._calculation_mode:
             case BasicMode() as mode:
                 result = self._calculate_resolution_for_image(image, crop_coordinates)

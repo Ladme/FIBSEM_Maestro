@@ -2,6 +2,7 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
+from dataclasses import field
 from typing import Annotated, Literal
 
 from pydantic import Field
@@ -25,6 +26,9 @@ class LineMode(BaseSettings):
     lines_per_sweep: Annotated[
         int, Field(description="Number of lines scanned per one sweep value.")
     ]
+    forbidden_stripe_indices: list[int] = field(default_factory=list)
+    stripe_separator_threshold: int = 10
+    minimal_stripe_width: int = 5
 
 
 class StepMode(BaseSettings):

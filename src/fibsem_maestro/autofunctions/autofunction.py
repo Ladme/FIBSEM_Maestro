@@ -12,6 +12,7 @@ import numpy as np
 
 from fibsem_maestro.autofunctions.autofocus_registry import AutofocusRegistry
 from fibsem_maestro.autofunctions.error import AutofunctionError
+from fibsem_maestro.autofunctions.result import AutofocusResult
 from fibsem_maestro.autofunctions.sweeping import Sweeping
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.stage_position import StagePosition
@@ -64,7 +65,7 @@ class Autofunction:
         self._pending: list[Future[np.floating[Any]]] = []
         self._pending_lock = threading.Lock()
 
-        self._results: dict[float, list[float]] = {}
+        self._results: list[AutofocusResult] = []
         self._results_lock = threading.Lock()
 
     def _update(self, settings: AutofunctionSettings) -> None:
@@ -151,7 +152,9 @@ class Autofunction:
                 f"Restoring stage position (X offset {self._settings.delta_x:+g})"
             )
 
-    def submit_resolution_job(self, image: Image, sweep: float) -> None:
+    def submit_resolution_job(
+        self, image: Image, sweep: float, sweep_index: int
+    ) -> None:
         future = self._executor.submit(self._criterion.calculate_resolution, image)
 
         with self._pending_lock:
@@ -167,7 +170,7 @@ class Autofunction:
                 return
 
             with self._results_lock:
-                self._results.setdefault(sweep, []).append(resolution)
+                self._results.append(AutofocusResult(resolution, sweep, sweep_index))
 
             self._txt_log.info(f"Resolution for sweep {sweep}: {resolution}")
 
@@ -188,32 +191,27 @@ class Autofunction:
 
     def evaluate_best_sweep(self) -> float:
         with self._results_lock:
-            if not self._results:
-                raise AutofunctionError("No resolution results collected.")
-
-            means = {
-                sweep: float(np.mean(vals))
-                for sweep, vals in self._results.items()
-                if vals
-            }
-
-        if not means:
-            raise AutofunctionError("All resolution results were empty.")
-
-        best_sweep, _ = max(means.items(), key=lambda item: item[1])
-        return best_sweep
+            return self._sweeping.evaluate_best_sweep(self._results)
 
     def clear_results(self) -> None:
         with self._results_lock:
-            self._results = {}
+            self._results = []
 
     @property
     def imaging_settings(self) -> ImagingSettings:
         return self._imaging_settings
 
     @property
+    def autofunction_settings(self) -> AutofunctionSettings:
+        return self._settings
+
+    @property
     def microscope(self) -> Microscope:
         return self._microscope
+
+    @property
+    def criterion(self) -> Criterion:
+        return self._criterion
 
     @property
     def sweeping(self) -> Sweeping:

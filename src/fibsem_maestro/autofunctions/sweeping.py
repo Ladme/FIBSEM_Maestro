@@ -1,18 +1,18 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
+
 from collections.abc import Iterator
 from typing import Any
 
+from fibsem_maestro.autofunctions.result import AutofocusResult
 from fibsem_maestro.autofunctions.sweeping_registry import SweepingRegistry
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.abstract_control.microscope_control import (
     MicroscopeControl,
 )
-from fibsem_maestro.settings.sweeping_settings import (
-    SweepingSettings,
-)
+from fibsem_maestro.settings.sweeping_settings import SweepingSettings
 
 
 class Sweeping:
@@ -51,6 +51,9 @@ class Sweeping:
         self._apply_settings(settings)
         self._settings.on_change(self._update)
 
+        # get the base value of the sweeping attribute
+        self._base = self.get_attribute_value()
+
     def _update(self, settings: SweepingSettings) -> None:
         """
         Update sweeping configuration when settings change.
@@ -82,8 +85,9 @@ class Sweeping:
 
         self._sweep_attribute = settings.target_attribute
 
-        self._sweep_space = SweepingRegistry.get(self._settings.strategy)
-        self._base = self.get_attribute_value()
+        self._sweeping_strategy = SweepingRegistry.get(self._settings.strategy.type)(
+            self._settings.strategy
+        )
 
     def sweep(self) -> Iterator[tuple[int, float]]:
         """
@@ -98,9 +102,6 @@ class Sweeping:
                 - repetition index,
                 - sweep value within hardware limits.
         """
-        # refresh base attribute value
-        self._base = self.get_attribute_value()
-
         for repetition in range(self._settings.cycles):
             self._txt_log.info(f"Sweep cycle {repetition}/{self._settings.cycles}.")
             for s in self._sweep_inner(repetition):
@@ -125,6 +126,12 @@ class Sweeping:
         """
         setattr(self._beam, self._sweep_attribute, value)
 
+    def evaluate_best_sweep(self, results: list[AutofocusResult]) -> float:
+        """
+        Evaluate the best sweep value based on the sweeping strategy and return it.
+        """
+        return self._sweeping_strategy.evaluate(results)
+
     def _sweep_inner(self, repetition: int) -> Iterator[float]:
         """
         Generate valid sweep values for a single repetition.
@@ -141,7 +148,7 @@ class Sweeping:
             float:
                 Valid sweep values within the beam's allowed limits.
         """
-        sweep_space = self._sweep_space(
+        sweep_space = self._sweeping_strategy.generate(
             self._base, self._settings.range, self._settings.steps, repetition
         )
         limits = self._beam.limits(self._sweep_attribute)

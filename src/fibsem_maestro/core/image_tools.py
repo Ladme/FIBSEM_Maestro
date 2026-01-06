@@ -1,9 +1,12 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
-import numpy as np
+from collections.abc import Iterator
 
-from fibsem_maestro.core.image import Image
+import numpy as np
+from numpy.typing import NDArray
+
+from fibsem_maestro.core.image import Image, Image8Bit
 
 
 def center_padding(image: Image, target_shape: tuple[int, int]) -> Image:
@@ -86,3 +89,37 @@ def resize_to_match(image: Image, target_shape: tuple[int, int]):
     padded = center_padding(image, target_shape)
     cropped = center_cropping(padded, target_shape)
     return cropped  # noqa: RET504
+
+
+def get_stripes(
+    img: Image8Bit,
+    separate_value: int,
+    minimal_stripe_width: int,
+) -> Iterator[NDArray[np.integer]]:
+    """
+    Yields vertical image stripes separated by darker separator columns.
+
+    Args:
+      img: An 8-bit grayscale image.
+      separate_value: Threshold on the column-sum projection. Columns with
+        summed intensity strictly less than this value are considered separator
+        ("black") columns.
+      minimal_stripe_width: Minimum distance (in columns) between two separator
+        columns required to consider the region a valid stripe.
+
+    Yields:
+        1D NumPy array of column indices belonging to the strip, excluding the separator columns.
+    """
+    # sum intensities per column (vertical projection)
+    col_sums = np.sum(img, axis=0)
+
+    # separator columns are those that are dark enough in the projection
+    separator_cols = np.where(col_sums < separate_value)[0]
+
+    # each stripe is the region between two consecutive separator columns
+    for left, right in zip(separator_cols[:-1], separator_cols[1:]):
+        # if separators are far enough apart, we treat the region as a stripe
+        if (right - left) >= minimal_stripe_width:
+            # exclude the separator columns themselves
+            cols = np.arange(left + 1, right - 1, dtype=int)
+            yield cols
