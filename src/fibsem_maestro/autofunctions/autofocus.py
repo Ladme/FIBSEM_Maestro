@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import time
 from abc import ABC, abstractmethod
+from enum import Enum
 from itertools import groupby
 from typing import TYPE_CHECKING
 
@@ -13,7 +14,10 @@ from fibsem_maestro.autofunctions.error import AutofunctionError
 from fibsem_maestro.core.image_tools import get_stripes
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from fibsem_maestro.autofunctions.autofunction import Autofunction
+    from fibsem_maestro.autofunctions.sweep_step import SweepStep
     from fibsem_maestro.core.image import Image
     from fibsem_maestro.settings.autofunction_settings import (
         AutofocusMode as AutofocusModeSettings,
@@ -38,8 +42,13 @@ class AutofocusMode(ABC):
         pass
 
     @abstractmethod
-    def execute(self) -> None:
+    def execute(self) -> AutofocusStatus:
         pass
+
+
+class AutofocusStatus(Enum):
+    IN_PROGRESS = "in_progress"
+    DONE = "done"
 
 
 @AutofocusRegistry.register("basic")
@@ -48,7 +57,7 @@ class BasicMode(AutofocusMode):
         _ = settings
         self._af = autofunction
 
-    def execute(self) -> None:
+    def execute(self) -> AutofocusStatus:
         af = self._af
         af.clear_results()
 
@@ -67,6 +76,8 @@ class BasicMode(AutofocusMode):
         af.txt_log.info(f"Best sweep value: {best}")
         af.sweeping.set_attribute_value(best)
 
+        return AutofocusStatus.DONE
+
 
 @AutofocusRegistry.register("line")
 class LineMode(AutofocusMode):
@@ -74,7 +85,7 @@ class LineMode(AutofocusMode):
         self._af = autofunction
         self._settings = settings
 
-    def execute(self) -> None:
+    def execute(self) -> AutofocusStatus:
         af = self._af
         af.clear_results()
 
@@ -98,6 +109,8 @@ class LineMode(AutofocusMode):
         best = af.evaluate_best_sweep()
         af.txt_log.info(f"Best sweep value: {best}")
         af.sweeping.set_attribute_value(best)
+
+        return AutofocusStatus.DONE
 
     def _estimate_line_time(self) -> float:
         af = self._af
@@ -205,8 +218,61 @@ class StepMode(AutofocusMode):
         self._af = autofunction
         _ = settings
 
-    def execute(self) -> None:
-        raise NotImplementedError("Not yet implemented.")
+        self._steps: Iterator[SweepStep] | None = None
+        self._initialized = False
+
+    def execute(self) -> AutofocusStatus:
+        if not self._initialized:
+            self._initialize()
+
+        assert self._steps is not None
+        af = self._af
+
+        # if sweeping is exhausted, finalize and finish
+        try:
+            step = next(self._steps)
+        except StopIteration:
+            self._finalize()
+            return AutofocusStatus.DONE
+
+        af.txt_log.info(
+            f"Autofunction step {step.index + 1} (repetition {step.repetition}): value {step.value}"
+        )
+
+        af.sweeping.set_attribute_value(step.value)
+        image = af.microscope.beam.grab_frame()
+        af.submit_resolution_job(image, step)
+
+        return AutofocusStatus.IN_PROGRESS
+
+    def _initialize(self) -> None:
+        af = self._af
+        af.clear_results()
+        af.setup_microscope()
+
+        self._steps = iter(af.sweeping.sweep())
+
+        # keep stage offset applied across ticks.
+        self._stage_ctx = af.temporary_stage_x_offset()
+        self._stage_ctx.__enter__()
+
+        self._initialized = True
+
+    def _finalize(self) -> None:
+        af = self._af
+
+        af.wait_for_resolution_jobs()
+        best = af.evaluate_best_sweep()
+        af.txt_log.info(f"Best sweep value: {best}")
+        af.sweeping.set_attribute_value(best)
+
+        # restore stage position.
+        if self._stage_ctx is not None:
+            self._stage_ctx.__exit__(None, None, None)
+            self._stage_ctx = None
+
+        self._steps = None
+        self._initialized = False
 
 
 @AutofocusRegistry.register("manufacturer")
@@ -215,5 +281,5 @@ class ManufacturerMode(AutofocusMode):
         self._af = autofunction
         _ = settings
 
-    def execute(self) -> None:
+    def execute(self) -> AutofocusStatus:
         raise NotImplementedError("Not yet implemented.")
