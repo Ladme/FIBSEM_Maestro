@@ -10,6 +10,7 @@ from typing import Any
 
 import numpy as np
 
+from fibsem_maestro.autofunctions.autofocus import AutofocusStatus
 from fibsem_maestro.autofunctions.autofocus_registry import AutofocusRegistry
 from fibsem_maestro.autofunctions.error import AutofunctionError
 from fibsem_maestro.autofunctions.result import AutofocusResult
@@ -51,6 +52,7 @@ class Autofunction:
 
         self._criterion_name = None
         self._imaging_name = None
+        self._mask_name = None
 
         self._apply_settings(settings)
         self._settings.on_change(self._update)
@@ -94,6 +96,13 @@ class Autofunction:
                 f"Imaging settings '{imaging_settings}' do not exist."
             )
 
+    def _set_mask(self, mask_name: str) -> None:
+        if mask_settings := self._masks.get(mask_name):
+            self._mask_settings = mask_settings
+            self._mask_name = mask_name
+        else:
+            raise AutofunctionError(f"Mask settings '{mask_settings}' do not exist.")
+
     def _apply_settings(self, settings: AutofunctionSettings) -> None:
         """Apply all configurable fields from the given settings object."""
         self._settings = settings
@@ -110,8 +119,12 @@ class Autofunction:
         if self._settings.imaging_name != self._imaging_name:
             self._set_imaging(self._settings.imaging_name)
 
-    def execute_autofocus(self):
-        self._mode.execute()
+        # set new mask if the mask name has changed
+        if self._settings.mask_name != self._mask_name:
+            self._set_mask(self._settings.mask_name)
+
+    def execute(self) -> AutofocusStatus:
+        return self._mode.execute()
 
     def should_execute(self, slice_number: int, image_resolution: float | None) -> bool:
         if (

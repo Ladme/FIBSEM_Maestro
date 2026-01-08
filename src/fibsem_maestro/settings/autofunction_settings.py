@@ -48,8 +48,9 @@ class AutofunctionSettings(BaseSettings):
     mode: AutofocusMode
     delta_x: float
     execute_resolution: float
-    execute_slices: float
+    execute_slices: int
     criterion_name: str
     imaging_name: str
+    mask_name: str
     max_workers: int
     sweeping: SweepingSettings

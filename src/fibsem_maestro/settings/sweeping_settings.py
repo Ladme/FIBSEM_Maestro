@@ -3,11 +3,12 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import TYPE_CHECKING, Annotated, Literal
 
 from pydantic import ConfigDict, Field, field_validator
 
-from fibsem_maestro.core.beam_type import BeamType
+if TYPE_CHECKING:
+    from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
 from fibsem_maestro.settings.base_settings import BaseSettings
 

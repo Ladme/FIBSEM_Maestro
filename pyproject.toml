@@ -5,6 +5,7 @@ description = "Software for (cryo) volume-EM acquisition."
 readme = "README.md"
 requires-python = "==3.11.13"
 dependencies = [
+    "keyring>=25.7.0",
     "matplotlib>=3.8.1",
     "numpy==2.2.5",
     "pillow>=12.0.0",

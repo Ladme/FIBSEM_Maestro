@@ -52,8 +52,7 @@ class Sweeping:
         self._apply_settings(settings)
         self._settings.on_change(self._update)
 
-        # get the base value of the sweeping attribute
-        self._base = self.get_attribute_value()
+        self._base: float | None = None
 
     def _update(self, settings: SweepingSettings) -> None:
         """
@@ -126,6 +125,12 @@ class Sweeping:
         """
         return self._sweeping_strategy.evaluate(results)
 
+    def set_base(self) -> None:
+        """
+        Set the base value of the sweeping attribute based on the current value of the beam.
+        """
+        self._base = self.get_attribute_value()
+
     def _sweep_inner(self, repetition: int) -> Iterator[float]:
         """
         Generate valid sweep values for a single repetition.
@@ -142,6 +147,8 @@ class Sweeping:
             float:
                 Valid sweep values within the beam's allowed limits.
         """
+        assert self._base is not None
+
         sweep_space = self._sweeping_strategy.generate(
             self._base, self._settings.range, self._settings.steps, repetition
         )
