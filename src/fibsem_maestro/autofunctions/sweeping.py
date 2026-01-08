@@ -6,6 +6,7 @@ from collections.abc import Iterator
 from typing import Any
 
 from fibsem_maestro.autofunctions.result import AutofocusResult
+from fibsem_maestro.autofunctions.sweep_step import SweepStep
 from fibsem_maestro.autofunctions.sweeping_registry import SweepingRegistry
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.logging.text.text_logger import TextLogger
@@ -89,23 +90,16 @@ class Sweeping:
             self._settings.strategy
         )
 
-    def sweep(self) -> Iterator[tuple[int, float]]:
-        """
-        Perform a full sweep across all configured repetitions.
+    def sweep(self) -> Iterator[SweepStep]:
+        steps = (
+            (rep, s)
+            for rep in range(self._settings.cycles)
+            for s in self._sweep_inner(rep)
+        )
 
-        This generator iterates over all sweep cycles and yields valid sweep
-        values along with their repetition index.
-
-        Yields:
-            tuple[int, float]:
-                A tuple containing:
-                - repetition index,
-                - sweep value within hardware limits.
-        """
-        for repetition in range(self._settings.cycles):
+        for index, (repetition, value) in enumerate(steps):
             self._txt_log.info(f"Sweep cycle {repetition}/{self._settings.cycles}.")
-            for s in self._sweep_inner(repetition):
-                yield repetition, s
+            yield SweepStep(repetition, value, index)
 
     def get_attribute_value(self) -> Any:
         """

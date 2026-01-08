@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import time
 from abc import ABC, abstractmethod
-from itertools import accumulate, groupby
+from itertools import groupby
 from typing import TYPE_CHECKING
 
 from fibsem_maestro.autofunctions.autofocus_registry import AutofocusRegistry
@@ -54,13 +54,13 @@ class BasicMode(AutofocusMode):
 
         af.setup_microscope()
         with af.temporary_stage_x_offset():
-            for i, (repetition, sweep) in enumerate(af.sweeping.sweep()):
+            for sweep in af.sweeping.sweep():
                 af.txt_log.info(
-                    f"Autofunction step {i + 1} (repetition {repetition}): value {sweep}"
+                    f"Autofunction step {sweep.index + 1} (repetition {sweep.repetition}): value {sweep.value}"
                 )
-                af.sweeping.set_attribute_value(sweep)
+                af.sweeping.set_attribute_value(sweep.value)
                 image = af.microscope.beam.grab_frame()
-                af.submit_resolution_job(image, sweep, i)
+                af.submit_resolution_job(image, sweep)
 
         af.wait_for_resolution_jobs()
         best = af.evaluate_best_sweep()
@@ -73,9 +73,6 @@ class LineMode(AutofocusMode):
     def __init__(self, autofunction: Autofunction, settings: LineModeSettings):
         self._af = autofunction
         self._settings = settings
-
-        # all evaluated sweep values (for all repetitions)
-        self._sweeps: list[float] = []
 
     def execute(self) -> None:
         af = self._af
@@ -139,7 +136,9 @@ class LineMode(AutofocusMode):
         hold = self._settings.lines_per_sweep * line_time
 
         # iterate over repetitions
-        for repetition, steps in groupby(af.sweeping.sweep(), key=lambda x: x[0]):
+        for repetition, steps in groupby(
+            af.sweeping.sweep(), key=lambda x: x.repetition
+        ):
             af.txt_log.info(f"Line sweep cycle {repetition}")
 
             if repetition == 0:
@@ -155,9 +154,8 @@ class LineMode(AutofocusMode):
                 time.sleep(hold)
 
             # acquire part of the stripe with each sweep value
-            for _, sweep in steps:
-                af.sweeping.set_attribute_value(sweep)
-                self._sweeps.append(sweep)
+            for sweep in steps:
+                af.sweeping.set_attribute_value(sweep.value)
                 time.sleep(hold)
 
         # final hold [TODO: do we need it?]
@@ -177,31 +175,28 @@ class LineMode(AutofocusMode):
         stripes = get_stripes(img_8bit, separator_threshold, min_stripe_width)
 
         # collect sweeps and group them
-        rep_groups: list[tuple[int, list[float]]] = [
-            (rep, [sweep for _, sweep in group])
-            for rep, group in groupby(self._af.sweeping.sweep(), key=lambda x: x[0])
-        ]
+        sweep_groups = groupby(
+            self._af.sweeping.sweep(), key=lambda step: step.repetition
+        )
 
-        # calculate starting sweep_index offset for each repetition group
-        lengths = [len(sweeps) for _, sweeps in rep_groups]
-        offsets = [0, *accumulate(lengths)][:-1]
-
-        for stripe, (offset, (rep, sweeps)) in zip(stripes, zip(offsets, rep_groups)):
+        for stripe, (rep, steps_iter) in zip(stripes, sweep_groups):
             # skip forbidden stripes
             if rep in forbidden_stripes:
                 continue
 
-            # sanity check: stripe must have exactly the same length as the number of sweeps for this repetition
-            if len(stripe) != len(sweeps):
+            steps = list(steps_iter)
+
+            # sanity check: stripe must have exactly the same length as the number of sweep steps for this repetition
+            if len(stripe) != len(steps):
                 raise ValueError(
-                    f"Stripe length ({len(stripe)}) does not match sweep count ({len(sweeps)}) "
-                    f"for repetition {rep}."
+                    f"Stripe length ({len(stripe)}) does not match sweep count ({len(steps)}) "
+                    f"for repetition {rep}"
                 )
 
             # submit a resolution calculation job for each line of the stripe
-            for j, line_index in enumerate(stripe):
+            for line_index, step in zip(stripe, steps):
                 image_line = image[:, line_index]
-                self._af.submit_resolution_job(image_line, sweeps[j], offset + j)
+                self._af.submit_resolution_job(image_line, step)
 
 
 @AutofocusRegistry.register("step")

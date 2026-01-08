@@ -13,6 +13,7 @@ import numpy as np
 from fibsem_maestro.autofunctions.autofocus_registry import AutofocusRegistry
 from fibsem_maestro.autofunctions.error import AutofunctionError
 from fibsem_maestro.autofunctions.result import AutofocusResult
+from fibsem_maestro.autofunctions.sweep_step import SweepStep
 from fibsem_maestro.autofunctions.sweeping import Sweeping
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.stage_position import StagePosition
@@ -152,9 +153,7 @@ class Autofunction:
                 f"Restoring stage position (X offset {self._settings.delta_x:+g})"
             )
 
-    def submit_resolution_job(
-        self, image: Image, sweep: float, sweep_index: int
-    ) -> None:
+    def submit_resolution_job(self, image: Image, sweep: SweepStep) -> None:
         future = self._executor.submit(self._criterion.calculate_resolution, image)
 
         with self._pending_lock:
@@ -165,12 +164,12 @@ class Autofunction:
                 resolution = float(f.result())
             except Exception as e:
                 self._txt_log.warning(
-                    f"Resolution calculation for sweep {sweep} failed: {e}"
+                    f"Resolution calculation for sweep {sweep.value} failed: {e}"
                 )
                 return
 
             with self._results_lock:
-                self._results.append(AutofocusResult(resolution, sweep, sweep_index))
+                self._results.append(AutofocusResult(resolution, sweep))
 
             self._txt_log.info(f"Resolution for sweep {sweep}: {resolution}")
 

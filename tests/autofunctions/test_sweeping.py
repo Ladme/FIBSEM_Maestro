@@ -140,15 +140,15 @@ def test_sweep_yields_expected_zigzag_sequence_when_in_range():
     )
     sweeping = Sweeping(microscope, settings, txt_log)
 
-    out = list(sweeping.sweep())
-    assert len(out) == settings.cycles * settings.steps
+    steps = list(sweeping.sweep())
+    assert len(steps) == settings.cycles * settings.steps
 
-    reps = [r for r, _ in out]
+    reps = [x.repetition for x in steps]
     assert reps[: settings.steps] == [0] * settings.steps
     assert reps[settings.steps :] == [1] * settings.steps
 
-    vals0 = [v for r, v in out if r == 0]
-    vals1 = [v for r, v in out if r == 1]
+    vals0 = [x.value for x in steps if x.repetition == 0]
+    vals1 = [x.value for x in steps if x.repetition == 1]
 
     assert np.allclose(vals0, np.linspace(base - 2000.0, base + 2000.0, settings.steps))
     assert np.allclose(vals1, np.linspace(base + 2000.0, base - 2000.0, settings.steps))
@@ -178,8 +178,8 @@ def test_sweep_filters_out_of_range_values_and_logs_warning():
     )
     sweeping = Sweeping(microscope, settings, txt_log)
 
-    out = list(sweeping.sweep())
-    yielded = [v for _, v in out]
+    steps = list(sweeping.sweep())
+    yielded = [x.value for x in steps]
 
     assert all(lo <= v <= hi for v in yielded)
     assert len(yielded) < settings.steps
@@ -208,8 +208,8 @@ def test_sweep_does_not_refresh_base():
     # base should not be re-read
     eb.working_distance = 20_000_000.0
 
-    out = list(sweeping.sweep())
-    vals = [v for _, v in out]
+    steps = list(sweeping.sweep())
+    vals = [x.value for x in steps]
 
     assert np.allclose(
         vals, np.array([original_base - 1000.0, original_base, original_base + 1000.0])

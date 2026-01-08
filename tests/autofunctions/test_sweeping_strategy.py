@@ -8,6 +8,7 @@ from numpy.typing import NDArray
 
 from fibsem_maestro.autofunctions.error import AutofunctionError
 from fibsem_maestro.autofunctions.result import AutofocusResult
+from fibsem_maestro.autofunctions.sweep_step import SweepStep
 from fibsem_maestro.autofunctions.sweeping_registry import SweepingRegistry
 from fibsem_maestro.autofunctions.sweeping_strategy import (
     BasicSweepingStrategy,
@@ -42,9 +43,15 @@ def test_basic_sweeping_strategy_evaluate_simple():
     strategy = BasicSweepingStrategy(BasicStrategySettings())
 
     results = [
-        AutofocusResult(resolution=10.0, sweep_value=1.0, sweep_index=0),
-        AutofocusResult(resolution=11.0, sweep_value=3.0, sweep_index=2),
-        AutofocusResult(resolution=12.0, sweep_value=2.0, sweep_index=1),
+        AutofocusResult(
+            resolution=10.0, sweep=SweepStep(repetition=0, value=1.0, index=0)
+        ),
+        AutofocusResult(
+            resolution=11.0, sweep=SweepStep(repetition=0, value=3.0, index=2)
+        ),
+        AutofocusResult(
+            resolution=12.0, sweep=SweepStep(repetition=0, value=2.0, index=1)
+        ),
     ]
 
     best = strategy.evaluate(results)
@@ -55,10 +62,18 @@ def test_basic_sweeping_strategy_evaluate_groups_by_sweep_value():
     strategy = BasicSweepingStrategy(BasicStrategySettings())
 
     results = [
-        AutofocusResult(resolution=13.0, sweep_value=2.0, sweep_index=2),
-        AutofocusResult(resolution=13.0, sweep_value=2.0, sweep_index=3),
-        AutofocusResult(resolution=10.0, sweep_value=1.0, sweep_index=0),
-        AutofocusResult(resolution=14.0, sweep_value=1.0, sweep_index=1),
+        AutofocusResult(
+            resolution=13.0, sweep=SweepStep(repetition=0, value=2.0, index=2)
+        ),
+        AutofocusResult(
+            resolution=13.0, sweep=SweepStep(repetition=1, value=2.0, index=3)
+        ),
+        AutofocusResult(
+            resolution=10.0, sweep=SweepStep(repetition=0, value=1.0, index=0)
+        ),
+        AutofocusResult(
+            resolution=14.0, sweep=SweepStep(repetition=1, value=1.0, index=1)
+        ),
     ]
 
     best = strategy.evaluate(results)
@@ -128,7 +143,11 @@ def test_interleaved_sweeping_strategy_evaluate_raises_on_too_few_results():
         match="Need at least two results to compute delta resolutions",
     ):
         strategy.evaluate(
-            [AutofocusResult(resolution=10.0, sweep_value=1.0, sweep_index=0)]
+            [
+                AutofocusResult(
+                    resolution=10.0, sweep=SweepStep(repetition=0, value=1.0, index=0)
+                )
+            ]
         )
 
 
@@ -136,8 +155,12 @@ def test_interleaved_sweeping_strategy_evaluate_simple():
     strategy = InterleavedSweepingStrategy(InterleavedStrategySettings(min_diff=0.1))
 
     results = [
-        AutofocusResult(resolution=10.0, sweep_value=10.0, sweep_index=0),  # baseline
-        AutofocusResult(resolution=12.0, sweep_value=11.0, sweep_index=1),  # candidate
+        AutofocusResult(
+            resolution=10.0, sweep=SweepStep(repetition=0, value=10.0, index=0)
+        ),  # baseline
+        AutofocusResult(
+            resolution=12.0, sweep=SweepStep(repetition=0, value=11.0, index=1)
+        ),  # candidate
     ]
 
     best = strategy.evaluate(results)
@@ -148,10 +171,18 @@ def test_interleaved_sweeping_strategy_evaluate_multiple_pairs_and_sorts_by_swee
     strategy = InterleavedSweepingStrategy(InterleavedStrategySettings(min_diff=0.1))
 
     results = [
-        AutofocusResult(resolution=13.0, sweep_value=12.0, sweep_index=3),  # candidate
-        AutofocusResult(resolution=10.0, sweep_value=10.0, sweep_index=2),  # baseline
-        AutofocusResult(resolution=12.0, sweep_value=11.0, sweep_index=1),  # candidate
-        AutofocusResult(resolution=10.0, sweep_value=10.0, sweep_index=0),  # baseline
+        AutofocusResult(
+            resolution=13.0, sweep=SweepStep(repetition=0, value=12.0, index=3)
+        ),  # candidate
+        AutofocusResult(
+            resolution=10.0, sweep=SweepStep(repetition=0, value=10.0, index=2)
+        ),  # baseline
+        AutofocusResult(
+            resolution=12.0, sweep=SweepStep(repetition=0, value=11.0, index=1)
+        ),  # candidate
+        AutofocusResult(
+            resolution=10.0, sweep=SweepStep(repetition=0, value=10.0, index=0)
+        ),  # baseline
     ]
 
     best = strategy.evaluate(results)
@@ -162,14 +193,24 @@ def test_interleaved_sweeping_strategy_evaluate_multiple_pairs_discards_some():
     strategy = InterleavedSweepingStrategy(InterleavedStrategySettings(min_diff=0.1))
 
     results = [
-        AutofocusResult(resolution=13.0, sweep_value=12.0, sweep_index=3),  # candidate
-        AutofocusResult(resolution=10.0, sweep_value=10.0, sweep_index=2),  # baseline
-        AutofocusResult(resolution=12.0, sweep_value=11.0, sweep_index=1),  # candidate
-        AutofocusResult(resolution=10.0, sweep_value=10.0, sweep_index=0),  # baseline
         AutofocusResult(
-            resolution=8.0, sweep_value=12.0, sweep_index=5
+            resolution=13.0, sweep=SweepStep(repetition=0, value=12.0, index=3)
+        ),  # candidate
+        AutofocusResult(
+            resolution=10.0, sweep=SweepStep(repetition=0, value=10.0, index=2)
+        ),  # baseline
+        AutofocusResult(
+            resolution=12.0, sweep=SweepStep(repetition=0, value=11.0, index=1)
+        ),  # candidate
+        AutofocusResult(
+            resolution=10.0, sweep=SweepStep(repetition=0, value=10.0, index=0)
+        ),  # baseline
+        AutofocusResult(
+            resolution=8.0, sweep=SweepStep(repetition=1, value=12.0, index=5)
         ),  # candidate (discarded)
-        AutofocusResult(resolution=11.0, sweep_value=10.0, sweep_index=4),  # baseline
+        AutofocusResult(
+            resolution=11.0, sweep=SweepStep(repetition=1, value=10.0, index=4)
+        ),  # baseline
     ]
 
     best = strategy.evaluate(results)
@@ -180,13 +221,17 @@ def test_interleaved_sweeping_strategy_evaluate_falls_back_to_baseline():
     strategy = InterleavedSweepingStrategy(InterleavedStrategySettings(min_diff=0.1))
 
     results = [
-        AutofocusResult(resolution=100.0, sweep_value=10.0, sweep_index=0),  # baseline
         AutofocusResult(
-            resolution=105.0, sweep_value=11.0, sweep_index=1
+            resolution=100.0, sweep=SweepStep(repetition=0, value=10.0, index=0)
+        ),  # baseline
+        AutofocusResult(
+            resolution=105.0, sweep=SweepStep(repetition=0, value=11.0, index=1)
         ),  # candidate (discard)
-        AutofocusResult(resolution=100.0, sweep_value=10.0, sweep_index=2),  # baseline
         AutofocusResult(
-            resolution=109.0, sweep_value=12.0, sweep_index=3
+            resolution=100.0, sweep=SweepStep(repetition=0, value=10.0, index=2)
+        ),  # baseline
+        AutofocusResult(
+            resolution=109.0, sweep=SweepStep(repetition=0, value=12.0, index=3)
         ),  # candidate (discard)
     ]
 

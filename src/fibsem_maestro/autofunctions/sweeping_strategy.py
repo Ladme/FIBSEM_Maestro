@@ -147,8 +147,8 @@ class BasicSweepingStrategy(SweepingStrategy):
 
         # collect resolutions obtained for the same sweep value
         for r in results:
-            resolution_sum[r.sweep_value] += r.resolution
-            resolution_count[r.sweep_value] += 1
+            resolution_sum[r.sweep.value] += r.resolution
+            resolution_count[r.sweep.value] += 1
 
         if not resolution_sum:
             raise AutofunctionError("No autofocus results provided")
@@ -238,7 +238,7 @@ class InterleavedSweepingStrategy(SweepingStrategy):
         """
         # sort results based on sweep index so that each result can
         # be compared to an immediately preceeding result
-        sorted_results = sorted(results, key=lambda r: r.sweep_index)
+        sorted_results = sorted(results, key=lambda r: r.sweep.index)
 
         if len(sorted_results) < 2:
             raise AutofunctionError(
@@ -255,12 +255,12 @@ class InterleavedSweepingStrategy(SweepingStrategy):
 
             # keep only improvements that exceed the minimum relative threshold
             if delta > base.resolution * self._settings.min_diff:
-                delta_sum[curr.sweep_value] += delta
-                delta_count[curr.sweep_value] += 1
+                delta_sum[curr.sweep.value] += delta
+                delta_count[curr.sweep.value] += 1
 
         # if no sweep value produced a significant improvement over its baseline, fall back to base
         if not delta_sum:
-            return sorted_results[0].sweep_value
+            return sorted_results[0].sweep.value
 
         # calculate mean resolution for each sweep value
         mean_delta_by_sweep = {
