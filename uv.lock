@@ -126,6 +126,7 @@ name = "fibsem-maestro"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "colorama" },
     { name = "keyring" },
     { name = "matplotlib" },
     { name = "numpy" },
@@ -145,6 +146,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "colorama", specifier = ">=0.4.6" },
     { name = "keyring", specifier = ">=25.7.0" },
     { name = "matplotlib", specifier = ">=3.8.1" },
     { name = "numpy", specifier = "==2.2.5" },
