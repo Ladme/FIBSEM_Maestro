@@ -6,7 +6,6 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from fibsem_maestro.core.beam_shift import BeamShift
-from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
 from fibsem_maestro.core.scanning_area import ScanningArea
 from fibsem_maestro.core.source_tilt import SourceTilt
@@ -137,7 +136,7 @@ class BeamControl(ABC):
     def stop_acquisition(self) -> None:
         pass
 
-    @abstractmethod
+    """@abstractmethod
     def grab_frame(self) -> Image:
         pass
 
@@ -145,7 +144,6 @@ class BeamControl(ABC):
     def get_image(self, crop_to_scanning_area: bool = False) -> Image:
         pass
 
-    """
     @abstractmethod
     def rectangle_milling(
         self, app_file: str, leftop, size, depth: float, direction: str
@@ -218,14 +216,19 @@ class BeamControl(ABC):
     def pixel_size(self) -> float:
         pass
 
+    @pixel_size.setter
+    @abstractmethod
+    def pixel_size(self, value: float) -> None:
+        pass
+
     @property
     @abstractmethod
-    def scanning_area(self) -> ScanningArea:
+    def scanning_area(self) -> ScanningArea | None:
         pass
 
     @scanning_area.setter
     @abstractmethod
-    def scanning_area(self, value: ScanningArea) -> None:
+    def scanning_area(self, value: ScanningArea | None) -> None:
         pass
 
     @abstractmethod
@@ -238,12 +241,12 @@ class BeamControl(ABC):
 
     @property
     @abstractmethod
-    def beam_shift_to_stage_move(self) -> tuple[float, float]:
+    def beam_shift_to_stage_move(self) -> tuple[float, float] | None:
         pass
 
     @property
     @abstractmethod
-    def image_to_beam_shift(self) -> tuple[float, float]:
+    def image_to_beam_shift(self) -> tuple[float, float] | None:
         pass
 
     @property

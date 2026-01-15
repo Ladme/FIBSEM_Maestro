@@ -4,6 +4,7 @@
 import numpy as np
 
 from fibsem_maestro.core.stage_position import StagePosition
+from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
 from fibsem_maestro.microscope.abstract_control.microscope_control import (
     MicroscopeControl,
@@ -21,15 +22,17 @@ class SimulatedMicroscopeControl(MicroscopeControl):
     (electron and ion).
     """
 
-    def __init__(self, ip_address: str, *, seed: int = 0):
+    def __init__(self, ip_address: str, txt_log: TextLogger, *, seed: int = 0):
         """Initialize the simulated microscope.
 
         Args:
             ip_address (str): Address string for compatibility with real controllers.
+            txt_log (TextLogger): Text logger.
             seed (int, optional): Seed for deterministic noise. Defaults to 0.
         """
         self.ip_address = ip_address
         self._rng = np.random.default_rng(seed)
+        self._txt_log = txt_log
 
         self._stage_position = StagePosition(
             x=0.0, y=0.0, z=0.0, rotation=0.0, tilt=0.0
@@ -58,6 +61,10 @@ class SimulatedMicroscopeControl(MicroscopeControl):
         """
         return self._electron_beam
 
+    @electron_beam.setter
+    def electron_beam(self, beam: BeamControl) -> None:
+        self._electron_beam = beam
+
     @property
     def ion_beam(self) -> BeamControl:
         """Return the simulated ion beam controller.
@@ -66,6 +73,10 @@ class SimulatedMicroscopeControl(MicroscopeControl):
             BeamControl: Beam controller implementing the ion beam behavior.
         """
         return self._ion_beam
+
+    @ion_beam.setter
+    def ion_beam(self, beam: BeamControl) -> None:
+        self._ion_beam = beam
 
     def try_set_stage_position(self, pos: StagePosition) -> StagePosition:
         """

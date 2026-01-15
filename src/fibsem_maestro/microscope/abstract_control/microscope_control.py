@@ -7,6 +7,7 @@ from typing import Any
 
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.stage_position import StagePosition
+from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
 from fibsem_maestro.settings.microscope_properties import MicroscopeProperties
 
@@ -25,7 +26,7 @@ class MicroscopeControl(ABC):
     """
 
     @abstractmethod
-    def __init__(self, ip_address: str):
+    def __init__(self, ip_address: str, txt_log: TextLogger):
         pass
 
     @property

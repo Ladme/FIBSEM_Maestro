@@ -2,6 +2,7 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 from typing import Any
+
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.lens_alignment import LensAlignment
 from fibsem_maestro.core.scanning_area import ScanningArea

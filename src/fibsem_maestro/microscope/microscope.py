@@ -34,7 +34,7 @@ class Microscope:
     def _apply_settings(self, settings: MicroscopeSettings) -> None:
         self._settings = settings
         self._control = MicroscopeRegistry.get(settings.control)(
-            self._settings.ip_address
+            self._settings.ip_address, self._txt_log
         )
         self.beam = self._control.electron_beam
 
@@ -132,7 +132,9 @@ class Microscope:
             )
 
     def set_beam_shift_with_verification(self, new_beam_shift: BeamShift) -> None:
-        actual_beam_shift = self.beam.try_set_beam_shift(new_beam_shift)
+        # try setting beam shift
+        self.beam.beam_shift = new_beam_shift
+        actual_beam_shift = self.beam.beam_shift
 
         dist = distance.euclidean(
             actual_beam_shift.to_tuple(), new_beam_shift.to_tuple()
@@ -145,6 +147,9 @@ class Microscope:
             )
 
             rel_shift_to_stage = self._settings.relative_beam_shift_to_stage
+            # TODO: handle this properly
+            assert self.beam.beam_shift_to_stage_move is not None
+
             new_stage_move = (
                 new_beam_shift.x
                 * rel_shift_to_stage[0]
@@ -159,7 +164,7 @@ class Microscope:
                 StagePosition(x=new_stage_move[0], y=new_stage_move[1])
             )
             # set beam shift to zero
-            self.beam.try_set_beam_shift(BeamShift(0.0, 0.0))
+            self.beam.beam_shift = BeamShift(0.0, 0.0)
 
     def blank_screen(self):
         with self.temporary_imaging_settings(
@@ -174,4 +179,5 @@ class Microscope:
             )
         ):
             self.beam.blank()
-            self.beam.grab_frame()
+            # TODO: grab frame
+            # self.beam.grab_frame()

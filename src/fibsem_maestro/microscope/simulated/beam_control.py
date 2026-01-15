@@ -3,6 +3,7 @@
 
 
 from typing import Any
+
 import numpy as np
 
 from fibsem_maestro.core.beam_shift import BeamShift
@@ -223,12 +224,18 @@ class SimulatedBeamControl(BeamControl):
         """Return the pixel size in nanometers per pixel."""
         return self.horizontal_field_width / self.resolution[0]
 
+    @pixel_size.setter
+    def pixel_size(self, value: float) -> None:
+        raise NotImplementedError(
+            "Setting pixel size is not implemented in the simulator."
+        )
+
     @property
-    def scanning_area(self) -> ScanningArea:
+    def scanning_area(self) -> ScanningArea | None:
         return self._scanning_area
 
     @scanning_area.setter
-    def scanning_area(self, value: ScanningArea) -> None:
+    def scanning_area(self, value: ScanningArea | None) -> None:
         self._scanning_area = value
 
     def custom(self, name: str) -> Any:
