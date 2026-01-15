@@ -3,6 +3,7 @@
 
 import inspect
 from abc import ABC, abstractmethod
+from typing import Any
 
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.image import Image
@@ -10,6 +11,7 @@ from fibsem_maestro.core.lens_alignment import LensAlignment
 from fibsem_maestro.core.scanning_area import ScanningArea
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
+from fibsem_maestro.settings.beam_properties import BeamProperties
 
 
 class BeamControl(ABC):
@@ -85,8 +87,8 @@ class BeamControl(ABC):
     def beam_shift(self) -> BeamShift:
         pass
 
-    @abstractmethod
-    def try_set_beam_shift(self, value: BeamShift) -> BeamShift:
+    @beam_shift.setter
+    def beam_shift(self, value: BeamShift):
         pass
 
     @property
@@ -226,6 +228,14 @@ class BeamControl(ABC):
     def scanning_area(self, value: ScanningArea) -> None:
         pass
 
+    @abstractmethod
+    def custom(self, name: str) -> Any:
+        pass
+
+    @abstractmethod
+    def set_custom(self, name: str, value: Any) -> Any:
+        pass
+
     @property
     @abstractmethod
     def beam_shift_to_stage_move(self) -> tuple[float, float]:
@@ -252,3 +262,23 @@ class BeamControl(ABC):
             if isinstance(obj, property):
                 props.append(name)
         return props
+
+    def apply_beam_properties(self, properties: BeamProperties) -> None:
+        field_names = list(BeamProperties.model_fields.keys())
+        field_names.remove("custom")
+
+        # set custom beam properties
+        for custom_property, value in properties.custom.items():
+            self.set_custom(custom_property, value)
+
+        # set the pre-defined properties
+        for field_name in field_names:
+            value = getattr(properties, field_name)
+
+            setter = getattr(self, field_name, None)
+            if setter is None or not callable(setter):
+                raise AttributeError(
+                    f"BeamControl is missing required callable setter '{field_name}'"
+                )
+
+            setter(value)

@@ -10,7 +10,7 @@ site-packages directory that points to an existing Autoscript installation.
 You only need to run it once after creating the virtual environment with `uv sync`.
 
 Usage:
-    uv run link_autoscript.py /path/to/autoscript
+    uv run src/link_autoscript.py /path/to/autoscript
 """
 
 from __future__ import annotations

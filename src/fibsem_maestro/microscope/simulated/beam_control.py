@@ -2,6 +2,7 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
+from typing import Any
 import numpy as np
 
 from fibsem_maestro.core.beam_shift import BeamShift
@@ -12,6 +13,7 @@ from fibsem_maestro.core.scanning_area import ScanningArea
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
+from fibsem_maestro.microscope.error import MicroscopeError
 
 
 class SimulatedBeamControl(BeamControl):
@@ -46,6 +48,8 @@ class SimulatedBeamControl(BeamControl):
 
         self._beam_shift_to_stage_move = (1.0, 1.0)
         self._image_to_beam_shift = (1.0, 1.0)
+
+        self._custom_properties: dict[str, Any] = {}
 
         self._limits: dict[str, tuple[float, float]] = {
             "working_distance": (
@@ -112,20 +116,9 @@ class SimulatedBeamControl(BeamControl):
         """Return the current beam shift (nm)."""
         return self._beam_shift
 
-    def try_set_beam_shift(self, value: BeamShift) -> BeamShift:
-        """
-        Attempt to set beam shift (approximately).
-
-        Args:
-            value (BeamShift): Requested beam shift (nm).
-
-        Returns:
-            BeamShift: Actual beam shift after setting (nm).
-        """
-        x = self._apply_numeric("beam_shift_x", value.x, abs_noise=20.0)
-        y = self._apply_numeric("beam_shift_y", value.y, abs_noise=20.0)
-        self._beam_shift = BeamShift(x=x, y=y)
-        return self._beam_shift
+    @beam_shift.setter
+    def beam_shift(self, value: BeamShift) -> None:
+        self._beam_shift = value
 
     @property
     def detector_contrast(self) -> float:
@@ -237,6 +230,17 @@ class SimulatedBeamControl(BeamControl):
     @scanning_area.setter
     def scanning_area(self, value: ScanningArea) -> None:
         self._scanning_area = value
+
+    def custom(self, name: str) -> Any:
+        try:
+            return self._custom_properties[name]
+        except KeyError as e:
+            raise MicroscopeError(
+                f"Custom property {name} does not exist for the simulated beam"
+            ) from e
+
+    def set_custom(self, name: str, value: Any) -> Any:
+        self._custom_properties[name] = value
 
     @property
     def beam_shift_to_stage_move(self) -> tuple[float, float]:
