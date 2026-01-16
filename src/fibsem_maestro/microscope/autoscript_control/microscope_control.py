@@ -15,6 +15,7 @@ from fibsem_maestro.microscope.autoscript_control.beam_control import (
     AutoscriptElectronBeamControl,
     AutoscriptIonBeamControl,
 )
+from fibsem_maestro.microscope.custom_properties import CustomPropertiesRegistry
 from fibsem_maestro.microscope.error import MicroscopeError
 
 
@@ -36,10 +37,18 @@ class AutoscriptMicroscopeControl(MicroscopeControl):
             self._microscope.connect(ip_address)
             self._txt_log.info(f"Connecting to {ip_address}.")
 
+        self._custom_properties = CustomPropertiesRegistry(self._microscope)
+
         self._electron_beam: BeamControl = AutoscriptElectronBeamControl(
-            self._microscope
+            self._microscope,
+            self._custom_properties,
+            self._txt_log,
         )
-        self._ion_beam: BeamControl = AutoscriptIonBeamControl(self._microscope)
+        self._ion_beam: BeamControl = AutoscriptIonBeamControl(
+            self._microscope,
+            self._custom_properties,
+            self._txt_log,
+        )
 
     @property
     def stage_position(self):
@@ -69,10 +78,12 @@ class AutoscriptMicroscopeControl(MicroscopeControl):
         self._ion_beam = beam
 
     def custom(self, name: str) -> Any:
-        raise NotImplementedError("Not implemented.")
+        property = self._custom_properties.get(name)
+        return property.get()
 
     def set_custom(self, name: str, value: Any) -> Any:
-        raise NotImplementedError("Not implemented.")
+        property = self._custom_properties.get(name)
+        property.set(value)
 
     def try_set_stage_position(self, pos: StagePosition) -> StagePosition:
         self._microscope.specimen.stage.unlink()

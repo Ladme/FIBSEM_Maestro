@@ -2,7 +2,7 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 from abc import abstractmethod
-from typing import Generic, TypeVar
+from typing import Any, Generic, TypeVar
 
 from autoscript_sdb_microscope_client.enumerations import ImagingDevice
 from autoscript_sdb_microscope_client.sdb_microscope.beams._electron_beam import (
@@ -21,6 +21,7 @@ from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
+from fibsem_maestro.microscope.custom_properties import CustomPropertiesRegistry
 from fibsem_maestro.microscope.error import MicroscopeError
 
 BeamT = TypeVar(
@@ -31,8 +32,14 @@ BeamT = TypeVar(
 
 
 class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
-    def __init__(self, autoscript_microscope: SdbMicroscopeClient, txt_log: TextLogger):
+    def __init__(
+        self,
+        autoscript_microscope: SdbMicroscopeClient,
+        custom_properties: CustomPropertiesRegistry,
+        txt_log: TextLogger,
+    ):
         self._microscope = autoscript_microscope
+        self._custom_properties = custom_properties
         self._txt_log = txt_log
 
         self._scanning_area: ScanningArea | None = None
@@ -331,6 +338,14 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
     def minimal_dwell(self) -> float:
         # in nm
         return 25.0
+
+    def custom(self, name: str) -> Any:
+        property = self._custom_properties.get(name)
+        return property.get()
+
+    def set_custom(self, name: str, value: Any) -> Any:
+        property = self._custom_properties.get(name)
+        property.set(value)
 
 
 class AutoscriptElectronBeamControl(AutoscriptBeamControl[ElectronBeamAs]):
