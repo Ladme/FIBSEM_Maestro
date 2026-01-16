@@ -15,10 +15,12 @@ from fibsem_maestro.microscope.autoscript_control.beam_control import (
     AutoscriptElectronBeamControl,
     AutoscriptIonBeamControl,
 )
-from fibsem_maestro.microscope.custom_properties import CustomPropertiesRegistry
+from fibsem_maestro.microscope.internal_params import InternalParametersRegistry
 from fibsem_maestro.microscope.error import MicroscopeError
+from fibsem_maestro.microscope.microscope_registry import MicroscopeRegistry
 
 
+@MicroscopeRegistry.register("autoscript")
 class AutoscriptMicroscopeControl(MicroscopeControl):
     def __init__(self, ip_address: str, txt_log: TextLogger):
         self._txt_log = txt_log
@@ -37,7 +39,7 @@ class AutoscriptMicroscopeControl(MicroscopeControl):
             self._microscope.connect(ip_address)
             self._txt_log.info(f"Connecting to {ip_address}.")
 
-        self._custom_properties = CustomPropertiesRegistry(self._microscope)
+        self._custom_properties = InternalParametersRegistry(self._microscope)
 
         self._electron_beam: BeamControl = AutoscriptElectronBeamControl(
             self._microscope,

@@ -21,7 +21,7 @@ from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
-from fibsem_maestro.microscope.custom_properties import CustomPropertiesRegistry
+from fibsem_maestro.microscope.internal_params import InternalParametersRegistry
 from fibsem_maestro.microscope.error import MicroscopeError
 
 BeamT = TypeVar(
@@ -35,7 +35,7 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
     def __init__(
         self,
         autoscript_microscope: SdbMicroscopeClient,
-        custom_properties: CustomPropertiesRegistry,
+        custom_properties: InternalParametersRegistry,
         txt_log: TextLogger,
     ):
         self._microscope = autoscript_microscope
