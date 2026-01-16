@@ -15,8 +15,8 @@ from fibsem_maestro.microscope.autoscript_control.beam_control import (
     AutoscriptElectronBeamControl,
     AutoscriptIonBeamControl,
 )
-from fibsem_maestro.microscope.internal_params import InternalParametersRegistry
 from fibsem_maestro.microscope.error import MicroscopeError
+from fibsem_maestro.microscope.internal_params import InternalParametersRegistry
 from fibsem_maestro.microscope.microscope_registry import MicroscopeRegistry
 
 

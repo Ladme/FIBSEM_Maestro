@@ -21,8 +21,8 @@ from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
-from fibsem_maestro.microscope.internal_params import InternalParametersRegistry
 from fibsem_maestro.microscope.error import MicroscopeError
+from fibsem_maestro.microscope.internal_params import InternalParametersRegistry
 
 BeamT = TypeVar(
     "BeamT",
