@@ -198,13 +198,13 @@ def frc_criterion(
     return res
 
 
-def gauss_filter(x: Image, px_size: int, detail: float) -> NDArray[np.floating]:
+def gauss_filter(x: Image, px_size: float, detail: float) -> NDArray[np.floating]:
     """
     Apply a Gaussian filter to an image.
 
     Args:
         x (Image): The input image array.
-        px_size (int): Pixel size in spatial units.
+        px_size (float): Pixel size in nanometers.
         detail (float): Detail parameter controlling filter width.
 
     Returns:
