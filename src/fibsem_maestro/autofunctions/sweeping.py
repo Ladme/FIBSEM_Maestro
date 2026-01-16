@@ -53,6 +53,7 @@ class Sweeping:
         self._settings.on_change(self._update)
 
         self._base: float | None = None
+        self.set_base()
 
     def _update(self, settings: SweepingSettings) -> None:
         """

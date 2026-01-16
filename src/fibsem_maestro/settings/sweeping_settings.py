@@ -1,16 +1,32 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING, Annotated, Literal
+from typing import Annotated, Literal
 
 from pydantic import ConfigDict, Field, field_validator
 
-if TYPE_CHECKING:
-    from fibsem_maestro.core.beam_type import BeamType
+from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
 from fibsem_maestro.settings.base_settings import BaseSettings
+
+
+class BasicStrategySettings(BaseSettings):
+    type: Literal["basic"] = "basic"
+
+
+class InterleavedStrategySettings(BaseSettings):
+    type: Literal["interleaved"] = "interleaved"
+    min_diff: Annotated[
+        float,
+        Field(
+            description="Minimal change in resolution relative to base resolution to consider it relevant."
+        ),
+    ]
+
+
+SweepingStrategySettings = Annotated[
+    BasicStrategySettings | InterleavedStrategySettings, Field(discriminator="type")
+]
 
 
 class SweepingSettings(BaseSettings):
@@ -43,22 +59,3 @@ class SweepingSettings(BaseSettings):
                 f"First value of 'range' ('{r[0]}') cannot be larger than the second ('{r[1]}')"
             )
         return r
-
-
-class BasicStrategySettings(BaseSettings):
-    type: Literal["basic"] = "basic"
-
-
-class InterleavedStrategySettings(BaseSettings):
-    type: Literal["interleaved"] = "interleaved"
-    min_diff: Annotated[
-        float,
-        Field(
-            description="Minimal change in resolution relative to base resolution to consider it relevant."
-        ),
-    ]
-
-
-SweepingStrategySettings = Annotated[
-    BasicStrategySettings | InterleavedStrategySettings, Field(discriminator="type")
-]

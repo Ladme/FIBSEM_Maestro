@@ -1,14 +1,18 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
+from typing import Any
+
 import numpy as np
 
+from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
 from fibsem_maestro.microscope.abstract_control.microscope_control import (
     MicroscopeControl,
 )
+from fibsem_maestro.microscope.error import MicroscopeError
 from fibsem_maestro.microscope.microscope_registry import MicroscopeRegistry
 from fibsem_maestro.microscope.simulated.beam_control import SimulatedBeamControl
 
@@ -37,6 +41,8 @@ class SimulatedMicroscopeControl(MicroscopeControl):
         self._stage_position = StagePosition(
             x=0.0, y=0.0, z=0.0, rotation=0.0, tilt=0.0
         )
+
+        self._internal_params: dict[str, Any] = {}
 
         self._electron_beam = SimulatedBeamControl(name="electron", rng=self._rng)
         self._ion_beam = SimulatedBeamControl(name="ion", rng=self._rng)
@@ -77,6 +83,17 @@ class SimulatedMicroscopeControl(MicroscopeControl):
     @ion_beam.setter
     def ion_beam(self, beam: BeamControl) -> None:
         self._ion_beam = beam
+
+    def custom(self, name: str) -> Any:
+        try:
+            return self._internal_params[name]
+        except KeyError as e:
+            raise MicroscopeError(
+                f"Microscope parameter '{name}' does not exist."
+            ) from e
+
+    def set_custom(self, name: str, value: Any) -> Any:
+        self._internal_params[name] = value
 
     def try_set_stage_position(self, pos: StagePosition) -> StagePosition:
         """
@@ -125,3 +142,7 @@ class SimulatedMicroscopeControl(MicroscopeControl):
             tilt=cur.tilt + delta.tilt,
         )
         return self.try_set_stage_position(target)
+
+    def try_set_beam_shift(self, shift: BeamShift) -> BeamShift:
+        # TODO: implement
+        raise NotImplementedError("Not yet implemented.")

@@ -5,6 +5,7 @@ from typing import Any
 
 from autoscript_sdb_microscope_client.sdb_microscope_client import SdbMicroscopeClient
 
+from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
@@ -39,16 +40,16 @@ class AutoscriptMicroscopeControl(MicroscopeControl):
             self._microscope.connect(ip_address)
             self._txt_log.info(f"Connecting to {ip_address}.")
 
-        self._custom_properties = InternalParametersRegistry(self._microscope)
+        self._internal_params = InternalParametersRegistry(self._microscope)
 
         self._electron_beam: BeamControl = AutoscriptElectronBeamControl(
             self._microscope,
-            self._custom_properties,
+            self._internal_params,
             self._txt_log,
         )
         self._ion_beam: BeamControl = AutoscriptIonBeamControl(
             self._microscope,
-            self._custom_properties,
+            self._internal_params,
             self._txt_log,
         )
 
@@ -80,11 +81,11 @@ class AutoscriptMicroscopeControl(MicroscopeControl):
         self._ion_beam = beam
 
     def custom(self, name: str) -> Any:
-        property = self._custom_properties.get(name)
+        property = self._internal_params.get(name)
         return property.get()
 
     def set_custom(self, name: str, value: Any) -> Any:
-        property = self._custom_properties.get(name)
+        property = self._internal_params.get(name)
         property.set(value)
 
     def try_set_stage_position(self, pos: StagePosition) -> StagePosition:
@@ -103,3 +104,7 @@ class AutoscriptMicroscopeControl(MicroscopeControl):
 
         self._txt_log.debug(f"Moving stage by {delta}.")
         return self.stage_position
+
+    def try_set_beam_shift(self, shift: BeamShift) -> BeamShift:
+        # TODO: implement
+        raise NotImplementedError("Not yet implemented.")

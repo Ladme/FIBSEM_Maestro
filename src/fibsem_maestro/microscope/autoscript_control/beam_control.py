@@ -35,11 +35,11 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
     def __init__(
         self,
         autoscript_microscope: SdbMicroscopeClient,
-        custom_properties: InternalParametersRegistry,
+        internal_params: InternalParametersRegistry,
         txt_log: TextLogger,
     ):
         self._microscope = autoscript_microscope
-        self._custom_properties = custom_properties
+        self._internal_params = internal_params
         self._txt_log = txt_log
 
         self._scanning_area: ScanningArea | None = None
@@ -340,11 +340,11 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         return 25.0
 
     def custom(self, name: str) -> Any:
-        property = self._custom_properties.get(name)
+        property = self._internal_params.get(name)
         return property.get()
 
     def set_custom(self, name: str, value: Any) -> Any:
-        property = self._custom_properties.get(name)
+        property = self._internal_params.get(name)
         property.set(value)
 
 
