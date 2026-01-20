@@ -10,7 +10,10 @@ from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
-from fibsem_maestro.settings.microscope_properties import MicroscopeProperties
+from fibsem_maestro.settings.microscope_properties import (
+    MicroscopeProperties,
+)
+from fibsem_maestro.settings.properties_to_collect import MicroscopePropertiesToCollect
 
 
 class MicroscopeControl(ABC):
@@ -85,9 +88,9 @@ class MicroscopeControl(ABC):
         pass
 
     @abstractmethod
-    def custom(self, name: str) -> Any:
+    def internal(self, name: str) -> Any:
         """
-        Get a custom microscope property.
+        Get an internal microscope property.
 
         Args:
             name (str): Property name.
@@ -98,9 +101,9 @@ class MicroscopeControl(ABC):
         pass
 
     @abstractmethod
-    def set_custom(self, name: str, value: Any) -> Any:
+    def set_internal(self, name: str, value: Any) -> Any:
         """
-        Set a custom microscope property.
+        Set an internal microscope property.
 
         Args:
             name (str): Property name.
@@ -108,6 +111,17 @@ class MicroscopeControl(ABC):
 
         Returns:
             Any: Result of setting the property.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def internal_param_names(self) -> list[str]:
+        """
+        Get a list of all internal parameters of the microscope.
+
+        Returns:
+            list[str]: List of all internal parameters of the microscope.
         """
         pass
 
@@ -171,7 +185,7 @@ class MicroscopeControl(ABC):
 
         if (internal := properties.internal) is not None:
             for custom_property, value in internal.items():
-                self.set_custom(custom_property, value)
+                self.set_internal(custom_property, value)
 
         if properties.electron_beam is not None and (
             beam is None or beam is BeamType.ELECTRON
@@ -180,3 +194,43 @@ class MicroscopeControl(ABC):
 
         if properties.ion_beam is not None and (beam is None or beam is BeamType.ION):
             self.ion_beam.set_properties(properties.ion_beam)
+
+    def collect_properties(
+        self, selected_properties: MicroscopePropertiesToCollect
+    ) -> MicroscopeProperties:
+        # TODO: we should check that all properties in the input file actually exist
+
+        # get field names to write out
+        field_names = list(
+            filter(
+                lambda x: x in selected_properties.microscope,
+                MicroscopeProperties.model_fields.keys(),
+            )
+        )
+
+        # collect the values of the properties
+        values = {}
+        for field_name in field_names:
+            values[field_name] = getattr(self, field_name)
+
+        # collect internal properties
+        internal_values = {}
+        for field_name in filter(
+            lambda x: x in selected_properties.microscope, self.internal_param_names
+        ):
+            internal_values[field_name] = self.internal(field_name)
+
+        values["internal"] = internal_values
+
+        electron_beam_properties = self.electron_beam.collect_properties(
+            selected_properties.electron_beam
+        )
+        ion_beam_properties = self.ion_beam.collect_properties(
+            selected_properties.ion_beam
+        )
+
+        return MicroscopeProperties(
+            electron_beam=electron_beam_properties,
+            ion_beam=ion_beam_properties,
+            **values,
+        )

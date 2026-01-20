@@ -168,7 +168,7 @@ class Microscope:
             # set beam shift to zero
             self.beam.beam_shift = BeamShift(0.0, 0.0)
 
-    def blank_screen(self):
+    def blank_screen(self) -> None:
         with self.temporary_imaging_settings(
             ImagingSettings(
                 pixel_size=20,
@@ -184,5 +184,10 @@ class Microscope:
             # TODO: grab frame
             # self.beam.grab_frame()
 
-    def set_properties(self, properties: MicroscopeProperties, beam: BeamType | None):
+    def set_properties(
+        self, properties: MicroscopeProperties, beam: BeamType | None
+    ) -> None:
         self._control.set_properties(properties, beam)
+
+    def collect_properties(self) -> MicroscopeProperties:
+        return self._control.collect_properties(self._settings.properties_to_collect)

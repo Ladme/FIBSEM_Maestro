@@ -463,9 +463,9 @@ class BeamControl(ABC):
         pass
 
     @abstractmethod
-    def custom(self, name: str) -> Any:
+    def internal(self, name: str) -> Any:
         """
-        Get a custom beam property.
+        Get an internal beam property.
 
         Args:
             name (str): Property name.
@@ -476,9 +476,9 @@ class BeamControl(ABC):
         pass
 
     @abstractmethod
-    def set_custom(self, name: str, value: Any) -> Any:
+    def set_internal(self, name: str, value: Any) -> Any:
         """
-        Set a custom beam property.
+        Set an internal beam property.
 
         Args:
             name (str): Property name.
@@ -535,6 +535,17 @@ class BeamControl(ABC):
         """
         pass
 
+    @property
+    @abstractmethod
+    def internal_param_names(self) -> list[str]:
+        """
+        Get a list of all internal parameters of the beam.
+
+        Returns:
+            list[str]: List of all internal parameters of the beam.
+        """
+        pass
+
     @classmethod
     def get_property_names(cls) -> list[str]:
         """
@@ -565,10 +576,10 @@ class BeamControl(ABC):
         field_names = list(BeamProperties.model_fields.keys())
         field_names.remove("internal")
 
-        # set internal/custom beam properties
+        # set internal beam properties
         if (internal := properties.internal) is not None:
             for custom_property, value in internal.items():
-                self.set_custom(custom_property, value)
+                self.set_internal(custom_property, value)
 
         # set the pre-defined properties
         for field_name in field_names:
@@ -582,3 +593,25 @@ class BeamControl(ABC):
                 raise AttributeError(
                     f"BeamControl is missing required callable setter '{field_name}'"
                 ) from e
+
+    def collect_properties(self, selected: list[str]) -> BeamProperties:
+        # TODO: we should check that all properties in the input file actually exist
+
+        # get field names to write out
+        field_names = list(
+            filter(lambda x: x in selected, BeamProperties.model_fields.keys())
+        )
+
+        # collect the values of the properties
+        values = {}
+        for field_name in field_names:
+            values[field_name] = getattr(self, field_name)
+
+        # collect internal properties
+        internal_values = {}
+        for field_name in filter(lambda x: x in selected, self.internal_param_names):
+            internal_values[field_name] = self.internal(field_name)
+
+        values["internal"] = internal_values
+
+        return BeamProperties(**values)

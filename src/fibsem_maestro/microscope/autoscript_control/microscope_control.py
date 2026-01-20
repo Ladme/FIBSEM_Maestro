@@ -88,6 +88,10 @@ class AutoscriptMicroscopeControl(MicroscopeControl):
         property = self._internal_params.get(name)
         property.set(value)
 
+    @property
+    def internal_param_names(self) -> list[str]:
+        return self._internal_params.allowed()
+
     def try_set_stage_position(self, pos: StagePosition) -> StagePosition:
         self._microscope.specimen.stage.unlink()
         pos_autoscript = pos.to_stage_position_autoscript()

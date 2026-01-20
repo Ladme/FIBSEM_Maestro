@@ -339,13 +339,17 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         # in nm
         return 25.0
 
-    def custom(self, name: str) -> Any:
+    def internal(self, name: str) -> Any:
         property = self._internal_params.get(name)
         return property.get()
 
-    def set_custom(self, name: str, value: Any) -> Any:
+    def set_internal(self, name: str, value: Any) -> Any:
         property = self._internal_params.get(name)
         property.set(value)
+
+    @property
+    def internal_param_names(self) -> list[str]:
+        return self._internal_params.allowed()
 
 
 class AutoscriptElectronBeamControl(AutoscriptBeamControl[ElectronBeamAs]):

@@ -1,7 +1,7 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import Field
 
@@ -13,6 +13,8 @@ class SMTPEmailSettings(BaseSettings):
     """
     Configuration for SMTP-based email notifications.
     """
+
+    type: Literal["SMTP"] = "SMTP"
 
     host: Annotated[
         str,

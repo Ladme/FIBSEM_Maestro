@@ -49,7 +49,7 @@ class SimulatedBeamControl(BeamControl):
         self._beam_shift_to_stage_move = (1.0, 1.0)
         self._image_to_beam_shift = (1.0, 1.0)
 
-        self._custom_properties: dict[str, Any] = {}
+        self._internal_properties: dict[str, Any] = {}
 
         self._limits: dict[str, tuple[float, float]] = {
             "working_distance": (
@@ -268,19 +268,19 @@ class SimulatedBeamControl(BeamControl):
         self._txt_log.debug(f"Setting scanning area: {value}.")
         self._scanning_area = value
 
-    def custom(self, name: str) -> Any:
+    def internal(self, name: str) -> Any:
         try:
-            value = self._custom_properties[name]
-            self._txt_log.debug(f"Getting custom property '{name}': {value}.")
+            value = self._internal_properties[name]
+            self._txt_log.debug(f"Getting internal property '{name}': {value}.")
             return value
         except KeyError as e:
             raise MicroscopeError(
-                f"Custom property {name} does not exist for the simulated beam"
+                f"Internal property {name} does not exist for the simulated beam"
             ) from e
 
-    def set_custom(self, name: str, value: Any) -> Any:
-        self._txt_log.debug(f"Setting custom property '{name}': {value}.")
-        self._custom_properties[name] = value
+    def set_internal(self, name: str, value: Any) -> Any:
+        self._txt_log.debug(f"Setting internal property '{name}': {value}.")
+        self._internal_properties[name] = value
 
     @property
     def beam_shift_to_stage_move(self) -> tuple[float, float]:
@@ -312,3 +312,7 @@ class SimulatedBeamControl(BeamControl):
             v += self._rng.normal(0.0, abs_noise)
 
         return min(max(v, lo), hi)
+
+    @property
+    def internal_param_names(self) -> list[str]:
+        return list(self._internal_properties.keys())

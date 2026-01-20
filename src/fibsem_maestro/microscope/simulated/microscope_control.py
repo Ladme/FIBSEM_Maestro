@@ -92,16 +92,22 @@ class SimulatedMicroscopeControl(MicroscopeControl):
     def ion_beam(self, beam: BeamControl) -> None:
         self._ion_beam = beam
 
-    def custom(self, name: str) -> Any:
+    def internal(self, name: str) -> Any:
         try:
-            return self._internal_params[name]
+            value = self._internal_params[name]
+            self._txt_log.debug(f"Getting internal property '{name}': {value}.")
+            return value
         except KeyError as e:
             raise MicroscopeError(
                 f"Microscope parameter '{name}' does not exist."
             ) from e
 
-    def set_custom(self, name: str, value: Any) -> Any:
+    def set_internal(self, name: str, value: Any) -> Any:
         self._internal_params[name] = value
+
+    @property
+    def internal_param_names(self) -> list[str]:
+        return list(self._internal_params.keys())
 
     def try_set_stage_position(self, pos: StagePosition) -> StagePosition:
         """
