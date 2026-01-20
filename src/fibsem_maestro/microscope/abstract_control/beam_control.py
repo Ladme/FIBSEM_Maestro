@@ -549,7 +549,7 @@ class BeamControl(ABC):
                 props.append(name)
         return props
 
-    def apply_beam_properties(self, properties: BeamProperties) -> None:
+    def set_properties(self, properties: BeamProperties) -> None:
         """
         Apply beam-related microscope settings.
 
@@ -563,20 +563,22 @@ class BeamControl(ABC):
             AttributeError: If a required property setter is missing or not callable.
         """
         field_names = list(BeamProperties.model_fields.keys())
-        field_names.remove("custom")
+        field_names.remove("internal")
 
-        # set custom beam properties
-        for custom_property, value in properties.custom.items():
-            self.set_custom(custom_property, value)
+        # set internal/custom beam properties
+        if (internal := properties.internal) is not None:
+            for custom_property, value in internal.items():
+                self.set_custom(custom_property, value)
 
         # set the pre-defined properties
         for field_name in field_names:
             value = getattr(properties, field_name)
+            if value is None:
+                continue
 
-            setter = getattr(self, field_name, None)
-            if setter is None or not callable(setter):
+            try:
+                setattr(self, field_name, value)
+            except AttributeError as e:
                 raise AttributeError(
                     f"BeamControl is missing required callable setter '{field_name}'"
-                )
-
-            setter(value)
+                ) from e

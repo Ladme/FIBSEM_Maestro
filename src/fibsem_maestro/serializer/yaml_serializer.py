@@ -33,7 +33,7 @@ class YamlSerializer(Serializer):
         with file.open("r") as input:
             data: dict[str, Any] = yaml.load(input, Loader=CSafeLoader)
 
-        return data
+        return data or {}
 
     @classmethod
     def write(cls, file: Path, data: dict[str, Any]) -> None:

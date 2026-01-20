@@ -8,6 +8,7 @@ from dataclasses import fields
 from scipy.spatial import distance  # pyright: ignore[reportMissingTypeStubs]
 
 from fibsem_maestro.core.beam_shift import BeamShift
+from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.point import RelativePoint
 from fibsem_maestro.core.scanning_area import ScanningArea
 from fibsem_maestro.core.stage_position import StagePosition
@@ -15,6 +16,7 @@ from fibsem_maestro.logging.image.image_logger import ImageLogger
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope_registry import MicroscopeRegistry
 from fibsem_maestro.settings.imaging_settings import ImagingSettings
+from fibsem_maestro.settings.microscope_properties import MicroscopeProperties
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
 
 
@@ -181,3 +183,6 @@ class Microscope:
             self.beam.blank()
             # TODO: grab frame
             # self.beam.grab_frame()
+
+    def set_properties(self, properties: MicroscopeProperties, beam: BeamType | None):
+        self._control.set_properties(properties, beam)

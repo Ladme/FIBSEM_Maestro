@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from fibsem_maestro.core.beam_shift import BeamShift
+from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
@@ -149,7 +150,9 @@ class MicroscopeControl(ABC):
         """
         pass
 
-    def apply_microscope_properties(self, properties: MicroscopeProperties) -> None:
+    def set_properties(
+        self, properties: MicroscopeProperties, beam: BeamType | None
+    ) -> None:
         """
         Apply microscope settings.
 
@@ -159,10 +162,21 @@ class MicroscopeControl(ABC):
         Args:
             properties (MicroscopeProperties): Container of microscope property
                 values to apply.
+            beam (BeamType): Type of the beam which properties should be set.
+                Properties for the other beam are not set.
+                If `None`, properties of both beams are set.
         """
-        self.try_set_stage_position(properties.stage_position)
-        for custom_property, value in properties.custom.items():
-            self.set_custom(custom_property, value)
+        if properties.stage_position is not None:
+            self.try_set_stage_position(properties.stage_position)
 
-        self.electron_beam.apply_beam_properties(properties.electron_beam)
-        self.ion_beam.apply_beam_properties(properties.ion_beam)
+        if (internal := properties.internal) is not None:
+            for custom_property, value in internal.items():
+                self.set_custom(custom_property, value)
+
+        if properties.electron_beam is not None and (
+            beam is None or beam is BeamType.ELECTRON
+        ):
+            self.electron_beam.set_properties(properties.electron_beam)
+
+        if properties.ion_beam is not None and (beam is None or beam is BeamType.ION):
+            self.ion_beam.set_properties(properties.ion_beam)

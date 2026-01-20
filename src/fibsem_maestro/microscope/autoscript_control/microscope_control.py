@@ -45,12 +45,12 @@ class AutoscriptMicroscopeControl(MicroscopeControl):
         self._electron_beam: BeamControl = AutoscriptElectronBeamControl(
             self._microscope,
             self._internal_params,
-            self._txt_log,
+            self._txt_log.derive("electron beam"),
         )
         self._ion_beam: BeamControl = AutoscriptIonBeamControl(
             self._microscope,
             self._internal_params,
-            self._txt_log,
+            self._txt_log.derive("ion beam"),
         )
 
     @property

@@ -1,7 +1,9 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
-from typing import Any
+from typing import Annotated, Any
+
+from pydantic import Field
 
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.lens_alignment import LensAlignment
@@ -9,22 +11,86 @@ from fibsem_maestro.core.scanning_area import ScanningArea
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
 from fibsem_maestro.settings.base_settings import BaseSettings
+from fibsem_maestro.settings.reactive import ReactiveDict
 
 
 class BeamProperties(BaseSettings):
-    stigmator: Stigmator
-    lens_alignment: LensAlignment
-    beam_shift: BeamShift
-    detector_contrast: float
-    detector_brightness: float
-    source_tilt: SourceTilt
-    line_integration: int
-    dwell_time: float
-    bit_depth: int
-    resolution: tuple[int, int]
-    horizontal_field_width: float
-    vertical_field_width: float
-    pixel_size: float
-    scanning_area: ScanningArea
-    custom: dict[str, Any]
-    working_distance: float  # must be last!
+    stigmator: Annotated[
+        Stigmator | None,
+        Field(
+            default=None,
+            description="Stigmator settings for beam correction (in nanometers).",
+        ),
+    ]
+    lens_alignment: Annotated[
+        LensAlignment | None,
+        Field(
+            default=None,
+            description="Alignment of lens in the microscope (in nanometers).",
+        ),
+    ]
+    beam_shift: Annotated[
+        BeamShift | None,
+        Field(default=None, description="Beam shift settings (in nanometers)."),
+    ]
+    detector_contrast: Annotated[
+        float | None, Field(default=None, description="Contrast level of the detector.")
+    ]
+    detector_brightness: Annotated[
+        float | None,
+        Field(default=None, description="Brightness level of the detector."),
+    ]
+    source_tilt: Annotated[
+        SourceTilt | None,
+        Field(
+            default=None,
+            description="Tilt settings for the electron source (in degrees).",
+        ),
+    ]
+    line_integration: Annotated[
+        int | None,
+        Field(default=None, gt=0, description="Number of line integrations per scan."),
+    ]
+    dwell_time: Annotated[
+        float | None,
+        Field(default=None, gt=0, description="Dwell time per pixel in seconds."),
+    ]
+    bit_depth: Annotated[
+        int | None,
+        Field(default=None, gt=0, description="Bit depth of the detector output."),
+    ]
+    resolution: Annotated[
+        tuple[int, int] | None,
+        Field(default=None, description="Resolution of the scan as (width, height)."),
+    ]
+    horizontal_field_width: Annotated[
+        float | None,
+        Field(
+            default=None, gt=0, description="Horizontal field of view in nanometers."
+        ),
+    ]
+    vertical_field_width: Annotated[
+        float | None,
+        Field(default=None, gt=0, description="Vertical field of view in nanometers."),
+    ]
+    pixel_size: Annotated[
+        float | None,
+        Field(
+            default=None, gt=0, description="Physical size of a pixel in nanometers."
+        ),
+    ]
+    scanning_area: Annotated[
+        ScanningArea | None, Field(default=None, description="Area to be scanned.")
+    ]
+    internal: Annotated[
+        ReactiveDict[str, Any] | None,
+        Field(default=None, description="Custom internal properties of the beam."),
+    ]
+    working_distance: Annotated[
+        float | None,
+        Field(
+            default=None,
+            gt=0,
+            description="Working distance between sample and objective lens in nanometers.",
+        ),
+    ]

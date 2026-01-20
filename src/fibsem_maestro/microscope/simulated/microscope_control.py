@@ -34,9 +34,11 @@ class SimulatedMicroscopeControl(MicroscopeControl):
             txt_log (TextLogger): Text logger.
             seed (int, optional): Seed for deterministic noise. Defaults to 0.
         """
+        self._txt_log = txt_log
+        self._txt_log.info("Initializing a simulated microscope.")
+
         self.ip_address = ip_address
         self._rng = np.random.default_rng(seed)
-        self._txt_log = txt_log
 
         self._stage_position = StagePosition(
             x=0.0, y=0.0, z=0.0, rotation=0.0, tilt=0.0
@@ -44,8 +46,14 @@ class SimulatedMicroscopeControl(MicroscopeControl):
 
         self._internal_params: dict[str, Any] = {}
 
-        self._electron_beam = SimulatedBeamControl(name="electron", rng=self._rng)
-        self._ion_beam = SimulatedBeamControl(name="ion", rng=self._rng)
+        self._electron_beam = SimulatedBeamControl(
+            name="electron",
+            txt_log=self._txt_log.derive("electron beam"),
+            rng=self._rng,
+        )
+        self._ion_beam = SimulatedBeamControl(
+            name="ion", txt_log=self._txt_log.derive("ion beam"), rng=self._rng
+        )
 
     @property
     def stage_position(self) -> StagePosition:
@@ -108,7 +116,8 @@ class SimulatedMicroscopeControl(MicroscopeControl):
         Returns:
             StagePosition: The actual stage position after the attempted move.
         """
-        noise_xyz = self._rng.normal(0.0, 10.0, size=3)  # nm
+        self._txt_log.debug(f"Setting stage position to {pos}.")
+        noise_xyz = self._rng.normal(0.0, 0.1, size=3)  # nm
         noise_ang = self._rng.normal(0.0, 0.001, size=2)  # degrees
 
         self._stage_position = StagePosition(
@@ -118,6 +127,7 @@ class SimulatedMicroscopeControl(MicroscopeControl):
             rotation=pos.rotation + float(noise_ang[0]),
             tilt=pos.tilt + float(noise_ang[1]),
         )
+        self._txt_log.debug(f"Current stage position is {self.stage_position}.")
         return self.stage_position
 
     def try_move_stage_position(self, delta: StagePosition) -> StagePosition:
@@ -133,6 +143,7 @@ class SimulatedMicroscopeControl(MicroscopeControl):
         Returns:
             StagePosition: The actual stage position after the attempted move.
         """
+        self._txt_log.debug(f"Moving stage position by {delta}.")
         cur = self._stage_position
         target = StagePosition(
             x=cur.x + delta.x,
