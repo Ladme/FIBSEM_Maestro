@@ -14,73 +14,152 @@ from fibsem_maestro.settings.microscope_properties import MicroscopeProperties
 
 class MicroscopeControl(ABC):
     """
-    This is an abstract base class designated for controlling a microscope.
-
-    The methods provided by this class serve as an interface that should be
-    concretely implemented by any microscope-specific control class
-    (for example: FIBSEM API, direct Autoscript).
-
-    These methods include the basic functionalities needed for controlling
-    the various components and parameters of a microscope such as the stage,
-    and beams.
+    Abstract interface for controlling a microscope and its major subsystems.
     """
 
     @abstractmethod
     def __init__(self, ip_address: str, txt_log: TextLogger):
+        """
+        Initialize the microscope control interface.
+
+        Args:
+            ip_address (str): Network address of the microscope.
+            txt_log (TextLogger): Logger for recording events.
+        """
         pass
 
     @property
     @abstractmethod
     def stage_position(self) -> StagePosition:
+        """
+        Get the current stage position.
+
+        Returns:
+            StagePosition: Current stage position.
+        """
         pass
 
     @property
     @abstractmethod
     def electron_beam(self) -> BeamControl:
         """
-        Returns the electron beam of the microscope.
+        Get the electron beam control interface.
+
+        Returns:
+            BeamControl: Electron beam control.
         """
         pass
 
     @electron_beam.setter
     @abstractmethod
     def electron_beam(self, beam: BeamControl) -> None:
+        """
+        Set the electron beam control interface.
+
+        Args:
+            beam (BeamControl): Electron beam control.
+        """
         pass
 
     @property
     @abstractmethod
     def ion_beam(self) -> BeamControl:
         """
-        Returns the ion beam of the microscope.
+        Get the ion beam control interface.
+
+        Returns:
+            BeamControl: Ion beam control.
         """
         pass
 
     @ion_beam.setter
     @abstractmethod
     def ion_beam(self, beam: BeamControl) -> None:
+        """
+        Set the ion beam control interface.
+
+        Args:
+            beam (BeamControl): Ion beam control.
+        """
         pass
 
     @abstractmethod
     def custom(self, name: str) -> Any:
+        """
+        Get a custom microscope property.
+
+        Args:
+            name (str): Property name.
+
+        Returns:
+            Any: Property value.
+        """
         pass
 
     @abstractmethod
     def set_custom(self, name: str, value: Any) -> Any:
+        """
+        Set a custom microscope property.
+
+        Args:
+            name (str): Property name.
+            value (Any): Property value.
+
+        Returns:
+            Any: Result of setting the property.
+        """
         pass
 
     @abstractmethod
     def try_set_stage_position(self, pos: StagePosition) -> StagePosition:
+        """
+        Attempt to set the stage to an absolute position.
+
+        Args:
+            pos (StagePosition): Target stage position.
+
+        Returns:
+            StagePosition: Actual stage position after the operation.
+        """
         pass
 
     @abstractmethod
     def try_move_stage_position(self, delta: StagePosition) -> StagePosition:
+        """
+        Attempt to move the stage by a relative offset.
+
+        Args:
+            delta (StagePosition): Relative stage movement.
+
+        Returns:
+            StagePosition: Actual stage position after the operation.
+        """
         pass
 
     @abstractmethod
     def try_set_beam_shift(self, shift: BeamShift) -> BeamShift:
+        """
+        Attempt to set the beam shift.
+
+        Args:
+            shift (BeamShift): Desired beam shift.
+
+        Returns:
+            BeamShift: Actual beam shift after the operation.
+        """
         pass
 
     def apply_microscope_properties(self, properties: MicroscopeProperties) -> None:
+        """
+        Apply microscope settings.
+
+        Uses this control interface to set the microscope state to the values
+        provided in the given properties container.
+
+        Args:
+            properties (MicroscopeProperties): Container of microscope property
+                values to apply.
+        """
         self.try_set_stage_position(properties.stage_position)
         for custom_property, value in properties.custom.items():
             self.set_custom(custom_property, value)
