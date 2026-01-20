@@ -9,7 +9,17 @@ from fibsem_maestro.core.point import PixelPoint
 
 @dataclass(frozen=True)
 class TileCoordinates:
-    """Top-left coordinate and pixel size of a tile."""
+    """
+    Represents the coordinates and dimensions of a tile in pixels.
+
+    Attributes:
+        origin (PixelPoint):
+            The top-left coordinate of the tile (in pixels).
+        width_px (int):
+            The width of the tile in pixels.
+        height_px (int):
+            The height of the tile in pixels.
+    """
 
     origin: PixelPoint
     width_px: int

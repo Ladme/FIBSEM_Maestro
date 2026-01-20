@@ -9,7 +9,17 @@ from fibsem_maestro.core.point import PixelPoint
 
 @dataclass(frozen=True)
 class CropCoordinates:
-    """Top-left coordinate and pixel size of a rectangular crop region."""
+    """
+    Represents the coordinates and dimensions of a rectangular crop region in pixels.
+
+    Attributes:
+        origin (PixelPoint):
+            The top-left coordinate of the crop region (in pixels).
+        width_px (int):
+            The width of the crop region in pixels.
+        height_px (int):
+            The height of the crop region in pixels.
+    """
 
     origin: PixelPoint
     width_px: int
