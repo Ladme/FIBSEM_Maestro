@@ -87,7 +87,7 @@ def test_to_file_writes_using_serializer():
     s.to_file(file, FakeSerializer)
 
     assert file in FakeSerializer._storage
-    assert FakeSerializer._storage[file] == {"x": 7, "y": 9, "child": None}
+    assert FakeSerializer._storage[file] == {"x": 7, "y": 9}
 
 
 def test_reload_overwrites_fields_and_triggers_hooks_once():
@@ -153,5 +153,5 @@ def test_from_file_to_file_roundtrip():
     assert FakeSerializer._storage[file_out] == {
         "x": 5,
         "y": 6,
-        "child": {"x": 7, "y": 8, "child": None},
+        "child": {"x": 7, "y": 8},
     }

@@ -10,6 +10,7 @@ from fibsem_maestro.core.lens_alignment import LensAlignment
 from fibsem_maestro.core.scanning_area import ScanningArea
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
+from fibsem_maestro.microscope.error import MicroscopeError
 from fibsem_maestro.settings.beam_properties import BeamProperties
 
 
@@ -537,12 +538,12 @@ class BeamControl(ABC):
 
     @property
     @abstractmethod
-    def internal_param_names(self) -> list[str]:
+    def internal_prop_names(self) -> list[str]:
         """
-        Get a list of all internal parameters of the beam.
+        Get a list of all internal properties of the beam.
 
         Returns:
-            list[str]: List of all internal parameters of the beam.
+            list[str]: List of all internal properties of the beam.
         """
         pass
 
@@ -560,6 +561,19 @@ class BeamControl(ABC):
                 props.append(name)
         return props
 
+    @property
+    def prop_names(self) -> list[str]:
+        """
+        Get a list of all properties of the beam, including the inner properties.
+
+        Return:
+            MicroscopePropertyNames: Collection of all the properties of the microscope.
+        """
+        properties = list(BeamProperties.model_fields.keys())
+        properties.extend(self.internal_prop_names)
+
+        return properties
+
     def set_properties(self, properties: BeamProperties) -> None:
         """
         Apply beam-related microscope settings.
@@ -573,13 +587,8 @@ class BeamControl(ABC):
         Raises:
             AttributeError: If a required property setter is missing or not callable.
         """
-        field_names = list(BeamProperties.model_fields.keys())
-        field_names.remove("internal")
-
-        # set internal beam properties
-        if (internal := properties.internal) is not None:
-            for custom_property, value in internal.items():
-                self.set_internal(custom_property, value)
+        field_names = list(properties.model_dump(exclude_none=True).keys())
+        internal_properties = self.internal_prop_names
 
         # set the pre-defined properties
         for field_name in field_names:
@@ -587,12 +596,21 @@ class BeamControl(ABC):
             if value is None:
                 continue
 
+            # the property is an internal property
+            if field_name in internal_properties:
+                try:
+                    self.set_internal(field_name, value)
+                    continue
+                except Exception as e:
+                    raise MicroscopeError(
+                        f"Could not set internal property '{field_name}': {e}"
+                    ) from e
+
+            # otherwise, try setting the property normally
             try:
                 setattr(self, field_name, value)
             except AttributeError as e:
-                raise AttributeError(
-                    f"BeamControl is missing required callable setter '{field_name}'"
-                ) from e
+                raise MicroscopeError(f"Setter missing for '{field_name}': {e}") from e
 
     def collect_properties(self, selected: list[str]) -> BeamProperties:
         # TODO: we should check that all properties in the input file actually exist
@@ -608,10 +626,7 @@ class BeamControl(ABC):
             values[field_name] = getattr(self, field_name)
 
         # collect internal properties
-        internal_values = {}
-        for field_name in filter(lambda x: x in selected, self.internal_param_names):
-            internal_values[field_name] = self.internal(field_name)
-
-        values["internal"] = internal_values
+        for field_name in filter(lambda x: x in selected, self.internal_prop_names):
+            values[field_name] = self.internal(field_name)
 
         return BeamProperties(**values)

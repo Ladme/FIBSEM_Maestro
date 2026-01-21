@@ -15,9 +15,10 @@ from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.logging.image.image_logger import ImageLogger
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope_registry import MicroscopeRegistry
+from fibsem_maestro.settings.global_properties import GlobalProperties
 from fibsem_maestro.settings.imaging_settings import ImagingSettings
-from fibsem_maestro.settings.microscope_properties import MicroscopeProperties
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
+from fibsem_maestro.settings.property_names import PropertyNames
 
 
 class Microscope:
@@ -185,9 +186,12 @@ class Microscope:
             # self.beam.grab_frame()
 
     def set_properties(
-        self, properties: MicroscopeProperties, beam: BeamType | None
+        self, properties: GlobalProperties, beam: BeamType | None
     ) -> None:
         self._control.set_properties(properties, beam)
 
-    def collect_properties(self) -> MicroscopeProperties:
+    def collect_properties(self) -> GlobalProperties:
         return self._control.collect_properties(self._settings.properties_to_collect)
+
+    def get_property_names(self) -> PropertyNames:
+        return self._control.prop_names

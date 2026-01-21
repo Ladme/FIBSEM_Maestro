@@ -7,7 +7,7 @@ from pydantic import Field
 from fibsem_maestro.settings.base_settings import BaseSettings
 
 
-class MicroscopePropertiesToCollect(BaseSettings):
+class PropertyNames(BaseSettings):
     microscope: list[str] = Field(default_factory=list)
     electron_beam: list[str] = Field(default_factory=list)
     ion_beam: list[str] = Field(default_factory=list)

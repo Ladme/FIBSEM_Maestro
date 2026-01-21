@@ -49,7 +49,10 @@ class SimulatedBeamControl(BeamControl):
         self._beam_shift_to_stage_move = (1.0, 1.0)
         self._image_to_beam_shift = (1.0, 1.0)
 
-        self._internal_properties: dict[str, Any] = {}
+        self._internal_properties: dict[str, Any] = {
+            "beam.custom_parameter": 0.5,
+            "beam.inner.parameter": 1.2,
+        }
 
         self._limits: dict[str, tuple[float, float]] = {
             "working_distance": (
@@ -314,5 +317,5 @@ class SimulatedBeamControl(BeamControl):
         return min(max(v, lo), hi)
 
     @property
-    def internal_param_names(self) -> list[str]:
+    def internal_prop_names(self) -> list[str]:
         return list(self._internal_properties.keys())

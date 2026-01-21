@@ -22,7 +22,7 @@ from fibsem_maestro.core.stigmator import Stigmator
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
 from fibsem_maestro.microscope.error import MicroscopeError
-from fibsem_maestro.microscope.internal_params import InternalParametersRegistry
+from fibsem_maestro.microscope.internal_props import InternalPropertiesRegistry
 
 BeamT = TypeVar(
     "BeamT",
@@ -35,11 +35,11 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
     def __init__(
         self,
         autoscript_microscope: SdbMicroscopeClient,
-        internal_params: InternalParametersRegistry,
+        internal_properties: InternalPropertiesRegistry,
         txt_log: TextLogger,
     ):
         self._microscope = autoscript_microscope
-        self._internal_params = internal_params
+        self._internal_properties = internal_properties
         self._txt_log = txt_log
 
         self._scanning_area: ScanningArea | None = None
@@ -340,16 +340,23 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         return 25.0
 
     def internal(self, name: str) -> Any:
-        property = self._internal_params.get(name)
-        return property.get()
+        property = self._internal_properties.get(name)
+        value = property.get()
+        self._txt_log.debug(
+            f"Getting internal property '{name}' ({self._modality}): {value}."
+        )
+        return value
 
     def set_internal(self, name: str, value: Any) -> Any:
-        property = self._internal_params.get(name)
+        self._txt_log.debug(
+            f"Setting internal property '{name}' ({self._modality}): {value}."
+        )
+        property = self._internal_properties.get(name)
         property.set(value)
 
     @property
-    def internal_param_names(self) -> list[str]:
-        return self._internal_params.allowed()
+    def internal_prop_names(self) -> list[str]:
+        return self._internal_properties.allowed()
 
 
 class AutoscriptElectronBeamControl(AutoscriptBeamControl[ElectronBeamAs]):

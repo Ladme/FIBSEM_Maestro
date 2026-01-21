@@ -17,7 +17,7 @@ from fibsem_maestro.microscope.autoscript_control.beam_control import (
     AutoscriptIonBeamControl,
 )
 from fibsem_maestro.microscope.error import MicroscopeError
-from fibsem_maestro.microscope.internal_params import InternalParametersRegistry
+from fibsem_maestro.microscope.internal_props import InternalPropertiesRegistry
 from fibsem_maestro.microscope.microscope_registry import MicroscopeRegistry
 
 
@@ -40,16 +40,16 @@ class AutoscriptMicroscopeControl(MicroscopeControl):
             self._microscope.connect(ip_address)
             self._txt_log.info(f"Connecting to {ip_address}.")
 
-        self._internal_params = InternalParametersRegistry(self._microscope)
+        self._internal_properties = InternalPropertiesRegistry(self._microscope)
 
         self._electron_beam: BeamControl = AutoscriptElectronBeamControl(
             self._microscope,
-            self._internal_params,
+            self._internal_properties,
             self._txt_log.derive("electron beam"),
         )
         self._ion_beam: BeamControl = AutoscriptIonBeamControl(
             self._microscope,
-            self._internal_params,
+            self._internal_properties,
             self._txt_log.derive("ion beam"),
         )
 
@@ -81,16 +81,19 @@ class AutoscriptMicroscopeControl(MicroscopeControl):
         self._ion_beam = beam
 
     def custom(self, name: str) -> Any:
-        property = self._internal_params.get(name)
-        return property.get()
+        property = self._internal_properties.get(name)
+        value = property.get()
+        self._txt_log.debug(f"Getting internal property '{name}': {value}.")
+        return value
 
     def set_custom(self, name: str, value: Any) -> Any:
-        property = self._internal_params.get(name)
+        self._txt_log.debug(f"Setting internal property '{name}': {value}.")
+        property = self._internal_properties.get(name)
         property.set(value)
 
     @property
-    def internal_param_names(self) -> list[str]:
-        return self._internal_params.allowed()
+    def internal_prop_names(self) -> list[str]:
+        return self._internal_properties.allowed()
 
     def try_set_stage_position(self, pos: StagePosition) -> StagePosition:
         self._microscope.specimen.stage.unlink()

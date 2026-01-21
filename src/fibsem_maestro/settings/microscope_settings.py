@@ -8,7 +8,9 @@ from pydantic import Field, field_validator
 
 from fibsem_maestro.microscope.microscope_registry import MicroscopeRegistry
 from fibsem_maestro.settings.base_settings import BaseSettings
-from fibsem_maestro.settings.properties_to_collect import MicroscopePropertiesToCollect
+from fibsem_maestro.settings.property_names import (
+    PropertyNames,
+)
 
 
 class MicroscopeSettings(BaseSettings):
@@ -30,10 +32,10 @@ class MicroscopeSettings(BaseSettings):
         ),
     ]
     properties_to_collect: Annotated[
-        MicroscopePropertiesToCollect,
+        PropertyNames,
         Field(
-            default_factory=MicroscopePropertiesToCollect,
-            description="Properties of the microscope that should be written out.",
+            default_factory=PropertyNames,
+            description="Properties of the microscope and the beams that should be written out.",
         ),
     ]
 

@@ -1,7 +1,7 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
-from typing import Annotated, Any
+from typing import Annotated
 
 from pydantic import Field
 
@@ -11,10 +11,11 @@ from fibsem_maestro.core.scanning_area import ScanningArea
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
 from fibsem_maestro.settings.base_settings import BaseSettings
-from fibsem_maestro.settings.reactive import ReactiveDict
 
 
 class BeamProperties(BaseSettings):
+    model_config = {"extra": "allow"}
+
     stigmator: Annotated[
         Stigmator | None,
         Field(
@@ -81,10 +82,6 @@ class BeamProperties(BaseSettings):
     ]
     scanning_area: Annotated[
         ScanningArea | None, Field(default=None, description="Area to be scanned.")
-    ]
-    internal: Annotated[
-        ReactiveDict[str, Any] | None,
-        Field(default=None, description="Custom internal properties of the beam."),
     ]
     working_distance: Annotated[
         float | None,

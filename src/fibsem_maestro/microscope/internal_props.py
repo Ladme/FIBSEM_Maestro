@@ -12,18 +12,18 @@ from fibsem_maestro.microscope.error import MicroscopeError
 
 
 @dataclass(frozen=True)
-class InternalParameter:
+class InternalProperty:
     """
-    Represents a writable parameter on a specific object instance.
+    Represents a writable property on a specific object instance.
 
-    A `InternalParameter` identifies a parameter with a setter on an object, together
+    A `InternalProperty` identifies a property with a setter on an object, together
     with the member-based path from a root object to that instance.
 
     Attributes:
-        owner (object): The object instance that owns the parameter.
+        owner (object): The object instance that owns the property.
         owner_path (str | None): Dotted path of member variable names from the
-            root object to the owner. `None` if the parameter is on the root.
-        name (str): Name of the parameter on the owner.
+            root object to the owner. `None` if the property is on the root.
+        name (str): Name of the property on the owner.
     """
 
     owner: object
@@ -32,11 +32,11 @@ class InternalParameter:
 
     def __str__(self) -> str:
         """
-        Return the full member-based path of the parameter.
+        Return the full member-based path of the property.
 
         Returns:
-            str: Dotted path to the parameter (e.g. "property.property.value"),
-            or just the parameter name if it belongs to the root object.
+            str: Dotted path to the property (e.g. "property.property.value"),
+            or just the property name if it belongs to the root object.
         """
         return f"{self.owner_path}.{self.name}" if self.owner_path else self.name
 
@@ -44,33 +44,33 @@ class InternalParameter:
 
     def get(self) -> Any:
         """
-        Get the current value of the parameter.
+        Get the current value of the property.
 
         Returns:
-            Any: The current parameter value.
+            Any: The current property value.
         """
         return getattr(self.owner, self.name)
 
     def set(self, value: Any) -> None:
         """
-        Set the value of the parameter.
+        Set the value of the property.
 
         Args:
-            value (Any): The value to assign to the parameter.
+            value (Any): The value to assign to the property.
         """
         setattr(self.owner, self.name, value)
 
 
-class InternalParametersRegistry:
+class InternalPropertiesRegistry:
     """
-    Registry of controllable microscope internal parameters.
+    Registry of controllable microscope internal properties.
 
     This registry is built from a root microscope control object (for example,
-    an AutoScript microscope instance) and contains all reachable parameters
+    an AutoScript microscope instance) and contains all reachable properties
     that define a setter in the underlying control library.
 
-    Each entry represents a concrete, writable microscope parameter such as
-    beam voltage, probe current, stage position, or detector settings. Parameters
+    Each entry represents a concrete, writable microscope property such as
+    beam voltage, probe current, stage position, or detector settings. Properties
     are identified by a member-based path that reflects the microscope object
     hierarchy (e.g. "beams.electron_beam.stigmator.value").
     """
@@ -82,38 +82,37 @@ class InternalParametersRegistry:
         Args:
             microscope (Any): Root microscope object provided by the control library.
         """
-        self._registry: dict[str, InternalParameter] = {}
+        self._registry: dict[str, InternalProperty] = {}
         self._build(microscope)
 
     def _build(self, root: Any) -> None:
         """
-        Discover and register all settable microscope parameters.
+        Discover and register all settable microscope properties.
 
         Args:
-            root (Any): Root microscope object from which writable parameters
-                will be discovered.
+            root (Any): Root microscope object from which writable properties will be discovered.
         """
-        reg: dict[str, InternalParameter] = {}
+        reg: dict[str, InternalProperty] = {}
         for prop in find_custom_properties(root):
             reg[str(prop)] = prop
         self._registry = reg
 
-    def get(self, name: str) -> InternalParameter:
+    def get(self, name: str) -> InternalProperty:
         """
-        Retrieve a specific settable microscope parameter.
+        Retrieve a specific settable microscope property.
 
         Args:
-            name (str): Path to the microscope parameter.
+            name (str): Path to the microscope property.
 
         Returns:
-            Customparameter: Handle for reading or setting the microscope parameter.
+            InternalProperty: Handle for reading or setting the microscope property.
 
         Raises:
-            MicroscopeError: If the requested parameter is not available on this
+            MicroscopeError: If the requested property is not available on this
                 microscope instance.
         """
         if name not in self._registry:
-            raise MicroscopeError(f"Internal parameter '{name}' is not registered.")
+            raise MicroscopeError(f"Internal property '{name}' is not registered.")
         return self._registry[name]
 
     def allowed(self) -> list[str]:
@@ -121,20 +120,20 @@ class InternalParametersRegistry:
         List all settable microscope properties discovered on this instance.
 
         Returns:
-            list[str]: Sorted list of member-based parameter paths that can be set
+            list[str]: Sorted list of member-based proeprty paths that can be set
             through the control library.
         """
         return sorted(self._registry.keys())
 
     def has(self, name: str) -> bool:
         """
-        Check whether a microscope parameter is available and settable.
+        Check whether a microscope property is available and settable.
 
         Args:
-            name (str): Path to the microscope parameter.
+            name (str): Path to the microscope property.
 
         Returns:
-            bool: `True` if the parameter is registered and can be set, `False` otherwise.
+            bool: `True` if the property is registered and can be set, `False` otherwise.
         """
         return name in self._registry
 
@@ -273,7 +272,7 @@ def _properties_with_setters(cls: type) -> list[str]:
     return names
 
 
-def find_custom_properties(root: object) -> list[InternalParameter]:
+def find_custom_properties(root: object) -> list[InternalProperty]:
     """
     Discover writable properties reachable from a root object.
 
@@ -285,10 +284,10 @@ def find_custom_properties(root: object) -> list[InternalParameter]:
         root (object): Root object from which traversal begins.
 
     Returns:
-        list[Customparameter]: All discovered writable properties with their
+        list[InternalProperty]: All discovered writable properties with their
         associated owners and member-based paths.
     """
-    out: list[InternalParameter] = []
+    out: list[InternalProperty] = []
     visited: set[int] = set()
     stack: list[tuple[object, str]] = [(root, "")]  # (instance, path_of_member_names)
 
@@ -300,9 +299,7 @@ def find_custom_properties(root: object) -> list[InternalParameter]:
         visited.add(oid)
 
         for prop_name in _properties_with_setters(type(obj)):
-            out.append(
-                InternalParameter(owner=obj, owner_path=obj_path, name=prop_name)
-            )
+            out.append(InternalProperty(owner=obj, owner_path=obj_path, name=prop_name))
 
         for member_name, child in _iter_instance_members(obj):
             if _is_traversable_instance(child):

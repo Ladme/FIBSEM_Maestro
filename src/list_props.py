@@ -15,7 +15,7 @@ from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Collect and export selected properties of the microscope."
+        description="List all parameters of the microscope."
     )
 
     # define arguments
@@ -29,13 +29,7 @@ def main():
         "--props",
         type=Path,
         required=True,
-        help="Path to an output YAML file where collected microscope properties will be written to.",
-    )
-    parser.add_argument(
-        "--log-dir",
-        type=Path,
-        default=Path("logs"),
-        help="Directory to store log files. Defaults to 'logs'.",
+        help="Output file where the available properties will be written.",
     )
     parser.add_argument(
         "-v",
@@ -43,25 +37,31 @@ def main():
         action="store_true",
         help="Enable verbose logging (DEBUG level).",
     )
+    parser.add_argument(
+        "--log-dir",
+        type=Path,
+        default=Path("logs"),
+        help="Directory to store log files. Defaults to 'logs'.",
+    )
 
     # parse the arguments
     args = parser.parse_args()
 
     log_level = logging.DEBUG if args.verbose else logging.INFO
 
-    # load settings
+    # load settings and properties from files
     microscope_settings = MicroscopeSettings.from_file(args.settings)
 
     # set up logging
     log_context = LogContext(args.log_dir, SliceContext(None), log_level)
     txt_log = CentralTextLogger("microscope", log_context)
-    img_log = SliceAwareImageLogger(log_context)  # noqa: F821
+    img_log = SliceAwareImageLogger(log_context)
 
     # initialize the microscope
     microscope = Microscope(microscope_settings, txt_log, img_log)
 
-    # collect the parameters of the microscope
-    properties = microscope.collect_properties()
+    # get names of microscope properties
+    properties = microscope.get_property_names()
 
     properties.to_file(args.props)
 

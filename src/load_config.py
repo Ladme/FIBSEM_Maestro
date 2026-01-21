@@ -10,7 +10,7 @@ from fibsem_maestro.logging.context import LogContext, SliceContext
 from fibsem_maestro.logging.image.slice_aware import SliceAwareImageLogger
 from fibsem_maestro.logging.text.central import CentralTextLogger
 from fibsem_maestro.microscope.microscope import Microscope
-from fibsem_maestro.settings.microscope_properties import MicroscopeProperties
+from fibsem_maestro.settings.global_properties import GlobalProperties
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
 
 
@@ -27,10 +27,10 @@ def main():
         help="Path to the settings YAML file.",
     )
     parser.add_argument(
-        "--params",
+        "--props",
         type=Path,
         required=True,
-        help="Path to the microscope parameters YAML file.",
+        help="Path to the microscope properties YAML file.",
     )
     parser.add_argument(
         "--log-dir",
@@ -66,7 +66,7 @@ def main():
 
     # load settings and properties from files
     microscope_settings = MicroscopeSettings.from_file(args.settings)
-    microscope_params = MicroscopeProperties.from_file(args.params)
+    microscope_props = GlobalProperties.from_file(args.props)
 
     # set up logging
     log_context = LogContext(args.log_dir, SliceContext(None), log_level)
@@ -86,7 +86,7 @@ def main():
         beam_type = BeamType.ION
 
     # set microscope properties
-    microscope.set_properties(microscope_params, beam_type)
+    microscope.set_properties(microscope_props, beam_type)
 
 
 if __name__ == "__main__":

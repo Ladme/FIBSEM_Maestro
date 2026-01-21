@@ -44,7 +44,10 @@ class SimulatedMicroscopeControl(MicroscopeControl):
             x=0.0, y=0.0, z=0.0, rotation=0.0, tilt=0.0
         )
 
-        self._internal_params: dict[str, Any] = {}
+        self._internal_properties: dict[str, Any] = {
+            "microscope.custom_parameter": 0.5,
+            "microscope.inner.parameter": 1.2,
+        }
 
         self._electron_beam = SimulatedBeamControl(
             name="electron",
@@ -94,7 +97,7 @@ class SimulatedMicroscopeControl(MicroscopeControl):
 
     def internal(self, name: str) -> Any:
         try:
-            value = self._internal_params[name]
+            value = self._internal_properties[name]
             self._txt_log.debug(f"Getting internal property '{name}': {value}.")
             return value
         except KeyError as e:
@@ -103,11 +106,12 @@ class SimulatedMicroscopeControl(MicroscopeControl):
             ) from e
 
     def set_internal(self, name: str, value: Any) -> Any:
-        self._internal_params[name] = value
+        self._txt_log.debug(f"Setting internal property '{name}': {value}.")
+        self._internal_properties[name] = value
 
     @property
-    def internal_param_names(self) -> list[str]:
-        return list(self._internal_params.keys())
+    def internal_prop_names(self) -> list[str]:
+        return list(self._internal_properties.keys())
 
     def try_set_stage_position(self, pos: StagePosition) -> StagePosition:
         """
