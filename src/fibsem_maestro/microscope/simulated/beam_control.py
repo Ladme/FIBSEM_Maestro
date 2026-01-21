@@ -319,3 +319,7 @@ class SimulatedBeamControl(BeamControl):
     @property
     def internal_prop_names(self) -> list[str]:
         return list(self._internal_properties.keys())
+
+    @property
+    def txt_log(self) -> TextLogger:
+        return self._txt_log

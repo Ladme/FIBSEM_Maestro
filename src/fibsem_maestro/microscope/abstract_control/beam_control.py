@@ -10,6 +10,7 @@ from fibsem_maestro.core.lens_alignment import LensAlignment
 from fibsem_maestro.core.scanning_area import ScanningArea
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
+from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.error import MicroscopeError
 from fibsem_maestro.settings.beam_properties import BeamProperties
 
@@ -547,6 +548,11 @@ class BeamControl(ABC):
         """
         pass
 
+    @property
+    @abstractmethod
+    def txt_log(self) -> TextLogger:
+        pass
+
     @classmethod
     def get_property_names(cls) -> list[str]:
         """
@@ -606,15 +612,14 @@ class BeamControl(ABC):
                         f"Could not set internal property '{field_name}': {e}"
                     ) from e
 
-            # otherwise, try setting the property normally
-            try:
-                setattr(self, field_name, value)
-            except AttributeError as e:
-                raise MicroscopeError(f"Setter missing for '{field_name}': {e}") from e
+            # check whether a setter exists for this property
+            attr = getattr(type(self), field_name, None)
+            if not isinstance(attr, property) or attr.fset is None:
+                raise MicroscopeError(f"No setter defined for property '{field_name}'")
+
+            setattr(self, field_name, value)
 
     def collect_properties(self, selected: list[str]) -> BeamProperties:
-        # TODO: we should check that all properties in the input file actually exist
-
         # get field names to write out
         field_names = list(
             filter(lambda x: x in selected, BeamProperties.model_fields.keys())
@@ -628,5 +633,12 @@ class BeamControl(ABC):
         # collect internal properties
         for field_name in filter(lambda x: x in selected, self.internal_prop_names):
             values[field_name] = self.internal(field_name)
+
+        # get unknown properties
+        unknown = [prop for prop in selected if prop not in values]
+        if len(unknown) > 0:
+            self.txt_log.warning(
+                f"The following selected beam properties are not known: {' '.join(unknown)}"
+            )
 
         return BeamProperties(**values)

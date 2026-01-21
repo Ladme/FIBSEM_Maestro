@@ -167,3 +167,7 @@ class SimulatedMicroscopeControl(MicroscopeControl):
     def try_set_beam_shift(self, shift: BeamShift) -> BeamShift:
         # TODO: implement
         raise NotImplementedError("Not yet implemented.")
+
+    @property
+    def txt_log(self) -> TextLogger:
+        return self._txt_log

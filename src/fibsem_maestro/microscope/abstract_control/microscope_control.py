@@ -169,6 +169,11 @@ class MicroscopeControl(ABC):
         pass
 
     @property
+    @abstractmethod
+    def txt_log(self) -> TextLogger:
+        pass
+
+    @property
     def prop_names(self) -> PropertyNames:
         """
         Get a collection of all properties of the microscope and its beams,
@@ -204,24 +209,23 @@ class MicroscopeControl(ABC):
                 Properties for the other beam are not set.
                 If `None`, properties of both beams are set.
         """
-        if (microscope := properties.microscope) is not None and (
-            stage_position := microscope.stage_position
-        ) is not None:
-            self.try_set_stage_position(stage_position)
+        if (microscope := properties.microscope) is not None:
+            if (stage_position := microscope.stage_position) is not None:
+                self.try_set_stage_position(stage_position)
 
-        # set internal properties of the microscope
-        for field_name in filter(
-            lambda x: x in self.internal_prop_names,
-            properties.model_dump(exclude_none=True).keys(),
-        ):
-            try:
-                value = getattr(properties, field_name)
-                self.set_internal(field_name, value)
-                continue
-            except Exception as e:
-                raise MicroscopeError(
-                    f"Could not set internal property '{field_name}': {e}"
-                ) from e
+            # set internal properties of the microscope
+            for field_name in filter(
+                lambda x: x in self.internal_prop_names,
+                microscope.model_dump(exclude_none=True).keys(),
+            ):
+                try:
+                    value = getattr(microscope, field_name)
+                    self.set_internal(field_name, value)
+                    continue
+                except Exception as e:
+                    raise MicroscopeError(
+                        f"Could not set internal property '{field_name}': {e}"
+                    ) from e
 
         if properties.electron_beam is not None and (
             beam is None or beam is BeamType.ELECTRON
@@ -234,8 +238,6 @@ class MicroscopeControl(ABC):
     def collect_properties(
         self, selected_properties: PropertyNames
     ) -> GlobalProperties:
-        # TODO: we should check that all properties in the input file actually exist
-
         # get field names to write out
         field_names = list(
             filter(
@@ -254,6 +256,15 @@ class MicroscopeControl(ABC):
             lambda x: x in selected_properties.microscope, self.internal_prop_names
         ):
             values[field_name] = self.internal(field_name)
+
+        # get unknown properties
+        unknown = [
+            prop for prop in selected_properties.microscope if prop not in values
+        ]
+        if len(unknown) > 0:
+            self.txt_log.warning(
+                f"The following selected microscope properties are not known: {' '.join(unknown)}"
+            )
 
         electron_beam_properties = self.electron_beam.collect_properties(
             selected_properties.electron_beam

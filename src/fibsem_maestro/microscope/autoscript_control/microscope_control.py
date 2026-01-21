@@ -80,13 +80,13 @@ class AutoscriptMicroscopeControl(MicroscopeControl):
     def ion_beam(self, beam: BeamControl):
         self._ion_beam = beam
 
-    def custom(self, name: str) -> Any:
+    def internal(self, name: str) -> Any:
         property = self._internal_properties.get(name)
         value = property.get()
         self._txt_log.debug(f"Getting internal property '{name}': {value}.")
         return value
 
-    def set_custom(self, name: str, value: Any) -> Any:
+    def set_internal(self, name: str, value: Any) -> Any:
         self._txt_log.debug(f"Setting internal property '{name}': {value}.")
         property = self._internal_properties.get(name)
         property.set(value)
@@ -115,3 +115,7 @@ class AutoscriptMicroscopeControl(MicroscopeControl):
     def try_set_beam_shift(self, shift: BeamShift) -> BeamShift:
         # TODO: implement
         raise NotImplementedError("Not yet implemented.")
+
+    @property
+    def txt_log(self) -> TextLogger:
+        return self._txt_log

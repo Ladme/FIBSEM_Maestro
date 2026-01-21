@@ -358,6 +358,10 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
     def internal_prop_names(self) -> list[str]:
         return self._internal_properties.allowed()
 
+    @property
+    def txt_log(self) -> TextLogger:
+        return self._txt_log
+
 
 class AutoscriptElectronBeamControl(AutoscriptBeamControl[ElectronBeamAs]):
     @property
