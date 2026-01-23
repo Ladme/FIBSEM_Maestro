@@ -17,9 +17,9 @@ class ScanningArea:
         origin (RelativePoint):
             Relative coordinates of the top left corner of the scanning area.
         width (float):
-            The width of the scanning area.
+            The width of the scanning area in relative units.
         height (float):
-            The height of the scanning area.
+            The height of the scanning area in relative units.
     """
 
     origin: RelativePoint

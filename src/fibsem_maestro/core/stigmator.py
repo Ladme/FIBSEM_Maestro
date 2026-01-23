@@ -9,7 +9,7 @@ from autoscript_sdb_microscope_client.structures import Point as PointAs
 
 @dataclass
 class Stigmator:
-    """Represents the stigmator settings in a microscope, with coordinates in nanometers."""
+    """Represents the stigmator settings in a microscope."""
 
     x: float
     y: float
@@ -20,19 +20,18 @@ class Stigmator:
         Create a Stigmator instance from an AutoScript Point object.
 
         Args:
-            point_autoscript (PointAs): An AutoScript Point object
-                with positional coordinates in meters.
+            point_autoscript (PointAs): An AutoScript Point object.
 
         Returns:
-            Stigmator: A Stigmator instance with coordinates in nanometers.
+            Stigmator: A converted Stigmator instance.
         """
-        return cls(x=point_autoscript.x * 1e9, y=point_autoscript.y * 1e9)
+        return cls(x=point_autoscript.x, y=point_autoscript.y)
 
     def to_point_autoscript(self) -> PointAs:
         """
         Convert the stigmator coordinates to an AutoScript Point object.
 
         Returns:
-            PointAs: An AutoScript Point object with positional coordinates in meters.
+            PointAs: An AutoScript Point object.
         """
-        return PointAs(x=self.x * 1e-9, y=self.y * 1e-9)
+        return PointAs(x=self.x, y=self.y)

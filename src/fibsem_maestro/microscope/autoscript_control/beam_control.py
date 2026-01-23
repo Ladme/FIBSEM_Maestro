@@ -51,14 +51,14 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
             None  # extended resolution is set only if the required resolution is not standard
         )
         self._standard_resolutions = (
-            [1024, 884],
-            [1536, 1024],
-            [2048, 1768],
-            [3072, 2048],
-            [4096, 3536],
-            [512, 442],
-            [6144, 4096],
-            [768, 512],
+            (1024, 884),
+            (1536, 1024),
+            (2048, 1768),
+            (3072, 2048),
+            (4096, 3536),
+            (512, 442),
+            (6144, 4096),
+            (768, 512),
         )  # available resolutions supported in standard mode
 
     @property
@@ -216,7 +216,7 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
     def resolution(self, value: tuple[int, int]) -> None:
         resolution = f"{value[0]}x{value[1]}"
         for r in self._standard_resolutions:
-            if value[0] == r[0] and value[1] == r[1]:
+            if value == r:
                 self._txt_log.debug(
                     f"Setting standard resolution to ({self._modality}): {resolution}."
                 )
@@ -319,9 +319,7 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
             self._beam.scanning.mode.set_full_frame()  # used for acquisition started by start_acquisition()
             self._scanning_area = None
         else:
-            self._txt_log.debug(
-                f"Setting scanning area to ({self._modality}): {value}."
-            )
+            self._txt_log.debug(f"Setting scanning area ({self._modality}): {value}.")
             # used for acquisition started by start_acquisition()
             self._beam.scanning.mode.set_reduced_area(
                 left=value.origin.x,
@@ -411,9 +409,8 @@ class AutoscriptElectronBeamControl(AutoscriptBeamControl[ElectronBeamAs]):
 
     @source_tilt.setter
     def source_tilt(self, value: SourceTilt) -> None:
-        """Set the source tilt"""
         self.select_modality()
-        self._txt_log.debug(f"Setting source tilt ({self._modality}) to: {value}.")
+        self._txt_log.debug(f"Setting source tilt ({self._modality}): {value}.")
         self._beam.source_tilt.value = value.to_point_autoscript()
 
     @property
@@ -425,19 +422,22 @@ class AutoscriptElectronBeamControl(AutoscriptBeamControl[ElectronBeamAs]):
         return (-1, 1)
 
     def limits(self, var: str) -> tuple[float, float]:
+        # TODO: maybe this should not be hardcoded?
         match var:
             case "working_distance":
-                return (0.0005, 0.07)
+                return (500_000.0, 70_000_000.0)
             case "stigmator_x":
                 return (-0.99, 0.88)
             case "stigmator_y":
                 return (-0.99, 0.77)
             case "lens_alignment_x":
-                return (-0.00072005208, 0.00069791667)
+                return (-720_052.0, 697_917.0)
             case "lens_alignment_y":
-                return (-0.00069140625, 0.00068945312)
+                return (-691_406.25, 689_453.125)
             case _:
-                raise MicroscopeError(f"{var} is not valid microscope variable")
+                raise MicroscopeError(
+                    f"{var} is not a valid microscope variable for an electron beam"
+                )
 
 
 class AutoscriptIonBeamControl(AutoscriptBeamControl[IonBeamAs]):
@@ -495,4 +495,4 @@ class AutoscriptIonBeamControl(AutoscriptBeamControl[IonBeamAs]):
         return (-1, 1)
 
     def limits(self, var: str) -> tuple[float, float]:
-        raise MicroscopeError(f"{var} is not valid microscope variable")
+        raise MicroscopeError(f"{var} is not valid microscope variable for an ion beam")
