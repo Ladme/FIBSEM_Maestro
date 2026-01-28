@@ -51,9 +51,9 @@ class StagePosition:
         """
         # TODO: all fields can be None - how should we handle that?
         return cls(
-            x=stage_position_autoscript.x or 0 * 10e9,
-            y=stage_position_autoscript.y or 0 * 1e9,
-            z=stage_position_autoscript.z or 0 * 1e9,
+            x=(stage_position_autoscript.x or 0) * 1e9,
+            y=(stage_position_autoscript.y or 0) * 1e9,
+            z=(stage_position_autoscript.z or 0) * 1e9,
             rotation=math.degrees(stage_position_autoscript.r or 0),
             tilt=math.degrees(stage_position_autoscript.t or 0),
         )

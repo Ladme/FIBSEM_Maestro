@@ -380,14 +380,14 @@ class AutoscriptElectronBeamControl(AutoscriptBeamControl[ElectronBeamAs]):
 
     @property
     def working_distance(self):
-        wd = self._beam.working_distance.value
+        wd = self._beam.working_distance.value * 1e9  # m -> nm
         self._txt_log.debug(f"Getting working distance ({self._modality}): {wd}.")
         return wd
 
     @working_distance.setter
     def working_distance(self, value: float):
         self._txt_log.debug(f"Setting working distance ({self._modality}): {value}.")
-        self._beam.working_distance.set_value_no_degauss(value)
+        self._beam.working_distance.set_value_no_degauss(value * 1e-9)  # nm -> m
 
     @property
     def lens_alignment(self) -> LensAlignment:
@@ -459,14 +459,14 @@ class AutoscriptIonBeamControl(AutoscriptBeamControl[IonBeamAs]):
 
     @property
     def working_distance(self):
-        wd = self._beam.working_distance.value
+        wd = self._beam.working_distance.value * 1e9  # m -> nm
         self._txt_log.debug(f"Getting working distance ({self._modality}): {wd}.")
         return wd
 
     @working_distance.setter
     def working_distance(self, value: float):
         self._txt_log.debug(f"Setting working distance ({self._modality}): {value}.")
-        self._beam.working_distance.value = value
+        self._beam.working_distance.value = value * 1e-9  # nm -> m
 
     @property
     def lens_alignment(self) -> LensAlignment:
