@@ -190,8 +190,10 @@ class Microscope:
     ) -> None:
         self._control.set_properties(properties, beam)
 
-    def collect_properties(self) -> GlobalProperties:
-        return self._control.collect_properties(self._settings.properties_to_collect)
+    def collect_properties(
+        self, properties_to_collect: PropertyNames
+    ) -> GlobalProperties:
+        return self._control.collect_properties(properties_to_collect)
 
     def get_property_names(self) -> PropertyNames:
         return self._control.prop_names

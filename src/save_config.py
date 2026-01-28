@@ -61,7 +61,9 @@ def main():
     microscope = Microscope(microscope_settings, txt_log, img_log)
 
     # collect the parameters of the microscope
-    properties = microscope.collect_properties()
+    properties = microscope.collect_properties(
+        microscope_settings.properties_to_collect
+    )
 
     properties.to_file(args.props)
 

@@ -278,12 +278,17 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
     @pixel_size.setter
     def pixel_size(self, value: float) -> None:
         # it is not possible to set pixel size as property of the microscope, but it is needed for resolution calculation
-        extended_res_i_x = int(self.horizontal_field_width / value)
-        extended_res_i_y = int(self.vertical_field_width / value)
+        if self._extended_resolution is not None:
+            extended_res_i_x = int(self.horizontal_field_width / value)
+            extended_res_i_y = int(self.vertical_field_width / value)
 
-        extended_res = f"{extended_res_i_x}x{extended_res_i_y}"
-        self._txt_log.info(f"Extended resolution set to: {extended_res}.")
-        self.resolution = (extended_res_i_x, extended_res_i_y)
+            extended_res = f"{extended_res_i_x}x{extended_res_i_y}"
+            self._txt_log.info(f"Extended resolution set to: {extended_res}.")
+            self.resolution = (extended_res_i_x, extended_res_i_y)
+        else:
+            raise MicroscopeError(
+                "Cannot set pixel size if extended resolution is not used."
+            )
 
     @property
     def scan_rotation(self) -> float:
