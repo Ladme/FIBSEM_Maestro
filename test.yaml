@@ -1,0 +1,59 @@
+electron_beam:
+  beam_current.value: 2.5e-11
+  beam_shift:
+    x: 0.0
+    y: 0.0
+  bit_depth: 8
+  detector_brightness: 0.26292049109033006
+  detector_contrast: 0.8160880518623158
+  dwell_time: 5.0e-08
+  horizontal_field_width: 276266.6666666666
+  lens_alignment:
+    x: 94803.19348438417
+    y: -76189.91265746868
+  line_integration: 1
+  pixel_size: 89.93055555555554
+  resolution:
+  - 3072
+  - 2048
+  scanning.resolution.value: 3072x2048
+  source_tilt:
+    x: 0.0
+    y: 0.0
+  stigmator:
+    x: -0.15707043244360508
+    y: 0.14250664880074684
+  vertical_field_width: 184177.77777777775
+  working_distance: 3719463.765306231
+ion_beam:
+  beam_shift:
+    x: -35090.80319564301
+    y: 0.0
+  bit_depth: 8
+  detector_brightness: 0.36809936345704847
+  detector_contrast: 0.6126585288587882
+  dwell_time: 1.0e-07
+  high_voltage.value: 30000.0
+  horizontal_field_width: 207200.0
+  line_integration: 1
+  pixel_size: 67.44791666666667
+  resolution:
+  - 3072
+  - 2048
+  stigmator:
+    x: -0.1117349700685085
+    y: -0.04992413556252507
+  vertical_field_width: 138133.33333333334
+  working_distance: 16555296.841922872
+microscope:
+  beams.electron_beam.beam_shift.value: !autoscript_sdb_microscope_client._structures_primitives.Point
+    x: 0.0
+    y: 0.0
+  detector.brightness.value: 0.36809936345704847
+  detector.type.value: ETD
+  stage_position:
+    rotation: -0.017494509211397856
+    tilt: 4.999969040247654
+    x: 2624878.2015559087
+    y: -3164666.6666666665
+    z: 32052983.53909465

@@ -1,0 +1,528 @@
+2026-01-29 11:45:48,713: microscope - INFO - Connecting to 147.251.159.93.
+2026-01-29 11:45:48,721: microscope - DEBUG - Getting stage position StagePosition(x=-2576461.541195887, y=3262500.0, z=32052983.53909465, rotation=-179.99806355584514, tilt=7.999986240110105).
+2026-01-29 11:45:48,722: microscope - DEBUG - Getting manufacturer property 'beams.electron_beam.beam_current.value': 2.5e-11.
+2026-01-29 11:45:48,737: microscope - DEBUG - Getting manufacturer property 'detector.brightness.value': 0.39646493891666185.
+2026-01-29 11:45:48,740: microscope - DEBUG - Getting manufacturer property 'detector.type.value': ETD.
+2026-01-29 11:45:48,741: microscope > electron beam - DEBUG - Getting stigmator (eb): Stigmator(x=-0.15707043244360508, y=0.14250664880074684).
+2026-01-29 11:45:48,741: microscope > electron beam - DEBUG - Getting lens alignment (eb): LensAlignment(x=94803.19348438417, y=-76189.91265746868).
+2026-01-29 11:45:48,742: microscope > electron beam - DEBUG - Getting beam shift (eb): BeamShift(x=0.0, y=0.0).
+2026-01-29 11:45:48,759: microscope > electron beam - DEBUG - Getting detector contrast (eb): 0.8160880518623158.
+2026-01-29 11:45:48,775: microscope > electron beam - DEBUG - Getting detector brightness (eb): 0.26292049109033006.
+2026-01-29 11:45:48,777: microscope > electron beam - DEBUG - Getting source tilt (eb): SourceTilt(x=0.0, y=0.0).
+2026-01-29 11:45:48,778: microscope > electron beam - DEBUG - Getting line integration (eb): 1.
+2026-01-29 11:45:48,778: microscope > electron beam - DEBUG - Getting dwell time (eb): 5e-08.
+2026-01-29 11:45:48,779: microscope > electron beam - DEBUG - Getting bit depth (eb): 8.
+2026-01-29 11:45:48,779: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 11:45:48,780: microscope > electron beam - DEBUG - Getting horizontal field width (eb): 276266.6666666666.
+2026-01-29 11:45:48,780: microscope > electron beam - DEBUG - Getting horizontal field width (eb): 276266.6666666666.
+2026-01-29 11:45:48,781: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 11:45:48,781: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 11:45:48,781: microscope > electron beam - INFO - Vertical field width was not set. Calculating from resolution.
+2026-01-29 11:45:48,781: microscope > electron beam - DEBUG - Getting dummy vertical field width (eb): 184177.77777777775.
+2026-01-29 11:45:48,782: microscope > electron beam - DEBUG - Getting horizontal field width (eb): 276266.6666666666.
+2026-01-29 11:45:48,783: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 11:45:48,783: microscope > electron beam - DEBUG - Getting pixel size (eb): 89.93055555555554.
+2026-01-29 11:45:48,783: microscope > electron beam - DEBUG - Getting scanning area (eb): None.
+2026-01-29 11:45:48,783: microscope > electron beam - DEBUG - Getting working distance (eb): 3719463.765306231.
+2026-01-29 11:45:48,783: microscope > electron beam - DEBUG - Getting manufacturer property 'beam_current.value' (eb): 2.5e-11.
+2026-01-29 11:45:48,784: microscope > electron beam - DEBUG - Getting manufacturer property 'scanning.resolution.value' (eb): 3072x2048.
+2026-01-29 11:45:48,784: microscope > ion beam - DEBUG - Getting stigmator (ib): Stigmator(x=-0.15690442605365032, y=0.14026304753280863).
+2026-01-29 11:45:48,786: microscope > ion beam - DEBUG - Getting beam shift (ib): BeamShift(x=-35090.80319564301, y=0.0).
+2026-01-29 11:45:48,790: microscope > ion beam - DEBUG - Getting detector contrast (ib): 0.18503743821633298.
+2026-01-29 11:45:48,796: microscope > ion beam - DEBUG - Getting detector brightness (ib): 0.39646493891666185.
+2026-01-29 11:45:48,796: microscope > ion beam - DEBUG - Getting line integration (ib): 1.
+2026-01-29 11:45:48,797: microscope > ion beam - DEBUG - Getting dwell time (ib): 1e-07.
+2026-01-29 11:45:48,797: microscope > ion beam - DEBUG - Getting bit depth (ib): 8.
+2026-01-29 11:45:48,798: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 11:45:48,799: microscope > ion beam - DEBUG - Getting horizontal field width (ib): 420977.77777777775.
+2026-01-29 11:45:48,799: microscope > ion beam - DEBUG - Getting horizontal field width (ib): 420977.77777777775.
+2026-01-29 11:45:48,800: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 11:45:48,801: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 11:45:48,801: microscope > ion beam - INFO - Vertical field width was not set. Calculating from resolution.
+2026-01-29 11:45:48,801: microscope > ion beam - DEBUG - Getting dummy vertical field width (ib): 280651.85185185185.
+2026-01-29 11:45:48,801: microscope > ion beam - DEBUG - Getting horizontal field width (ib): 420977.77777777775.
+2026-01-29 11:45:48,802: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 11:45:48,802: microscope > ion beam - DEBUG - Getting pixel size (ib): 137.03703703703704.
+2026-01-29 11:45:48,802: microscope > ion beam - DEBUG - Getting scanning area (ib): None.
+2026-01-29 11:45:48,802: microscope > ion beam - DEBUG - Getting working distance (ib): 16556487.989253208.
+2026-01-29 11:45:48,803: microscope > ion beam - DEBUG - Getting manufacturer property 'high_voltage.value' (ib): 30000.0.
+2026-01-29 11:45:59,444: microscope - INFO - Connecting to 147.251.159.93.
+2026-01-29 11:45:59,451: microscope - DEBUG - Getting stage position StagePosition(x=-2576461.541195887, y=3262500.0, z=32052983.53909465, rotation=-179.99806355584514, tilt=7.999986240110105).
+2026-01-29 11:45:59,452: microscope - DEBUG - Getting manufacturer property 'beams.electron_beam.beam_shift.value': Point(x=0, y=0).
+2026-01-29 11:45:59,463: microscope - DEBUG - Getting manufacturer property 'detector.brightness.value': 0.39646493891666185.
+2026-01-29 11:45:59,475: microscope - DEBUG - Getting manufacturer property 'detector.type.value': ETD.
+2026-01-29 11:45:59,476: microscope > electron beam - DEBUG - Getting stigmator (eb): Stigmator(x=-0.15707043244360508, y=0.14250664880074684).
+2026-01-29 11:45:59,476: microscope > electron beam - DEBUG - Getting lens alignment (eb): LensAlignment(x=94803.19348438417, y=-76189.91265746868).
+2026-01-29 11:45:59,477: microscope > electron beam - DEBUG - Getting beam shift (eb): BeamShift(x=0.0, y=0.0).
+2026-01-29 11:45:59,494: microscope > electron beam - DEBUG - Getting detector contrast (eb): 0.8160880518623158.
+2026-01-29 11:45:59,511: microscope > electron beam - DEBUG - Getting detector brightness (eb): 0.26292049109033006.
+2026-01-29 11:45:59,513: microscope > electron beam - DEBUG - Getting source tilt (eb): SourceTilt(x=0.0, y=0.0).
+2026-01-29 11:45:59,513: microscope > electron beam - DEBUG - Getting line integration (eb): 1.
+2026-01-29 11:45:59,514: microscope > electron beam - DEBUG - Getting dwell time (eb): 5e-08.
+2026-01-29 11:45:59,514: microscope > electron beam - DEBUG - Getting bit depth (eb): 8.
+2026-01-29 11:45:59,515: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 11:45:59,515: microscope > electron beam - DEBUG - Getting horizontal field width (eb): 276266.6666666666.
+2026-01-29 11:45:59,516: microscope > electron beam - DEBUG - Getting horizontal field width (eb): 276266.6666666666.
+2026-01-29 11:45:59,516: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 11:45:59,517: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 11:45:59,517: microscope > electron beam - INFO - Vertical field width was not set. Calculating from resolution.
+2026-01-29 11:45:59,517: microscope > electron beam - DEBUG - Getting dummy vertical field width (eb): 184177.77777777775.
+2026-01-29 11:45:59,517: microscope > electron beam - DEBUG - Getting horizontal field width (eb): 276266.6666666666.
+2026-01-29 11:45:59,518: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 11:45:59,518: microscope > electron beam - DEBUG - Getting pixel size (eb): 89.93055555555554.
+2026-01-29 11:45:59,518: microscope > electron beam - DEBUG - Getting scanning area (eb): None.
+2026-01-29 11:45:59,519: microscope > electron beam - DEBUG - Getting working distance (eb): 3719463.765306231.
+2026-01-29 11:45:59,519: microscope > electron beam - DEBUG - Getting manufacturer property 'beam_current.value' (eb): 2.5e-11.
+2026-01-29 11:45:59,520: microscope > electron beam - DEBUG - Getting manufacturer property 'scanning.resolution.value' (eb): 3072x2048.
+2026-01-29 11:45:59,520: microscope > ion beam - DEBUG - Getting stigmator (ib): Stigmator(x=-0.15690442605365032, y=0.14026304753280863).
+2026-01-29 11:45:59,521: microscope > ion beam - DEBUG - Getting beam shift (ib): BeamShift(x=-35090.80319564301, y=0.0).
+2026-01-29 11:45:59,524: microscope > ion beam - DEBUG - Getting detector contrast (ib): 0.18503743821633298.
+2026-01-29 11:45:59,529: microscope > ion beam - DEBUG - Getting detector brightness (ib): 0.39646493891666185.
+2026-01-29 11:45:59,529: microscope > ion beam - DEBUG - Getting line integration (ib): 1.
+2026-01-29 11:45:59,529: microscope > ion beam - DEBUG - Getting dwell time (ib): 1e-07.
+2026-01-29 11:45:59,530: microscope > ion beam - DEBUG - Getting bit depth (ib): 8.
+2026-01-29 11:45:59,531: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 11:45:59,532: microscope > ion beam - DEBUG - Getting horizontal field width (ib): 420977.77777777775.
+2026-01-29 11:45:59,532: microscope > ion beam - DEBUG - Getting horizontal field width (ib): 420977.77777777775.
+2026-01-29 11:45:59,532: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 11:45:59,533: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 11:45:59,533: microscope > ion beam - INFO - Vertical field width was not set. Calculating from resolution.
+2026-01-29 11:45:59,533: microscope > ion beam - DEBUG - Getting dummy vertical field width (ib): 280651.85185185185.
+2026-01-29 11:45:59,534: microscope > ion beam - DEBUG - Getting horizontal field width (ib): 420977.77777777775.
+2026-01-29 11:45:59,534: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 11:45:59,534: microscope > ion beam - DEBUG - Getting pixel size (ib): 137.03703703703704.
+2026-01-29 11:45:59,534: microscope > ion beam - DEBUG - Getting scanning area (ib): None.
+2026-01-29 11:45:59,534: microscope > ion beam - DEBUG - Getting working distance (ib): 16556487.989253208.
+2026-01-29 11:45:59,535: microscope > ion beam - DEBUG - Getting manufacturer property 'high_voltage.value' (ib): 30000.0.
+2026-01-29 11:50:44,395: microscope - INFO - Connecting to 147.251.159.93.
+2026-01-29 11:50:44,402: microscope - DEBUG - Getting stage position StagePosition(x=2704141.023832828, y=-3169916.6666666665, z=32052983.53909465, rotation=-0.01554856336814248, tilt=12.00000171998623).
+2026-01-29 11:50:44,403: microscope - DEBUG - Getting manufacturer property 'beams.electron_beam.beam_shift.value': Point(x=0, y=0).
+2026-01-29 11:50:44,427: microscope - DEBUG - Getting manufacturer property 'detector.brightness.value': 0.39646493891666185.
+2026-01-29 11:50:44,436: microscope - DEBUG - Getting manufacturer property 'detector.type.value': ETD.
+2026-01-29 11:50:44,437: microscope > electron beam - DEBUG - Getting stigmator (eb): Stigmator(x=-0.15707043244360508, y=0.14250664880074684).
+2026-01-29 11:50:44,437: microscope > electron beam - DEBUG - Getting lens alignment (eb): LensAlignment(x=94803.19348438417, y=-76189.91265746868).
+2026-01-29 11:50:44,438: microscope > electron beam - DEBUG - Getting beam shift (eb): BeamShift(x=0.0, y=0.0).
+2026-01-29 11:50:44,459: microscope > electron beam - DEBUG - Getting detector contrast (eb): 0.8160880518623158.
+2026-01-29 11:50:44,476: microscope > electron beam - DEBUG - Getting detector brightness (eb): 0.26292049109033006.
+2026-01-29 11:50:44,479: microscope > electron beam - DEBUG - Getting source tilt (eb): SourceTilt(x=0.0, y=0.0).
+2026-01-29 11:50:44,479: microscope > electron beam - DEBUG - Getting line integration (eb): 1.
+2026-01-29 11:50:44,480: microscope > electron beam - DEBUG - Getting dwell time (eb): 5e-08.
+2026-01-29 11:50:44,480: microscope > electron beam - DEBUG - Getting bit depth (eb): 8.
+2026-01-29 11:50:44,482: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 11:50:44,482: microscope > electron beam - DEBUG - Getting horizontal field width (eb): 276266.6666666666.
+2026-01-29 11:50:44,482: microscope > electron beam - DEBUG - Getting horizontal field width (eb): 276266.6666666666.
+2026-01-29 11:50:44,483: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 11:50:44,484: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 11:50:44,484: microscope > electron beam - INFO - Vertical field width was not set. Calculating from resolution.
+2026-01-29 11:50:44,484: microscope > electron beam - DEBUG - Getting dummy vertical field width (eb): 184177.77777777775.
+2026-01-29 11:50:44,485: microscope > electron beam - DEBUG - Getting horizontal field width (eb): 276266.6666666666.
+2026-01-29 11:50:44,486: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 11:50:44,486: microscope > electron beam - DEBUG - Getting pixel size (eb): 89.93055555555554.
+2026-01-29 11:50:44,486: microscope > electron beam - DEBUG - Getting scanning area (eb): None.
+2026-01-29 11:50:44,486: microscope > electron beam - DEBUG - Getting working distance (eb): 3719463.765306231.
+2026-01-29 11:50:44,487: microscope > electron beam - DEBUG - Getting manufacturer property 'beam_current.value' (eb): 2.5e-11.
+2026-01-29 11:50:44,487: microscope > electron beam - DEBUG - Getting manufacturer property 'scanning.resolution.value' (eb): 3072x2048.
+2026-01-29 11:50:44,488: microscope > ion beam - DEBUG - Getting stigmator (ib): Stigmator(x=-0.07869564319053342, y=-0.02330426466969138).
+2026-01-29 11:50:44,488: microscope > ion beam - DEBUG - Getting beam shift (ib): BeamShift(x=-35090.80319564301, y=0.0).
+2026-01-29 11:50:44,502: microscope > ion beam - DEBUG - Getting detector contrast (ib): 0.676504397509419.
+2026-01-29 11:50:44,514: microscope > ion beam - DEBUG - Getting detector brightness (ib): 0.39646493891666185.
+2026-01-29 11:50:44,514: microscope > ion beam - DEBUG - Getting line integration (ib): 1.
+2026-01-29 11:50:44,515: microscope > ion beam - DEBUG - Getting dwell time (ib): 1e-07.
+2026-01-29 11:50:44,515: microscope > ion beam - DEBUG - Getting bit depth (ib): 8.
+2026-01-29 11:50:44,516: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 11:50:44,516: microscope > ion beam - DEBUG - Getting horizontal field width (ib): 82879.99999999999.
+2026-01-29 11:50:44,517: microscope > ion beam - DEBUG - Getting horizontal field width (ib): 82879.99999999999.
+2026-01-29 11:50:44,518: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 11:50:44,518: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 11:50:44,518: microscope > ion beam - INFO - Vertical field width was not set. Calculating from resolution.
+2026-01-29 11:50:44,518: microscope > ion beam - DEBUG - Getting dummy vertical field width (ib): 55253.33333333332.
+2026-01-29 11:50:44,519: microscope > ion beam - DEBUG - Getting horizontal field width (ib): 82879.99999999999.
+2026-01-29 11:50:44,519: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 11:50:44,519: microscope > ion beam - DEBUG - Getting pixel size (ib): 26.97916666666666.
+2026-01-29 11:50:44,519: microscope > ion beam - DEBUG - Getting scanning area (ib): None.
+2026-01-29 11:50:44,520: microscope > ion beam - DEBUG - Getting working distance (ib): 16556487.989253208.
+2026-01-29 11:50:44,520: microscope > ion beam - DEBUG - Getting manufacturer property 'high_voltage.value' (ib): 30000.0.
+2026-01-29 11:51:40,540: microscope - INFO - Connecting to 147.251.159.93.
+2026-01-29 11:51:40,548: microscope - DEBUG - Getting stage position StagePosition(x=-1838602.560949213, y=-3624583.333333333, z=32052983.53909465, rotation=65.00239395046505, tilt=35.00000687994491).
+2026-01-29 11:51:40,549: microscope - DEBUG - Getting manufacturer property 'beams.electron_beam.beam_shift.value': Point(x=0, y=0).
+2026-01-29 11:51:40,556: microscope - DEBUG - Getting manufacturer property 'detector.brightness.value': 0.39646493891666185.
+2026-01-29 11:51:40,559: microscope - DEBUG - Getting manufacturer property 'detector.type.value': ETD.
+2026-01-29 11:51:40,559: microscope > electron beam - DEBUG - Getting stigmator (eb): Stigmator(x=-0.15707043244360508, y=0.14250664880074684).
+2026-01-29 11:51:40,560: microscope > electron beam - DEBUG - Getting lens alignment (eb): LensAlignment(x=94803.19348438417, y=-76189.91265746868).
+2026-01-29 11:51:40,561: microscope > electron beam - DEBUG - Getting beam shift (eb): BeamShift(x=0.0, y=0.0).
+2026-01-29 11:51:40,564: microscope > electron beam - DEBUG - Getting detector contrast (eb): 0.8160880518623158.
+2026-01-29 11:51:40,572: microscope > electron beam - DEBUG - Getting detector brightness (eb): 0.26292049109033006.
+2026-01-29 11:51:40,575: microscope > electron beam - DEBUG - Getting source tilt (eb): SourceTilt(x=0.0, y=0.0).
+2026-01-29 11:51:40,575: microscope > electron beam - DEBUG - Getting line integration (eb): 1.
+2026-01-29 11:51:40,575: microscope > electron beam - DEBUG - Getting dwell time (eb): 5e-08.
+2026-01-29 11:51:40,576: microscope > electron beam - DEBUG - Getting bit depth (eb): 8.
+2026-01-29 11:51:40,576: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 11:51:40,577: microscope > electron beam - DEBUG - Getting horizontal field width (eb): 276266.6666666666.
+2026-01-29 11:51:40,578: microscope > electron beam - DEBUG - Getting horizontal field width (eb): 276266.6666666666.
+2026-01-29 11:51:40,578: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 11:51:40,579: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 11:51:40,579: microscope > electron beam - INFO - Vertical field width was not set. Calculating from resolution.
+2026-01-29 11:51:40,579: microscope > electron beam - DEBUG - Getting dummy vertical field width (eb): 184177.77777777775.
+2026-01-29 11:51:40,580: microscope > electron beam - DEBUG - Getting horizontal field width (eb): 276266.6666666666.
+2026-01-29 11:51:40,581: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 11:51:40,581: microscope > electron beam - DEBUG - Getting pixel size (eb): 89.93055555555554.
+2026-01-29 11:51:40,581: microscope > electron beam - DEBUG - Getting scanning area (eb): None.
+2026-01-29 11:51:40,582: microscope > electron beam - DEBUG - Getting working distance (eb): 3719463.765306231.
+2026-01-29 11:51:40,582: microscope > electron beam - DEBUG - Getting manufacturer property 'beam_current.value' (eb): 2.5e-11.
+2026-01-29 11:51:40,583: microscope > electron beam - DEBUG - Getting manufacturer property 'scanning.resolution.value' (eb): 3072x2048.
+2026-01-29 11:51:40,584: microscope > ion beam - DEBUG - Getting stigmator (ib): Stigmator(x=-0.07869564319053342, y=-0.02330426466969138).
+2026-01-29 11:51:40,584: microscope > ion beam - DEBUG - Getting beam shift (ib): BeamShift(x=-35090.80319564301, y=0.0).
+2026-01-29 11:51:40,590: microscope > ion beam - DEBUG - Getting detector contrast (ib): 0.6131086698109744.
+2026-01-29 11:51:40,596: microscope > ion beam - DEBUG - Getting detector brightness (ib): 0.39646493891666185.
+2026-01-29 11:51:40,596: microscope > ion beam - DEBUG - Getting line integration (ib): 1.
+2026-01-29 11:51:40,597: microscope > ion beam - DEBUG - Getting dwell time (ib): 1e-07.
+2026-01-29 11:51:40,598: microscope > ion beam - DEBUG - Getting bit depth (ib): 8.
+2026-01-29 11:51:40,599: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 11:51:40,601: microscope > ion beam - DEBUG - Getting horizontal field width (ib): 207200.0.
+2026-01-29 11:51:40,601: microscope > ion beam - DEBUG - Getting horizontal field width (ib): 207200.0.
+2026-01-29 11:51:40,602: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 11:51:40,604: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 11:51:40,604: microscope > ion beam - INFO - Vertical field width was not set. Calculating from resolution.
+2026-01-29 11:51:40,604: microscope > ion beam - DEBUG - Getting dummy vertical field width (ib): 138133.33333333334.
+2026-01-29 11:51:40,604: microscope > ion beam - DEBUG - Getting horizontal field width (ib): 207200.0.
+2026-01-29 11:51:40,605: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 11:51:40,605: microscope > ion beam - DEBUG - Getting pixel size (ib): 67.44791666666667.
+2026-01-29 11:51:40,605: microscope > ion beam - DEBUG - Getting scanning area (ib): None.
+2026-01-29 11:51:40,606: microscope > ion beam - DEBUG - Getting working distance (ib): 16556487.989253208.
+2026-01-29 11:51:40,606: microscope > ion beam - DEBUG - Getting manufacturer property 'high_voltage.value' (ib): 30000.0.
+2026-01-29 11:55:27,395: microscope - INFO - Connecting to 147.251.159.93.
+2026-01-29 11:55:27,403: microscope - DEBUG - Getting stage position StagePosition(x=2624878.2015559087, y=-3164666.6666666665, z=32052983.53909465, rotation=-0.017494509211397856, tilt=4.999969040247654).
+2026-01-29 11:55:27,404: microscope - DEBUG - Getting manufacturer property 'beams.electron_beam.beam_shift.value': Point(x=0, y=0).
+2026-01-29 11:55:27,411: microscope - DEBUG - Getting manufacturer property 'detector.brightness.value': 0.36809936345704847.
+2026-01-29 11:55:27,416: microscope - DEBUG - Getting manufacturer property 'detector.type.value': ETD.
+2026-01-29 11:55:27,417: microscope > electron beam - DEBUG - Getting stigmator (eb): Stigmator(x=-0.15707043244360508, y=0.14250664880074684).
+2026-01-29 11:55:27,418: microscope > electron beam - DEBUG - Getting lens alignment (eb): LensAlignment(x=94803.19348438417, y=-76189.91265746868).
+2026-01-29 11:55:27,418: microscope > electron beam - DEBUG - Getting beam shift (eb): BeamShift(x=0.0, y=0.0).
+2026-01-29 11:55:27,421: microscope > electron beam - DEBUG - Getting detector contrast (eb): 0.8160880518623158.
+2026-01-29 11:55:27,444: microscope > electron beam - DEBUG - Getting detector brightness (eb): 0.26292049109033006.
+2026-01-29 11:55:27,448: microscope > electron beam - DEBUG - Getting source tilt (eb): SourceTilt(x=0.0, y=0.0).
+2026-01-29 11:55:27,448: microscope > electron beam - DEBUG - Getting line integration (eb): 1.
+2026-01-29 11:55:27,449: microscope > electron beam - DEBUG - Getting dwell time (eb): 5e-08.
+2026-01-29 11:55:27,449: microscope > electron beam - DEBUG - Getting bit depth (eb): 8.
+2026-01-29 11:55:27,450: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 11:55:27,451: microscope > electron beam - DEBUG - Getting horizontal field width (eb): 276266.6666666666.
+2026-01-29 11:55:27,451: microscope > electron beam - DEBUG - Getting horizontal field width (eb): 276266.6666666666.
+2026-01-29 11:55:27,452: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 11:55:27,453: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 11:55:27,453: microscope > electron beam - INFO - Vertical field width was not set. Calculating from resolution.
+2026-01-29 11:55:27,453: microscope > electron beam - DEBUG - Getting dummy vertical field width (eb): 184177.77777777775.
+2026-01-29 11:55:27,453: microscope > electron beam - DEBUG - Getting horizontal field width (eb): 276266.6666666666.
+2026-01-29 11:55:27,454: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 11:55:27,454: microscope > electron beam - DEBUG - Getting pixel size (eb): 89.93055555555554.
+2026-01-29 11:55:27,454: microscope > electron beam - DEBUG - Getting scanning area (eb): None.
+2026-01-29 11:55:27,454: microscope > electron beam - DEBUG - Getting working distance (eb): 3719463.765306231.
+2026-01-29 11:55:27,455: microscope > electron beam - DEBUG - Getting manufacturer property 'beam_current.value' (eb): 2.5e-11.
+2026-01-29 11:55:27,455: microscope > electron beam - DEBUG - Getting manufacturer property 'scanning.resolution.value' (eb): 3072x2048.
+2026-01-29 11:55:27,456: microscope > ion beam - DEBUG - Getting stigmator (ib): Stigmator(x=-0.1117349700685085, y=-0.04992413556252507).
+2026-01-29 11:55:27,456: microscope > ion beam - DEBUG - Getting beam shift (ib): BeamShift(x=-35090.80319564301, y=0.0).
+2026-01-29 11:55:27,470: microscope > ion beam - DEBUG - Getting detector contrast (ib): 0.6126585288587882.
+2026-01-29 11:55:27,486: microscope > ion beam - DEBUG - Getting detector brightness (ib): 0.36809936345704847.
+2026-01-29 11:55:27,486: microscope > ion beam - DEBUG - Getting line integration (ib): 1.
+2026-01-29 11:55:27,487: microscope > ion beam - DEBUG - Getting dwell time (ib): 1e-07.
+2026-01-29 11:55:27,487: microscope > ion beam - DEBUG - Getting bit depth (ib): 8.
+2026-01-29 11:55:27,488: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 11:55:27,489: microscope > ion beam - DEBUG - Getting horizontal field width (ib): 207200.0.
+2026-01-29 11:55:27,489: microscope > ion beam - DEBUG - Getting horizontal field width (ib): 207200.0.
+2026-01-29 11:55:27,490: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 11:55:27,491: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 11:55:27,491: microscope > ion beam - INFO - Vertical field width was not set. Calculating from resolution.
+2026-01-29 11:55:27,491: microscope > ion beam - DEBUG - Getting dummy vertical field width (ib): 138133.33333333334.
+2026-01-29 11:55:27,491: microscope > ion beam - DEBUG - Getting horizontal field width (ib): 207200.0.
+2026-01-29 11:55:27,492: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 11:55:27,492: microscope > ion beam - DEBUG - Getting pixel size (ib): 67.44791666666667.
+2026-01-29 11:55:27,492: microscope > ion beam - DEBUG - Getting scanning area (ib): None.
+2026-01-29 11:55:27,492: microscope > ion beam - DEBUG - Getting working distance (ib): 16555296.841922872.
+2026-01-29 11:55:27,493: microscope > ion beam - DEBUG - Getting manufacturer property 'high_voltage.value' (ib): 30000.0.
+2026-01-29 11:59:18,021: microscope - INFO - Connecting to 147.251.159.93.
+2026-01-29 11:59:18,029: microscope - DEBUG - Getting stage position StagePosition(x=2624878.2015559087, y=-3164666.6666666665, z=32052983.53909465, rotation=-0.017494509211397856, tilt=4.999969040247654).
+2026-01-29 11:59:18,029: microscope - DEBUG - Getting manufacturer property 'beams.electron_beam.beam_shift.value': Point(x=0, y=0).
+2026-01-29 11:59:18,034: microscope - DEBUG - Getting manufacturer property 'detector.brightness.value': 0.36809936345704847.
+2026-01-29 11:59:18,037: microscope - DEBUG - Getting manufacturer property 'detector.type.value': ETD.
+2026-01-29 11:59:18,038: microscope > electron beam - DEBUG - Getting stigmator (eb): Stigmator(x=-0.15707043244360508, y=0.14250664880074684).
+2026-01-29 11:59:18,039: microscope > electron beam - DEBUG - Getting lens alignment (eb): LensAlignment(x=94803.19348438417, y=-76189.91265746868).
+2026-01-29 11:59:18,039: microscope > electron beam - DEBUG - Getting beam shift (eb): BeamShift(x=0.0, y=0.0).
+2026-01-29 11:59:18,043: microscope > electron beam - DEBUG - Getting detector contrast (eb): 0.8160880518623158.
+2026-01-29 11:59:18,049: microscope > electron beam - DEBUG - Getting detector brightness (eb): 0.26292049109033006.
+2026-01-29 11:59:18,051: microscope > electron beam - DEBUG - Getting source tilt (eb): SourceTilt(x=0.0, y=0.0).
+2026-01-29 11:59:18,051: microscope > electron beam - DEBUG - Getting line integration (eb): 1.
+2026-01-29 11:59:18,051: microscope > electron beam - DEBUG - Getting dwell time (eb): 5e-08.
+2026-01-29 11:59:18,052: microscope > electron beam - DEBUG - Getting bit depth (eb): 8.
+2026-01-29 11:59:18,054: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 11:59:18,054: microscope > electron beam - DEBUG - Getting horizontal field width (eb): 276266.6666666666.
+2026-01-29 11:59:18,054: microscope > electron beam - DEBUG - Getting horizontal field width (eb): 276266.6666666666.
+2026-01-29 11:59:18,055: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 11:59:18,056: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 11:59:18,056: microscope > electron beam - INFO - Vertical field width was not set. Calculating from resolution.
+2026-01-29 11:59:18,056: microscope > electron beam - DEBUG - Getting dummy vertical field width (eb): 184177.77777777775.
+2026-01-29 11:59:18,056: microscope > electron beam - DEBUG - Getting horizontal field width (eb): 276266.6666666666.
+2026-01-29 11:59:18,057: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 11:59:18,057: microscope > electron beam - DEBUG - Getting pixel size (eb): 89.93055555555554.
+2026-01-29 11:59:18,057: microscope > electron beam - DEBUG - Getting scanning area (eb): None.
+2026-01-29 11:59:18,058: microscope > electron beam - DEBUG - Getting working distance (eb): 3719463.765306231.
+2026-01-29 11:59:18,059: microscope > electron beam - DEBUG - Getting manufacturer property 'beam_current.value' (eb): 2.5e-11.
+2026-01-29 11:59:18,060: microscope > electron beam - DEBUG - Getting manufacturer property 'scanning.resolution.value' (eb): 3072x2048.
+2026-01-29 11:59:18,060: microscope > ion beam - DEBUG - Getting stigmator (ib): Stigmator(x=-0.1117349700685085, y=-0.04992413556252507).
+2026-01-29 11:59:18,061: microscope > ion beam - DEBUG - Getting beam shift (ib): BeamShift(x=-35090.80319564301, y=0.0).
+2026-01-29 11:59:18,065: microscope > ion beam - DEBUG - Getting detector contrast (ib): 0.6126585288587882.
+2026-01-29 11:59:18,071: microscope > ion beam - DEBUG - Getting detector brightness (ib): 0.36809936345704847.
+2026-01-29 11:59:18,071: microscope > ion beam - DEBUG - Getting line integration (ib): 1.
+2026-01-29 11:59:18,071: microscope > ion beam - DEBUG - Getting dwell time (ib): 1e-07.
+2026-01-29 11:59:18,072: microscope > ion beam - DEBUG - Getting bit depth (ib): 8.
+2026-01-29 11:59:18,072: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 11:59:18,073: microscope > ion beam - DEBUG - Getting horizontal field width (ib): 207200.0.
+2026-01-29 11:59:18,073: microscope > ion beam - DEBUG - Getting horizontal field width (ib): 207200.0.
+2026-01-29 11:59:18,074: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 11:59:18,076: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 11:59:18,076: microscope > ion beam - INFO - Vertical field width was not set. Calculating from resolution.
+2026-01-29 11:59:18,076: microscope > ion beam - DEBUG - Getting dummy vertical field width (ib): 138133.33333333334.
+2026-01-29 11:59:18,076: microscope > ion beam - DEBUG - Getting horizontal field width (ib): 207200.0.
+2026-01-29 11:59:18,077: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 11:59:18,077: microscope > ion beam - DEBUG - Getting pixel size (ib): 67.44791666666667.
+2026-01-29 11:59:18,077: microscope > ion beam - DEBUG - Getting scanning area (ib): None.
+2026-01-29 11:59:18,078: microscope > ion beam - DEBUG - Getting working distance (ib): 16555296.841922872.
+2026-01-29 11:59:18,078: microscope > ion beam - DEBUG - Getting manufacturer property 'high_voltage.value' (ib): 30000.0.
+2026-01-29 12:01:21,540: microscope - INFO - Connecting to 147.251.159.93.
+2026-01-29 12:01:21,551: microscope - DEBUG - Getting stage position StagePosition(x=2624878.2015559087, y=-3164666.6666666665, z=32052983.53909465, rotation=-0.017494509211397856, tilt=4.999969040247654).
+2026-01-29 12:01:21,553: microscope - DEBUG - Getting manufacturer property 'beams.electron_beam.beam_shift.value': Point(x=0, y=0).
+2026-01-29 12:01:21,558: microscope - DEBUG - Getting manufacturer property 'detector.brightness.value': 0.36809936345704847.
+2026-01-29 12:01:21,563: microscope - DEBUG - Getting manufacturer property 'detector.type.value': ETD.
+2026-01-29 12:01:21,565: microscope > electron beam - DEBUG - Getting stigmator (eb): Stigmator(x=-0.15707043244360508, y=0.14250664880074684).
+2026-01-29 12:01:21,567: microscope > electron beam - DEBUG - Getting lens alignment (eb): LensAlignment(x=94803.19348438417, y=-76189.91265746868).
+2026-01-29 12:01:21,567: microscope > electron beam - DEBUG - Getting beam shift (eb): BeamShift(x=0.0, y=0.0).
+2026-01-29 12:01:21,573: microscope > electron beam - DEBUG - Getting detector contrast (eb): 0.8160880518623158.
+2026-01-29 12:01:21,581: microscope > electron beam - DEBUG - Getting detector brightness (eb): 0.26292049109033006.
+2026-01-29 12:01:21,587: microscope > electron beam - DEBUG - Getting source tilt (eb): SourceTilt(x=0.0, y=0.0).
+2026-01-29 12:01:21,587: microscope > electron beam - DEBUG - Getting line integration (eb): 1.
+2026-01-29 12:01:21,588: microscope > electron beam - DEBUG - Getting dwell time (eb): 5e-08.
+2026-01-29 12:01:21,589: microscope > electron beam - DEBUG - Getting bit depth (eb): 8.
+2026-01-29 12:01:21,590: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 12:01:21,591: microscope > electron beam - DEBUG - Getting horizontal field width (eb): 276266.6666666666.
+2026-01-29 12:01:21,591: microscope > electron beam - DEBUG - Getting horizontal field width (eb): 276266.6666666666.
+2026-01-29 12:01:21,592: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 12:01:21,593: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 12:01:21,593: microscope > electron beam - INFO - Vertical field width was not set. Calculating from resolution.
+2026-01-29 12:01:21,593: microscope > electron beam - DEBUG - Getting dummy vertical field width (eb): 184177.77777777775.
+2026-01-29 12:01:21,593: microscope > electron beam - DEBUG - Getting horizontal field width (eb): 276266.6666666666.
+2026-01-29 12:01:21,594: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 12:01:21,594: microscope > electron beam - DEBUG - Getting pixel size (eb): 89.93055555555554.
+2026-01-29 12:01:21,594: microscope > electron beam - DEBUG - Getting scanning area (eb): None.
+2026-01-29 12:01:21,595: microscope > electron beam - DEBUG - Getting working distance (eb): 3719463.765306231.
+2026-01-29 12:01:21,596: microscope > electron beam - DEBUG - Getting manufacturer property 'beam_current.value' (eb): 2.5e-11.
+2026-01-29 12:01:21,597: microscope > electron beam - DEBUG - Getting manufacturer property 'scanning.resolution.value' (eb): 3072x2048.
+2026-01-29 12:01:21,600: microscope > ion beam - DEBUG - Getting stigmator (ib): Stigmator(x=-0.1117349700685085, y=-0.04992413556252507).
+2026-01-29 12:01:21,601: microscope > ion beam - DEBUG - Getting beam shift (ib): BeamShift(x=-35090.80319564301, y=0.0).
+2026-01-29 12:01:21,620: microscope > ion beam - DEBUG - Getting detector contrast (ib): 0.6126585288587882.
+2026-01-29 12:01:21,635: microscope > ion beam - DEBUG - Getting detector brightness (ib): 0.36809936345704847.
+2026-01-29 12:01:21,635: microscope > ion beam - DEBUG - Getting line integration (ib): 1.
+2026-01-29 12:01:21,636: microscope > ion beam - DEBUG - Getting dwell time (ib): 1e-07.
+2026-01-29 12:01:21,637: microscope > ion beam - DEBUG - Getting bit depth (ib): 8.
+2026-01-29 12:01:21,639: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 12:01:21,640: microscope > ion beam - DEBUG - Getting horizontal field width (ib): 207200.0.
+2026-01-29 12:01:21,642: microscope > ion beam - DEBUG - Getting horizontal field width (ib): 207200.0.
+2026-01-29 12:01:21,644: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 12:01:21,646: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 12:01:21,646: microscope > ion beam - INFO - Vertical field width was not set. Calculating from resolution.
+2026-01-29 12:01:21,646: microscope > ion beam - DEBUG - Getting dummy vertical field width (ib): 138133.33333333334.
+2026-01-29 12:01:21,646: microscope > ion beam - DEBUG - Getting horizontal field width (ib): 207200.0.
+2026-01-29 12:01:21,648: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 12:01:21,648: microscope > ion beam - DEBUG - Getting pixel size (ib): 67.44791666666667.
+2026-01-29 12:01:21,648: microscope > ion beam - DEBUG - Getting scanning area (ib): None.
+2026-01-29 12:01:21,649: microscope > ion beam - DEBUG - Getting working distance (ib): 16555296.841922872.
+2026-01-29 12:01:21,649: microscope > ion beam - DEBUG - Getting manufacturer property 'high_voltage.value' (ib): 30000.0.
+2026-01-29 12:02:05,018: microscope - INFO - Connecting to 147.251.159.93.
+2026-01-29 12:02:05,025: microscope - DEBUG - Getting stage position StagePosition(x=2624878.2015559087, y=-3164666.6666666665, z=32052983.53909465, rotation=-0.017494509211397856, tilt=4.999969040247654).
+2026-01-29 12:02:05,026: microscope - DEBUG - Getting manufacturer property 'beams.electron_beam.beam_shift.value': Point(x=0, y=0).
+2026-01-29 12:02:05,031: microscope - DEBUG - Getting manufacturer property 'detector.brightness.value': 0.36809936345704847.
+2026-01-29 12:02:05,035: microscope - DEBUG - Getting manufacturer property 'detector.type.value': ETD.
+2026-01-29 12:02:05,035: microscope > electron beam - DEBUG - Getting stigmator (eb): Stigmator(x=-0.15707043244360508, y=0.14250664880074684).
+2026-01-29 12:02:05,036: microscope > electron beam - DEBUG - Getting lens alignment (eb): LensAlignment(x=94803.19348438417, y=-76189.91265746868).
+2026-01-29 12:02:05,037: microscope > electron beam - DEBUG - Getting beam shift (eb): BeamShift(x=0.0, y=0.0).
+2026-01-29 12:02:05,054: microscope > electron beam - DEBUG - Getting detector contrast (eb): 0.8160880518623158.
+2026-01-29 12:02:05,071: microscope > electron beam - DEBUG - Getting detector brightness (eb): 0.26292049109033006.
+2026-01-29 12:02:05,073: microscope > electron beam - DEBUG - Getting source tilt (eb): SourceTilt(x=0.0, y=0.0).
+2026-01-29 12:02:05,073: microscope > electron beam - DEBUG - Getting line integration (eb): 1.
+2026-01-29 12:02:05,074: microscope > electron beam - DEBUG - Getting dwell time (eb): 5e-08.
+2026-01-29 12:02:05,074: microscope > electron beam - DEBUG - Getting bit depth (eb): 8.
+2026-01-29 12:02:05,075: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 12:02:05,075: microscope > electron beam - DEBUG - Getting horizontal field width (eb): 276266.6666666666.
+2026-01-29 12:02:05,076: microscope > electron beam - DEBUG - Getting horizontal field width (eb): 276266.6666666666.
+2026-01-29 12:02:05,077: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 12:02:05,078: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 12:02:05,078: microscope > electron beam - INFO - Vertical field width was not set. Calculating from resolution.
+2026-01-29 12:02:05,078: microscope > electron beam - DEBUG - Getting dummy vertical field width (eb): 184177.77777777775.
+2026-01-29 12:02:05,078: microscope > electron beam - DEBUG - Getting horizontal field width (eb): 276266.6666666666.
+2026-01-29 12:02:05,079: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 12:02:05,079: microscope > electron beam - DEBUG - Getting pixel size (eb): 89.93055555555554.
+2026-01-29 12:02:05,079: microscope > electron beam - DEBUG - Getting scanning area (eb): None.
+2026-01-29 12:02:05,080: microscope > electron beam - DEBUG - Getting working distance (eb): 3719463.765306231.
+2026-01-29 12:02:05,080: microscope > electron beam - DEBUG - Getting manufacturer property 'beam_current.value' (eb): 2.5e-11.
+2026-01-29 12:02:05,081: microscope > electron beam - DEBUG - Getting manufacturer property 'scanning.resolution.value' (eb): 3072x2048.
+2026-01-29 12:02:05,081: microscope > ion beam - DEBUG - Getting stigmator (ib): Stigmator(x=-0.1117349700685085, y=-0.04992413556252507).
+2026-01-29 12:02:05,081: microscope > ion beam - DEBUG - Getting beam shift (ib): BeamShift(x=-35090.80319564301, y=0.0).
+2026-01-29 12:02:05,085: microscope > ion beam - DEBUG - Getting detector contrast (ib): 0.6126585288587882.
+2026-01-29 12:02:05,091: microscope > ion beam - DEBUG - Getting detector brightness (ib): 0.36809936345704847.
+2026-01-29 12:02:05,091: microscope > ion beam - DEBUG - Getting line integration (ib): 1.
+2026-01-29 12:02:05,091: microscope > ion beam - DEBUG - Getting dwell time (ib): 1e-07.
+2026-01-29 12:02:05,092: microscope > ion beam - DEBUG - Getting bit depth (ib): 8.
+2026-01-29 12:02:05,092: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 12:02:05,093: microscope > ion beam - DEBUG - Getting horizontal field width (ib): 207200.0.
+2026-01-29 12:02:05,093: microscope > ion beam - DEBUG - Getting horizontal field width (ib): 207200.0.
+2026-01-29 12:02:05,094: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 12:02:05,094: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 12:02:05,094: microscope > ion beam - INFO - Vertical field width was not set. Calculating from resolution.
+2026-01-29 12:02:05,094: microscope > ion beam - DEBUG - Getting dummy vertical field width (ib): 138133.33333333334.
+2026-01-29 12:02:05,095: microscope > ion beam - DEBUG - Getting horizontal field width (ib): 207200.0.
+2026-01-29 12:02:05,096: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 12:02:05,096: microscope > ion beam - DEBUG - Getting pixel size (ib): 67.44791666666667.
+2026-01-29 12:02:05,096: microscope > ion beam - DEBUG - Getting scanning area (ib): None.
+2026-01-29 12:02:05,097: microscope > ion beam - DEBUG - Getting working distance (ib): 16555296.841922872.
+2026-01-29 12:02:05,097: microscope > ion beam - DEBUG - Getting manufacturer property 'high_voltage.value' (ib): 30000.0.
+2026-01-29 12:02:58,033: microscope - INFO - Connecting to 147.251.159.93.
+2026-01-29 12:02:58,040: microscope - DEBUG - Getting stage position StagePosition(x=2624878.2015559087, y=-3164666.6666666665, z=32052983.53909465, rotation=-0.017494509211397856, tilt=4.999969040247654).
+2026-01-29 12:02:58,041: microscope - DEBUG - Getting manufacturer property 'beams.electron_beam.beam_shift.value': Point(x=0, y=0).
+2026-01-29 12:02:58,046: microscope - DEBUG - Getting manufacturer property 'detector.brightness.value': 0.36809936345704847.
+2026-01-29 12:02:58,048: microscope - DEBUG - Getting manufacturer property 'detector.type.value': ETD.
+2026-01-29 12:02:58,049: microscope > electron beam - DEBUG - Getting stigmator (eb): Stigmator(x=-0.15707043244360508, y=0.14250664880074684).
+2026-01-29 12:02:58,049: microscope > electron beam - DEBUG - Getting lens alignment (eb): LensAlignment(x=94803.19348438417, y=-76189.91265746868).
+2026-01-29 12:02:58,050: microscope > electron beam - DEBUG - Getting beam shift (eb): BeamShift(x=0.0, y=0.0).
+2026-01-29 12:02:58,053: microscope > electron beam - DEBUG - Getting detector contrast (eb): 0.8160880518623158.
+2026-01-29 12:02:58,061: microscope > electron beam - DEBUG - Getting detector brightness (eb): 0.26292049109033006.
+2026-01-29 12:02:58,063: microscope > electron beam - DEBUG - Getting source tilt (eb): SourceTilt(x=0.0, y=0.0).
+2026-01-29 12:02:58,063: microscope > electron beam - DEBUG - Getting line integration (eb): 1.
+2026-01-29 12:02:58,063: microscope > electron beam - DEBUG - Getting dwell time (eb): 5e-08.
+2026-01-29 12:02:58,064: microscope > electron beam - DEBUG - Getting bit depth (eb): 8.
+2026-01-29 12:02:58,065: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 12:02:58,065: microscope > electron beam - DEBUG - Getting horizontal field width (eb): 276266.6666666666.
+2026-01-29 12:02:58,066: microscope > electron beam - DEBUG - Getting horizontal field width (eb): 276266.6666666666.
+2026-01-29 12:02:58,067: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 12:02:58,068: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 12:02:58,068: microscope > electron beam - INFO - Vertical field width was not set. Calculating from resolution.
+2026-01-29 12:02:58,068: microscope > electron beam - DEBUG - Getting dummy vertical field width (eb): 184177.77777777775.
+2026-01-29 12:02:58,069: microscope > electron beam - DEBUG - Getting horizontal field width (eb): 276266.6666666666.
+2026-01-29 12:02:58,071: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 12:02:58,071: microscope > electron beam - DEBUG - Getting pixel size (eb): 89.93055555555554.
+2026-01-29 12:02:58,071: microscope > electron beam - DEBUG - Getting scanning area (eb): None.
+2026-01-29 12:02:58,072: microscope > electron beam - DEBUG - Getting working distance (eb): 3719463.765306231.
+2026-01-29 12:02:58,072: microscope > electron beam - DEBUG - Getting manufacturer property 'beam_current.value' (eb): 2.5e-11.
+2026-01-29 12:02:58,073: microscope > electron beam - DEBUG - Getting manufacturer property 'scanning.resolution.value' (eb): 3072x2048.
+2026-01-29 12:02:58,074: microscope > ion beam - DEBUG - Getting stigmator (ib): Stigmator(x=-0.1117349700685085, y=-0.04992413556252507).
+2026-01-29 12:02:58,074: microscope > ion beam - DEBUG - Getting beam shift (ib): BeamShift(x=-35090.80319564301, y=0.0).
+2026-01-29 12:02:58,091: microscope > ion beam - DEBUG - Getting detector contrast (ib): 0.6126585288587882.
+2026-01-29 12:02:58,106: microscope > ion beam - DEBUG - Getting detector brightness (ib): 0.36809936345704847.
+2026-01-29 12:02:58,106: microscope > ion beam - DEBUG - Getting line integration (ib): 1.
+2026-01-29 12:02:58,107: microscope > ion beam - DEBUG - Getting dwell time (ib): 1e-07.
+2026-01-29 12:02:58,107: microscope > ion beam - DEBUG - Getting bit depth (ib): 8.
+2026-01-29 12:02:58,108: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 12:02:58,109: microscope > ion beam - DEBUG - Getting horizontal field width (ib): 207200.0.
+2026-01-29 12:02:58,109: microscope > ion beam - DEBUG - Getting horizontal field width (ib): 207200.0.
+2026-01-29 12:02:58,110: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 12:02:58,110: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 12:02:58,110: microscope > ion beam - INFO - Vertical field width was not set. Calculating from resolution.
+2026-01-29 12:02:58,110: microscope > ion beam - DEBUG - Getting dummy vertical field width (ib): 138133.33333333334.
+2026-01-29 12:02:58,111: microscope > ion beam - DEBUG - Getting horizontal field width (ib): 207200.0.
+2026-01-29 12:02:58,112: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 12:02:58,112: microscope > ion beam - DEBUG - Getting pixel size (ib): 67.44791666666667.
+2026-01-29 12:02:58,112: microscope > ion beam - DEBUG - Getting scanning area (ib): None.
+2026-01-29 12:02:58,112: microscope > ion beam - DEBUG - Getting working distance (ib): 16555296.841922872.
+2026-01-29 12:02:58,113: microscope > ion beam - DEBUG - Getting manufacturer property 'high_voltage.value' (ib): 30000.0.
+2026-01-29 12:04:20,043: microscope - INFO - Connecting to 147.251.159.93.
+2026-01-29 12:04:20,051: microscope - DEBUG - Getting stage position StagePosition(x=2624878.2015559087, y=-3164666.6666666665, z=32052983.53909465, rotation=-0.017494509211397856, tilt=4.999969040247654).
+2026-01-29 12:04:20,051: microscope - DEBUG - Getting manufacturer property 'beams.electron_beam.beam_shift.value': Point(x=0, y=0).
+2026-01-29 12:04:20,057: microscope - DEBUG - Getting manufacturer property 'detector.brightness.value': 0.36809936345704847.
+2026-01-29 12:04:20,060: microscope - DEBUG - Getting manufacturer property 'detector.type.value': ETD.
+2026-01-29 12:04:20,060: microscope > electron beam - DEBUG - Getting stigmator (eb): Stigmator(x=-0.15707043244360508, y=0.14250664880074684).
+2026-01-29 12:04:20,061: microscope > electron beam - DEBUG - Getting lens alignment (eb): LensAlignment(x=94803.19348438417, y=-76189.91265746868).
+2026-01-29 12:04:20,061: microscope > electron beam - DEBUG - Getting beam shift (eb): BeamShift(x=0.0, y=0.0).
+2026-01-29 12:04:20,078: microscope > electron beam - DEBUG - Getting detector contrast (eb): 0.8160880518623158.
+2026-01-29 12:04:20,096: microscope > electron beam - DEBUG - Getting detector brightness (eb): 0.26292049109033006.
+2026-01-29 12:04:20,098: microscope > electron beam - DEBUG - Getting source tilt (eb): SourceTilt(x=0.0, y=0.0).
+2026-01-29 12:04:20,098: microscope > electron beam - DEBUG - Getting line integration (eb): 1.
+2026-01-29 12:04:20,099: microscope > electron beam - DEBUG - Getting dwell time (eb): 5e-08.
+2026-01-29 12:04:20,099: microscope > electron beam - DEBUG - Getting bit depth (eb): 8.
+2026-01-29 12:04:20,100: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 12:04:20,101: microscope > electron beam - DEBUG - Getting horizontal field width (eb): 276266.6666666666.
+2026-01-29 12:04:20,101: microscope > electron beam - DEBUG - Getting horizontal field width (eb): 276266.6666666666.
+2026-01-29 12:04:20,102: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 12:04:20,103: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 12:04:20,103: microscope > electron beam - INFO - Vertical field width was not set. Calculating from resolution.
+2026-01-29 12:04:20,103: microscope > electron beam - DEBUG - Getting dummy vertical field width (eb): 184177.77777777775.
+2026-01-29 12:04:20,104: microscope > electron beam - DEBUG - Getting horizontal field width (eb): 276266.6666666666.
+2026-01-29 12:04:20,104: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 12:04:20,105: microscope > electron beam - DEBUG - Getting pixel size (eb): 89.93055555555554.
+2026-01-29 12:04:20,105: microscope > electron beam - DEBUG - Getting scanning area (eb): None.
+2026-01-29 12:04:20,105: microscope > electron beam - DEBUG - Getting working distance (eb): 3719463.765306231.
+2026-01-29 12:04:20,105: microscope > electron beam - DEBUG - Getting manufacturer property 'beam_current.value' (eb): 2.5e-11.
+2026-01-29 12:04:20,106: microscope > electron beam - DEBUG - Getting manufacturer property 'scanning.resolution.value' (eb): 3072x2048.
+2026-01-29 12:04:20,106: microscope > ion beam - DEBUG - Getting stigmator (ib): Stigmator(x=-0.1117349700685085, y=-0.04992413556252507).
+2026-01-29 12:04:20,107: microscope > ion beam - DEBUG - Getting beam shift (ib): BeamShift(x=-35090.80319564301, y=0.0).
+2026-01-29 12:04:20,110: microscope > ion beam - DEBUG - Getting detector contrast (ib): 0.6126585288587882.
+2026-01-29 12:04:20,114: microscope > ion beam - DEBUG - Getting detector brightness (ib): 0.36809936345704847.
+2026-01-29 12:04:20,114: microscope > ion beam - DEBUG - Getting line integration (ib): 1.
+2026-01-29 12:04:20,115: microscope > ion beam - DEBUG - Getting dwell time (ib): 1e-07.
+2026-01-29 12:04:20,115: microscope > ion beam - DEBUG - Getting bit depth (ib): 8.
+2026-01-29 12:04:20,116: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 12:04:20,117: microscope > ion beam - DEBUG - Getting horizontal field width (ib): 207200.0.
+2026-01-29 12:04:20,117: microscope > ion beam - DEBUG - Getting horizontal field width (ib): 207200.0.
+2026-01-29 12:04:20,118: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 12:04:20,118: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 12:04:20,118: microscope > ion beam - INFO - Vertical field width was not set. Calculating from resolution.
+2026-01-29 12:04:20,118: microscope > ion beam - DEBUG - Getting dummy vertical field width (ib): 138133.33333333334.
+2026-01-29 12:04:20,119: microscope > ion beam - DEBUG - Getting horizontal field width (ib): 207200.0.
+2026-01-29 12:04:20,119: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 12:04:20,119: microscope > ion beam - DEBUG - Getting pixel size (ib): 67.44791666666667.
+2026-01-29 12:04:20,119: microscope > ion beam - DEBUG - Getting scanning area (ib): None.
+2026-01-29 12:04:20,120: microscope > ion beam - DEBUG - Getting working distance (ib): 16555296.841922872.
+2026-01-29 12:04:20,120: microscope > ion beam - DEBUG - Getting manufacturer property 'high_voltage.value' (ib): 30000.0.
+2026-01-29 12:09:25,851: microscope - INFO - Connecting to 147.251.159.93.
+2026-01-29 12:09:25,868: microscope - DEBUG - Getting stage position StagePosition(x=2624878.2015559087, y=-3164666.6666666665, z=32052983.53909465, rotation=-0.017494509211397856, tilt=4.999969040247654).
+2026-01-29 12:09:25,869: microscope - DEBUG - Getting manufacturer property 'beams.electron_beam.beam_shift.value': Point(x=0, y=0).
+2026-01-29 12:09:25,875: microscope - DEBUG - Getting manufacturer property 'detector.brightness.value': 0.36809936345704847.
+2026-01-29 12:09:25,877: microscope - DEBUG - Getting manufacturer property 'detector.type.value': ETD.
+2026-01-29 12:09:25,878: microscope > electron beam - DEBUG - Getting stigmator (eb): Stigmator(x=-0.15707043244360508, y=0.14250664880074684).
+2026-01-29 12:09:25,879: microscope > electron beam - DEBUG - Getting lens alignment (eb): LensAlignment(x=94803.19348438417, y=-76189.91265746868).
+2026-01-29 12:09:25,879: microscope > electron beam - DEBUG - Getting beam shift (eb): BeamShift(x=0.0, y=0.0).
+2026-01-29 12:09:25,883: microscope > electron beam - DEBUG - Getting detector contrast (eb): 0.8160880518623158.
+2026-01-29 12:09:25,889: microscope > electron beam - DEBUG - Getting detector brightness (eb): 0.26292049109033006.
+2026-01-29 12:09:25,891: microscope > electron beam - DEBUG - Getting source tilt (eb): SourceTilt(x=0.0, y=0.0).
+2026-01-29 12:09:25,891: microscope > electron beam - DEBUG - Getting line integration (eb): 1.
+2026-01-29 12:09:25,892: microscope > electron beam - DEBUG - Getting dwell time (eb): 5e-08.
+2026-01-29 12:09:25,892: microscope > electron beam - DEBUG - Getting bit depth (eb): 8.
+2026-01-29 12:09:25,893: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 12:09:25,893: microscope > electron beam - DEBUG - Getting horizontal field width (eb): 276266.6666666666.
+2026-01-29 12:09:25,894: microscope > electron beam - DEBUG - Getting horizontal field width (eb): 276266.6666666666.
+2026-01-29 12:09:25,895: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 12:09:25,896: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 12:09:25,896: microscope > electron beam - INFO - Vertical field width was not set. Calculating from resolution.
+2026-01-29 12:09:25,896: microscope > electron beam - DEBUG - Getting dummy vertical field width (eb): 184177.77777777775.
+2026-01-29 12:09:25,897: microscope > electron beam - DEBUG - Getting horizontal field width (eb): 276266.6666666666.
+2026-01-29 12:09:25,898: microscope > electron beam - DEBUG - Getting standard resolution (eb): 3072, 2048.
+2026-01-29 12:09:25,898: microscope > electron beam - DEBUG - Getting pixel size (eb): 89.93055555555554.
+2026-01-29 12:09:25,898: microscope > electron beam - DEBUG - Getting scanning area (eb): None.
+2026-01-29 12:09:25,898: microscope > electron beam - DEBUG - Getting working distance (eb): 3719463.765306231.
+2026-01-29 12:09:25,899: microscope > electron beam - DEBUG - Getting manufacturer property 'beam_current.value' (eb): 2.5e-11.
+2026-01-29 12:09:25,899: microscope > electron beam - DEBUG - Getting manufacturer property 'scanning.resolution.value' (eb): 3072x2048.
+2026-01-29 12:09:25,901: microscope > ion beam - DEBUG - Getting stigmator (ib): Stigmator(x=-0.1117349700685085, y=-0.04992413556252507).
+2026-01-29 12:09:25,901: microscope > ion beam - DEBUG - Getting beam shift (ib): BeamShift(x=-35090.80319564301, y=0.0).
+2026-01-29 12:09:25,920: microscope > ion beam - DEBUG - Getting detector contrast (ib): 0.6126585288587882.
+2026-01-29 12:09:25,933: microscope > ion beam - DEBUG - Getting detector brightness (ib): 0.36809936345704847.
+2026-01-29 12:09:25,933: microscope > ion beam - DEBUG - Getting line integration (ib): 1.
+2026-01-29 12:09:25,933: microscope > ion beam - DEBUG - Getting dwell time (ib): 1e-07.
+2026-01-29 12:09:25,934: microscope > ion beam - DEBUG - Getting bit depth (ib): 8.
+2026-01-29 12:09:25,934: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 12:09:25,935: microscope > ion beam - DEBUG - Getting horizontal field width (ib): 207200.0.
+2026-01-29 12:09:25,935: microscope > ion beam - DEBUG - Getting horizontal field width (ib): 207200.0.
+2026-01-29 12:09:25,936: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 12:09:25,937: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 12:09:25,937: microscope > ion beam - INFO - Vertical field width was not set. Calculating from resolution.
+2026-01-29 12:09:25,937: microscope > ion beam - DEBUG - Getting dummy vertical field width (ib): 138133.33333333334.
+2026-01-29 12:09:25,937: microscope > ion beam - DEBUG - Getting horizontal field width (ib): 207200.0.
+2026-01-29 12:09:25,938: microscope > ion beam - DEBUG - Getting standard resolution (ib): 3072, 2048.
+2026-01-29 12:09:25,938: microscope > ion beam - DEBUG - Getting pixel size (ib): 67.44791666666667.
+2026-01-29 12:09:25,938: microscope > ion beam - DEBUG - Getting scanning area (ib): None.
+2026-01-29 12:09:25,938: microscope > ion beam - DEBUG - Getting working distance (ib): 16555296.841922872.
+2026-01-29 12:09:25,938: microscope > ion beam - DEBUG - Getting manufacturer property 'high_voltage.value' (ib): 30000.0.
