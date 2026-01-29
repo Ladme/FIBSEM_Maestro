@@ -89,8 +89,8 @@ def test_set_properties():
     assert beam_control.scanning_area == ScanningArea(
         RelativePoint(0.5, 0.5), 10.0, 12.0
     )
-    assert beam_control.internal("beam.custom_parameter") == 0.7
-    assert beam_control.internal("beam.inner.parameter") == 2.1
+    assert beam_control.manufacturer_prop("beam.custom_parameter") == 0.7
+    assert beam_control.manufacturer_prop("beam.inner.parameter") == 2.1
 
     assert len(beam_control.txt_log.debugs) > 0  # type: ignore
 
@@ -136,8 +136,8 @@ def test_set_properties_with_none_values():
     assert beam_control.horizontal_field_width == 200_000.0
     assert beam_control.vertical_field_width == 200_000.0
     assert beam_control.scanning_area is None
-    assert beam_control.internal("beam.custom_parameter") == 0.5
-    assert beam_control.internal("beam.inner.parameter") == 1.2
+    assert beam_control.manufacturer_prop("beam.custom_parameter") == 0.5
+    assert beam_control.manufacturer_prop("beam.inner.parameter") == 1.2
 
 
 def test_set_properties_with_invalid_internal_property():
@@ -155,7 +155,7 @@ def test_collect_properties():
     beam_control = create_test_beam_control()
     beam_control.working_distance = 10_000_000.0
     beam_control.stigmator = Stigmator(1.0, 2.0)
-    beam_control.set_internal("beam.custom_parameter", 0.7)
+    beam_control.set_manufacturer_prop("beam.custom_parameter", 0.7)
 
     selected_properties = ["working_distance", "stigmator", "beam.custom_parameter"]
     collected_properties = beam_control.collect_properties(selected_properties)

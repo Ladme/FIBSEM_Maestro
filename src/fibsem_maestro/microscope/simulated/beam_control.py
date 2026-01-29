@@ -49,7 +49,7 @@ class SimulatedBeamControl(BeamControl):
         self._beam_shift_to_stage_move = (1.0, 1.0)
         self._image_to_beam_shift = (1.0, 1.0)
 
-        self._internal_properties: dict[str, Any] = {
+        self._manufacturer_properties: dict[str, Any] = {
             "beam.custom_parameter": 0.5,
             "beam.inner.parameter": 1.2,
         }
@@ -271,19 +271,19 @@ class SimulatedBeamControl(BeamControl):
         self._txt_log.debug(f"Setting scanning area: {value}.")
         self._scanning_area = value
 
-    def internal(self, name: str) -> Any:
+    def manufacturer_prop(self, name: str) -> Any:
         try:
-            value = self._internal_properties[name]
-            self._txt_log.debug(f"Getting internal property '{name}': {value}.")
+            value = self._manufacturer_properties[name]
+            self._txt_log.debug(f"Getting manufacturer property '{name}': {value}.")
             return value
         except KeyError as e:
             raise MicroscopeError(
                 f"Internal property {name} does not exist for the simulated beam"
             ) from e
 
-    def set_internal(self, name: str, value: Any) -> Any:
-        self._txt_log.debug(f"Setting internal property '{name}': {value}.")
-        self._internal_properties[name] = value
+    def set_manufacturer_prop(self, name: str, value: Any) -> Any:
+        self._txt_log.debug(f"Setting manufacturer property '{name}': {value}.")
+        self._manufacturer_properties[name] = value
 
     @property
     def beam_shift_to_stage_move(self) -> tuple[float, float]:
@@ -317,8 +317,8 @@ class SimulatedBeamControl(BeamControl):
         return min(max(v, lo), hi)
 
     @property
-    def internal_prop_names(self) -> list[str]:
-        return list(self._internal_properties.keys())
+    def manufacturer_prop_names(self) -> list[str]:
+        return list(self._manufacturer_properties.keys())
 
     @property
     def txt_log(self) -> TextLogger:

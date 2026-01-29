@@ -3,8 +3,10 @@
 
 import pytest
 
+from fibsem_maestro.microscope.autoscript_control.manufacturer_props import (
+    AutoscriptManufacturerPropertiesRegistry,
+)
 from fibsem_maestro.microscope.error import MicroscopeError
-from fibsem_maestro.microscope.internal_props import InternalPropertiesRegistry
 
 
 class C:
@@ -45,7 +47,7 @@ class A:
 
 
 def test_registry_builds_and_lists_allowed_sorted():
-    reg = InternalPropertiesRegistry(A())
+    reg = AutoscriptManufacturerPropertiesRegistry(A())
 
     allowed = reg.allowed()
     assert allowed == sorted(allowed)
@@ -55,7 +57,7 @@ def test_registry_builds_and_lists_allowed_sorted():
 
 
 def test_has_returns_true_for_existing_and_false_for_missing():
-    reg = InternalPropertiesRegistry(A())
+    reg = AutoscriptManufacturerPropertiesRegistry(A())
 
     assert reg.has("property.b_value") is True
     assert reg.has("property.property.value") is True
@@ -65,7 +67,7 @@ def test_has_returns_true_for_existing_and_false_for_missing():
 
 
 def test_get_returns_parameter_object():
-    reg = InternalPropertiesRegistry(A())
+    reg = AutoscriptManufacturerPropertiesRegistry(A())
 
     p = reg.get("property.property.value")
     assert hasattr(p, "get")
@@ -73,7 +75,7 @@ def test_get_returns_parameter_object():
 
 
 def test_get_raises_microscope_error_for_missing():
-    reg = InternalPropertiesRegistry(A())
+    reg = AutoscriptManufacturerPropertiesRegistry(A())
 
     with pytest.raises(MicroscopeError):
         reg.get("missing.path")
@@ -81,7 +83,7 @@ def test_get_raises_microscope_error_for_missing():
 
 def test_setting_and_getting_through_registry_works():
     microscope_root = A()
-    reg = InternalPropertiesRegistry(microscope_root)
+    reg = AutoscriptManufacturerPropertiesRegistry(microscope_root)
 
     param = reg.get("property.property.value")
 
@@ -107,7 +109,7 @@ def test_registry_keys_are_unique_by_path_even_with_same_type() -> None:
 
     microscope_root.other = C()  # type: ignore[attr-defined]
 
-    reg = InternalPropertiesRegistry(microscope_root)
+    reg = AutoscriptManufacturerPropertiesRegistry(microscope_root)
     allowed = reg.allowed()
 
     assert "property.property.value" in allowed

@@ -72,8 +72,8 @@ def test_set_properties_microscope_only():
     assert abs(stage_position.rotation - 4.0) < 0.005
     assert abs(stage_position.tilt - 5.0) < 0.005
 
-    assert microscope_control.internal("microscope.custom_parameter") == 0.7
-    assert microscope_control.internal("microscope.inner.parameter") == 2.1
+    assert microscope_control.manufacturer_prop("microscope.custom_parameter") == 0.7
+    assert microscope_control.manufacturer_prop("microscope.inner.parameter") == 2.1
 
 
 def test_set_properties_electron_beam_only():
@@ -93,7 +93,7 @@ def test_set_properties_electron_beam_only():
     electron_beam = microscope_control.electron_beam
     assert electron_beam.working_distance == 10_000_000.0
     assert electron_beam.stigmator == Stigmator(1.0, 2.0)
-    assert electron_beam.internal("beam.custom_parameter") == 0.7
+    assert electron_beam.manufacturer_prop("beam.custom_parameter") == 0.7
 
 
 def test_set_properties_ion_beam_only():
@@ -113,7 +113,7 @@ def test_set_properties_ion_beam_only():
     ion_beam = microscope_control.ion_beam
     assert ion_beam.working_distance == 10_000_000.0
     assert ion_beam.stigmator == Stigmator(1.0, 2.0)
-    assert ion_beam.internal("beam.custom_parameter") == 0.7
+    assert ion_beam.manufacturer_prop("beam.custom_parameter") == 0.7
 
 
 def test_set_properties_both_beams():
@@ -141,12 +141,12 @@ def test_set_properties_both_beams():
     electron_beam = microscope_control.electron_beam
     assert electron_beam.working_distance == 10_000_000.0
     assert electron_beam.stigmator == Stigmator(1.0, 2.0)
-    assert electron_beam.internal("beam.custom_parameter") == 0.7
+    assert electron_beam.manufacturer_prop("beam.custom_parameter") == 0.7
 
     ion_beam = microscope_control.ion_beam
     assert ion_beam.working_distance == 10_000_000.0
     assert ion_beam.stigmator == Stigmator(3.0, 4.0)
-    assert ion_beam.internal("beam.custom_parameter") == 0.9
+    assert ion_beam.manufacturer_prop("beam.custom_parameter") == 0.9
 
 
 def test_collect_properties():
@@ -154,17 +154,17 @@ def test_collect_properties():
     microscope_control.try_set_stage_position(
         StagePosition(x=1.0, y=2.0, z=3.0, rotation=4.0, tilt=5.0)
     )
-    microscope_control.set_internal("microscope.custom_parameter", 0.7)
+    microscope_control.set_manufacturer_prop("microscope.custom_parameter", 0.7)
 
     electron_beam = microscope_control.electron_beam
     electron_beam.working_distance = 10_000_000.0
     electron_beam.stigmator = Stigmator(1.0, 2.0)
-    electron_beam.set_internal("beam.custom_parameter", 0.7)
+    electron_beam.set_manufacturer_prop("beam.custom_parameter", 0.7)
 
     ion_beam = microscope_control.ion_beam
     ion_beam.working_distance = 10_000_000.0
     ion_beam.stigmator = Stigmator(3.0, 4.0)
-    ion_beam.set_internal("beam.custom_parameter", 0.9)
+    ion_beam.set_manufacturer_prop("beam.custom_parameter", 0.9)
 
     selected_properties = PropertyNames(
         microscope=["stage_position", "microscope.custom_parameter"],

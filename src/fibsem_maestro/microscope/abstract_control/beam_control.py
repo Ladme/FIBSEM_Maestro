@@ -465,9 +465,9 @@ class BeamControl(ABC):
         pass
 
     @abstractmethod
-    def internal(self, name: str) -> Any:
+    def manufacturer_prop(self, name: str) -> Any:
         """
-        Get an internal beam property.
+        Get a manufacturer beam property.
 
         Args:
             name (str): Property name.
@@ -478,16 +478,13 @@ class BeamControl(ABC):
         pass
 
     @abstractmethod
-    def set_internal(self, name: str, value: Any) -> Any:
+    def set_manufacturer_prop(self, name: str, value: Any) -> None:
         """
-        Set an internal beam property.
+        Set a manufacturer beam property.
 
         Args:
             name (str): Property name.
             value (Any): Property value.
-
-        Returns:
-            Any: Result of setting the property.
         """
         pass
 
@@ -539,12 +536,12 @@ class BeamControl(ABC):
 
     @property
     @abstractmethod
-    def internal_prop_names(self) -> list[str]:
+    def manufacturer_prop_names(self) -> list[str]:
         """
-        Get a list of all internal properties of the beam.
+        Get a list of all manufacturer properties of the beam.
 
         Returns:
-            list[str]: List of all internal properties of the beam.
+            list[str]: List of all manufacturer properties of the beam.
         """
         pass
 
@@ -570,13 +567,13 @@ class BeamControl(ABC):
     @property
     def prop_names(self) -> list[str]:
         """
-        Get a list of all properties of the beam, including the inner properties.
+        Get a list of all properties of the beam, including the manufacturer properties.
 
         Return:
             MicroscopePropertyNames: Collection of all the properties of the microscope.
         """
         properties = list(BeamProperties.model_fields.keys())
-        properties.extend(self.internal_prop_names)
+        properties.extend(self.manufacturer_prop_names)
 
         return properties
 
@@ -594,7 +591,7 @@ class BeamControl(ABC):
             AttributeError: If a required property setter is missing or not callable.
         """
         field_names = list(properties.model_dump(exclude_none=True).keys())
-        internal_properties = self.internal_prop_names
+        manufacturer_properties = self.manufacturer_prop_names
 
         # set the pre-defined properties
         for field_name in field_names:
@@ -602,14 +599,14 @@ class BeamControl(ABC):
             if value is None:
                 continue
 
-            # the property is an internal property
-            if field_name in internal_properties:
+            # if the property is a manufacturer property
+            if field_name in manufacturer_properties:
                 try:
-                    self.set_internal(field_name, value)
+                    self.set_manufacturer_prop(field_name, value)
                     continue
                 except Exception as e:
                     raise MicroscopeError(
-                        f"Could not set internal property '{field_name}': {e}"
+                        f"Could not set manufacturer property '{field_name}': {e}"
                     ) from e
 
             # check whether a setter exists for this property
@@ -630,9 +627,9 @@ class BeamControl(ABC):
         for field_name in field_names:
             values[field_name] = getattr(self, field_name)
 
-        # collect internal properties
-        for field_name in filter(lambda x: x in selected, self.internal_prop_names):
-            values[field_name] = self.internal(field_name)
+        # collect manufacturer properties
+        for field_name in filter(lambda x: x in selected, self.manufacturer_prop_names):
+            values[field_name] = self.manufacturer_prop(field_name)
 
         # get unknown properties
         unknown = [prop for prop in selected if prop not in values]

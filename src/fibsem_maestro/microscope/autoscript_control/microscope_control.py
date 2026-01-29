@@ -16,8 +16,10 @@ from fibsem_maestro.microscope.autoscript_control.beam_control import (
     AutoscriptElectronBeamControl,
     AutoscriptIonBeamControl,
 )
+from fibsem_maestro.microscope.autoscript_control.manufacturer_props import (
+    AutoscriptManufacturerPropertiesRegistry,
+)
 from fibsem_maestro.microscope.error import MicroscopeError
-from fibsem_maestro.microscope.internal_props import InternalPropertiesRegistry
 from fibsem_maestro.microscope.microscope_registry import MicroscopeRegistry
 
 
@@ -40,16 +42,16 @@ class AutoscriptMicroscopeControl(MicroscopeControl):
             self._microscope.connect(ip_address)
             self._txt_log.info(f"Connecting to {ip_address}.")
 
-        self._internal_properties = InternalPropertiesRegistry(self._microscope)
+        self._manufacturer_properties = AutoscriptManufacturerPropertiesRegistry(
+            self._microscope
+        )
 
         self._electron_beam: BeamControl = AutoscriptElectronBeamControl(
             self._microscope,
-            self._internal_properties,
             self._txt_log.derive("electron beam"),
         )
         self._ion_beam: BeamControl = AutoscriptIonBeamControl(
             self._microscope,
-            self._internal_properties,
             self._txt_log.derive("ion beam"),
         )
 
@@ -80,20 +82,20 @@ class AutoscriptMicroscopeControl(MicroscopeControl):
     def ion_beam(self, beam: BeamControl):
         self._ion_beam = beam
 
-    def internal(self, name: str) -> Any:
-        property = self._internal_properties.get(name)
+    def manufacturer_prop(self, name: str) -> Any:
+        property = self._manufacturer_properties.get(name)
         value = property.get()
-        self._txt_log.debug(f"Getting internal property '{name}': {value}.")
+        self._txt_log.debug(f"Getting manufacturer property '{name}': {value}.")
         return value
 
-    def set_internal(self, name: str, value: Any) -> Any:
-        self._txt_log.debug(f"Setting internal property '{name}': {value}.")
-        property = self._internal_properties.get(name)
+    def set_manufacturer_prop(self, name: str, value: Any):
+        self._txt_log.debug(f"Setting manufacturer property '{name}': {value}.")
+        property = self._manufacturer_properties.get(name)
         property.set(value)
 
     @property
-    def internal_prop_names(self) -> list[str]:
-        return self._internal_properties.allowed()
+    def manufacturer_prop_names(self) -> list[str]:
+        return self._manufacturer_properties.allowed()
 
     def try_set_stage_position(self, pos: StagePosition) -> StagePosition:
         self._microscope.specimen.stage.unlink()

@@ -44,7 +44,7 @@ class SimulatedMicroscopeControl(MicroscopeControl):
             x=0.0, y=0.0, z=0.0, rotation=0.0, tilt=0.0
         )
 
-        self._internal_properties: dict[str, Any] = {
+        self._manufacturer_properties: dict[str, Any] = {
             "microscope.custom_parameter": 0.5,
             "microscope.inner.parameter": 1.2,
         }
@@ -95,23 +95,23 @@ class SimulatedMicroscopeControl(MicroscopeControl):
     def ion_beam(self, beam: BeamControl) -> None:
         self._ion_beam = beam
 
-    def internal(self, name: str) -> Any:
+    def manufacturer_prop(self, name: str) -> Any:
         try:
-            value = self._internal_properties[name]
-            self._txt_log.debug(f"Getting internal property '{name}': {value}.")
+            value = self._manufacturer_properties[name]
+            self._txt_log.debug(f"Getting manufacturer property '{name}': {value}.")
             return value
         except KeyError as e:
             raise MicroscopeError(
-                f"Microscope parameter '{name}' does not exist."
+                f"Manufacturer property '{name}' does not exist."
             ) from e
 
-    def set_internal(self, name: str, value: Any) -> Any:
-        self._txt_log.debug(f"Setting internal property '{name}': {value}.")
-        self._internal_properties[name] = value
+    def set_manufacturer_prop(self, name: str, value: Any) -> Any:
+        self._txt_log.debug(f"Setting manufacturer property '{name}': {value}.")
+        self._manufacturer_properties[name] = value
 
     @property
-    def internal_prop_names(self) -> list[str]:
-        return list(self._internal_properties.keys())
+    def manufacturer_prop_names(self) -> list[str]:
+        return list(self._manufacturer_properties.keys())
 
     def try_set_stage_position(self, pos: StagePosition) -> StagePosition:
         """

@@ -92,9 +92,9 @@ class MicroscopeControl(ABC):
         pass
 
     @abstractmethod
-    def internal(self, name: str) -> Any:
+    def manufacturer_prop(self, name: str) -> Any:
         """
-        Get an internal microscope property.
+        Get a manufacturer microscope property.
 
         Args:
             name (str): Property name.
@@ -105,27 +105,24 @@ class MicroscopeControl(ABC):
         pass
 
     @abstractmethod
-    def set_internal(self, name: str, value: Any) -> Any:
+    def set_manufacturer_prop(self, name: str, value: Any) -> None:
         """
-        Set an internal microscope property.
+        Set a manufacturer microscope property.
 
         Args:
             name (str): Property name.
             value (Any): Property value.
-
-        Returns:
-            Any: Result of setting the property.
         """
         pass
 
     @property
     @abstractmethod
-    def internal_prop_names(self) -> list[str]:
+    def manufacturer_prop_names(self) -> list[str]:
         """
-        Get a list of all internal properties of the microscope.
+        Get a list of all manufacturer properties of the microscope.
 
         Returns:
-            list[str]: List of all internal properties of the microscope.
+            list[str]: List of all manufacturer properties of the microscope.
         """
         pass
 
@@ -183,7 +180,7 @@ class MicroscopeControl(ABC):
             MicroscopePropertyNames: Collection of all the properties of the microscope and its beams.
         """
         properties = list(MicroscopeProperties.model_fields.keys())
-        properties.extend(self.internal_prop_names)
+        properties.extend(self.manufacturer_prop_names)
 
         electron_properties = self.electron_beam.prop_names
         ion_properties = self.ion_beam.prop_names
@@ -213,18 +210,18 @@ class MicroscopeControl(ABC):
             if (stage_position := microscope.stage_position) is not None:
                 self.try_set_stage_position(stage_position)
 
-            # set internal properties of the microscope
+            # set manufacturer properties of the microscope
             for field_name in filter(
-                lambda x: x in self.internal_prop_names,
+                lambda x: x in self.manufacturer_prop_names,
                 microscope.model_dump(exclude_none=True).keys(),
             ):
                 try:
                     value = getattr(microscope, field_name)
-                    self.set_internal(field_name, value)
+                    self.set_manufacturer_prop(field_name, value)
                     continue
                 except Exception as e:
                     raise MicroscopeError(
-                        f"Could not set internal property '{field_name}': {e}"
+                        f"Could not set manufacturer property '{field_name}': {e}"
                     ) from e
 
         if properties.electron_beam is not None and (
@@ -253,9 +250,9 @@ class MicroscopeControl(ABC):
 
         # collect internal properties
         for field_name in filter(
-            lambda x: x in selected_properties.microscope, self.internal_prop_names
+            lambda x: x in selected_properties.microscope, self.manufacturer_prop_names
         ):
-            values[field_name] = self.internal(field_name)
+            values[field_name] = self.manufacturer_prop(field_name)
 
         # get unknown properties
         unknown = [

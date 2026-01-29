@@ -5,137 +5,23 @@
 import builtins
 import inspect
 from collections.abc import Iterable
-from dataclasses import dataclass
-from typing import Any
 
-from fibsem_maestro.microscope.error import MicroscopeError
+from fibsem_maestro.microscope.abstract_control.manufacturer_props import (
+    ManufacturerPropertiesRegistry,
+    ManufacturerProperty,
+)
 
 
-@dataclass(frozen=True)
-class InternalProperty:
+class AutoscriptManufacturerPropertiesRegistry(ManufacturerPropertiesRegistry):
     """
-    Represents a writable property on a specific object instance.
-
-    A `InternalProperty` identifies a property with a setter on an object, together
-    with the member-based path from a root object to that instance.
-
-    Attributes:
-        owner (object): The object instance that owns the property.
-        owner_path (str | None): Dotted path of member variable names from the
-            root object to the owner. `None` if the property is on the root.
-        name (str): Name of the property on the owner.
+    Implementation of the ManufacturerPropertiesRegistry for autoscript.
     """
 
-    owner: object
-    owner_path: str | None
-    name: str
-
-    def __str__(self) -> str:
-        """
-        Return the full member-based path of the property.
-
-        Returns:
-            str: Dotted path to the property (e.g. "property.property.value"),
-            or just the property name if it belongs to the root object.
-        """
-        return f"{self.owner_path}.{self.name}" if self.owner_path else self.name
-
-    __repr__ = __str__
-
-    def get(self) -> Any:
-        """
-        Get the current value of the property.
-
-        Returns:
-            Any: The current property value.
-        """
-        return getattr(self.owner, self.name)
-
-    def set(self, value: Any) -> None:
-        """
-        Set the value of the property.
-
-        Args:
-            value (Any): The value to assign to the property.
-        """
-        setattr(self.owner, self.name, value)
-
-
-class InternalPropertiesRegistry:
-    """
-    Registry of controllable microscope internal properties.
-
-    This registry is built from a root microscope control object (for example,
-    an AutoScript microscope instance) and contains all reachable properties
-    that define a setter in the underlying control library.
-
-    Each entry represents a concrete, writable microscope property such as
-    beam voltage, probe current, stage position, or detector settings. Properties
-    are identified by a member-based path that reflects the microscope object
-    hierarchy (e.g. "beams.electron_beam.stigmator.value").
-    """
-
-    def __init__(self, microscope: Any) -> None:
-        """
-        Create and populate the registry from a microscope control object.
-
-        Args:
-            microscope (Any): Root microscope object provided by the control library.
-        """
-        self._registry: dict[str, InternalProperty] = {}
-        self._build(microscope)
-
-    def _build(self, root: Any) -> None:
-        """
-        Discover and register all settable microscope properties.
-
-        Args:
-            root (Any): Root microscope object from which writable properties will be discovered.
-        """
-        reg: dict[str, InternalProperty] = {}
-        for prop in find_custom_properties(root):
+    def _build(self, root: object) -> None:
+        reg: dict[str, ManufacturerProperty] = {}
+        for prop in find_manufacturer_properties(root):
             reg[str(prop)] = prop
         self._registry = reg
-
-    def get(self, name: str) -> InternalProperty:
-        """
-        Retrieve a specific settable microscope property.
-
-        Args:
-            name (str): Path to the microscope property.
-
-        Returns:
-            InternalProperty: Handle for reading or setting the microscope property.
-
-        Raises:
-            MicroscopeError: If the requested property is not available on this
-                microscope instance.
-        """
-        if name not in self._registry:
-            raise MicroscopeError(f"Internal property '{name}' is not registered.")
-        return self._registry[name]
-
-    def allowed(self) -> list[str]:
-        """
-        List all settable microscope properties discovered on this instance.
-
-        Returns:
-            list[str]: Sorted list of member-based proeprty paths that can be set
-            through the control library.
-        """
-        return sorted(self._registry.keys())
-
-    def has(self, name: str) -> bool:
-        """
-        Check whether a microscope property is available and settable.
-
-        Args:
-            name (str): Path to the microscope property.
-
-        Returns:
-            bool: `True` if the property is registered and can be set, `False` otherwise.
-        """
-        return name in self._registry
 
 
 def _clean_member_name(raw_name: str, owner_cls: type) -> str:
@@ -272,7 +158,7 @@ def _properties_with_setters(cls: type) -> list[str]:
     return names
 
 
-def find_custom_properties(root: object) -> list[InternalProperty]:
+def find_manufacturer_properties(root: object) -> list[ManufacturerProperty]:
     """
     Discover writable properties reachable from a root object.
 
@@ -284,10 +170,10 @@ def find_custom_properties(root: object) -> list[InternalProperty]:
         root (object): Root object from which traversal begins.
 
     Returns:
-        list[InternalProperty]: All discovered writable properties with their
+        list[ManufacturerProperty]: All discovered writable properties with their
         associated owners and member-based paths.
     """
-    out: list[InternalProperty] = []
+    out: list[ManufacturerProperty] = []
     visited: set[int] = set()
     stack: list[tuple[object, str]] = [(root, "")]  # (instance, path_of_member_names)
 
@@ -299,7 +185,9 @@ def find_custom_properties(root: object) -> list[InternalProperty]:
         visited.add(oid)
 
         for prop_name in _properties_with_setters(type(obj)):
-            out.append(InternalProperty(owner=obj, owner_path=obj_path, name=prop_name))
+            out.append(
+                ManufacturerProperty(owner=obj, owner_path=obj_path, name=prop_name)
+            )
 
         for member_name, child in _iter_instance_members(obj):
             if _is_traversable_instance(child):
