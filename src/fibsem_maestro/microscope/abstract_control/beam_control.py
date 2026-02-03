@@ -3,6 +3,7 @@
 
 import inspect
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any
 
 from fibsem_maestro.core.beam_shift import BeamShift
@@ -275,17 +276,33 @@ class BeamControl(ABC):
         pass
 
     @abstractmethod
-    def grab_frame(self) -> Image:
+    def grab_frame(self, file_name: Path | None = None) -> Image:
         """
-        Scans and retrieves an image.
+        Scan and retrieve an image from the microscope. Optionally store the image in the specified file.
+
+        Args:
+            file_name (Path | None): The path to the file where the image will be saved.
+                                    If None, the image will not be saved to a file.
+
+        Returns:
+            Image: The acquired image from the microscope.
         """
         pass
 
     @abstractmethod
     def get_image(self, crop_to_scanning_area: bool = False) -> Image:
         """
-        Retrieve the current image displayed.
-        Does NOT perform a new scan, only fetches the currently displayed image from the microscope.
+        Retrieve the current image displayed on the microscope without performing a new scan.
+
+        This method fetches the currently displayed image from the microscope. It does not initiate
+        a new scan. Optionally, the image can be cropped to the scanning area if specified.
+
+        Args:
+            crop_to_scanning_area (bool): If True, crop the image to the scanning area.
+                                        If False, return the full image.
+
+        Returns:
+            Image: The current image displayed on the microscope.
         """
         pass
 

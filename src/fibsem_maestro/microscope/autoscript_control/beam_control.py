@@ -2,6 +2,7 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 from abc import abstractmethod
+from pathlib import Path
 from typing import Any, Generic, TypeVar
 
 from autoscript_sdb_microscope_client.enumerations import ImagingDevice
@@ -12,6 +13,7 @@ from autoscript_sdb_microscope_client.sdb_microscope.beams._ion_beam import (
     IonBeam as IonBeamAs,
 )
 from autoscript_sdb_microscope_client.sdb_microscope_client import SdbMicroscopeClient
+from autoscript_sdb_microscope_client.structures import GrabFrameSettings
 
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
@@ -173,8 +175,32 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
 
         return image
 
-    def grab_frame(self) -> Image:
-        raise NotImplementedError("Grabbing frames is not yet implemented.")
+    def grab_frame(self, file_name: Path | None = None) -> Image:
+        self.select_modality()
+        self._txt_log.debug(f"Grabbing frame ({self._modality}).")
+
+        imaging_settings = GrabFrameSettings(
+            line_integration=self.line_integration,
+            bit_depth=self.bit_depth,
+            resolution=f"{self.resolution[0]}x{self.resolution[1]}",
+            dwell_time=self.dwell_time,
+        )
+
+        if (area := self.scanning_area) is not None:
+            imaging_settings.reduced_area = area.to_autoscript()
+
+        self._txt_log.info(
+            f"""Acquiring image [bit depth: {self.bit_depth}, resolution: {self.resolution}, pixel size: {self.pixel_size}, \
+line integration: {self.line_integration}, scanning area: {self.scanning_area}, dwell time: {self.dwell_time}, \
+working distance: {self.working_distance}]."""
+        )
+
+        grabbed_image = self._microscope.imaging.grab_frame(imaging_settings)
+        self._txt_log.info("Image grabbed.")
+        if file_name is not None:
+            grabbed_image.save(str(file_name))
+
+        return Image.from_autoscript(grabbed_image)
 
     @property
     def line_integration(self) -> int:
@@ -232,13 +258,12 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
     @resolution.setter
     def resolution(self, value: tuple[int, int]) -> None:
         resolution = f"{value[0]}x{value[1]}"
-        for r in self._standard_resolutions:
-            if value == r:
-                self._txt_log.debug(
-                    f"Setting standard resolution to ({self._modality}): {resolution}."
-                )
-                self._beam.scanning.resolution.value = resolution
-                return
+        if value in self._standard_resolutions:
+            self._txt_log.debug(
+                f"Setting standard resolution to ({self._modality}): {resolution}."
+            )
+            self._beam.scanning.resolution.value = resolution
+            return
         self._txt_log.debug(
             f"Setting extended resolution to ({self._modality}): {resolution}."
         )

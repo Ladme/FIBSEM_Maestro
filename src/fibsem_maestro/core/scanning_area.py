@@ -5,6 +5,8 @@
 from dataclasses import dataclass
 from typing import Generic, Self, TypeVar
 
+from autoscript_sdb_microscope_client.structures import Rectangle as RectangleAs
+
 from fibsem_maestro.core.point import PixelPoint, RelativePoint
 
 T = TypeVar("T", PixelPoint, RelativePoint)
@@ -48,7 +50,7 @@ class RelativeScanningArea(_ScanningArea[RelativePoint, float]):
 
     def to_pixels(self, img_shape: tuple[int, int]) -> "PixelScanningArea":
         """
-        Converts the relative scanning area to pixel coordinates.
+        Convert the relative scanning area to pixel coordinates.
 
         Args:
             img_shape (tuple[int, int]): A tuple representing the (height, width)
@@ -64,13 +66,21 @@ class RelativeScanningArea(_ScanningArea[RelativePoint, float]):
             height=int(round(self.height * img_shape[0])),
         )
 
+    def to_autoscript(self) -> RectangleAs:
+        """
+        Convert the relative scanning area to Autoscript's rectangle.
+        """
+        return RectangleAs(
+            left=self.origin.x, top=self.origin.y, width=self.width, height=self.height
+        )
+
 
 class PixelScanningArea(_ScanningArea[PixelPoint, int]):
     """Represents a scanning area using absolute pixel coordinates."""
 
     def to_relative(self, img_shape: tuple[int, int]) -> "RelativeScanningArea":
         """
-        Converts the pixel-based scanning area to relative coordinates.
+        Convert the pixel-based scanning area to relative coordinates.
 
         Args:
             img_shape (tuple[int, int]): A tuple representing the (height, width)

@@ -1,0 +1,230 @@
+2026-02-03 15:03:50,345: microscope - INFO - Initializing a simulated microscope.
+2026-02-03 15:03:55,883: microscope - INFO - Initializing a simulated microscope.
+2026-02-03 15:05:21,441: microscope - INFO - Initializing a simulated microscope.
+2026-02-03 15:05:21,441: microscope > electron beam - DEBUG - Grabbing frame.
+2026-02-03 15:06:32,882: microscope - INFO - Initializing a simulated microscope.
+2026-02-03 15:06:32,882: microscope > electron beam - DEBUG - Grabbing frame.
+2026-02-03 15:06:32,883: microscope > electron beam - DEBUG - Getting horizontal field width: 200000.0.
+2026-02-03 15:06:32,883: microscope > electron beam - DEBUG - Getting resolution: (1024, 768).
+2026-02-03 15:06:32,883: microscope > electron beam - DEBUG - Getting pixel size: 195.3125.
+2026-02-03 15:06:33,216: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:06:55,724: microscope - INFO - Initializing a simulated microscope.
+2026-02-03 15:06:55,725: microscope > electron beam - DEBUG - Grabbing frame.
+2026-02-03 15:06:55,726: microscope > electron beam - DEBUG - Getting horizontal field width: 200000.0.
+2026-02-03 15:06:55,726: microscope > electron beam - DEBUG - Getting resolution: (1024, 768).
+2026-02-03 15:06:55,726: microscope > electron beam - DEBUG - Getting pixel size: 195.3125.
+2026-02-03 15:06:56,069: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:07:48,339: microscope - INFO - Initializing a simulated microscope.
+2026-02-03 15:07:48,339: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:07:48,339: microscope > electron beam - DEBUG - Grabbing frame.
+2026-02-03 15:07:48,341: microscope > electron beam - DEBUG - Getting horizontal field width: 200000.0.
+2026-02-03 15:07:48,341: microscope > electron beam - DEBUG - Getting resolution: (1024, 768).
+2026-02-03 15:07:48,341: microscope > electron beam - DEBUG - Getting pixel size: 195.3125.
+2026-02-03 15:07:48,656: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:08:56,965: microscope - INFO - Initializing a simulated microscope.
+2026-02-03 15:08:56,965: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:08:56,965: microscope > electron beam - DEBUG - Grabbing frame.
+2026-02-03 15:08:56,966: microscope > electron beam - DEBUG - Getting horizontal field width: 200000.0.
+2026-02-03 15:08:56,966: microscope > electron beam - DEBUG - Getting resolution: (1024, 768).
+2026-02-03 15:08:56,966: microscope > electron beam - DEBUG - Getting pixel size: 195.3125.
+2026-02-03 15:08:57,226: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:09:29,891: microscope - INFO - Initializing a simulated microscope.
+2026-02-03 15:09:29,891: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:09:29,891: microscope > electron beam - DEBUG - Grabbing frame.
+2026-02-03 15:09:29,893: microscope > electron beam - DEBUG - Getting horizontal field width: 200000.0.
+2026-02-03 15:09:29,893: microscope > electron beam - DEBUG - Getting resolution: (1024, 768).
+2026-02-03 15:09:29,893: microscope > electron beam - DEBUG - Getting pixel size: 195.3125.
+2026-02-03 15:09:30,159: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:10:55,486: microscope - INFO - Initializing a simulated microscope.
+2026-02-03 15:10:55,487: microscope > electron beam - DEBUG - Setting resolution: (900, 900).
+2026-02-03 15:10:55,487: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:10:55,487: microscope > electron beam - DEBUG - Grabbing frame.
+2026-02-03 15:10:55,489: microscope > electron beam - DEBUG - Getting horizontal field width: 200000.0.
+2026-02-03 15:10:55,489: microscope > electron beam - DEBUG - Getting resolution: (900, 900).
+2026-02-03 15:10:55,489: microscope > electron beam - DEBUG - Getting pixel size: 222.22222222222223.
+2026-02-03 15:10:55,765: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:11:40,655: microscope - INFO - Initializing a simulated microscope.
+2026-02-03 15:11:40,655: microscope > electron beam - DEBUG - Setting resolution: (900, 900).
+2026-02-03 15:11:40,655: microscope > electron beam - DEBUG - Setting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:11:40,655: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:11:40,655: microscope > electron beam - DEBUG - Grabbing frame.
+2026-02-03 15:11:40,656: microscope > electron beam - DEBUG - Getting horizontal field width: 200000.0.
+2026-02-03 15:11:40,656: microscope > electron beam - DEBUG - Getting resolution: (900, 900).
+2026-02-03 15:11:40,656: microscope > electron beam - DEBUG - Getting pixel size: 222.22222222222223.
+2026-02-03 15:11:40,921: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:12:21,550: microscope - INFO - Initializing a simulated microscope.
+2026-02-03 15:12:21,551: microscope > electron beam - DEBUG - Setting resolution: (900, 900).
+2026-02-03 15:12:21,551: microscope > electron beam - DEBUG - Setting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:12:21,551: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:12:21,551: microscope > electron beam - DEBUG - Grabbing frame.
+2026-02-03 15:12:21,552: microscope > electron beam - DEBUG - Getting horizontal field width: 200000.0.
+2026-02-03 15:12:21,552: microscope > electron beam - DEBUG - Getting resolution: (900, 900).
+2026-02-03 15:12:21,552: microscope > electron beam - DEBUG - Getting pixel size: 222.22222222222223.
+2026-02-03 15:12:21,822: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:12:21,822: microscope > electron beam - DEBUG - Getting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:12:21,822: microscope > electron beam - DEBUG - Getting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:21:09,663: microscope - INFO - Initializing a simulated microscope.
+2026-02-03 15:21:09,663: microscope > electron beam - DEBUG - Setting resolution: (900, 900).
+2026-02-03 15:21:09,663: microscope > electron beam - DEBUG - Setting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:21:09,663: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:21:09,663: microscope > electron beam - DEBUG - Grabbing frame.
+2026-02-03 15:21:09,777: microscope > electron beam - DEBUG - Getting horizontal field width: 200000.0.
+2026-02-03 15:21:09,777: microscope > electron beam - DEBUG - Getting resolution: (900, 900).
+2026-02-03 15:21:09,777: microscope > electron beam - DEBUG - Getting pixel size: 222.22222222222223.
+2026-02-03 15:21:09,971: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:21:09,971: microscope > electron beam - DEBUG - Getting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:21:09,971: microscope > electron beam - DEBUG - Getting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:23:30,024: microscope - INFO - Initializing a simulated microscope.
+2026-02-03 15:23:30,024: microscope > electron beam - DEBUG - Setting resolution: (900, 900).
+2026-02-03 15:23:30,024: microscope > electron beam - DEBUG - Setting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:23:30,024: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:23:30,024: microscope > electron beam - DEBUG - Grabbing frame.
+2026-02-03 15:23:30,130: microscope > electron beam - DEBUG - Getting horizontal field width: 200000.0.
+2026-02-03 15:23:30,130: microscope > electron beam - DEBUG - Getting resolution: (900, 900).
+2026-02-03 15:23:30,130: microscope > electron beam - DEBUG - Getting pixel size: 222.22222222222223.
+2026-02-03 15:23:30,329: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:23:30,329: microscope > electron beam - DEBUG - Getting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:23:30,329: microscope > electron beam - DEBUG - Getting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:25:27,554: microscope - INFO - Initializing a simulated microscope.
+2026-02-03 15:25:27,554: microscope > electron beam - DEBUG - Setting resolution: (900, 900).
+2026-02-03 15:25:27,554: microscope > electron beam - DEBUG - Setting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:25:27,554: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:25:27,554: microscope > electron beam - DEBUG - Grabbing frame.
+2026-02-03 15:25:27,639: microscope > electron beam - DEBUG - Getting horizontal field width: 200000.0.
+2026-02-03 15:25:27,639: microscope > electron beam - DEBUG - Getting resolution: (900, 900).
+2026-02-03 15:25:27,639: microscope > electron beam - DEBUG - Getting pixel size: 222.22222222222223.
+2026-02-03 15:25:27,884: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:25:27,885: microscope > electron beam - DEBUG - Getting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:25:27,885: microscope > electron beam - DEBUG - Getting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:26:37,379: microscope - INFO - Initializing a simulated microscope.
+2026-02-03 15:26:37,379: microscope > electron beam - DEBUG - Setting resolution: (900, 900).
+2026-02-03 15:26:37,379: microscope > electron beam - DEBUG - Setting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:26:37,379: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:26:37,379: microscope > electron beam - DEBUG - Grabbing frame.
+2026-02-03 15:26:37,480: microscope > electron beam - DEBUG - Getting horizontal field width: 200000.0.
+2026-02-03 15:26:37,480: microscope > electron beam - DEBUG - Getting resolution: (900, 900).
+2026-02-03 15:26:37,480: microscope > electron beam - DEBUG - Getting pixel size: 222.22222222222223.
+2026-02-03 15:26:37,795: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:26:37,795: microscope > electron beam - DEBUG - Getting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:26:37,795: microscope > electron beam - DEBUG - Getting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:26:45,945: microscope - INFO - Initializing a simulated microscope.
+2026-02-03 15:26:45,945: microscope > electron beam - DEBUG - Setting resolution: (900, 900).
+2026-02-03 15:26:45,945: microscope > electron beam - DEBUG - Setting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:26:45,945: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:26:45,945: microscope > electron beam - DEBUG - Grabbing frame.
+2026-02-03 15:26:46,100: microscope > electron beam - DEBUG - Getting horizontal field width: 200000.0.
+2026-02-03 15:26:46,100: microscope > electron beam - DEBUG - Getting resolution: (900, 900).
+2026-02-03 15:26:46,100: microscope > electron beam - DEBUG - Getting pixel size: 222.22222222222223.
+2026-02-03 15:26:46,255: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:26:46,255: microscope > electron beam - DEBUG - Getting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:26:46,255: microscope > electron beam - DEBUG - Getting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:26:54,917: microscope - INFO - Initializing a simulated microscope.
+2026-02-03 15:26:54,917: microscope > electron beam - DEBUG - Setting resolution: (900, 900).
+2026-02-03 15:26:54,917: microscope > electron beam - DEBUG - Setting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:26:54,917: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:26:54,917: microscope > electron beam - DEBUG - Grabbing frame.
+2026-02-03 15:26:55,021: microscope > electron beam - DEBUG - Getting horizontal field width: 200000.0.
+2026-02-03 15:26:55,021: microscope > electron beam - DEBUG - Getting resolution: (900, 900).
+2026-02-03 15:26:55,021: microscope > electron beam - DEBUG - Getting pixel size: 222.22222222222223.
+2026-02-03 15:26:55,193: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:26:55,193: microscope > electron beam - DEBUG - Getting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:26:55,193: microscope > electron beam - DEBUG - Getting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:28:21,775: microscope - INFO - Initializing a simulated microscope.
+2026-02-03 15:28:21,775: microscope > electron beam - DEBUG - Setting resolution: (900, 900).
+2026-02-03 15:28:21,775: microscope > electron beam - DEBUG - Setting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:28:21,775: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:28:21,775: microscope > electron beam - DEBUG - Grabbing frame.
+2026-02-03 15:28:21,871: microscope > electron beam - DEBUG - Getting horizontal field width: 200000.0.
+2026-02-03 15:28:21,871: microscope > electron beam - DEBUG - Getting resolution: (900, 900).
+2026-02-03 15:28:21,871: microscope > electron beam - DEBUG - Getting pixel size: 222.22222222222223.
+2026-02-03 15:28:22,079: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:28:22,079: microscope > electron beam - DEBUG - Getting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:28:22,079: microscope > electron beam - DEBUG - Getting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:28:34,265: microscope - INFO - Initializing a simulated microscope.
+2026-02-03 15:28:34,265: microscope > electron beam - DEBUG - Setting resolution: (900, 900).
+2026-02-03 15:28:34,265: microscope > electron beam - DEBUG - Setting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:28:34,265: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:28:34,265: microscope > electron beam - DEBUG - Grabbing frame.
+2026-02-03 15:28:34,362: microscope > electron beam - DEBUG - Getting horizontal field width: 200000.0.
+2026-02-03 15:28:34,362: microscope > electron beam - DEBUG - Getting resolution: (900, 900).
+2026-02-03 15:28:34,362: microscope > electron beam - DEBUG - Getting pixel size: 222.22222222222223.
+2026-02-03 15:28:34,599: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:28:34,599: microscope > electron beam - DEBUG - Getting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:28:34,599: microscope > electron beam - DEBUG - Getting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:29:25,545: microscope - INFO - Initializing a simulated microscope.
+2026-02-03 15:29:25,546: microscope > electron beam - DEBUG - Setting resolution: (900, 900).
+2026-02-03 15:29:25,546: microscope > electron beam - DEBUG - Setting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:29:25,546: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:29:25,546: microscope > electron beam - DEBUG - Grabbing frame.
+2026-02-03 15:29:25,678: microscope > electron beam - DEBUG - Getting horizontal field width: 200000.0.
+2026-02-03 15:29:25,678: microscope > electron beam - DEBUG - Getting resolution: (900, 900).
+2026-02-03 15:29:25,678: microscope > electron beam - DEBUG - Getting pixel size: 222.22222222222223.
+2026-02-03 15:29:25,806: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:29:25,806: microscope > electron beam - DEBUG - Getting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:29:25,806: microscope > electron beam - DEBUG - Getting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:29:36,059: microscope - INFO - Initializing a simulated microscope.
+2026-02-03 15:29:36,059: microscope > electron beam - DEBUG - Setting resolution: (900, 900).
+2026-02-03 15:29:36,059: microscope > electron beam - DEBUG - Setting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:29:36,059: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:29:36,059: microscope > electron beam - DEBUG - Grabbing frame.
+2026-02-03 15:29:36,133: microscope > electron beam - DEBUG - Getting horizontal field width: 200000.0.
+2026-02-03 15:29:36,133: microscope > electron beam - DEBUG - Getting resolution: (900, 900).
+2026-02-03 15:29:36,133: microscope > electron beam - DEBUG - Getting pixel size: 222.22222222222223.
+2026-02-03 15:29:36,309: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:29:36,310: microscope > electron beam - DEBUG - Getting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:29:36,310: microscope > electron beam - DEBUG - Getting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:31:38,090: microscope - INFO - Initializing a simulated microscope.
+2026-02-03 15:31:38,091: microscope > electron beam - DEBUG - Setting resolution: (900, 900).
+2026-02-03 15:31:38,091: microscope > electron beam - DEBUG - Setting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:31:38,091: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:31:38,091: microscope > electron beam - DEBUG - Grabbing frame.
+2026-02-03 15:31:46,178: microscope - INFO - Initializing a simulated microscope.
+2026-02-03 15:31:46,178: microscope > electron beam - DEBUG - Setting resolution: (900, 900).
+2026-02-03 15:31:46,178: microscope > electron beam - DEBUG - Setting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:31:46,178: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:31:46,178: microscope > electron beam - DEBUG - Grabbing frame.
+2026-02-03 15:31:46,472: microscope > electron beam - DEBUG - Getting horizontal field width: 200000.0.
+2026-02-03 15:31:46,472: microscope > electron beam - DEBUG - Getting resolution: (900, 900).
+2026-02-03 15:31:46,472: microscope > electron beam - DEBUG - Getting pixel size: 222.22222222222223.
+2026-02-03 15:31:46,682: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:31:46,682: microscope > electron beam - DEBUG - Getting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:31:46,682: microscope > electron beam - DEBUG - Getting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:32:33,435: microscope - INFO - Initializing a simulated microscope.
+2026-02-03 15:32:33,435: microscope > electron beam - DEBUG - Setting resolution: (900, 900).
+2026-02-03 15:32:33,435: microscope > electron beam - DEBUG - Setting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:32:33,435: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:32:33,435: microscope > electron beam - DEBUG - Grabbing frame.
+2026-02-03 15:32:43,251: microscope - INFO - Initializing a simulated microscope.
+2026-02-03 15:32:43,251: microscope > electron beam - DEBUG - Setting resolution: (900, 900).
+2026-02-03 15:32:43,251: microscope > electron beam - DEBUG - Setting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:32:43,251: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:32:43,251: microscope > electron beam - DEBUG - Grabbing frame.
+2026-02-03 15:32:43,818: microscope > electron beam - DEBUG - Getting horizontal field width: 200000.0.
+2026-02-03 15:32:43,818: microscope > electron beam - DEBUG - Getting resolution: (900, 900).
+2026-02-03 15:32:43,818: microscope > electron beam - DEBUG - Getting pixel size: 222.22222222222223.
+2026-02-03 15:32:44,008: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:32:44,008: microscope > electron beam - DEBUG - Getting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:32:44,008: microscope > electron beam - DEBUG - Getting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:35:33,679: microscope - INFO - Initializing a simulated microscope.
+2026-02-03 15:35:33,679: microscope > electron beam - DEBUG - Setting resolution: (900, 900).
+2026-02-03 15:35:33,679: microscope > electron beam - DEBUG - Setting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:35:33,679: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:35:33,679: microscope > electron beam - DEBUG - Grabbing frame.
+2026-02-03 15:35:34,254: microscope > electron beam - DEBUG - Getting horizontal field width: 200000.0.
+2026-02-03 15:35:34,254: microscope > electron beam - DEBUG - Getting resolution: (900, 900).
+2026-02-03 15:35:34,254: microscope > electron beam - DEBUG - Getting pixel size: 222.22222222222223.
+2026-02-03 15:35:34,254: microscope > electron beam - DEBUG - Getting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:35:34,254: microscope > electron beam - DEBUG - Getting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:35:34,356: microscope > electron beam - DEBUG - Getting an image.
+2026-02-03 15:35:34,356: microscope > electron beam - DEBUG - Getting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:35:34,356: microscope > electron beam - DEBUG - Getting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:36:21,925: microscope - INFO - Initializing a simulated microscope.
+2026-02-03 15:36:21,925: microscope > electron beam - DEBUG - Setting resolution: (900, 900).
+2026-02-03 15:36:21,925: microscope > electron beam - DEBUG - Setting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:36:21,925: microscope > electron beam - DEBUG - Grabbing frame.
+2026-02-03 15:36:22,499: microscope > electron beam - DEBUG - Getting horizontal field width: 200000.0.
+2026-02-03 15:36:22,499: microscope > electron beam - DEBUG - Getting resolution: (900, 900).
+2026-02-03 15:36:22,499: microscope > electron beam - DEBUG - Getting pixel size: 222.22222222222223.
+2026-02-03 15:36:22,499: microscope > electron beam - DEBUG - Getting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:36:22,499: microscope > electron beam - DEBUG - Getting scanning area: RelativeScanningArea(origin=RelativePoint(x=0.2, y=0.4), width=0.4, height=1.0).
+2026-02-03 15:36:22,601: microscope > electron beam - DEBUG - Getting an image.

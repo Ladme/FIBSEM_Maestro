@@ -2,9 +2,11 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
+from pathlib import Path
 from typing import Any
 
 import numpy as np
+from numpy.typing import NDArray
 
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.image import Image
@@ -53,6 +55,8 @@ class SimulatedBeamControl(BeamControl):
             "beam.custom_parameter": 0.5,
             "beam.inner.parameter": 1.2,
         }
+
+        self._current_image: Image | None = None
 
         self._limits: dict[str, tuple[float, float]] = {
             "working_distance": (
@@ -170,17 +174,36 @@ class SimulatedBeamControl(BeamControl):
         self._txt_log.debug("Acquisition stopped.")
         self._acquiring = False
 
-    def grab_frame(self) -> Image:
+    def grab_frame(self, file_name: Path | None = None) -> Image:
         self._txt_log.debug("Grabbing frame.")
         width, height = self._resolution
 
-        arr = np.array(np.zeros((height, width)), dtype=float)
+        arr = generate_perlin_noise(self._rng, height, width, scale=200.0, octaves=8)
+        image = Image(arr, pixel_size=self.pixel_size)
 
-        return Image(arr, pixel_size=self.pixel_size)
+        if self.scanning_area is not None:
+            image = image.crop(self.scanning_area)
+
+        # cache the grabbed image
+        self._current_image = image
+
+        if file_name is not None:
+            image.save(file_name)
+
+        return image
 
     def get_image(self, crop_to_scanning_area: bool = False) -> Image:
-        _ = crop_to_scanning_area
-        return self.grab_frame()
+        self._txt_log.debug("Getting an image.")
+        image = (
+            self._current_image
+            if self._current_image is not None
+            else self.grab_frame()
+        )
+
+        if crop_to_scanning_area and self.scanning_area is not None:
+            return image.crop(self.scanning_area)
+
+        return image
 
     @property
     def line_integration(self) -> int:
@@ -323,3 +346,89 @@ class SimulatedBeamControl(BeamControl):
     @property
     def txt_log(self) -> TextLogger:
         return self._txt_log
+
+
+def generate_perlin_noise(
+    rng: np.random.Generator,
+    height: int,
+    width: int,
+    scale: float = 50.0,
+    octaves: int = 4,
+    persistence: float = 0.5,
+) -> NDArray[np.floating[Any]]:
+    """
+    Generates sharp fractal Perlin noise (FBM).
+
+    Args:
+        rng (np.random.Generator): Random number generator.
+        height (int): The height of the image.
+        width (int): The width of the image.
+        scale (float): The scale of the noise, affecting the smoothness and feature size.
+        octaves (int): Number of noise layers (higher = sharper).
+        persistence (float): Amplitude decay per octave.
+
+    Returns:
+        NDArray[np.floating[Any]]: A 2D numpy array representing the Perlin noise image with values between 0 and 1.
+    """
+
+    FloatArray = NDArray[np.floating[Any]]
+
+    def fade(t: FloatArray) -> FloatArray:
+        return 6 * t**5 - 15 * t**4 + 10 * t**3
+
+    def lerp(a: FloatArray, b: FloatArray, t: FloatArray) -> FloatArray:
+        return a + t * (b - a)
+
+    def perlin(scale: float) -> FloatArray:
+        grid_y = int(np.ceil(height / scale)) + 1
+        grid_x = int(np.ceil(width / scale)) + 1
+
+        angles = rng.uniform(0.0, 2.0 * np.pi, size=(grid_y, grid_x))
+        gradients = np.stack((np.cos(angles), np.sin(angles)), axis=-1)
+
+        y, x = np.meshgrid(np.arange(height), np.arange(width), indexing="ij")
+        xf = x / scale
+        yf = y / scale
+
+        x0 = xf.astype(int)
+        y0 = yf.astype(int)
+        x1 = x0 + 1
+        y1 = y0 + 1
+
+        sx = fade(xf - x0)
+        sy = fade(yf - y0)
+
+        def dot(
+            ix: NDArray[np.integer[Any]],
+            iy: NDArray[np.integer[Any]],
+        ) -> NDArray[np.floating[Any]]:
+            dx = xf - ix
+            dy = yf - iy
+            g = gradients[iy, ix]
+            return dx * g[..., 0] + dy * g[..., 1]
+
+        n00 = dot(x0, y0)
+        n10 = dot(x1, y0)
+        n01 = dot(x0, y1)
+        n11 = dot(x1, y1)
+
+        return lerp(lerp(n00, n10, sx), lerp(n01, n11, sx), sy)
+
+    noise = np.zeros((height, width), dtype=float)
+    amplitude = 1.0
+    max_amp = 0.0
+    current_scale = scale
+
+    for _ in range(octaves):
+        noise += amplitude * perlin(current_scale)
+        max_amp += amplitude
+        amplitude *= persistence
+        current_scale /= 2.0
+
+    noise /= max_amp
+
+    # normalize
+    noise -= noise.min()
+    noise /= noise.max()
+
+    return noise

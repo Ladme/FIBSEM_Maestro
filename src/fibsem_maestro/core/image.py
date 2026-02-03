@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING, Any, Generic, Self, TypeVar
 import numpy as np
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from autoscript_sdb_microscope_client.structures import (
         AdornedImage as AdornedImageAs,
     )
@@ -67,6 +69,21 @@ class _ImageBase(np.ndarray[Any, np.dtype[TDType]], Generic[TDType]):
             pixel_area.origin.x : pixel_area.origin.x + pixel_area.width,
         ]
 
+    def save(self, file_name: Path) -> None:
+        """
+        Save the image in PNG format.
+        """
+        import matplotlib.pyplot as plt
+
+        fig, ax = plt.subplots(
+            figsize=(self.shape[1] / 100, self.shape[0] / 100), dpi=100
+        )
+
+        ax.imshow(self, cmap="gray", interpolation="nearest")
+        ax.axis("off")
+        fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
+        plt.savefig(file_name, format="png", dpi=100)
+
 
 class Image(_ImageBase[np.floating[Any]]):
     def __new__(cls, image: NDArray[np.floating[Any]], pixel_size: float) -> Self:
@@ -84,7 +101,7 @@ class Image(_ImageBase[np.floating[Any]]):
     @classmethod
     def from_autoscript(cls, as_image: AdornedImageAs) -> Self:
         """
-        Convert the autoscript's AdornedImage to native Image.
+        Construct a native Image from Autoscript's AdornedImage.
         """
         if (metadata := as_image.metadata) is None:
             raise ImageError(

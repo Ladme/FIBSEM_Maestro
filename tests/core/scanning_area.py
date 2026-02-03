@@ -2,10 +2,10 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
+import pytest
+
 from fibsem_maestro.core.point import PixelPoint, RelativePoint
 from fibsem_maestro.core.scanning_area import PixelScanningArea, RelativeScanningArea
-
-import pytest
 
 
 def test_relative_scanning_area_to_pixels():
