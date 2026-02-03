@@ -6,8 +6,9 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from fibsem_maestro.core.beam_shift import BeamShift
+from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
-from fibsem_maestro.core.scanning_area import ScanningArea
+from fibsem_maestro.core.scanning_area import RelativeScanningArea
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
 from fibsem_maestro.logging.text.text_logger import TextLogger
@@ -273,14 +274,22 @@ class BeamControl(ABC):
         """Stop image acquisition."""
         pass
 
-    """@abstractmethod
+    @abstractmethod
     def grab_frame(self) -> Image:
+        """
+        Scans and retrieves an image.
+        """
         pass
 
     @abstractmethod
     def get_image(self, crop_to_scanning_area: bool = False) -> Image:
+        """
+        Retrieve the current image displayed.
+        Does NOT perform a new scan, only fetches the currently displayed image from the microscope.
+        """
         pass
 
+    """
     @abstractmethod
     def rectangle_milling(
         self, app_file: str, leftop, size, depth: float, direction: str
@@ -444,23 +453,23 @@ class BeamControl(ABC):
 
     @property
     @abstractmethod
-    def scanning_area(self) -> ScanningArea | None:
+    def scanning_area(self) -> RelativeScanningArea | None:
         """
         Get the active scanning area.
 
         Returns:
-            ScanningArea | None: Scanning area or None if not set.
+            RelativeScanningArea | None: Scanning area or None if not set.
         """
         pass
 
     @scanning_area.setter
     @abstractmethod
-    def scanning_area(self, value: ScanningArea | None) -> None:
+    def scanning_area(self, value: RelativeScanningArea | None) -> None:
         """
         Set the active scanning area.
 
         Args:
-            value (ScanningArea | None): Scanning area definition.
+            value (RelativeScanningArea | None): Scanning area definition.
         """
         pass
 

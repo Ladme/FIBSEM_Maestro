@@ -10,7 +10,7 @@ from scipy.spatial import distance  # pyright: ignore[reportMissingTypeStubs]
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.point import RelativePoint
-from fibsem_maestro.core.scanning_area import ScanningArea
+from fibsem_maestro.core.scanning_area import RelativeScanningArea
 from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.logging.image.image_logger import ImageLogger
 from fibsem_maestro.logging.text.text_logger import TextLogger
@@ -174,7 +174,7 @@ class Microscope:
             ImagingSettings(
                 pixel_size=20,
                 line_integration=1,
-                scanning_area=ScanningArea(
+                scanning_area=RelativeScanningArea(
                     origin=RelativePoint(0, 0), width=0.0, height=0.0
                 ),
                 detector_contrast=0.0,

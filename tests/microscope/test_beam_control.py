@@ -8,7 +8,7 @@ import pytest
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.lens_alignment import LensAlignment
 from fibsem_maestro.core.point import RelativePoint
-from fibsem_maestro.core.scanning_area import ScanningArea
+from fibsem_maestro.core.scanning_area import RelativeScanningArea
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
 from fibsem_maestro.logging.text.text_logger import TextLogger
@@ -66,7 +66,7 @@ def test_set_properties():
         resolution=(2048, 1024),
         horizontal_field_width=400_000.0,
         vertical_field_width=300_000.0,
-        scanning_area=ScanningArea(RelativePoint(0.5, 0.5), 10.0, 12.0),
+        scanning_area=RelativeScanningArea(RelativePoint(0.5, 0.5), 10.0, 12.0),
     )  # type: ignore
     setattr(beam_properties, "beam.custom_parameter", 0.7)
     setattr(beam_properties, "beam.inner.parameter", 2.1)
@@ -86,7 +86,7 @@ def test_set_properties():
     assert beam_control.resolution == (2048, 1024)
     assert beam_control.horizontal_field_width == 400_000.0
     assert beam_control.vertical_field_width == 300_000.0
-    assert beam_control.scanning_area == ScanningArea(
+    assert beam_control.scanning_area == RelativeScanningArea(
         RelativePoint(0.5, 0.5), 10.0, 12.0
     )
     assert beam_control.manufacturer_prop("beam.custom_parameter") == 0.7

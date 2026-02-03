@@ -15,8 +15,9 @@ from autoscript_sdb_microscope_client.sdb_microscope_client import SdbMicroscope
 
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
+from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
-from fibsem_maestro.core.scanning_area import ScanningArea
+from fibsem_maestro.core.scanning_area import RelativeScanningArea
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
 from fibsem_maestro.logging.text.text_logger import TextLogger
@@ -45,7 +46,7 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         )
         self._txt_log = txt_log
 
-        self._scanning_area: ScanningArea | None = None
+        self._scanning_area: RelativeScanningArea | None = None
         self._line_integration = 1
         self._vertical_field_width: float | None = (
             None  # dummy var for resolution calculation
@@ -161,6 +162,19 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         self.select_modality()
         self._txt_log.debug(f"Stopping acquisition ({self._modality}).")
         self._microscope.imaging.stop_acquisition()
+
+    def get_image(self, crop_to_scanning_area: bool = False) -> Image:
+        self.select_modality()
+        self._txt_log.debug(f"Getting an image ({self._modality}).")
+        image = Image.from_autoscript(self._microscope.imaging.get_image())
+
+        if crop_to_scanning_area and self.scanning_area is not None:
+            return image.crop(self.scanning_area)
+
+        return image
+
+    def grab_frame(self) -> Image:
+        raise NotImplementedError("Grabbing frames is not yet implemented.")
 
     @property
     def line_integration(self) -> int:
@@ -305,14 +319,14 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         self._beam.scanning.rotation.value = value
 
     @property
-    def scanning_area(self) -> ScanningArea | None:
+    def scanning_area(self) -> RelativeScanningArea | None:
         self._txt_log.debug(
             f"Getting scanning area ({self._modality}): {self._scanning_area}."
         )
         return self._scanning_area
 
     @scanning_area.setter
-    def scanning_area(self, value: ScanningArea | None) -> None:
+    def scanning_area(self, value: RelativeScanningArea | None) -> None:
         # copy dwell and resolution to reduced area scanning mode
         backup_dwell = self.dwell_time
         backup_res = self.resolution

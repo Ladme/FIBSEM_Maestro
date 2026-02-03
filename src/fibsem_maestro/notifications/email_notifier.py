@@ -10,7 +10,8 @@ from fibsem_maestro.settings.notification_settings import SMTPEmailSettings
 
 
 class SMTPEmailNotifier(NotificationService):
-    """Email-based notification service using an SMTP server.
+    """
+    Email-based notification service using an SMTP server.
 
     This implementation sends notification messages via an SMTP server
     using STARTTLS authentication.

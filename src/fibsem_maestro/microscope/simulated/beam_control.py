@@ -9,7 +9,7 @@ import numpy as np
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
-from fibsem_maestro.core.scanning_area import ScanningArea
+from fibsem_maestro.core.scanning_area import RelativeScanningArea
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
 from fibsem_maestro.logging.text.text_logger import TextLogger
@@ -44,7 +44,7 @@ class SimulatedBeamControl(BeamControl):
         self._resolution = (1024, 768)
         self._horizontal_field_width_nm = 200_000.0  # 200 µm in nm
         self._vertical_field_width_nm = 200_000.0
-        self._scanning_area: ScanningArea | None = None
+        self._scanning_area: RelativeScanningArea | None = None
 
         self._beam_shift_to_stage_move = (1.0, 1.0)
         self._image_to_beam_shift = (1.0, 1.0)
@@ -261,13 +261,13 @@ class SimulatedBeamControl(BeamControl):
         )
 
     @property
-    def scanning_area(self) -> ScanningArea | None:
+    def scanning_area(self) -> RelativeScanningArea | None:
         value = self._scanning_area
         self._txt_log.debug(f"Getting scanning area: {value}.")
         return value
 
     @scanning_area.setter
-    def scanning_area(self, value: ScanningArea | None) -> None:
+    def scanning_area(self, value: RelativeScanningArea | None) -> None:
         self._txt_log.debug(f"Setting scanning area: {value}.")
         self._scanning_area = value
 
