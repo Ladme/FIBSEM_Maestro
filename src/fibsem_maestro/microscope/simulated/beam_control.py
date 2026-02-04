@@ -2,33 +2,45 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
+import math
 from pathlib import Path
 from typing import Any
 
 import numpy as np
-from numpy.typing import NDArray
 
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
 from fibsem_maestro.core.scanning_area import RelativeScanningArea
 from fibsem_maestro.core.source_tilt import SourceTilt
+from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.core.stigmator import Stigmator
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
 from fibsem_maestro.microscope.error import MicroscopeError
+from fibsem_maestro.microscope.simulated.sample import SimulatedSample
 
 
 class SimulatedBeamControl(BeamControl):
     """Simulated beam controller."""
 
-    def __init__(self, *, name: str, txt_log: TextLogger, rng: np.random.Generator):
+    def __init__(
+        self,
+        name: str,
+        sample: SimulatedSample,
+        stage_position: StagePosition,
+        txt_log: TextLogger,
+        rng: np.random.Generator,
+    ):
         self._name = name
         self._txt_log = txt_log
         self._rng = rng
 
+        self._sample = sample
+
         # current state
-        self._working_distance_nm = 5_000_000.0  # 5 mm in nm
+        self._stage_position = stage_position
+        self._working_distance_nm = 5_000_000.0
         self._stigmator = Stigmator(x=0.0, y=0.0)
         self._lens_alignment = LensAlignment(x=0.0, y=0.0)  # nm
         self._beam_shift = BeamShift(x=0.0, y=0.0)  # nm
@@ -44,17 +56,14 @@ class SimulatedBeamControl(BeamControl):
         self._dwell_time = 1e-6  # seconds
         self._bit_depth = 8
         self._resolution = (1024, 768)
-        self._horizontal_field_width_nm = 200_000.0  # 200 µm in nm
-        self._vertical_field_width_nm = 200_000.0
+        self._horizontal_field_width_nm = 20_000.0
+        self._vertical_field_width_nm = 20_000.0
         self._scanning_area: RelativeScanningArea | None = None
 
         self._beam_shift_to_stage_move = (1.0, 1.0)
         self._image_to_beam_shift = (1.0, 1.0)
 
-        self._manufacturer_properties: dict[str, Any] = {
-            "beam.custom_parameter": 0.5,
-            "beam.inner.parameter": 1.2,
-        }
+        self._manufacturer_properties: dict[str, Any] = {}
 
         self._current_image: Image | None = None
 
@@ -176,16 +185,58 @@ class SimulatedBeamControl(BeamControl):
 
     def grab_frame(self, file_name: Path | None = None) -> Image:
         self._txt_log.debug("Grabbing frame.")
-        width, height = self._resolution
+        width, height = self.resolution
+        pos = self._stage_position
 
-        arr = generate_perlin_noise(self._rng, height, width, scale=200.0, octaves=8)
-        image = Image(arr, pixel_size=self.pixel_size)
+        # get center of the view
+        cx = pos.x + self.beam_shift.x
+        cy = pos.y + self.beam_shift.y
+        X, Y = SimulatedSample.world_grid(
+            cx,
+            cy,
+            width,
+            height,
+            self.horizontal_field_width,
+            self.vertical_field_width,
+        )
+        # rotation of the stage
+        if pos.rotation != 0.0:
+            X, Y = SimulatedSample.rotate_grid(X, Y, cx, cy, pos.rotation)
+
+        # tilt
+        tilt_rad = math.radians(pos.tilt)
+        if tilt_rad != 0.0:
+            Y = cy + (Y - cy) / np.cos(tilt_rad)
+
+        image = self._sample.sample(X, Y)
+
+        # focus + astigmatism
+        defocus_nm = pos.z - self.working_distance
+        image = SimulatedSample.apply_focus_and_astigmatism(
+            image=image,
+            Y=Y,
+            center_y=cy,
+            defocus=defocus_nm,
+            tilt_rad=tilt_rad,
+            pixel_size=self.pixel_size,
+            stigmator_x=self.stigmator.x,
+            stigmator_y=self.stigmator.y,
+        )
+
+        # detector noise
+        noise_std = 1e-4 / np.sqrt(max(self.dwell_time * self.line_integration, 1e-12))
+        image += self._rng.normal(0.0, noise_std, image.shape)
+
+        # brightness and contrast
+        image = SimulatedSample.apply_brightness_contrast(
+            image, self.detector_brightness, self.detector_contrast
+        )
+
+        image = Image(image, pixel_size=self.pixel_size)
+        self._current_image = image
 
         if self.scanning_area is not None:
             image = image.crop(self.scanning_area)
-
-        # cache the grabbed image
-        self._current_image = image
 
         if file_name is not None:
             image.save(file_name)
@@ -346,89 +397,3 @@ class SimulatedBeamControl(BeamControl):
     @property
     def txt_log(self) -> TextLogger:
         return self._txt_log
-
-
-def generate_perlin_noise(
-    rng: np.random.Generator,
-    height: int,
-    width: int,
-    scale: float = 50.0,
-    octaves: int = 4,
-    persistence: float = 0.5,
-) -> NDArray[np.floating[Any]]:
-    """
-    Generates sharp fractal Perlin noise (FBM).
-
-    Args:
-        rng (np.random.Generator): Random number generator.
-        height (int): The height of the image.
-        width (int): The width of the image.
-        scale (float): The scale of the noise, affecting the smoothness and feature size.
-        octaves (int): Number of noise layers (higher = sharper).
-        persistence (float): Amplitude decay per octave.
-
-    Returns:
-        NDArray[np.floating[Any]]: A 2D numpy array representing the Perlin noise image with values between 0 and 1.
-    """
-
-    FloatArray = NDArray[np.floating[Any]]
-
-    def fade(t: FloatArray) -> FloatArray:
-        return 6 * t**5 - 15 * t**4 + 10 * t**3
-
-    def lerp(a: FloatArray, b: FloatArray, t: FloatArray) -> FloatArray:
-        return a + t * (b - a)
-
-    def perlin(scale: float) -> FloatArray:
-        grid_y = int(np.ceil(height / scale)) + 1
-        grid_x = int(np.ceil(width / scale)) + 1
-
-        angles = rng.uniform(0.0, 2.0 * np.pi, size=(grid_y, grid_x))
-        gradients = np.stack((np.cos(angles), np.sin(angles)), axis=-1)
-
-        y, x = np.meshgrid(np.arange(height), np.arange(width), indexing="ij")
-        xf = x / scale
-        yf = y / scale
-
-        x0 = xf.astype(int)
-        y0 = yf.astype(int)
-        x1 = x0 + 1
-        y1 = y0 + 1
-
-        sx = fade(xf - x0)
-        sy = fade(yf - y0)
-
-        def dot(
-            ix: NDArray[np.integer[Any]],
-            iy: NDArray[np.integer[Any]],
-        ) -> NDArray[np.floating[Any]]:
-            dx = xf - ix
-            dy = yf - iy
-            g = gradients[iy, ix]
-            return dx * g[..., 0] + dy * g[..., 1]
-
-        n00 = dot(x0, y0)
-        n10 = dot(x1, y0)
-        n01 = dot(x0, y1)
-        n11 = dot(x1, y1)
-
-        return lerp(lerp(n00, n10, sx), lerp(n01, n11, sx), sy)
-
-    noise = np.zeros((height, width), dtype=float)
-    amplitude = 1.0
-    max_amp = 0.0
-    current_scale = scale
-
-    for _ in range(octaves):
-        noise += amplitude * perlin(current_scale)
-        max_amp += amplitude
-        amplitude *= persistence
-        current_scale /= 2.0
-
-    noise /= max_amp
-
-    # normalize
-    noise -= noise.min()
-    noise /= noise.max()
-
-    return noise

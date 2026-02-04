@@ -79,7 +79,7 @@ class _ImageBase(np.ndarray[Any, np.dtype[TDType]], Generic[TDType]):
             figsize=(self.shape[1] / 100, self.shape[0] / 100), dpi=100
         )
 
-        ax.imshow(self, cmap="gray", interpolation="nearest")
+        ax.imshow(self, cmap="gray", interpolation="nearest", vmin=0.0, vmax=1.0)
         ax.axis("off")
         fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
         plt.savefig(file_name, format="png", dpi=100)

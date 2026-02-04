@@ -15,6 +15,7 @@ from fibsem_maestro.microscope.abstract_control.microscope_control import (
 from fibsem_maestro.microscope.error import MicroscopeError
 from fibsem_maestro.microscope.microscope_registry import MicroscopeRegistry
 from fibsem_maestro.microscope.simulated.beam_control import SimulatedBeamControl
+from fibsem_maestro.microscope.simulated.sample import SimulatedSample
 
 
 @MicroscopeRegistry.register("simulated")
@@ -44,18 +45,23 @@ class SimulatedMicroscopeControl(MicroscopeControl):
             x=0.0, y=0.0, z=0.0, rotation=0.0, tilt=0.0
         )
 
-        self._manufacturer_properties: dict[str, Any] = {
-            "microscope.custom_parameter": 0.5,
-            "microscope.inner.parameter": 1.2,
-        }
+        self._sample = SimulatedSample(self._rng)
+
+        self._manufacturer_properties: dict[str, Any] = {}
 
         self._electron_beam = SimulatedBeamControl(
             name="electron",
+            stage_position=self._stage_position,
+            sample=self._sample,
             txt_log=self._txt_log.derive("electron beam"),
             rng=self._rng,
         )
         self._ion_beam = SimulatedBeamControl(
-            name="ion", txt_log=self._txt_log.derive("ion beam"), rng=self._rng
+            name="ion",
+            stage_position=self._stage_position,
+            sample=self._sample,
+            txt_log=self._txt_log.derive("ion beam"),
+            rng=self._rng,
         )
 
     @property
@@ -117,8 +123,8 @@ class SimulatedMicroscopeControl(MicroscopeControl):
         """
         Attempt to set the stage position.
 
-        This method **may fail to reach the requested position exactly**. The simulator
-        applies a small random error (noise) and returns the *actual* stage position.
+        This method may fail to reach the requested position exactly. The simulator
+        applies a small random error (noise) and returns the actual stage position.
 
         Args:
             pos (StagePosition): Desired absolute stage position.
@@ -130,13 +136,12 @@ class SimulatedMicroscopeControl(MicroscopeControl):
         noise_xyz = self._rng.normal(0.0, 0.1, size=3)  # nm
         noise_ang = self._rng.normal(0.0, 0.001, size=2)  # degrees
 
-        self._stage_position = StagePosition(
-            x=pos.x + float(noise_xyz[0]),
-            y=pos.y + float(noise_xyz[1]),
-            z=pos.z + float(noise_xyz[2]),
-            rotation=pos.rotation + float(noise_ang[0]),
-            tilt=pos.tilt + float(noise_ang[1]),
-        )
+        self._stage_position.x = pos.x + float(noise_xyz[0])
+        self._stage_position.y = pos.y + float(noise_xyz[1])
+        self._stage_position.z = pos.z + float(noise_xyz[2])
+        self._stage_position.rotation = pos.rotation + float(noise_ang[0])
+        self._stage_position.tilt = pos.tilt + float(noise_ang[1])
+
         self._txt_log.debug(f"Current stage position is {self.stage_position}.")
         return self.stage_position
 
