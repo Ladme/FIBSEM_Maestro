@@ -62,6 +62,10 @@ class Imaging:
                 f"Image {str(image_path)} already exists. Unable to perform image acquisition."
             )
 
+        # make sure that the directory for storing images exists
+        if not self._settings.images_directory.exists():
+            self._settings.images_directory.mkdir(parents=True, exist_ok=True)
+
         # grab the frame and save it
         self._microscope.beam.grab_frame(image_path)
 
@@ -94,5 +98,5 @@ class Imaging:
         """
         return (
             self._settings.images_directory
-            / f"slice_{self._slice_ctx.current_slice}.tif"
+            / f"slice_{self._slice_ctx.current_slice}.{self._settings.acquired_images_extension}"
         )

@@ -31,3 +31,10 @@ class ImagingSettings(BaseSettings):
             description="Properties of the microscope and the beam relevant for imaging.",
         ),
     ]
+    acquired_images_extension: Annotated[
+        str,
+        Field(
+            default="tif",
+            description="File extension to used for saved acquired images.",
+        ),
+    ]
