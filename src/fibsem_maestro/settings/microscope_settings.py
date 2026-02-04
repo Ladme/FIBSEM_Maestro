@@ -31,6 +31,7 @@ class MicroscopeSettings(BaseSettings):
             description="Number of trials to reach the goal position before raising an error."
         ),
     ]
+    # TODO: remove
     properties_to_collect: Annotated[
         PropertyNames,
         Field(

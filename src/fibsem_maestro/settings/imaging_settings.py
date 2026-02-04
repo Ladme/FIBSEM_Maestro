@@ -1,17 +1,33 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
-from fibsem_maestro.core.scanning_area import RelativeScanningArea
+from pathlib import Path
+from typing import Annotated
+
+from pydantic import Field
+
 from fibsem_maestro.settings.base_settings import BaseSettings
+from fibsem_maestro.settings.property_names import PropertyNames
 
 
 class ImagingSettings(BaseSettings):
-    resolution: tuple[int, int] | None = None
-    bit_depth: int | None = None
-    dwell_time: float | None = None
-    line_integration: int | None = None
-    scanning_area: RelativeScanningArea | None = None
-    pixel_size: float | None = None
-    field_of_view: tuple[float, float] | None = None
-    detector_contrast: float | None = None
-    detector_brightness: float | None = None
+    properties_file: Annotated[
+        Path,
+        Field(
+            description="Path to a file storing properties of the microscope used for imaging.",
+        ),
+    ]
+    images_directory: Annotated[
+        Path,
+        Field(
+            default=Path("images"),
+            description="Path to a directory where the acquired images should be saved.",
+        ),
+    ]
+    properties_to_collect: Annotated[
+        PropertyNames,
+        Field(
+            default_factory=PropertyNames,
+            description="Properties of the microscope and the beam relevant for imaging.",
+        ),
+    ]
