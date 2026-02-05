@@ -11,6 +11,7 @@ import numpy as np
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
+from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.scanning_area import RelativeScanningArea
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stage_position import StagePosition
@@ -55,9 +56,8 @@ class SimulatedBeamControl(BeamControl):
         self._line_integration = 1
         self._dwell_time = 1e-6  # seconds
         self._bit_depth = 8
-        self._resolution = (1024, 768)
-        self._horizontal_field_width_nm = 20_000.0
-        self._vertical_field_width_nm = 20_000.0
+        self._resolution = Resolution(1024, 768)
+        self._horizontal_field_width = 20_000.0
         self._scanning_area: RelativeScanningArea | None = None
 
         self._beam_shift_to_stage_move = (1.0, 1.0)
@@ -185,7 +185,7 @@ class SimulatedBeamControl(BeamControl):
 
     def grab_frame(self, file_name: Path | None = None) -> Image:
         self._txt_log.debug("Grabbing frame.")
-        width, height = self.resolution
+        width, height = self.resolution.to_tuple()
         pos = self._stage_position
 
         # get center of the view
@@ -290,48 +290,57 @@ class SimulatedBeamControl(BeamControl):
         self._bit_depth = value
 
     @property
-    def resolution(self) -> tuple[int, int]:
+    def resolution(self) -> Resolution:
         value = self._resolution
         self._txt_log.debug(f"Getting resolution: {value}.")
         return value
 
     @resolution.setter
-    def resolution(self, value: tuple[int, int]) -> None:
+    def resolution(self, value: Resolution) -> None:
         self._txt_log.debug(f"Setting resolution: {value}.")
         self._resolution = value
 
     @property
     def horizontal_field_width(self) -> float:
-        value = self._horizontal_field_width_nm
+        value = self._horizontal_field_width
         self._txt_log.debug(f"Getting horizontal field width: {value}.")
         return value
 
     @horizontal_field_width.setter
     def horizontal_field_width(self, value: float) -> None:
         self._txt_log.debug(f"Setting horizontal field width: {value}.")
-        self._horizontal_field_width_nm = value
+        self._horizontal_field_width = value
 
     @property
     def vertical_field_width(self) -> float:
-        value = self._vertical_field_width_nm
+        value = (
+            self.horizontal_field_width * self.resolution.height / self.resolution.width
+        )
         self._txt_log.debug(f"Getting vertical field width: {value}.")
         return value
 
     @vertical_field_width.setter
     def vertical_field_width(self, value: float) -> None:
-        self._txt_log.debug(f"Setting vertical field width: {value}.")
-        self._vertical_field_width_nm = value
+        pixel_size = self.pixel_size
+        self.resolution = Resolution(self.resolution.width, int(value / pixel_size))
+        self._txt_log.info(
+            f"Extended resolution set to: {str(self.resolution)} (via setting vertical field width)."
+        )
 
     @property
     def pixel_size(self) -> float:
-        value = self.horizontal_field_width / self.resolution[0]
+        value = self.horizontal_field_width / self.resolution.width
         self._txt_log.debug(f"Getting pixel size: {value}.")
         return value
 
     @pixel_size.setter
     def pixel_size(self, value: float) -> None:
-        raise NotImplementedError(
-            "Setting pixel size is not implemented in the simulator."
+        self.resolution = Resolution(
+            int(self.horizontal_field_width / value),
+            int(self.vertical_field_width / value),
+        )
+        self._txt_log.info(
+            f"Extended resolution set to: {str(self.resolution)} (via setting pixel size)."
         )
 
     @property

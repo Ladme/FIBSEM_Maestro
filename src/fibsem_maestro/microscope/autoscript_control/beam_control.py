@@ -19,6 +19,7 @@ from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
+from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.scanning_area import RelativeScanningArea
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
@@ -50,21 +51,18 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
 
         self._scanning_area: RelativeScanningArea | None = None
         self._line_integration = 1
-        self._vertical_field_width: float | None = (
-            None  # dummy var for resolution calculation
-        )
-        self._extended_resolution: tuple[int, int] | None = (
+        self._extended_resolution: Resolution | None = (
             None  # extended resolution is set only if the required resolution is not standard
         )
         self._standard_resolutions = (
-            (1024, 884),
-            (1536, 1024),
-            (2048, 1768),
-            (3072, 2048),
-            (4096, 3536),
-            (512, 442),
-            (6144, 4096),
-            (768, 512),
+            Resolution(1024, 884),
+            Resolution(1536, 1024),
+            Resolution(2048, 1768),
+            Resolution(3072, 2048),
+            Resolution(4096, 3536),
+            Resolution(512, 442),
+            Resolution(6144, 4096),
+            Resolution(768, 512),
         )  # available resolutions supported in standard mode
 
     @property
@@ -182,7 +180,7 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         imaging_settings = GrabFrameSettings(
             line_integration=self.line_integration,
             bit_depth=self.bit_depth,
-            resolution=f"{self.resolution[0]}x{self.resolution[1]}",
+            resolution=str(self.resolution),
             dwell_time=self.dwell_time,
         )
 
@@ -239,7 +237,7 @@ working distance: {self.working_distance}]."""
         self._beam.scanning.bit_depth = value
 
     @property
-    def resolution(self) -> tuple[int, int]:
+    def resolution(self) -> Resolution:
         if self._extended_resolution is None:
             x, y = (
                 self._beam.scanning.resolution.width,
@@ -248,7 +246,7 @@ working distance: {self.working_distance}]."""
             self._txt_log.debug(
                 f"Getting standard resolution ({self._modality}): {x}, {y}."
             )
-            return x, y
+            return Resolution(x, y)
 
         self._txt_log.debug(
             f"Getting extended resolution ({self._modality}): {self._extended_resolution}."
@@ -256,8 +254,8 @@ working distance: {self.working_distance}]."""
         return self._extended_resolution
 
     @resolution.setter
-    def resolution(self, value: tuple[int, int]) -> None:
-        resolution = f"{value[0]}x{value[1]}"
+    def resolution(self, value: Resolution) -> None:
+        resolution = str(value)
         if value in self._standard_resolutions:
             self._txt_log.debug(
                 f"Setting standard resolution to ({self._modality}): {resolution}."
@@ -270,7 +268,7 @@ working distance: {self.working_distance}]."""
         self._extended_resolution = value
 
     @property
-    def extended_resolution(self) -> tuple[int, int] | None:
+    def extended_resolution(self) -> Resolution | None:
         return self._extended_resolution
 
     @property
@@ -290,47 +288,42 @@ working distance: {self.working_distance}]."""
 
     @property
     def vertical_field_width(self) -> float:
-        if self._vertical_field_width is None:
-            self._vertical_field_width = (
-                self.horizontal_field_width * self.resolution[1] / self.resolution[0]
-            )
-            self._txt_log.info(
-                "Vertical field width was not set. Calculating from resolution."
-            )
-
-        value = self._vertical_field_width
-        self._txt_log.debug(
-            f"Getting dummy vertical field width ({self._modality}): {value}."
+        value = (
+            self.horizontal_field_width * self.resolution.height / self.resolution.width
         )
+        self._txt_log.debug(
+            f"Getting vertical field width ({self._modality}): {value}."
+        )
+
         return value
 
     @vertical_field_width.setter
     def vertical_field_width(self, value: float) -> None:
-        self._txt_log.debug(
-            f"Setting dummy vertical field width to ({self._modality}): {value}."
+        # change the resolution of the image so that the requested vertical field width is achieved
+        # without changing the pixel size
+        pixel_size = self.pixel_size
+        self.resolution = Resolution(self.resolution.width, int(value / pixel_size))
+        self._txt_log.info(
+            f"Extended resolution set to: {str(self.resolution)} (via setting vertical field width)."
         )
-        self._vertical_field_width = value
 
     @property
     def pixel_size(self) -> float:
-        value = self.horizontal_field_width / self.resolution[0]
+        value = self.horizontal_field_width / self.resolution.width
         self._txt_log.debug(f"Getting pixel size ({self._modality}): {value}.")
         return value
 
     @pixel_size.setter
     def pixel_size(self, value: float) -> None:
-        # it is not possible to set pixel size as property of the microscope, but it is needed for resolution calculation
-        if self._extended_resolution is not None:
-            extended_res_i_x = int(self.horizontal_field_width / value)
-            extended_res_i_y = int(self.vertical_field_width / value)
-
-            extended_res = f"{extended_res_i_x}x{extended_res_i_y}"
-            self._txt_log.info(f"Extended resolution set to: {extended_res}.")
-            self.resolution = (extended_res_i_x, extended_res_i_y)
-        else:
-            raise MicroscopeError(
-                "Cannot set pixel size if extended resolution is not used."
-            )
+        # change the resolution of the image so that the pixel size matches the provided value
+        # but the field width is not changed
+        self.resolution = Resolution(
+            int(self.horizontal_field_width / value),
+            int(self.vertical_field_width / value),
+        )
+        self._txt_log.info(
+            f"Extended resolution set to: {str(self.resolution)} (via setting pixel size)."
+        )
 
     @property
     def scan_rotation(self) -> float:
@@ -381,8 +374,8 @@ working distance: {self.working_distance}]."""
 
     @property
     def minimal_dwell(self) -> float:
-        # in nm
-        return 25.0
+        # in s
+        return 25e-9
 
     def manufacturer_prop(self, name: str) -> Any:
         property = self._manufacturer_properties.get(name)

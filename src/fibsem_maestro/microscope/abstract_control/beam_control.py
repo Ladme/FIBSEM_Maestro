@@ -9,6 +9,7 @@ from typing import Any
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
+from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.scanning_area import RelativeScanningArea
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
@@ -382,23 +383,23 @@ class BeamControl(ABC):
 
     @property
     @abstractmethod
-    def resolution(self) -> tuple[int, int]:
+    def resolution(self) -> Resolution:
         """
         Get the image resolution.
 
         Returns:
-            tuple[int, int]: Image resolution (width, height).
+            Resolution: Image resolution in pixels.
         """
         pass
 
     @resolution.setter
     @abstractmethod
-    def resolution(self, value: tuple[int, int]) -> None:
+    def resolution(self, value: Resolution) -> None:
         """
         Set the image resolution.
 
         Args:
-            value (tuple[int, int]): Image resolution (width, height).
+            value (Resolution): Image resolution in pixels.
         """
         pass
 

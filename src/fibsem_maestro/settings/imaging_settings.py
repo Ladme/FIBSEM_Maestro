@@ -35,6 +35,9 @@ class ImagingSettings(BaseSettings):
         str,
         Field(
             default="tif",
-            description="File extension to used for saved acquired images.",
+            description="File extension to use for saved acquired images.",
         ),
+    ]
+    extended_resolution: Annotated[
+        bool, Field(default=False, description="Should extended resolution be used?")
     ]
