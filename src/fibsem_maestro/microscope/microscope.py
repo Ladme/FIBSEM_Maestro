@@ -107,12 +107,38 @@ class Microscope:
     def set_properties(
         self, properties: GlobalProperties, beam: BeamType | None
     ) -> None:
+        """
+        Load the provided properties to the microscope.
+
+        If a beam type is specified, only the properties of the selected beam and the general
+        properties of the microscope are loaded.
+
+        Args:
+            properties (GlobalProperties): The properties to be loaded to the microscope.
+            beam (BeamType | None): The type of beam for which properties should be loaded.
+                                If None, properties for all beams are loaded.
+        """
         self._control.set_properties(properties, beam)
 
     def collect_properties(
         self, properties_to_collect: PropertyNames
     ) -> GlobalProperties:
+        """
+        Collect specified properties of the microscope.
+
+        Args:
+            properties_to_collect (PropertyNames): The names of the properties to be collected.
+
+        Returns:
+            GlobalProperties: The collected properties of the microscope.
+        """
         return self._control.collect_properties(properties_to_collect)
 
     def get_property_names(self) -> PropertyNames:
+        """
+        Retrieve the names of all properties of the microscope and its beams.
+
+        Returns:
+            PropertyNames: The names of all properties available on the microscope and its beams.
+        """
         return self._control.prop_names
