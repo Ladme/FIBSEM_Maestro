@@ -2,11 +2,10 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
-from pydantic import BaseModel
-from pydantic.dataclasses import dataclass
 from typing import Generic, Self, TypeVar
 
 from autoscript_sdb_microscope_client.structures import Rectangle as RectangleAs
+from pydantic import BaseModel
 
 from fibsem_maestro.core.point import MPoint, NMPoint, PixelPoint, RelativePoint
 from fibsem_maestro.core.resolution import Resolution
