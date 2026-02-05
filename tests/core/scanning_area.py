@@ -5,6 +5,7 @@
 import pytest
 
 from fibsem_maestro.core.point import MPoint, NMPoint, PixelPoint, RelativePoint
+from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.scanning_area import (
     MScanningArea,
     NMScanningArea,
@@ -27,9 +28,9 @@ def test_scanning_area_update():
 
 def test_relative_scanning_area_to_pixels():
     origin = RelativePoint(x=0.2, y=0.3)
-    img_shape = (100, 200)
+    resolution = Resolution(200, 100)
     relative_area = RelativeScanningArea(origin=origin, width=0.4, height=0.5)
-    pixel_area = relative_area.to_pixels(img_shape)
+    pixel_area = relative_area.to_pixels(resolution)
     assert pixel_area.origin.x == 40
     assert pixel_area.origin.y == 30
     assert pixel_area.width == 80
@@ -38,9 +39,9 @@ def test_relative_scanning_area_to_pixels():
 
 def test_relative_scanning_area_to_pixels_no_area():
     origin = RelativePoint(x=0.0, y=0.0)
-    img_shape = (100, 200)
+    resolution = Resolution(200, 100)
     relative_area = RelativeScanningArea(origin=origin, width=0.0, height=0.0)
-    pixel_area = relative_area.to_pixels(img_shape)
+    pixel_area = relative_area.to_pixels(resolution)
     assert pixel_area.origin.x == 0
     assert pixel_area.origin.y == 0
     assert pixel_area.width == 0
@@ -49,10 +50,10 @@ def test_relative_scanning_area_to_pixels_no_area():
 
 def test_relative_scanning_area_to_nanometers():
     origin = RelativePoint(x=0.2, y=0.3)
-    img_shape = (100, 200)
+    resolution = Resolution(200, 100)
     pixel_size_nm = 10.0
     relative_area = RelativeScanningArea(origin=origin, width=0.4, height=0.5)
-    nm_area = relative_area.to_nanometers(img_shape, pixel_size_nm)
+    nm_area = relative_area.to_nanometers(resolution, pixel_size_nm)
     assert nm_area.origin.x == 40 * pixel_size_nm
     assert nm_area.origin.y == 30 * pixel_size_nm
     assert nm_area.width == 80 * pixel_size_nm
@@ -61,10 +62,10 @@ def test_relative_scanning_area_to_nanometers():
 
 def test_relative_scanning_area_to_nanometers_no_area():
     origin = RelativePoint(x=0.0, y=0.0)
-    img_shape = (100, 200)
+    resolution = Resolution(200, 100)
     pixel_size_nm = 10.0
     relative_area = RelativeScanningArea(origin=origin, width=0.0, height=0.0)
-    nm_area = relative_area.to_nanometers(img_shape, pixel_size_nm)
+    nm_area = relative_area.to_nanometers(resolution, pixel_size_nm)
     assert nm_area.origin.x == 0
     assert nm_area.origin.y == 0
     assert nm_area.width == 0
@@ -73,10 +74,10 @@ def test_relative_scanning_area_to_nanometers_no_area():
 
 def test_relative_scanning_area_to_meters():
     origin = RelativePoint(x=0.2, y=0.3)
-    img_shape = (100, 200)
+    resolution = Resolution(200, 100)
     pixel_size_m = 1e-6
     relative_area = RelativeScanningArea(origin=origin, width=0.4, height=0.5)
-    m_area = relative_area.to_meters(img_shape, pixel_size_m)
+    m_area = relative_area.to_meters(resolution, pixel_size_m)
     assert m_area.origin.x == 40 * pixel_size_m
     assert m_area.origin.y == 30 * pixel_size_m
     assert m_area.width == 80 * pixel_size_m
@@ -85,10 +86,10 @@ def test_relative_scanning_area_to_meters():
 
 def test_relative_scanning_area_to_meters_no_area():
     origin = RelativePoint(x=0.0, y=0.0)
-    img_shape = (100, 200)
+    resolution = Resolution(200, 100)
     pixel_size_m = 1e-6
     relative_area = RelativeScanningArea(origin=origin, width=0.0, height=0.0)
-    m_area = relative_area.to_meters(img_shape, pixel_size_m)
+    m_area = relative_area.to_meters(resolution, pixel_size_m)
     assert m_area.origin.x == 0
     assert m_area.origin.y == 0
     assert m_area.width == 0
@@ -97,9 +98,9 @@ def test_relative_scanning_area_to_meters_no_area():
 
 def test_pixel_scanning_area_to_relative():
     origin = PixelPoint(x=50, y=75)
-    img_shape = (150, 100)
+    resolution = Resolution(100, 150)
     pixel_area = PixelScanningArea(origin=origin, width=30, height=40)
-    relative_area = pixel_area.to_relative(img_shape)
+    relative_area = pixel_area.to_relative(resolution)
     assert relative_area.origin.x == pytest.approx(0.5)
     assert relative_area.origin.y == pytest.approx(0.5)
     assert relative_area.width == pytest.approx(0.3)
@@ -108,9 +109,9 @@ def test_pixel_scanning_area_to_relative():
 
 def test_pixel_scanning_area_to_relative_no_area():
     origin = PixelPoint(x=100, y=150)
-    img_shape = (150, 100)
+    resolution = Resolution(100, 150)
     pixel_area = PixelScanningArea(origin=origin, width=0, height=0)
-    relative_area = pixel_area.to_relative(img_shape)
+    relative_area = pixel_area.to_relative(resolution)
     assert relative_area.origin.x == pytest.approx(1.0)
     assert relative_area.origin.y == pytest.approx(1.0)
     assert relative_area.width == pytest.approx(0.0)
@@ -163,22 +164,22 @@ def test_pixel_scanning_area_to_meters_no_area():
 
 def test_nm_scanning_area_to_relative():
     origin = NMPoint(x=200, y=300)
-    img_shape = (100, 200)
+    resolution = Resolution(200, 100)
     pixel_size_nm = 10.0
     nm_area = NMScanningArea(origin=origin, width=400, height=500)
-    relative_area = nm_area.to_relative(img_shape, pixel_size_nm)
-    assert relative_area.origin.x == 200 / (img_shape[1] * pixel_size_nm)
-    assert relative_area.origin.y == 300 / (img_shape[0] * pixel_size_nm)
-    assert relative_area.width == 400 / (img_shape[1] * pixel_size_nm)
-    assert relative_area.height == 500 / (img_shape[0] * pixel_size_nm)
+    relative_area = nm_area.to_relative(resolution, pixel_size_nm)
+    assert relative_area.origin.x == 200 / (resolution.width * pixel_size_nm)
+    assert relative_area.origin.y == 300 / (resolution.height * pixel_size_nm)
+    assert relative_area.width == 400 / (resolution.width * pixel_size_nm)
+    assert relative_area.height == 500 / (resolution.height * pixel_size_nm)
 
 
 def test_nm_scanning_area_to_relative_no_area():
     origin = NMPoint(x=0, y=0)
-    img_shape = (100, 200)
+    resolution = Resolution(200, 100)
     pixel_size_nm = 10.0
     nm_area = NMScanningArea(origin=origin, width=0, height=0)
-    relative_area = nm_area.to_relative(img_shape, pixel_size_nm)
+    relative_area = nm_area.to_relative(resolution, pixel_size_nm)
     assert relative_area.origin.x == 0
     assert relative_area.origin.y == 0
     assert relative_area.width == 0
@@ -229,22 +230,22 @@ def test_nm_scanning_area_to_meters_no_area():
 
 def test_m_scanning_area_to_relative():
     origin = MPoint(x=200e-9, y=300e-9)
-    img_shape = (100, 200)
+    resolution = Resolution(200, 100)
     pixel_size_m = 1e-6
     m_area = MScanningArea(origin=origin, width=400e-9, height=500e-9)
-    relative_area = m_area.to_relative(img_shape, pixel_size_m)
-    assert relative_area.origin.x == (200e-9) / (img_shape[1] * pixel_size_m)
-    assert relative_area.origin.y == (300e-9) / (img_shape[0] * pixel_size_m)
-    assert relative_area.width == (400e-9) / (img_shape[1] * pixel_size_m)
-    assert relative_area.height == (500e-9) / (img_shape[0] * pixel_size_m)
+    relative_area = m_area.to_relative(resolution, pixel_size_m)
+    assert relative_area.origin.x == (200e-9) / (resolution.width * pixel_size_m)
+    assert relative_area.origin.y == (300e-9) / (resolution.height * pixel_size_m)
+    assert relative_area.width == (400e-9) / (resolution.width * pixel_size_m)
+    assert relative_area.height == (500e-9) / (resolution.height * pixel_size_m)
 
 
 def test_m_scanning_area_to_relative_no_area():
     origin = MPoint(x=0, y=0)
-    img_shape = (100, 200)
+    resolution = Resolution(200, 100)
     pixel_size_m = 1e-6
     m_area = MScanningArea(origin=origin, width=0, height=0)
-    relative_area = m_area.to_relative(img_shape, pixel_size_m)
+    relative_area = m_area.to_relative(resolution, pixel_size_m)
     assert relative_area.origin.x == 0
     assert relative_area.origin.y == 0
     assert relative_area.width == 0

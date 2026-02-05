@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING, Any, Generic, Self, TypeVar
 
 import numpy as np
 
+from fibsem_maestro.core.resolution import Resolution
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -63,7 +65,7 @@ class _ImageBase(np.ndarray[Any, np.dtype[TDType]], Generic[TDType]):
         Returns:
             Self: The cropped image as an instance of the same class as the original image.
         """
-        pixel_area = relative_area.to_pixels(self.shape)
+        pixel_area = relative_area.to_pixels(self.resolution)
         return self[
             pixel_area.origin.y : pixel_area.origin.y + pixel_area.height,
             pixel_area.origin.x : pixel_area.origin.x + pixel_area.width,
@@ -83,6 +85,14 @@ class _ImageBase(np.ndarray[Any, np.dtype[TDType]], Generic[TDType]):
         ax.axis("off")
         fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
         plt.savefig(file_name, format="png", dpi=100)
+
+    @property
+    def resolution(self) -> Resolution:
+        """
+        Get the resolution of the image.
+        """
+        shape = self.shape
+        return Resolution(shape[1], shape[0])
 
 
 class Image(_ImageBase[np.floating[Any]]):

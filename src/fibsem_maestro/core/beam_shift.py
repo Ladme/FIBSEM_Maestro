@@ -44,3 +44,18 @@ class BeamShift:
             PointAs: An AutoScript Point object with coordinates converted to meters.
         """
         return PointAs(x=self.x * 1e-9, y=self.y * 1e-9)
+
+    def __add__(self, other: "BeamShift") -> "BeamShift":
+        """
+        Adds two BeamShift instances element-wise.
+
+        Args:
+            other (BeamShift): Another BeamShift instance to add to this one.
+
+        Returns:
+            BeamShift: A new BeamShift instance with the summed x, y, z, rotation, and tilt values.
+        """
+        return BeamShift(
+            x=self.x + other.x,
+            y=self.y + other.y,
+        )

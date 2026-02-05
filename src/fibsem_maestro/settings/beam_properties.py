@@ -7,6 +7,7 @@ from pydantic import Field
 
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.lens_alignment import LensAlignment
+from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.scanning_area import RelativeScanningArea
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
@@ -61,8 +62,8 @@ class BeamProperties(BaseSettings):
         Field(default=None, gt=0, description="Bit depth of the detector output."),
     ]
     resolution: Annotated[
-        tuple[int, int] | None,
-        Field(default=None, description="Resolution of the scan as (width, height)."),
+        Resolution | None,
+        Field(default=None, description="Resolution of the scan in pixels."),
     ]
     horizontal_field_width: Annotated[
         float | None,

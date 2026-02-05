@@ -10,9 +10,11 @@ from scipy.ndimage import gaussian_filter1d  # type: ignore
 
 
 class SimulatedSample:
-    def __init__(self, rng: np.random.Generator):
+    def __init__(self, rng: np.random.Generator, width: int, height: int):
         self.pixel_size = 10.0
-        self.data = self._generate_perlin_noise(rng, 2000, 2000, scale=100.0, octaves=8)
+        self.data = self._generate_perlin_noise(
+            rng, width, height, scale=100.0, octaves=8
+        )
 
     def sample(
         self,

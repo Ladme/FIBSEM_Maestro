@@ -44,7 +44,13 @@ class InMemoryTextLogger(TextLogger):
 def create_test_microscope_control() -> SimulatedMicroscopeControl:
     """Create a test instance of SimulatedMicroscopeControl."""
     txt_log = InMemoryTextLogger()
-    return SimulatedMicroscopeControl(ip_address="127.0.0.1", txt_log=txt_log, seed=42)  # type: ignore
+    return SimulatedMicroscopeControl(
+        ip_address="127.0.0.1",
+        txt_log=txt_log,
+        seed=42,  # type: ignore
+        sample_width=1,  # type: ignore
+        sample_height=1,  # type: ignore
+    )
 
 
 def test_set_properties_microscope_only():

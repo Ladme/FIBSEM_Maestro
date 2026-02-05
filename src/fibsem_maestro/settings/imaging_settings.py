@@ -38,6 +38,6 @@ class ImagingSettings(BaseSettings):
             description="File extension to use for saved acquired images.",
         ),
     ]
-    extended_resolution: Annotated[
+    use_extended_resolution: Annotated[
         bool, Field(default=False, description="Should extended resolution be used?")
     ]

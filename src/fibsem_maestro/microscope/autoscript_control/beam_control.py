@@ -454,11 +454,11 @@ class AutoscriptElectronBeamControl(AutoscriptBeamControl[ElectronBeamAs]):
         self._beam.source_tilt.value = value.to_point_autoscript()
 
     @property
-    def beam_shift_to_stage_move(self) -> tuple[int, int] | None:
+    def beam_shift_to_stage_move(self) -> tuple[int, int]:
         return (-1, -1)
 
     @property
-    def image_to_beam_shift(self) -> tuple[int, int] | None:
+    def image_to_beam_shift(self) -> tuple[int, int]:
         return (-1, 1)
 
     def limits(self, var: str) -> tuple[float, float]:
@@ -527,11 +527,11 @@ class AutoscriptIonBeamControl(AutoscriptBeamControl[IonBeamAs]):
         raise MicroscopeError("Source tilt is not defined for an ion beam.")
 
     @property
-    def beam_shift_to_stage_move(self) -> tuple[int, int] | None:
-        return None
+    def beam_shift_to_stage_move(self) -> tuple[int, int]:
+        return (0, 0)
 
     @property
-    def image_to_beam_shift(self) -> tuple[int, int] | None:
+    def image_to_beam_shift(self) -> tuple[int, int]:
         return (-1, 1)
 
     def limits(self, var: str) -> tuple[float, float]:

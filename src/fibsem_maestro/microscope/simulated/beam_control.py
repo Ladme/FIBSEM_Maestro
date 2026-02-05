@@ -63,7 +63,10 @@ class SimulatedBeamControl(BeamControl):
         self._beam_shift_to_stage_move = (1.0, 1.0)
         self._image_to_beam_shift = (1.0, 1.0)
 
-        self._manufacturer_properties: dict[str, Any] = {}
+        self._manufacturer_properties: dict[str, Any] = {
+            "beam.custom_parameter": 1.0,
+            "beam.inner.parameter": 0.5,
+        }
 
         self._current_image: Image | None = None
 

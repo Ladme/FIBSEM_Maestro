@@ -517,23 +517,23 @@ class BeamControl(ABC):
 
     @property
     @abstractmethod
-    def beam_shift_to_stage_move(self) -> tuple[float, float] | None:
+    def beam_shift_to_stage_move(self) -> tuple[float, float]:
         """
         Get conversion from beam shift to stage movement.
 
         Returns:
-            tuple[float, float] | None: Conversion factors.
+            tuple[float, float]: Conversion factors.
         """
         pass
 
     @property
     @abstractmethod
-    def image_to_beam_shift(self) -> tuple[float, float] | None:
+    def image_to_beam_shift(self) -> tuple[float, float]:
         """
         Get conversion from image coordinates to beam shift.
 
         Returns:
-            tuple[float, float] | None: Conversion factors.
+            tuple[float, float]: Conversion factors.
         """
         pass
 

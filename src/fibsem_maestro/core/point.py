@@ -2,14 +2,16 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
-from dataclasses import dataclass
+from pydantic import BaseModel
+from pydantic.dataclasses import dataclass
 from typing import Any, Generic, TypeVar
+
+from fibsem_maestro.core.resolution import Resolution
 
 T = TypeVar("T", int, float)
 
 
-@dataclass
-class Point(Generic[T]):
+class Point(BaseModel, Generic[T]):
     """
     Represents a point in two-dimensional space.
 
@@ -20,6 +22,10 @@ class Point(Generic[T]):
 
     x: T
     y: T
+
+    def __init__(self, x: T, y: T):
+        # pydantic BaseModel requires keyword arguments
+        super().__init__(x=x, y=y)
 
     def _check_same_type(self, other: Any):
         """Ensure operations only occur between instances of the same subclass."""
@@ -66,18 +72,21 @@ class Point(Generic[T]):
 class PixelPoint(Point[int]):
     """Point expressed in pixel coordinates."""
 
-    def to_relative(self, img_shape: tuple[int, int]) -> "RelativePoint":
+    def __init__(self, x: int, y: int):
+        # pydantic BaseModel requires keyword arguments
+        super().__init__(x=x, y=y)
+
+    def to_relative(self, resolution: Resolution) -> "RelativePoint":
         """
         Convert pixel coordinates to relative (0-1) coordinates.
 
         Args:
-            img_shape (tuple[int, int]): Image shape in NumPy format (height, width).
+            resolution (Resolution): Resolution of the image in pixels.
 
         Returns:
             RelativePoint: Point expressed in normalized coordinates.
         """
-        height, width = img_shape
-        return RelativePoint(self.x / width, self.y / height)
+        return RelativePoint(self.x / resolution.width, self.y / resolution.height)
 
     def to_nanometers(self, pixel_size_nm: float) -> "NMPoint":
         """
@@ -107,6 +116,10 @@ class PixelPoint(Point[int]):
 class NMPoint(Point[float]):
     """Point expressed in nanometer coordinates."""
 
+    def __init__(self, x: float, y: float):
+        # pydantic BaseModel requires keyword arguments
+        super().__init__(x=x, y=y)
+
     def to_meters(self) -> "MPoint":
         """
         Convert nanometers to meters.
@@ -131,24 +144,27 @@ class NMPoint(Point[float]):
         )
 
     def to_relative(
-        self, img_shape: tuple[int, int], pixel_size_nm: float
+        self, resolution: Resolution, pixel_size_nm: float
     ) -> "RelativePoint":
         """
         Convert nanometer coordinates to relative (0-1) coordinates.
 
         Args:
-            img_shape (tuple[int, int]): Image shape in NumPy format (height, width).
+            resolution (Resolution): Resolution of the image in pixels.
             pixel_size_nm (float): Size of a pixel in nanometers.
 
         Returns:
             RelativePoint: Point expressed in relative coordinates.
         """
-        pixel_point = self.to_pixels(pixel_size_nm)
-        return pixel_point.to_relative(img_shape)
+        return self.to_pixels(pixel_size_nm).to_relative(resolution)
 
 
 class MPoint(Point[float]):
     """Point expressed in meter coordinates."""
+
+    def __init__(self, x: float, y: float):
+        # pydantic BaseModel requires keyword arguments
+        super().__init__(x=x, y=y)
 
     def to_nanometers(self) -> "NMPoint":
         """
@@ -174,61 +190,62 @@ class MPoint(Point[float]):
         )
 
     def to_relative(
-        self, img_shape: tuple[int, int], pixel_size_m: float
+        self, resolution: Resolution, pixel_size_m: float
     ) -> "RelativePoint":
         """
         Convert meters to relative (0-1) coordinates.
 
         Args:
-            img_shape (tuple[int, int]): Image shape in NumPy format (height, width).
+            resolution (Resolution): Resolution of the image in pixels.
             pixel_size_m (float): Size of a pixel in meters.
 
         Returns:
             RelativePoint: Point expressed in normalized coordinates.
         """
-        pixel_point = self.to_pixels(pixel_size_m)
-        return pixel_point.to_relative(img_shape)
+        return self.to_pixels(pixel_size_m).to_relative(resolution)
 
 
 class RelativePoint(Point[float]):
     """Point expressed in normalized 0-1 coordinates."""
 
-    def to_pixels(self, img_shape: tuple[int, int]) -> "PixelPoint":
+    def __init__(self, x: float, y: float):
+        # pydantic BaseModel requires keyword arguments
+        super().__init__(x=x, y=y)
+
+    def to_pixels(self, resolution: Resolution) -> "PixelPoint":
         """Convert relative coordinates (0-1) to pixel coordinates.
 
         Args:
-            img_shape (tuple[int, int]): Image shape in NumPy format (height, width).
+            resolution (Resolution): Resolution of the image in pixels.
 
         Returns:
             PixelPoint: Point expressed in pixels.
         """
-        height, width = img_shape
-        return PixelPoint(int(round(self.x * width)), int(round(self.y * height)))
+        return PixelPoint(
+            int(round(self.x * resolution.width)),
+            int(round(self.y * resolution.height)),
+        )
 
-    def to_nanometers(
-        self, img_shape: tuple[int, int], pixel_size_nm: float
-    ) -> "NMPoint":
+    def to_nanometers(self, resolution: Resolution, pixel_size_nm: float) -> "NMPoint":
         """Convert relative coordinates (0-1) to nanometers.
 
         Args:
-            img_shape (tuple[int, int]): Image shape (height, width).
+            resolution (Resolution): Resolution of the image in pixels.
             pixel_size_nm (float): Size of a pixel in nanometers.
 
         Returns:
             NMPoint: Point expressed in nanometers.
         """
-        pixel_point = self.to_pixels(img_shape)
-        return pixel_point.to_nanometers(pixel_size_nm)
+        return self.to_pixels(resolution).to_nanometers(pixel_size_nm)
 
-    def to_meters(self, img_shape: tuple[int, int], pixel_size_m: float) -> "MPoint":
+    def to_meters(self, resolution: Resolution, pixel_size_m: float) -> "MPoint":
         """Convert relative coordinates (0-1) to meters.
 
         Args:
-            img_shape (tuple[int, int]): Image shape (height, width).
+            resolution (Resolution): Resolution of the image in pixels.
             pixel_size_m (float): Size of a pixel in meters.
 
         Returns:
             MPoint: Point expressed in meters.
         """
-        pixel_point = self.to_pixels(img_shape)
-        return pixel_point.to_meters(pixel_size_m)
+        return self.to_pixels(resolution).to_meters(pixel_size_m)

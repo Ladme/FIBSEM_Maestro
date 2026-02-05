@@ -27,7 +27,15 @@ class SimulatedMicroscopeControl(MicroscopeControl):
     (electron and ion).
     """
 
-    def __init__(self, ip_address: str, txt_log: TextLogger, *, seed: int = 0):
+    def __init__(
+        self,
+        ip_address: str,
+        txt_log: TextLogger,
+        *,
+        sample_width: int = 2000,
+        sample_height: int = 2000,
+        seed: int = 0,
+    ):
         """Initialize the simulated microscope.
 
         Args:
@@ -45,9 +53,12 @@ class SimulatedMicroscopeControl(MicroscopeControl):
             x=0.0, y=0.0, z=0.0, rotation=0.0, tilt=0.0
         )
 
-        self._sample = SimulatedSample(self._rng)
+        self._sample = SimulatedSample(self._rng, sample_width, sample_height)
 
-        self._manufacturer_properties: dict[str, Any] = {}
+        self._manufacturer_properties: dict[str, Any] = {
+            "microscope.custom_parameter": 1.0,
+            "microscope.inner.parameter": 0.5,
+        }
 
         self._electron_beam = SimulatedBeamControl(
             name="electron",

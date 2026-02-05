@@ -5,6 +5,7 @@
 import pytest
 
 from fibsem_maestro.core.point import MPoint, NMPoint, PixelPoint, Point, RelativePoint
+from fibsem_maestro.core.resolution import Resolution
 
 
 def test_mul_int_scalar_on_float_point():
@@ -81,8 +82,8 @@ def test_sub_different_type_raises():
 
 def test_pixel_to_relative():
     p = PixelPoint(10, 20)
-    img_shape = (100, 200)
-    r = p.to_relative(img_shape)
+    resolution = Resolution(200, 100)
+    r = p.to_relative(resolution)
     assert r.x == pytest.approx(0.05)
     assert r.y == pytest.approx(0.20)
 
@@ -117,8 +118,8 @@ def test_nm_to_pixels():
 
 def test_nm_to_relative():
     nm = NMPoint(50.0, 100.0)
-    img_shape = (100, 200)
-    r = nm.to_relative(img_shape, 10.0)
+    resolution = Resolution(200, 100)
+    r = nm.to_relative(resolution, 10.0)
     assert r.x == pytest.approx(0.025)
     assert r.y == pytest.approx(0.1)
 
@@ -139,31 +140,31 @@ def test_m_to_pixels():
 
 def test_m_to_relative():
     m = MPoint(5e-8, 1e-7)
-    img_shape = (100, 200)
-    r = m.to_relative(img_shape, 5e-9)
+    resolution = Resolution(200, 100)
+    r = m.to_relative(resolution, 5e-9)
     assert r.x == pytest.approx(0.05)
     assert r.y == pytest.approx(0.2)
 
 
 def test_relative_to_pixels():
     r = RelativePoint(0.5, 0.25)
-    img_shape = (100, 200)
-    px = r.to_pixels(img_shape)
+    resolution = Resolution(200, 100)
+    px = r.to_pixels(resolution)
     assert px.x == 100
     assert px.y == 25
 
 
 def test_relative_to_nanometers():
     r = RelativePoint(0.1, 0.2)
-    img_shape = (100, 200)
-    nm = r.to_nanometers(img_shape, 10.0)
+    resolution = Resolution(200, 100)
+    nm = r.to_nanometers(resolution, 10.0)
     assert nm.x == pytest.approx(200.0)
     assert nm.y == pytest.approx(200.0)
 
 
 def test_relative_to_meters():
     r = RelativePoint(0.1, 0.2)
-    img_shape = (100, 200)
-    m = r.to_meters(img_shape, 1e-6)
+    resolution = Resolution(200, 100)
+    m = r.to_meters(resolution, 1e-6)
     assert m.x == pytest.approx(2e-5)
     assert m.y == pytest.approx(2e-5)

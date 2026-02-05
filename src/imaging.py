@@ -7,6 +7,7 @@ import logging
 from pathlib import Path
 
 from fibsem_maestro.core.point import RelativePoint
+from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.scanning_area import RelativeScanningArea
 from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.imaging.imaging import Imaging
@@ -77,7 +78,15 @@ def main():
     imaging = Imaging(microscope, imaging_settings, slice, txt_log=txt_log)
 
     # set microscope parameters manually
-    input("Set microscope parameters interactively and then press ENTER.")
+    # input("Set microscope parameters interactively and then press ENTER.")
+    microscope._control.try_set_stage_position(
+        StagePosition(x=10_000.0, y=10_000.0, z=5_000_000.0, rotation=0, tilt=0)
+    )
+    microscope.beam.resolution = Resolution(1000, 1000)
+    microscope.beam.horizontal_field_width = 2000
+    microscope.beam.scanning_area = RelativeScanningArea(
+        RelativePoint(x=0.25, y=0.5), 0.5, 0.25
+    )
 
     # save microscope properties
     imaging.save_properties()

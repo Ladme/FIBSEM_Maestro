@@ -3,7 +3,9 @@
 
 from pathlib import Path
 
+from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
+from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.imaging.error import ImagingError
 from fibsem_maestro.logging.context import SliceContext
 from fibsem_maestro.logging.text.text_logger import TextLogger
@@ -86,7 +88,49 @@ class Imaging:
             self._settings.properties_to_collect
         )
 
-        # TODO: handle extended resolution & other preprocessing
+        # if extended resolution is allowed and scanning area is set, scan only the selected area using the extended resolution
+        if (
+            self._settings.use_extended_resolution
+            and (eb := props.electron_beam) is not None
+            and (area := eb.scanning_area) is not None
+        ):
+            # shift the beam to the center of the scanned area
+            img_res = self._microscope.beam.resolution
+            pixel_size = self._microscope.beam.pixel_size
+            area_nm = area.to_nanometers(img_res, pixel_size)
+            image_to_beam_shift = self._microscope.beam.image_to_beam_shift
+
+            shift = BeamShift(
+                image_to_beam_shift[0]
+                * (
+                    area_nm.origin.x
+                    - (img_res.width // 2 * pixel_size)
+                    + area_nm.width / 2.0
+                ),
+                image_to_beam_shift[1]
+                * (
+                    area_nm.origin.y
+                    - (img_res.height // 2 * pixel_size)
+                    + area_nm.height / 2.0
+                ),
+            )
+
+            self._microscope.add_beam_shift_with_verification(shift)
+
+            # change the resolution and FOV to the scanned area
+            pixel_area = area.to_pixels(img_res)
+            self._microscope.beam.horizontal_field_width = area_nm.width
+            self._microscope.beam.resolution = Resolution(
+                pixel_area.width, pixel_area.height
+            )
+
+            self._microscope.beam.scanning_area = None
+
+            # collect the updated properties
+            props = self._microscope.collect_properties(
+                self._settings.properties_to_collect
+            )
+
         props.to_file(self._settings.properties_file)
 
     def _construct_image_path(self) -> Path:

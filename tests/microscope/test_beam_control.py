@@ -8,12 +8,15 @@ import pytest
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.lens_alignment import LensAlignment
 from fibsem_maestro.core.point import RelativePoint
+from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.scanning_area import RelativeScanningArea
 from fibsem_maestro.core.source_tilt import SourceTilt
+from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.core.stigmator import Stigmator
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.error import MicroscopeError
 from fibsem_maestro.microscope.simulated.beam_control import SimulatedBeamControl
+from fibsem_maestro.microscope.simulated.sample import SimulatedSample
 from fibsem_maestro.settings.beam_properties import BeamProperties
 
 
@@ -47,7 +50,13 @@ def create_test_beam_control() -> SimulatedBeamControl:
     """Create a test instance of SimulatedBeamControl."""
     txt_log = InMemoryTextLogger()
     rng = np.random.default_rng(42)
-    return SimulatedBeamControl(name="TestBeam", txt_log=txt_log, rng=rng)
+    return SimulatedBeamControl(
+        name="TestBeam",
+        sample=SimulatedSample(rng, 1, 1),
+        stage_position=StagePosition(),
+        txt_log=txt_log,
+        rng=rng,
+    )
 
 
 def test_set_properties():
@@ -63,9 +72,8 @@ def test_set_properties():
         line_integration=2,
         dwell_time=2e-6,
         bit_depth=12,
-        resolution=(2048, 1024),
+        resolution=Resolution(2048, 1024),
         horizontal_field_width=400_000.0,
-        vertical_field_width=300_000.0,
         scanning_area=RelativeScanningArea(RelativePoint(0.5, 0.5), 10.0, 12.0),
     )  # type: ignore
     setattr(beam_properties, "beam.custom_parameter", 0.7)
@@ -83,9 +91,8 @@ def test_set_properties():
     assert beam_control.line_integration == 2
     assert beam_control.dwell_time == 2e-6
     assert beam_control.bit_depth == 12
-    assert beam_control.resolution == (2048, 1024)
+    assert beam_control.resolution == Resolution(2048, 1024)
     assert beam_control.horizontal_field_width == 400_000.0
-    assert beam_control.vertical_field_width == 300_000.0
     assert beam_control.scanning_area == RelativeScanningArea(
         RelativePoint(0.5, 0.5), 10.0, 12.0
     )
@@ -113,7 +120,6 @@ def test_set_properties_with_none_values():
         bit_depth=None,
         resolution=None,
         horizontal_field_width=None,
-        vertical_field_width=None,
         scanning_area=None,
     )  # type: ignore
     setattr(beam_properties, "beam.custom_parameter", None)
@@ -132,12 +138,11 @@ def test_set_properties_with_none_values():
     assert beam_control.line_integration == 1
     assert beam_control.dwell_time == 1e-6
     assert beam_control.bit_depth == 8
-    assert beam_control.resolution == (1024, 768)
-    assert beam_control.horizontal_field_width == 200_000.0
-    assert beam_control.vertical_field_width == 200_000.0
+    assert beam_control.resolution == Resolution(1024, 768)
+    assert beam_control.horizontal_field_width == 20_000.0
     assert beam_control.scanning_area is None
-    assert beam_control.manufacturer_prop("beam.custom_parameter") == 0.5
-    assert beam_control.manufacturer_prop("beam.inner.parameter") == 1.2
+    assert beam_control.manufacturer_prop("beam.custom_parameter") == 1.0
+    assert beam_control.manufacturer_prop("beam.inner.parameter") == 0.5
 
 
 def test_set_properties_with_invalid_internal_property():

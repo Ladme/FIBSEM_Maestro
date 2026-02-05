@@ -76,3 +76,21 @@ class StagePosition:
             t=math.radians(self.tilt),
             coordinate_system="Specimen",
         )
+
+    def __add__(self, other: "StagePosition") -> "StagePosition":
+        """
+        Adds two StagePosition instances element-wise.
+
+        Args:
+            other (StagePosition): Another StagePosition instance to add to this one.
+
+        Returns:
+            StagePosition: A new StagePosition instance with the summed x, y, z, rotation, and tilt values.
+        """
+        return StagePosition(
+            x=self.x + other.x,
+            y=self.y + other.y,
+            z=self.z + other.z,
+            rotation=self.rotation + other.rotation,
+            tilt=self.tilt + other.tilt,
+        )

@@ -65,6 +65,9 @@ class Microscope:
                 f"target={new_stage_position}, actual={actual_position}, dist={dist:.3f} > tol={self._settings.stage_tolerance}"
             )
 
+    def move_stage_position_with_verification(self, delta: StagePosition) -> None:
+        self.set_stage_position_with_verification(self._control.stage_position + delta)
+
     def set_beam_shift_with_verification(self, new_beam_shift: BeamShift) -> None:
         # try setting beam shift
         self.beam.beam_shift = new_beam_shift
@@ -81,8 +84,6 @@ class Microscope:
             )
 
             rel_shift_to_stage = self._settings.relative_beam_shift_to_stage
-            # TODO: handle this properly
-            assert self.beam.beam_shift_to_stage_move is not None
 
             new_stage_move = (
                 new_beam_shift.x
@@ -99,6 +100,9 @@ class Microscope:
             )
             # set beam shift to zero
             self.beam.beam_shift = BeamShift(0.0, 0.0)
+
+    def add_beam_shift_with_verification(self, delta: BeamShift) -> None:
+        self.set_beam_shift_with_verification(self.beam.beam_shift + delta)
 
     def set_properties(
         self, properties: GlobalProperties, beam: BeamType | None

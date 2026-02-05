@@ -43,7 +43,13 @@ class InMemoryTextLogger(TextLogger):
 
 def test_construct_selects_electron_beam_and_attribute():
     txt_log = InMemoryTextLogger()
-    microscope = SimulatedMicroscopeControl("127.0.0.1", txt_log, seed=123)  # pyright: ignore[reportCallIssue]
+    microscope = SimulatedMicroscopeControl(
+        "127.0.0.1",
+        txt_log,
+        seed=123,  # pyright: ignore[reportCallIssue]
+        sample_width=1,  # pyright: ignore[reportCallIssue]
+        sample_height=1,  # pyright: ignore[reportCallIssue]
+    )
 
     settings = SweepingSettings(
         strategy=BasicStrategySettings(),
@@ -62,7 +68,13 @@ def test_construct_selects_electron_beam_and_attribute():
 
 def test_update_switches_to_ion_beam():
     txt_log = InMemoryTextLogger()
-    microscope = SimulatedMicroscopeControl("127.0.0.1", txt_log, seed=123)  # pyright: ignore[reportCallIssue]
+    microscope = SimulatedMicroscopeControl(
+        "127.0.0.1",
+        txt_log,
+        seed=123,  # pyright: ignore[reportCallIssue]
+        sample_width=1,  # pyright: ignore[reportCallIssue]
+        sample_height=1,  # pyright: ignore[reportCallIssue]
+    )
 
     settings = SweepingSettings(
         strategy=BasicStrategySettings(),
@@ -83,7 +95,13 @@ def test_update_switches_to_ion_beam():
 
 def test_get_attribute_value_reads_current_beam_state():
     txt_log = InMemoryTextLogger()
-    microscope = SimulatedMicroscopeControl("127.0.0.1", txt_log, seed=123)  # pyright: ignore[reportCallIssue]
+    microscope = SimulatedMicroscopeControl(
+        "127.0.0.1",
+        txt_log,
+        seed=123,  # pyright: ignore[reportCallIssue]
+        sample_width=1,  # pyright: ignore[reportCallIssue]
+        sample_height=1,  # pyright: ignore[reportCallIssue]
+    )
 
     eb = microscope.electron_beam
     eb.working_distance = 5_000_000.0
@@ -103,7 +121,13 @@ def test_get_attribute_value_reads_current_beam_state():
 
 def test_set_attribute_value_sets_beam_state():
     txt_log = InMemoryTextLogger()
-    microscope = SimulatedMicroscopeControl("127.0.0.1", txt_log, seed=123)  # pyright: ignore[reportCallIssue]
+    microscope = SimulatedMicroscopeControl(
+        "127.0.0.1",
+        txt_log,
+        seed=123,  # pyright: ignore[reportCallIssue]
+        sample_width=1,  # pyright: ignore[reportCallIssue]
+        sample_height=1,  # pyright: ignore[reportCallIssue]
+    )
 
     eb = microscope.electron_beam
     eb.working_distance = 5_000_000.0
@@ -124,7 +148,13 @@ def test_set_attribute_value_sets_beam_state():
 
 def test_sweep_yields_expected_zigzag_sequence_when_in_range():
     txt_log = InMemoryTextLogger()
-    microscope = SimulatedMicroscopeControl("127.0.0.1", txt_log, seed=123)  # pyright: ignore[reportCallIssue]
+    microscope = SimulatedMicroscopeControl(
+        "127.0.0.1",
+        txt_log,
+        seed=123,  # pyright: ignore[reportCallIssue]
+        sample_width=1,  # pyright: ignore[reportCallIssue]
+        sample_height=1,  # pyright: ignore[reportCallIssue]
+    )
 
     eb = microscope.electron_beam
     base = 10_000_000.0
@@ -159,7 +189,13 @@ def test_sweep_yields_expected_zigzag_sequence_when_in_range():
 
 def test_sweep_filters_out_of_range_values_and_logs_warning():
     txt_log = InMemoryTextLogger()
-    microscope = SimulatedMicroscopeControl("127.0.0.1", txt_log, seed=123)  # pyright: ignore[reportCallIssue]
+    microscope = SimulatedMicroscopeControl(
+        "127.0.0.1",
+        txt_log,
+        seed=123,  # pyright: ignore[reportCallIssue]
+        sample_width=1,  # pyright: ignore[reportCallIssue]
+        sample_height=1,  # pyright: ignore[reportCallIssue]
+    )
 
     eb = microscope.electron_beam
     lo, hi = eb.limits("working_distance")
@@ -189,7 +225,13 @@ def test_sweep_filters_out_of_range_values_and_logs_warning():
 
 def test_sweep_does_not_refresh_base():
     txt_log = InMemoryTextLogger()
-    microscope = SimulatedMicroscopeControl("127.0.0.1", txt_log, seed=123)  # pyright: ignore[reportCallIssue]
+    microscope = SimulatedMicroscopeControl(
+        "127.0.0.1",
+        txt_log,
+        seed=123,  # pyright: ignore[reportCallIssue]
+        sample_width=1,  # pyright: ignore[reportCallIssue]
+        sample_height=1,  # pyright: ignore[reportCallIssue]
+    )
 
     eb = microscope.electron_beam
     original_base = 1_000_000.0
