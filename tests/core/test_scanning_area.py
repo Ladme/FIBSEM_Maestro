@@ -229,21 +229,21 @@ def test_nm_scanning_area_to_meters_no_area():
 
 
 def test_m_scanning_area_to_relative():
-    origin = MPoint(x=200e-9, y=300e-9)
+    origin = MPoint(x=100e-9, y=20e-9)
     resolution = Resolution(200, 100)
-    pixel_size_m = 1e-6
-    m_area = MScanningArea(origin=origin, width=400e-9, height=500e-9)
+    pixel_size_m = 1e-9
+    m_area = MScanningArea(origin=origin, width=50e-9, height=10e-9)
     relative_area = m_area.to_relative(resolution, pixel_size_m)
-    assert relative_area.origin.x == (200e-9) / (resolution.width * pixel_size_m)
-    assert relative_area.origin.y == (300e-9) / (resolution.height * pixel_size_m)
-    assert relative_area.width == (400e-9) / (resolution.width * pixel_size_m)
-    assert relative_area.height == (500e-9) / (resolution.height * pixel_size_m)
+    assert relative_area.origin.x == 0.5
+    assert relative_area.origin.y == 0.2
+    assert relative_area.width == 0.25
+    assert relative_area.height == 0.1
 
 
 def test_m_scanning_area_to_relative_no_area():
     origin = MPoint(x=0, y=0)
     resolution = Resolution(200, 100)
-    pixel_size_m = 1e-6
+    pixel_size_m = 1e-9
     m_area = MScanningArea(origin=origin, width=0, height=0)
     relative_area = m_area.to_relative(resolution, pixel_size_m)
     assert relative_area.origin.x == 0
@@ -253,19 +253,19 @@ def test_m_scanning_area_to_relative_no_area():
 
 
 def test_m_scanning_area_to_pixels():
-    origin = MPoint(x=200e-9, y=300e-9)
-    pixel_size_m = 1e-6
-    m_area = MScanningArea(origin=origin, width=400e-9, height=500e-9)
+    origin = MPoint(x=100e-9, y=20e-9)
+    pixel_size_m = 1e-9
+    m_area = MScanningArea(origin=origin, width=50e-9, height=10e-9)
     pixel_area = m_area.to_pixels(pixel_size_m)
-    assert pixel_area.origin.x == 0.2
-    assert pixel_area.origin.y == 0.3
-    assert pixel_area.width == 0.4
-    assert pixel_area.height == 0.5
+    assert pixel_area.origin.x == 100
+    assert pixel_area.origin.y == 20
+    assert pixel_area.width == 50
+    assert pixel_area.height == 10
 
 
 def test_m_scanning_area_to_pixels_no_area():
     origin = MPoint(x=0, y=0)
-    pixel_size_m = 1e-6
+    pixel_size_m = 1e-9
     m_area = MScanningArea(origin=origin, width=0, height=0)
     pixel_area = m_area.to_pixels(pixel_size_m)
     assert pixel_area.origin.x == 0
