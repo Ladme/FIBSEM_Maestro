@@ -8,9 +8,6 @@ from pydantic import Field, field_validator
 
 from fibsem_maestro.microscope.microscope_registry import MicroscopeRegistry
 from fibsem_maestro.settings.base_settings import BaseSettings
-from fibsem_maestro.settings.property_names import (
-    PropertyNames,
-)
 
 
 class MicroscopeSettings(BaseSettings):
@@ -29,14 +26,6 @@ class MicroscopeSettings(BaseSettings):
         int,
         Field(
             description="Number of trials to reach the goal position before raising an error."
-        ),
-    ]
-    # TODO: remove
-    properties_to_collect: Annotated[
-        PropertyNames,
-        Field(
-            default_factory=PropertyNames,
-            description="Properties of the microscope and the beams that should be written out.",
         ),
     ]
 

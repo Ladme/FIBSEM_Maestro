@@ -6,14 +6,14 @@ import argparse
 import logging
 from pathlib import Path
 
-from fibsem_maestro.core.point import RelativePoint
-from fibsem_maestro.core.resolution import Resolution
-from fibsem_maestro.core.scanning_area import RelativeScanningArea
-from fibsem_maestro.core.stage_position import StagePosition
+# from fibsem_maestro.core.point import RelativePoint
+# from fibsem_maestro.core.resolution import Resolution
+# from fibsem_maestro.core.scanning_area import RelativeScanningArea
+# from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.imaging.imaging import Imaging
 from fibsem_maestro.logging.context import LogContext, SliceContext
 from fibsem_maestro.logging.image.slice_aware import SliceAwareImageLogger
-from fibsem_maestro.logging.text.central import CentralTextLogger
+from fibsem_maestro.logging.text.slice_aware import SliceAwareTextLogger
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.imaging_settings import ImagingSettings
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
@@ -42,12 +42,6 @@ def main():
         help="Directory to store log files. Defaults to 'logs'.",
     )
     parser.add_argument(
-        "--img-dir",
-        type=Path,
-        default=Path("images"),
-        help="Directory to store acquired images. Defaults to 'images'.",
-    )
-    parser.add_argument(
         "--slices",
         type=int,
         default=1,
@@ -63,22 +57,28 @@ def main():
     # parse the arguments
     args = parser.parse_args()
 
+    # load settings
     microscope_settings = MicroscopeSettings.from_file(args.microscope)
     imaging_settings = ImagingSettings.from_file(args.imaging)
 
-    slice = SliceContext(0)
+    # initialize the logging
+    slice = SliceContext(1)
     log_context = LogContext(Path(args.log_dir), slice, logging.DEBUG)
-    txt_log = CentralTextLogger("microscope", log_context)
+    txt_log = SliceAwareTextLogger("microscope", log_context)
     img_log = SliceAwareImageLogger(log_context)
 
     # initialize the microscope
     microscope = Microscope(microscope_settings, txt_log, img_log)
 
     # initialize the imaging
-    imaging = Imaging(microscope, imaging_settings, slice, txt_log=txt_log)
+    imaging = Imaging(
+        microscope, imaging_settings, slice, log_ctx=log_context, txt_log=txt_log
+    )
 
-    # set microscope parameters manually
-    # input("Set microscope parameters interactively and then press ENTER.")
+    # set microscope properties manually
+    input("Set microscope properties interactively and then press ENTER.")
+
+    """
     microscope._control.try_set_stage_position(
         StagePosition(x=10_000.0, y=10_000.0, z=5_000_000.0, rotation=0, tilt=0)
     )
@@ -87,13 +87,16 @@ def main():
     microscope.beam.scanning_area = RelativeScanningArea(
         RelativePoint(x=0.25, y=0.5), 0.5, 0.25
     )
+    """
 
     # save microscope properties
     imaging.save_properties()
 
+    # optionally change microscope properties to test that the previously saved properties are reloaded before imaging
+    input("Microscope properties saved. Press ENTER.")
+
     # run imaging
     for _ in range(args.slices):
-        slice.increment()
         imaging.grab_frame()
 
 
