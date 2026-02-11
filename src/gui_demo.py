@@ -14,7 +14,7 @@ from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
 
 microscope_settings = MicroscopeSettings.from_file(
-    Path("/home/ladme/cemcof/fibsem_playground/simulator.yaml")
+    Path("../fibsem_playground/simulator.yaml")
 )
 
 slice = SliceContext(0)
