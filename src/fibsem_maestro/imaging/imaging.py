@@ -5,6 +5,7 @@ from pathlib import Path
 
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.resolution import Resolution
+from fibsem_maestro.core.scanning_area import RelativeScanningArea
 from fibsem_maestro.imaging.error import ImagingError
 from fibsem_maestro.logging.context import LogContext, SliceContext
 from fibsem_maestro.logging.text.text_logger import TextLogger
@@ -132,7 +133,7 @@ class Imaging:
                 pixel_area.width, pixel_area.height
             )
 
-            self._microscope.beam.scanning_area = None
+            self._microscope.beam.scanning_area = RelativeScanningArea.full()
 
             # collect the updated properties
             props = self._microscope.collect_properties(

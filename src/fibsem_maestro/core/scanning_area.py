@@ -103,6 +103,28 @@ class RelativeScanningArea(_ScanningArea[RelativePoint, float]):
         """
         return self.to_pixels(resolution).to_meters(pixel_size_m)
 
+    def is_full_frame(self) -> bool:
+        """
+        Returns True if the scanning area captures the entire field of view.
+        """
+        return (
+            self.origin.x == 0.0
+            and self.origin.y == 0
+            and self.width == 1.0
+            and self.height == 1.0
+        )
+
+    @classmethod
+    def full(cls) -> Self:
+        """
+        Get scanning area that captures the entire field of view.
+
+        Returns:
+            RelativeScanningArea: An instance of relative scanning area that captures
+                the entire field of view.
+        """
+        return cls(origin=RelativePoint(x=0.0, y=0.0), width=1.0, height=1.0)
+
     def to_autoscript(self) -> RectangleAs:
         """
         Convert the relative scanning area to Autoscript's rectangle.
@@ -113,6 +135,22 @@ class RelativeScanningArea(_ScanningArea[RelativePoint, float]):
         """
         return RectangleAs(
             left=self.origin.x, top=self.origin.y, width=self.width, height=self.height
+        )
+
+    @classmethod
+    def from_autoscript(cls, rectangle: RectangleAs) -> Self:
+        """
+        Convert Autoscript's rectangle to relative scanning area.
+
+        Returns:
+            RelativeScanningArea: A new instance of relative scanning area with the same
+                coordinates and dimenions as the rectangle.
+        """
+
+        return cls(
+            origin=RelativePoint(x=rectangle.left, y=rectangle.top),
+            width=rectangle.width,
+            height=rectangle.height,
         )
 
 

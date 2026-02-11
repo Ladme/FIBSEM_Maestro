@@ -471,23 +471,23 @@ class BeamControl(ABC):
 
     @property
     @abstractmethod
-    def scanning_area(self) -> RelativeScanningArea | None:
+    def scanning_area(self) -> RelativeScanningArea:
         """
         Get the active scanning area.
 
         Returns:
-            RelativeScanningArea | None: Scanning area or None if not set.
+            RelativeScanningArea: The current scanning area.
         """
         pass
 
     @scanning_area.setter
     @abstractmethod
-    def scanning_area(self, value: RelativeScanningArea | None) -> None:
+    def scanning_area(self, value: RelativeScanningArea) -> None:
         """
         Set the active scanning area.
 
         Args:
-            value (RelativeScanningArea | None): Scanning area definition.
+            value (RelativeScanningArea): Scanning area definition.
         """
         pass
 

@@ -168,7 +168,7 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         self._txt_log.debug(f"Getting an image ({self._modality}).")
         image = Image.from_autoscript(self._microscope.imaging.get_image())
 
-        if crop_to_scanning_area and self.scanning_area is not None:
+        if crop_to_scanning_area and not self.scanning_area.is_full_frame():
             return image.crop(self.scanning_area)
 
         return image
@@ -184,8 +184,8 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
             dwell_time=self.dwell_time,
         )
 
-        if (area := self.scanning_area) is not None:
-            imaging_settings.reduced_area = area.to_autoscript()
+        if not self.scanning_area.is_full_frame():
+            imaging_settings.reduced_area = self.scanning_area.to_autoscript()
 
         self._txt_log.info(
             "Acquiring image "
@@ -342,27 +342,23 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         self._beam.scanning.rotation.value = value
 
     @property
-    def scanning_area(self) -> RelativeScanningArea | None:
-        self._txt_log.debug(
-            f"Getting scanning area ({self._modality}): {self._scanning_area}."
+    def scanning_area(self) -> RelativeScanningArea:
+        area = RelativeScanningArea.from_autoscript(
+            self._beam.scanning.mode.reduced_area.value
         )
-        return self._scanning_area
+        self._txt_log.debug(f"Getting scanning area ({self._modality}): {area}.")
+        return area
 
     @scanning_area.setter
-    def scanning_area(self, value: RelativeScanningArea | None) -> None:
+    def scanning_area(self, value: RelativeScanningArea) -> None:
         # copy dwell and resolution to reduced area scanning mode
         backup_dwell = self.dwell_time
         backup_res = self.resolution
 
-        if (
-            value is None
-            or (value.height == 1 and value.width == 1)
-            or value.height == 0
-            or value.width == 0
-        ):  # scanning area = FoV or 0
+        if value.is_full_frame():
             self._txt_log.debug(f"Disabling scanning area ({self._modality}).")
+            self._beam.scanning.mode.reduced_area.value = value.to_autoscript()
             self._beam.scanning.mode.set_full_frame()  # used for acquisition started by start_acquisition()
-            self._scanning_area = None
         else:
             self._txt_log.debug(f"Setting scanning area ({self._modality}): {value}.")
             # used for acquisition started by start_acquisition()
@@ -372,7 +368,6 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
                 width=value.width,
                 height=value.height,
             )
-            self._scanning_area = value
 
         self.dwell_time = backup_dwell
         self.resolution = backup_res
