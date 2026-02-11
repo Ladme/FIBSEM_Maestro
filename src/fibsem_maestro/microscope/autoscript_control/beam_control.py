@@ -49,8 +49,6 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         )
         self._txt_log = txt_log
 
-        self._scanning_area: RelativeScanningArea | None = None
-        self._line_integration = 1
         self._extended_resolution: Resolution | None = (
             None  # extended resolution is set only if the required resolution is not standard
         )
@@ -207,15 +205,14 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
 
     @property
     def line_integration(self) -> int:
-        self._txt_log.debug(
-            f"Getting line integration ({self._modality}): {self._line_integration}."
-        )
-        return self._line_integration
+        li = self._beam.scanning.line_integration
+        self._txt_log.debug(f"Getting line integration ({self._modality}): {li}.")
+        return li
 
     @line_integration.setter
     def line_integration(self, value: int) -> None:
         self._txt_log.debug(f"Setting line integration to ({self._modality}): {value}.")
-        self._line_integration = value
+        self._beam.scanning.line_integration = value
 
     @property
     def dwell_time(self) -> float:
