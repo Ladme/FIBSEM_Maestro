@@ -188,9 +188,14 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
             imaging_settings.reduced_area = area.to_autoscript()
 
         self._txt_log.info(
-            f"""Acquiring image [bit depth: {self.bit_depth}, resolution: {self.resolution}, pixel size: {self.pixel_size}, \
-line integration: {self.line_integration}, scanning area: {self.scanning_area}, dwell time: {self.dwell_time}, \
-working distance: {self.working_distance}]."""
+            "Acquiring image "
+            f"(bit_depth={self.bit_depth}, "
+            f"resolution={self.resolution}, "
+            f"pixel_size={self.pixel_size}, "
+            f"line_integration={self.line_integration}, "
+            f"scanning_area={self.scanning_area}, "
+            f"dwell_time={self.dwell_time}, "
+            f"working_distance={self.working_distance})"
         )
 
         grabbed_image = self._microscope.imaging.grab_frame(imaging_settings)
