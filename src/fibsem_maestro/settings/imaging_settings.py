@@ -2,13 +2,29 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import Field
 
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.settings.base_settings import BaseSettings
 from fibsem_maestro.settings.property_names import PropertyNames
+
+
+class StandardResolution(BaseSettings):
+    type: Literal["standard"] = "standard"
+
+
+class ExtendedResolution(BaseSettings):
+    type: Literal["extended"] = "extended"
+    pixel_size: Annotated[
+        float, Field(description="Requested size of each pixel in nm.")
+    ]
+
+
+ResolutionMode = Annotated[
+    StandardResolution | ExtendedResolution, Field(discriminator="type")
+]
 
 
 class ImagingSettings(BaseSettings):
@@ -32,8 +48,12 @@ class ImagingSettings(BaseSettings):
             description="Properties of the microscope and the beam relevant for imaging.",
         ),
     ]
-    use_extended_resolution: Annotated[
-        bool, Field(default=False, description="Should extended resolution be used?")
+    resolution_mode: Annotated[
+        ResolutionMode,
+        Field(
+            default=StandardResolution,
+            description="Use standard or extended resolution?",
+        ),
     ]
     beam_type: Annotated[
         BeamType, Field(default=BeamType.ELECTRON, description="Beam used for imaging.")

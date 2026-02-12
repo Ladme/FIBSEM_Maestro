@@ -5,14 +5,17 @@ from pathlib import Path
 
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
-from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.scanning_area import RelativeScanningArea
 from fibsem_maestro.imaging.error import ImagingError
 from fibsem_maestro.logging.context import LogContext, SliceContext
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.global_properties import GlobalProperties
-from fibsem_maestro.settings.imaging_settings import ImagingSettings
+from fibsem_maestro.settings.imaging_settings import (
+    ExtendedResolution,
+    ImagingSettings,
+    StandardResolution,
+)
 
 
 class Imaging:
@@ -98,57 +101,60 @@ class Imaging:
             self._settings.properties_to_collect
         )
 
-        # if extended resolution is allowed and scanning area is set,
-        # scan only the selected area using extended resolution
-        beam_props = (
-            props.electron_beam
-            if self._settings.beam_type == BeamType.ELECTRON
-            else props.ion_beam
-        )
+        match self._settings.resolution_mode:
+            case StandardResolution():
+                pass
+            case ExtendedResolution() as mode:
+                beam_props = (
+                    props.electron_beam
+                    if self._settings.beam_type == BeamType.ELECTRON
+                    else props.ion_beam
+                )
 
-        if (
-            self._settings.use_extended_resolution
-            # TODO: we assume that the properties are specified in parameters of the electron beam
-            and beam_props is not None
-            and (area := beam_props.scanning_area) is not None
-        ):
-            # shift the beam to the center of the scanned area
-            img_res = self._microscope.beam.resolution
-            pixel_size = self._microscope.beam.pixel_size
-            area_nm = area.to_nanometers(img_res, pixel_size)
-            image_to_beam_shift = self._microscope.beam.image_to_beam_shift
+                # image only the scanning area
+                if (
+                    beam_props is not None
+                    and (area := beam_props.scanning_area) is not None
+                    and not area.is_full_frame()
+                ):
+                    # shift the beam to the center of the scanning area
+                    img_res = self._microscope.beam.resolution
+                    pixel_size = self._microscope.beam.pixel_size
+                    area_nm = area.to_nanometers(img_res, pixel_size)
+                    image_to_beam_shift = self._microscope.beam.image_to_beam_shift
 
-            shift = BeamShift(
-                image_to_beam_shift[0]
-                * (
-                    area_nm.origin.x
-                    - (img_res.width // 2 * pixel_size)
-                    + area_nm.width / 2.0
-                ),
-                image_to_beam_shift[1]
-                * (
-                    area_nm.origin.y
-                    - (img_res.height // 2 * pixel_size)
-                    + area_nm.height / 2.0
-                ),
-            )
+                    shift = BeamShift(
+                        image_to_beam_shift[0]
+                        * (
+                            area_nm.origin.x
+                            - (img_res.width // 2 * pixel_size)
+                            + area_nm.width / 2.0
+                        ),
+                        image_to_beam_shift[1]
+                        * (
+                            area_nm.origin.y
+                            - (img_res.height // 2 * pixel_size)
+                            + area_nm.height / 2.0
+                        ),
+                    )
 
-            self._microscope.add_beam_shift_with_verification(shift)
+                    self._microscope.add_beam_shift_with_verification(shift)
 
-            # change the resolution and FOV to the scanned area
-            pixel_area = area.to_pixels(img_res)
-            self._microscope.beam.horizontal_field_width = area_nm.width
-            self._microscope.beam.resolution = Resolution(
-                pixel_area.width, pixel_area.height
-            )
+                    # set the FOV to the scanning area
+                    self._microscope.beam.horizontal_field_width = area_nm.width
+                    self._microscope.beam.vertical_field_width = area_nm.height
+                    self._microscope.beam.scanning_area = RelativeScanningArea.full()
 
-            self._microscope.beam.scanning_area = RelativeScanningArea.full()
+                # set resolution based on the pixel size
+                # this is done even if scanning area is not specified
+                self._microscope.beam.pixel_size = mode.pixel_size
 
-            # collect the updated properties
-            props = self._microscope.collect_properties(
-                self._settings.properties_to_collect
-            )
+                # collect the updated properties
+                props = self._microscope.collect_properties(
+                    self._settings.properties_to_collect
+                )
 
+        # save the properties to a file
         props.to_file(properties_file)
 
     def _construct_image_path(self) -> Path:
