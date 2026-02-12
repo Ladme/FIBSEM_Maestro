@@ -10,6 +10,7 @@ from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.logging.image.image_logger import ImageLogger
 from fibsem_maestro.logging.text.text_logger import TextLogger
+from fibsem_maestro.microscope.error import MicroscopeError
 from fibsem_maestro.microscope.microscope_registry import MicroscopeRegistry
 from fibsem_maestro.settings.global_properties import GlobalProperties
 from fibsem_maestro.settings.imaging_settings import ImagingSettings
@@ -70,18 +71,18 @@ class Microscope:
 
     def set_beam_shift_with_verification(self, new_beam_shift: BeamShift) -> None:
         # try setting beam shift
-        self.beam.beam_shift = new_beam_shift
-        actual_beam_shift = self.beam.beam_shift
+        try:
+            self.beam.beam_shift = new_beam_shift
+            actual_beam_shift = self.beam.beam_shift
 
-        dist = distance.euclidean(
-            actual_beam_shift.to_tuple(), new_beam_shift.to_tuple()
-        )
-
-        if dist > self._settings.beam_shift_tolerance:
-            self._txt_log.warning(
-                f"Beam shift out of range: "
-                f"target={new_beam_shift}, actual={actual_beam_shift}, dist={dist:.3f} > tol={self._settings.beam_shift_tolerance}"
+            dist = distance.euclidean(
+                actual_beam_shift.to_tuple(), new_beam_shift.to_tuple()
             )
+
+            if dist > self._settings.beam_shift_tolerance:
+                raise MicroscopeError("Beam shift out of range.")
+        except Exception as e:
+            self._txt_log.warning(f"Beam shift error: {e}. Adjusting stage position.")
 
             rel_shift_to_stage = self._settings.relative_beam_shift_to_stage
 
