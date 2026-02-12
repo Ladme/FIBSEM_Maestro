@@ -5,7 +5,7 @@ from abc import abstractmethod
 from pathlib import Path
 from typing import Any, Generic, TypeVar
 
-from autoscript_sdb_microscope_client.enumerations import ImagingDevice
+from autoscript_sdb_microscope_client.enumerations import ImageFileFormat, ImagingDevice
 from autoscript_sdb_microscope_client.sdb_microscope.beams._electron_beam import (
     ElectronBeam as ElectronBeamAs,
 )
@@ -13,7 +13,7 @@ from autoscript_sdb_microscope_client.sdb_microscope.beams._ion_beam import (
     IonBeam as IonBeamAs,
 )
 from autoscript_sdb_microscope_client.sdb_microscope_client import SdbMicroscopeClient
-from autoscript_sdb_microscope_client.structures import GrabFrameSettings
+from autoscript_sdb_microscope_client.structures import AdornedImage, GrabFrameSettings
 
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
@@ -196,10 +196,27 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
             f"working_distance={self.working_distance})"
         )
 
-        grabbed_image = self._microscope.imaging.grab_frame(imaging_settings)
-        self._txt_log.info("Image grabbed.")
-        if file_name is not None:
-            grabbed_image.save(str(file_name))
+        try:
+            grabbed_image = self._microscope.imaging.grab_frame(imaging_settings)
+            self._txt_log.info("Image grabbed.")
+            if file_name is not None:
+                grabbed_image.save(str(file_name))
+        # the `grab_frame` method can fail if the image is too large
+        # if that happens, we grab the image to disk and the load it to memory
+        except Exception as e:
+            self._txt_log.warning(f"Grab frame error: {e}. Grabbing image to disk.")
+
+            if file_name is None:
+                file_name = Path("temp.tif")
+                self._txt_log.warning(
+                    f"File name not provided. The image will be saved as '{str(file_name)}'."
+                )
+
+            self._microscope.imaging.grab_frame_to_disk(
+                str(file_name), ImageFileFormat.TIFF, imaging_settings
+            )
+            self._txt_log.info("Image grabbed to disk.")
+            grabbed_image = AdornedImage.load(str(file_name))
 
         return Image.from_autoscript(grabbed_image)
 
