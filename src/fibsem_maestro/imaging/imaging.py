@@ -4,6 +4,7 @@
 from pathlib import Path
 
 from fibsem_maestro.core.beam_shift import BeamShift
+from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.scanning_area import RelativeScanningArea
 from fibsem_maestro.imaging.error import ImagingError
@@ -53,6 +54,9 @@ class Imaging:
         Raises:
             ImagingError: If the image for the current slice already exists.
         """
+        # select the beam used for imaging
+        self._microscope.set_beam(self._settings.beam_type)
+
         # set properties of the microscope
         properties_file = self._construct_props_path()
 
@@ -60,8 +64,7 @@ class Imaging:
             f"Loading microscope properties from {str(properties_file)}."
         )
         props = GlobalProperties.from_file(properties_file)
-        # TODO: should we load all properties or just the properties of the electron beam?
-        self._microscope.set_properties(props, beam=None)
+        self._microscope.set_properties(props, beam=self._settings.beam_type)
 
         # make sure that the image for the current slice does not exist
         if (image_path := self._construct_image_path()).exists():
@@ -97,11 +100,17 @@ class Imaging:
 
         # if extended resolution is allowed and scanning area is set,
         # scan only the selected area using extended resolution
+        beam_props = (
+            props.electron_beam
+            if self._settings.beam_type == BeamType.ELECTRON
+            else props.ion_beam
+        )
+
         if (
             self._settings.use_extended_resolution
             # TODO: we assume that the properties are specified in parameters of the electron beam
-            and (eb := props.electron_beam) is not None
-            and (area := eb.scanning_area) is not None
+            and beam_props is not None
+            and (area := beam_props.scanning_area) is not None
         ):
             # shift the beam to the center of the scanned area
             img_res = self._microscope.beam.resolution
@@ -151,7 +160,7 @@ class Imaging:
         """
         return (
             self._settings.images_directory
-            / f"slice_{self._slice_ctx.current_slice}.{self._settings.acquired_images_extension}"
+            / f"slice_{self._slice_ctx.current_slice}.{self._microscope.beam.acquired_image_extension}"
         )
 
     def _construct_props_path(self) -> Path:

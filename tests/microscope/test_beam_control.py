@@ -140,7 +140,7 @@ def test_set_properties_with_none_values():
     assert beam_control.bit_depth == 8
     assert beam_control.resolution == Resolution(1024, 768)
     assert beam_control.horizontal_field_width == 20_000.0
-    assert beam_control.scanning_area is None
+    assert beam_control.scanning_area.is_full_frame()
     assert beam_control.manufacturer_prop("beam.custom_parameter") == 1.0
     assert beam_control.manufacturer_prop("beam.inner.parameter") == 0.5
 

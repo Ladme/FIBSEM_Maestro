@@ -58,7 +58,7 @@ class SimulatedBeamControl(BeamControl):
         self._bit_depth = 8
         self._resolution = Resolution(1024, 768)
         self._horizontal_field_width = 20_000.0
-        self._scanning_area: RelativeScanningArea | None = None
+        self._scanning_area: RelativeScanningArea = RelativeScanningArea.full()
 
         self._beam_shift_to_stage_move = (1.0, 1.0)
         self._image_to_beam_shift = (1.0, 1.0)
@@ -238,7 +238,7 @@ class SimulatedBeamControl(BeamControl):
         image = Image(image, pixel_size=self.pixel_size)
         self._current_image = image
 
-        if self.scanning_area is not None:
+        if not self.scanning_area.is_full_frame():
             image = image.crop(self.scanning_area)
 
         if file_name is not None:
@@ -254,7 +254,7 @@ class SimulatedBeamControl(BeamControl):
             else self.grab_frame()
         )
 
-        if crop_to_scanning_area and self.scanning_area is not None:
+        if crop_to_scanning_area and not self.scanning_area.is_full_frame():
             return image.crop(self.scanning_area)
 
         return image
@@ -347,13 +347,13 @@ class SimulatedBeamControl(BeamControl):
         )
 
     @property
-    def scanning_area(self) -> RelativeScanningArea | None:
+    def scanning_area(self) -> RelativeScanningArea:
         value = self._scanning_area
         self._txt_log.debug(f"Getting scanning area: {value}.")
         return value
 
     @scanning_area.setter
-    def scanning_area(self, value: RelativeScanningArea | None) -> None:
+    def scanning_area(self, value: RelativeScanningArea) -> None:
         self._txt_log.debug(f"Setting scanning area: {value}.")
         self._scanning_area = value
 
@@ -383,6 +383,10 @@ class SimulatedBeamControl(BeamControl):
     def minimal_dwell(self) -> float:
         lo, _ = self.limits("dwell_time")
         return float(lo)
+
+    @property
+    def acquired_image_extension(self) -> str:
+        return "png"
 
     def _apply_numeric(
         self,

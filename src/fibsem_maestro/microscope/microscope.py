@@ -10,6 +10,7 @@ from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.logging.image.image_logger import ImageLogger
 from fibsem_maestro.logging.text.text_logger import TextLogger
+from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
 from fibsem_maestro.microscope.microscope_registry import MicroscopeRegistry
 from fibsem_maestro.settings.global_properties import GlobalProperties
 from fibsem_maestro.settings.imaging_settings import ImagingSettings
@@ -142,3 +143,13 @@ class Microscope:
             PropertyNames: The names of all properties available on the microscope and its beams.
         """
         return self._control.prop_names
+
+    def set_beam(self, type: BeamType) -> None:
+        """
+        Set the active beam to electron or ion beam.
+        """
+        match type:
+            case BeamType.ELECTRON:
+                self.beam = self._control.electron_beam
+            case BeamType.ION:
+                self.beam = self._control.ion_beam

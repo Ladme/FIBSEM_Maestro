@@ -374,6 +374,10 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         # in s
         return 25e-9
 
+    @property
+    def acquired_image_extension(self) -> str:
+        return "tif"
+
     def manufacturer_prop(self, name: str) -> Any:
         property = self._manufacturer_properties.get(name)
         value = property.get()

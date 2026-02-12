@@ -6,6 +6,7 @@ from typing import Annotated
 
 from pydantic import Field
 
+from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.settings.base_settings import BaseSettings
 from fibsem_maestro.settings.property_names import PropertyNames
 
@@ -31,13 +32,9 @@ class ImagingSettings(BaseSettings):
             description="Properties of the microscope and the beam relevant for imaging.",
         ),
     ]
-    acquired_images_extension: Annotated[
-        str,
-        Field(
-            default="tif",
-            description="File extension to use for saved acquired images.",
-        ),
-    ]
     use_extended_resolution: Annotated[
         bool, Field(default=False, description="Should extended resolution be used?")
+    ]
+    beam_type: Annotated[
+        BeamType, Field(default=BeamType.ELECTRON, description="Beam used for imaging.")
     ]
