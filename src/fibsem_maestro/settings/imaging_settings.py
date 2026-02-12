@@ -58,3 +58,6 @@ class ImagingSettings(BaseSettings):
     beam_type: Annotated[
         BeamType, Field(default=BeamType.ELECTRON, description="Beam used for imaging.")
     ]
+    bit_depth: Annotated[
+        int | None, Field(default=None, description="Imaging bit depth.")
+    ]

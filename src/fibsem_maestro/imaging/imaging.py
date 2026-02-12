@@ -97,6 +97,11 @@ class Imaging:
         """
         properties_file = self._construct_props_path()
         self._txt_log.debug(f"Saving microscope properties to {str(properties_file)}.")
+
+        # set bit depth, if specified in the settings
+        if (bd := self._settings.bit_depth) is not None:
+            self._microscope.beam.bit_depth = bd
+
         props = self._microscope.collect_properties(
             self._settings.properties_to_collect
         )
