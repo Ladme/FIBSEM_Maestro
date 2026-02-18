@@ -5,7 +5,6 @@ from typing import Any
 
 import numpy as np
 
-from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
@@ -179,10 +178,6 @@ class SimulatedMicroscopeControl(MicroscopeControl):
             tilt=cur.tilt + delta.tilt,
         )
         return self.try_set_stage_position(target)
-
-    def try_set_beam_shift(self, shift: BeamShift) -> BeamShift:
-        # TODO: implement
-        raise NotImplementedError("Not yet implemented.")
 
     @property
     def txt_log(self) -> TextLogger:

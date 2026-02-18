@@ -2,7 +2,6 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
-import numpy as np
 import pytest
 
 from fibsem_maestro.core.beam_shift import BeamShift
@@ -11,52 +10,15 @@ from fibsem_maestro.core.point import RelativePoint
 from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.scanning_area import RelativeScanningArea
 from fibsem_maestro.core.source_tilt import SourceTilt
-from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.core.stigmator import Stigmator
-from fibsem_maestro.logging.text.text_logger import TextLogger
+from fibsem_maestro.logging.text.in_memory import InMemoryTextLogger
 from fibsem_maestro.microscope.error import MicroscopeError
-from fibsem_maestro.microscope.simulated.beam_control import SimulatedBeamControl
-from fibsem_maestro.microscope.simulated.sample import SimulatedSample
+from fibsem_maestro.microscope.mock.beam_control import MockBeamControl
 from fibsem_maestro.settings.beam_properties import BeamProperties
 
 
-class InMemoryTextLogger(TextLogger):
-    """Simple logger that records messages."""
-
-    def __init__(self) -> None:
-        self.debugs: list[str] = []
-        self.infos: list[str] = []
-        self.warnings: list[str] = []
-        self.errors: list[str] = []
-
-    def derive(self, name: str) -> "InMemoryTextLogger":
-        _ = name
-        return InMemoryTextLogger()
-
-    def debug(self, msg: str) -> None:
-        self.debugs.append(msg)
-
-    def info(self, msg: str) -> None:
-        self.infos.append(msg)
-
-    def warning(self, msg: str) -> None:
-        self.warnings.append(msg)
-
-    def error(self, msg: str) -> None:
-        self.errors.append(msg)
-
-
-def create_test_beam_control() -> SimulatedBeamControl:
-    """Create a test instance of SimulatedBeamControl."""
-    txt_log = InMemoryTextLogger()
-    rng = np.random.default_rng(42)
-    return SimulatedBeamControl(
-        name="TestBeam",
-        sample=SimulatedSample(rng, 1, 1),
-        stage_position=StagePosition(),
-        txt_log=txt_log,
-        rng=rng,
-    )
+def create_test_beam_control() -> MockBeamControl:
+    return MockBeamControl(InMemoryTextLogger())
 
 
 def test_set_properties():
@@ -99,8 +61,6 @@ def test_set_properties():
     assert beam_control.manufacturer_prop("beam.custom_parameter") == 0.7
     assert beam_control.manufacturer_prop("beam.inner.parameter") == 2.1
 
-    assert len(beam_control.txt_log.debugs) > 0  # type: ignore
-
 
 def test_set_properties_with_none_values():
     """
@@ -128,21 +88,21 @@ def test_set_properties_with_none_values():
     beam_control.set_properties(beam_properties)
 
     # check that properties remain at their initial values
-    assert beam_control.working_distance == 5_000_000.0
+    assert beam_control.working_distance == 0.0
     assert beam_control.stigmator == Stigmator(0.0, 0.0)
     assert beam_control.lens_alignment == LensAlignment(0.0, 0.0)
     assert beam_control.beam_shift == BeamShift(0.0, 0.0)
-    assert beam_control.detector_contrast == 0.5
-    assert beam_control.detector_brightness == 0.5
+    assert beam_control.detector_contrast == 0.0
+    assert beam_control.detector_brightness == 0.0
     assert beam_control.source_tilt == SourceTilt(0.0, 0.0)
     assert beam_control.line_integration == 1
-    assert beam_control.dwell_time == 1e-6
+    assert beam_control.dwell_time == 0.0
     assert beam_control.bit_depth == 8
-    assert beam_control.resolution == Resolution(1024, 768)
-    assert beam_control.horizontal_field_width == 20_000.0
+    assert beam_control.resolution == Resolution(1, 1)
+    assert beam_control.horizontal_field_width == 0.0
     assert beam_control.scanning_area.is_full_frame()
-    assert beam_control.manufacturer_prop("beam.custom_parameter") == 1.0
-    assert beam_control.manufacturer_prop("beam.inner.parameter") == 0.5
+    assert beam_control.manufacturer_prop("beam.custom_parameter") == 0.0
+    assert beam_control.manufacturer_prop("beam.inner.parameter") == 0.0
 
 
 def test_set_properties_with_invalid_internal_property():

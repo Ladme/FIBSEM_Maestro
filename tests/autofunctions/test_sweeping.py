@@ -5,51 +5,17 @@ import numpy as np
 
 from fibsem_maestro.autofunctions.sweeping import Sweeping
 from fibsem_maestro.core.beam_type import BeamType
-from fibsem_maestro.logging.text.text_logger import TextLogger
-from fibsem_maestro.microscope.simulated.microscope_control import (
-    SimulatedMicroscopeControl,
-)
+from fibsem_maestro.logging.text.in_memory import InMemoryTextLogger
+from fibsem_maestro.microscope.mock.microscope_control import MockMicroscopeControl
 from fibsem_maestro.settings.sweeping_settings import (
     BasicStrategySettings,
     SweepingSettings,
 )
 
 
-class InMemoryTextLogger(TextLogger):
-    """Simple logger that records messages."""
-
-    def __init__(self) -> None:
-        self.debugs: list[str] = []
-        self.infos: list[str] = []
-        self.warnings: list[str] = []
-        self.errors: list[str] = []
-
-    def derive(self, name: str) -> "InMemoryTextLogger":
-        _ = name
-        return InMemoryTextLogger()
-
-    def debug(self, msg: str) -> None:
-        self.debugs.append(msg)
-
-    def info(self, msg: str) -> None:
-        self.infos.append(msg)
-
-    def warning(self, msg: str) -> None:
-        self.warnings.append(msg)
-
-    def error(self, msg: str) -> None:
-        self.errors.append(msg)
-
-
 def test_construct_selects_electron_beam_and_attribute():
     txt_log = InMemoryTextLogger()
-    microscope = SimulatedMicroscopeControl(
-        "127.0.0.1",
-        txt_log,
-        seed=123,  # pyright: ignore[reportCallIssue]
-        sample_width=1,  # pyright: ignore[reportCallIssue]
-        sample_height=1,  # pyright: ignore[reportCallIssue]
-    )
+    microscope = MockMicroscopeControl("127.0.0.1", txt_log)
 
     settings = SweepingSettings(
         strategy=BasicStrategySettings(),
@@ -68,13 +34,7 @@ def test_construct_selects_electron_beam_and_attribute():
 
 def test_update_switches_to_ion_beam():
     txt_log = InMemoryTextLogger()
-    microscope = SimulatedMicroscopeControl(
-        "127.0.0.1",
-        txt_log,
-        seed=123,  # pyright: ignore[reportCallIssue]
-        sample_width=1,  # pyright: ignore[reportCallIssue]
-        sample_height=1,  # pyright: ignore[reportCallIssue]
-    )
+    microscope = MockMicroscopeControl("127.0.0.1", txt_log)
 
     settings = SweepingSettings(
         strategy=BasicStrategySettings(),
@@ -95,13 +55,7 @@ def test_update_switches_to_ion_beam():
 
 def test_get_attribute_value_reads_current_beam_state():
     txt_log = InMemoryTextLogger()
-    microscope = SimulatedMicroscopeControl(
-        "127.0.0.1",
-        txt_log,
-        seed=123,  # pyright: ignore[reportCallIssue]
-        sample_width=1,  # pyright: ignore[reportCallIssue]
-        sample_height=1,  # pyright: ignore[reportCallIssue]
-    )
+    microscope = MockMicroscopeControl("127.0.0.1", txt_log)
 
     eb = microscope.electron_beam
     eb.working_distance = 5_000_000.0
@@ -121,13 +75,7 @@ def test_get_attribute_value_reads_current_beam_state():
 
 def test_set_attribute_value_sets_beam_state():
     txt_log = InMemoryTextLogger()
-    microscope = SimulatedMicroscopeControl(
-        "127.0.0.1",
-        txt_log,
-        seed=123,  # pyright: ignore[reportCallIssue]
-        sample_width=1,  # pyright: ignore[reportCallIssue]
-        sample_height=1,  # pyright: ignore[reportCallIssue]
-    )
+    microscope = MockMicroscopeControl("127.0.0.1", txt_log)
 
     eb = microscope.electron_beam
     eb.working_distance = 5_000_000.0
@@ -148,13 +96,7 @@ def test_set_attribute_value_sets_beam_state():
 
 def test_sweep_yields_expected_zigzag_sequence_when_in_range():
     txt_log = InMemoryTextLogger()
-    microscope = SimulatedMicroscopeControl(
-        "127.0.0.1",
-        txt_log,
-        seed=123,  # pyright: ignore[reportCallIssue]
-        sample_width=1,  # pyright: ignore[reportCallIssue]
-        sample_height=1,  # pyright: ignore[reportCallIssue]
-    )
+    microscope = MockMicroscopeControl("127.0.0.1", txt_log)
 
     eb = microscope.electron_beam
     base = 10_000_000.0
@@ -189,13 +131,7 @@ def test_sweep_yields_expected_zigzag_sequence_when_in_range():
 
 def test_sweep_filters_out_of_range_values_and_logs_warning():
     txt_log = InMemoryTextLogger()
-    microscope = SimulatedMicroscopeControl(
-        "127.0.0.1",
-        txt_log,
-        seed=123,  # pyright: ignore[reportCallIssue]
-        sample_width=1,  # pyright: ignore[reportCallIssue]
-        sample_height=1,  # pyright: ignore[reportCallIssue]
-    )
+    microscope = MockMicroscopeControl("127.0.0.1", txt_log)
 
     eb = microscope.electron_beam
     lo, hi = eb.limits("working_distance")
@@ -225,13 +161,7 @@ def test_sweep_filters_out_of_range_values_and_logs_warning():
 
 def test_sweep_does_not_refresh_base():
     txt_log = InMemoryTextLogger()
-    microscope = SimulatedMicroscopeControl(
-        "127.0.0.1",
-        txt_log,
-        seed=123,  # pyright: ignore[reportCallIssue]
-        sample_width=1,  # pyright: ignore[reportCallIssue]
-        sample_height=1,  # pyright: ignore[reportCallIssue]
-    )
+    microscope = MockMicroscopeControl("127.0.0.1", txt_log)
 
     eb = microscope.electron_beam
     original_base = 1_000_000.0

@@ -5,58 +5,19 @@
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.core.stigmator import Stigmator
-from fibsem_maestro.logging.text.text_logger import TextLogger
-from fibsem_maestro.microscope.simulated.microscope_control import (
-    SimulatedMicroscopeControl,
-)
+from fibsem_maestro.logging.text.in_memory import InMemoryTextLogger
+from fibsem_maestro.microscope.mock.microscope_control import MockMicroscopeControl
 from fibsem_maestro.settings.beam_properties import BeamProperties
 from fibsem_maestro.settings.global_properties import GlobalProperties
 from fibsem_maestro.settings.microscope_properties import MicroscopeProperties
 from fibsem_maestro.settings.property_names import PropertyNames
 
 
-class InMemoryTextLogger(TextLogger):
-    """Simple logger that records messages."""
-
-    def __init__(self) -> None:
-        self.debugs: list[str] = []
-        self.infos: list[str] = []
-        self.warnings: list[str] = []
-        self.errors: list[str] = []
-
-    def derive(self, name: str) -> "InMemoryTextLogger":
-        _ = name
-        return InMemoryTextLogger()
-
-    def debug(self, msg: str) -> None:
-        self.debugs.append(msg)
-
-    def info(self, msg: str) -> None:
-        self.infos.append(msg)
-
-    def warning(self, msg: str) -> None:
-        self.warnings.append(msg)
-
-    def error(self, msg: str) -> None:
-        self.errors.append(msg)
-
-
-def create_test_microscope_control() -> SimulatedMicroscopeControl:
-    """Create a test instance of SimulatedMicroscopeControl."""
-    txt_log = InMemoryTextLogger()
-    return SimulatedMicroscopeControl(
-        ip_address="127.0.0.1",
-        txt_log=txt_log,
-        seed=42,  # type: ignore
-        sample_width=1,  # type: ignore
-        sample_height=1,  # type: ignore
-    )
+def create_test_microscope_control() -> MockMicroscopeControl:
+    return MockMicroscopeControl("127.0.0.1", InMemoryTextLogger())
 
 
 def test_set_properties_microscope_only():
-    """
-    Test setting microscope properties only.
-    """
     microscope_control = create_test_microscope_control()
     microscope_properties = MicroscopeProperties(
         stage_position=StagePosition(x=1.0, y=2.0, z=3.0, rotation=4.0, tilt=5.0),

@@ -5,7 +5,6 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
-from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.logging.text.text_logger import TextLogger
@@ -149,19 +148,6 @@ class MicroscopeControl(ABC):
 
         Returns:
             StagePosition: Actual stage position after the operation.
-        """
-        pass
-
-    @abstractmethod
-    def try_set_beam_shift(self, shift: BeamShift) -> BeamShift:
-        """
-        Attempt to set the beam shift.
-
-        Args:
-            shift (BeamShift): Desired beam shift.
-
-        Returns:
-            BeamShift: Actual beam shift after the operation.
         """
         pass
 

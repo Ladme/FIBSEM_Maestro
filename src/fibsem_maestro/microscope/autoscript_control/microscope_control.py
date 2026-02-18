@@ -5,7 +5,6 @@ from typing import Any
 
 from autoscript_sdb_microscope_client.sdb_microscope_client import SdbMicroscopeClient
 
-from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
@@ -113,10 +112,6 @@ class AutoscriptMicroscopeControl(MicroscopeControl):
 
         self._txt_log.debug(f"Moving stage by {delta}.")
         return self.stage_position
-
-    def try_set_beam_shift(self, shift: BeamShift) -> BeamShift:
-        # TODO: implement
-        raise NotImplementedError("Not yet implemented.")
 
     @property
     def txt_log(self) -> TextLogger:
