@@ -17,9 +17,8 @@ class MicroscopeSettings(BaseSettings):
         Field(description="Relative move between beam shift and stage move."),
     ]
     ip_address: Annotated[str, Field(description="Microscope server address.")]
-    relative_beam_shift_to_stage: Annotated[
-        tuple[float, float],
-        Field(description="Relative move between beam shift and stage move."),
+    holder_pretilt: Annotated[
+        float, Field(default=0.0, description="Tilt of the sample holder in degrees.")
     ]
     stage_tolerance: Annotated[float, Field(description="Maximal allowed stage error.")]
     stage_trials: Annotated[

@@ -3,6 +3,8 @@
 
 from dataclasses import fields
 
+import numpy as np
+from numpy.typing import NDArray
 from scipy.spatial import distance  # pyright: ignore[reportMissingTypeStubs]
 
 from fibsem_maestro.core.beam_shift import BeamShift
@@ -84,20 +86,12 @@ class Microscope:
         except Exception as e:
             self._txt_log.warning(f"Beam shift error: {e}. Adjusting stage position.")
 
-            rel_shift_to_stage = self._settings.relative_beam_shift_to_stage
-
-            new_stage_move = (
-                new_beam_shift.x
-                * rel_shift_to_stage[0]
-                * self.beam.beam_shift_to_stage_move[0],
-                new_beam_shift.y
-                * rel_shift_to_stage[1]
-                * self.beam.beam_shift_to_stage_move[1],
-            )
+            beam_shift_array = np.array([new_beam_shift.x, new_beam_shift.y])
+            new_stage_move = self._beam_shift_to_stage_move() @ beam_shift_array
 
             # move stage
             self._control.try_move_stage_position(
-                StagePosition(x=new_stage_move[0], y=new_stage_move[1])
+                StagePosition(x=float(new_stage_move[0]), y=float(new_stage_move[1]))
             )
             # set beam shift to zero
             self.beam.beam_shift = BeamShift(0.0, 0.0)
@@ -153,3 +147,57 @@ class Microscope:
                 self.beam = self._control.electron_beam
             case BeamType.ION:
                 self.beam = self._control.ion_beam
+
+    def _beam_shift_to_stage_move(self) -> NDArray[np.floating]:
+        """
+        Return a 2x2 matrix converting beam shift to stage move.
+        Takes stage tilt and rotation and sample holder pretilt into consideration when calculating.
+
+        Returns:
+            A (2, 2) numpy array representing the linear transformation matrix.
+
+        Raises:
+            MicroscopeError: If effective tilt is too close to 90°.
+        """
+        # get the tilt angle
+        effective_tilt = (
+            self._settings.holder_pretilt + self._control.stage_position.tilt
+        )
+        theta = np.radians(effective_tilt)
+
+        # get the rotation angle
+        phi = np.radians(self._control.stage_position.rotation)
+
+        if (cos_theta := np.cos(theta)) < 1e-4:
+            raise MicroscopeError(
+                f"Effective tilt ({effective_tilt:.3f}°) is too close to 90°. Conversion unstable."
+            )
+
+        stretch = 1.0 / cos_theta
+
+        # construct rotation matrices
+        cos_phi = np.cos(phi)
+        sin_phi = np.sin(phi)
+
+        r_phi = np.array(
+            [[cos_phi, -sin_phi], [sin_phi, cos_phi]],
+            dtype=float,
+        )
+
+        r_minus_phi = np.array(
+            [[cos_phi, sin_phi], [-sin_phi, cos_phi]],
+            dtype=float,
+        )
+
+        # construct matrix for stretching along the tilt direction
+        stretch_matrix = np.array(
+            [[1.0, 0.0], [0.0, stretch]],
+            dtype=float,
+        )
+
+        conversion_matrix = r_phi @ stretch_matrix @ r_minus_phi
+        self._txt_log.debug(
+            f"Beam shift to stage move conversion matrix: {list(conversion_matrix)}"
+        )
+
+        return conversion_matrix
