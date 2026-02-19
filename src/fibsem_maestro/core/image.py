@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 TDType = TypeVar("TDType", bound=np.generic)
 
 
-class ImageError(BaseException):
+class ImageError(Exception):
     """
     Exception raised for errors related to images.
     """

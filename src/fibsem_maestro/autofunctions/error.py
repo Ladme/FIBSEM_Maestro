@@ -2,7 +2,7 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
-class AutofunctionError(BaseException):
+class AutofunctionError(Exception):
     """
     Exception raised for errors related to autofunction registration or usage.
     """

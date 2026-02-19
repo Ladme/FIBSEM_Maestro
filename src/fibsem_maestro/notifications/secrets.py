@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import keyring
 
 
-class SecretsError(BaseException):
+class SecretsError(Exception):
     """Raised when a required secret cannot be retrieved or managed."""
 
     pass

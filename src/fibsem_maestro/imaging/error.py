@@ -2,7 +2,7 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
-class ImagingError(BaseException):
+class ImagingError(Exception):
     """
     Exception raised for errors related to image acquisition.
     """
