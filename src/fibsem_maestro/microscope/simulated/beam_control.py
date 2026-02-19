@@ -79,8 +79,8 @@ class SimulatedBeamControl(BeamControl):
             "stigmator_y": (-0.99, 0.77),
             "lens_alignment_x": (-720_052.0, 697_917.0),
             "lens_alignment_y": (-691_406.0, 689_453.0),
-            "beam_shift_x": (-5_000_000.0, 5_000_000.0),
-            "beam_shift_y": (-5_000_000.0, 5_000_000.0),
+            "beam_shift_x": (-200.0, 200.0),
+            "beam_shift_y": (-200.0, 200.0),
             "detector_contrast": (0.0, 1.0),
             "detector_brightness": (0.0, 1.0),
             "source_tilt_x": (-5.0, 5.0),
@@ -137,6 +137,18 @@ class SimulatedBeamControl(BeamControl):
         self._txt_log.debug(f"Setting beam shift: {value}.")
         self._beam_shift = value
 
+        limit_x = self.limits("beam_shift_x")
+        limit_y = self.limits("beam_shift_y")
+        if (
+            self._beam_shift.x < limit_x[0]
+            or self._beam_shift.x > limit_x[1]
+            or self._beam_shift.y < limit_y[0]
+            or self._beam_shift.y > limit_y[1]
+        ):
+            raise MicroscopeError(
+                f"Beam shift out of range: {self._beam_shift} (limits: x {limit_x}, y {limit_y})"
+            )
+
     @property
     def detector_contrast(self) -> float:
         value = self._detector_contrast
@@ -191,9 +203,21 @@ class SimulatedBeamControl(BeamControl):
         width, height = self.resolution.to_tuple()
         pos = self._stage_position
 
-        # get center of the view
-        cx = pos.x + self.beam_shift.x
-        cy = pos.y + self.beam_shift.y
+        # beam shift is in image coordinates - convert to stage coordinates
+        # using the same matrix that Microscope._beam_shift_to_stage_move uses
+        theta = np.radians(pos.tilt)
+        phi = np.radians(pos.rotation)
+        cos_theta = np.cos(theta)
+        cos_phi, sin_phi = np.cos(phi), np.sin(phi)
+        r_phi = np.array([[cos_phi, -sin_phi], [sin_phi, cos_phi]])
+        r_minus_phi = np.array([[cos_phi, sin_phi], [-sin_phi, cos_phi]])
+        stretch = 1.0 / cos_theta if cos_theta > 1e-4 else 1.0
+        M = r_phi @ np.array([[1.0, 0.0], [0.0, stretch]]) @ r_minus_phi
+        bs_stage = M @ np.array([self.beam_shift.x, self.beam_shift.y])
+
+        cx = pos.x + bs_stage[0]
+        cy = pos.y + bs_stage[1]
+
         X, Y = SimulatedSample.world_grid(
             cx,
             cy,
@@ -202,35 +226,50 @@ class SimulatedBeamControl(BeamControl):
             self.horizontal_field_width,
             self.vertical_field_width,
         )
-        # rotation of the stage
+
         if pos.rotation != 0.0:
             X, Y = SimulatedSample.rotate_grid(X, Y, cx, cy, pos.rotation)
 
-        # tilt
+        # handle tilt
         tilt_rad = math.radians(pos.tilt)
         if tilt_rad != 0.0:
-            Y = cy + (Y - cy) / np.cos(tilt_rad)
+            sin_t = np.sin(tilt_rad)
+            cos_t = np.cos(tilt_rad)
 
+            dY = Y - cy
+
+            Y_s = cy + dY / cos_t
+
+            for _ in range(6):
+                Z_s = self._sample.surface_z(X, Y_s)
+                Y_s = cy + (dY - Z_s * sin_t) / cos_t
+
+            Z_surface = self._sample.surface_z(X, Y_s)
+            Z_lab = -(Y_s - cy) * sin_t + Z_surface * cos_t
+
+            Y = Y_s
+        else:
+            Z_surface = self._sample.surface_z(X, Y)
+            Z_lab = Z_surface
+
+        # sample texture + shading at the resolved surface hit position
         image = self._sample.sample(X, Y)
+        image = image * self._sample.surface_shading(X, Y)
+        image = np.clip(image, 0.0, 1.0)
 
-        # focus + astigmatism
-        defocus_nm = pos.z - self.working_distance
+        # defocus
+        defocus_map = pos.z - self.working_distance - Z_lab
         image = SimulatedSample.apply_focus_and_astigmatism(
             image=image,
-            Y=Y,
-            center_y=cy,
-            defocus=defocus_nm,
-            tilt_rad=tilt_rad,
+            defocus_map=defocus_map,
             pixel_size=self.pixel_size,
             stigmator_x=self.stigmator.x,
             stigmator_y=self.stigmator.y,
         )
 
-        # detector noise
+        # detector noise, brightness/contrast
         noise_std = 1e-4 / np.sqrt(max(self.dwell_time * self.line_integration, 1e-12))
         image += self._rng.normal(0.0, noise_std, image.shape)
-
-        # brightness and contrast
         image = SimulatedSample.apply_brightness_contrast(
             image, self.detector_brightness, self.detector_contrast
         )

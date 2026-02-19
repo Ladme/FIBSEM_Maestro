@@ -11,7 +11,17 @@ from scipy.ndimage import gaussian_filter1d  # type: ignore
 
 class SimulatedSample:
     def __init__(self, rng: np.random.Generator, width: int, height: int):
-        self.pixel_size = 10.0
+        self.pixel_size = 10.0  # nm per pixel
+
+        # surface topography: height offsets in nm from the stage reference plane.
+        # mean is zeroed so that pos.z == working_distance means in-focus on average.
+        raw_height = self._generate_perlin_noise(
+            rng, width, height, scale=100.0, octaves=6, persistence=0.6
+        )
+        raw_height -= raw_height.mean()
+        self.height_data = raw_height * 1000.0
+
+        # texture / albedo
         self.data = self._generate_perlin_noise(
             rng, width, height, scale=100.0, octaves=8
         )
@@ -33,6 +43,49 @@ class SimulatedSample:
         py = np.clip(py, 0, self.data.shape[0] - 1)
 
         return self.data[py, px]
+
+    def surface_z(
+        self,
+        X: NDArray[np.floating],
+        Y: NDArray[np.floating],
+    ) -> NDArray[np.floating]:
+        """Return the surface height Z (nm) in the stage frame at world XY (nm)."""
+        px = np.clip(
+            (X / self.pixel_size).astype(np.int64), 0, self.height_data.shape[1] - 1
+        )
+        py = np.clip(
+            (Y / self.pixel_size).astype(np.int64), 0, self.height_data.shape[0] - 1
+        )
+        return self.height_data[py, px]
+
+    def surface_shading(
+        self,
+        X: NDArray[np.floating],
+        Y: NDArray[np.floating],
+    ) -> NDArray[np.floating]:
+        """
+        Lambertian shading from surface normals, illuminated along -Y (top of image).
+        Returns a [0, 1] multiplier to modulate the texture.
+        """
+        px = np.clip(
+            (X / self.pixel_size).astype(np.int64), 0, self.height_data.shape[1] - 1
+        )
+        py = np.clip(
+            (Y / self.pixel_size).astype(np.int64), 0, self.height_data.shape[0] - 1
+        )
+
+        dzdx = np.gradient(self.height_data, axis=1)[py, px] / self.pixel_size
+        dzdy = np.gradient(self.height_data, axis=0)[py, px] / self.pixel_size
+
+        nx, ny, nz = -dzdx, -dzdy, np.ones_like(dzdx)
+        mag = np.sqrt(nx**2 + ny**2 + nz**2)
+        nx, ny, nz = nx / mag, ny / mag, nz / mag
+
+        light = np.array([0.0, -1.0, 3.0])
+        light = light / np.linalg.norm(light)
+
+        shading = nx * light[0] + ny * light[1] + nz * light[2]
+        return 0.5 + 0.5 * np.clip(shading, -1.0, 1.0)
 
     @staticmethod
     def world_grid(
@@ -95,27 +148,19 @@ class SimulatedSample:
     @staticmethod
     def apply_focus_and_astigmatism(
         image: NDArray[np.floating],
-        Y: NDArray[np.floating],
-        center_y: float,
-        defocus: float,
-        tilt_rad: float,
+        defocus_map: NDArray[np.floating],  # shape (H, W), nm
         pixel_size: float,
         stigmator_x: float,
         stigmator_y: float,
     ) -> NDArray[np.floating]:
-        """
-        Apply focus blur with tilt-induced defocus gradient and astigmatism.
-        """
-
         height, _ = image.shape
         out = np.empty_like(image)
 
-        base_sigma_nm = 2.0  # probe size
-        k = 1e-4  # nm blur per nm defocus
+        base_sigma_nm = 2.0
+        k = 1e-4
 
         for row in range(height):
-            z_offset = (Y[row, 0] - center_y) * np.sin(tilt_rad)
-            local_defocus = defocus + z_offset
+            local_defocus = float(np.mean(defocus_map[row, :]))
 
             sigma_nm = base_sigma_nm + abs(local_defocus) * k
             sigma_px = sigma_nm / pixel_size
@@ -123,18 +168,8 @@ class SimulatedSample:
             sig_x = sigma_px * (1.0 + stigmator_x)
             sig_y = sigma_px * (1.0 + stigmator_y)
 
-            # blur horizontally then vertically
-            tmp = gaussian_filter1d(
-                image[row, :],
-                sigma=sig_x,
-                mode="nearest",
-            )
-
-            out[row, :] = gaussian_filter1d(
-                tmp,
-                sigma=sig_y,
-                mode="nearest",
-            )
+            tmp = gaussian_filter1d(image[row, :], sigma=sig_x, mode="nearest")
+            out[row, :] = gaussian_filter1d(tmp, sigma=sig_y, mode="nearest")
 
         return out
 

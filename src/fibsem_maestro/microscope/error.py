@@ -2,7 +2,7 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
-class MicroscopeError(BaseException):
+class MicroscopeError(Exception):
     """
     Exception raised for errors related to microscope registration or usage.
     """

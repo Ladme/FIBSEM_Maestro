@@ -143,8 +143,8 @@ class SimulatedMicroscopeControl(MicroscopeControl):
             StagePosition: The actual stage position after the attempted move.
         """
         self._txt_log.debug(f"Setting stage position to {pos}.")
-        noise_xyz = self._rng.normal(0.0, 0.1, size=3)  # nm
-        noise_ang = self._rng.normal(0.0, 0.001, size=2)  # degrees
+        noise_xyz = self._rng.normal(0.0, 0.0001, size=3)  # nm
+        noise_ang = self._rng.normal(0.0, 0.0001, size=2)  # degrees
 
         self._stage_position.x = pos.x + float(noise_xyz[0])
         self._stage_position.y = pos.y + float(noise_xyz[1])
