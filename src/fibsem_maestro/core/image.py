@@ -85,6 +85,7 @@ class _ImageBase(np.ndarray[Any, np.dtype[TDType]], Generic[TDType]):
         ax.axis("off")
         fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
         plt.savefig(file_name, format="png", dpi=100)
+        plt.close(fig)
 
     @property
     def resolution(self) -> Resolution:
