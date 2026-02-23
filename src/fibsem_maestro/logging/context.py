@@ -50,16 +50,22 @@ class LogContext:
     slice_ctx: SliceContext
     log_level: int = logging.INFO
 
-    def slice_dir(self) -> Path:
+    def slice_dir(self, slice: int | None = None) -> Path:
         """
         Return the directory used for slice-specific or central logging.
 
         The directory is created if it does not already exist.
 
+        Args:
+            slice (int | None): The slice for which the directory should be returned.
+                                Assumes current slice if `None`.
+
         Returns:
             Path: The directory where log files and images should be written.
         """
-        if self.slice_ctx.current_slice is None:
+        if slice is not None:
+            d = self.root_dir / f"slice_{slice:04d}"
+        elif self.slice_ctx.current_slice is None:
             d = self.root_dir
         else:
             d = self.root_dir / f"slice_{self.slice_ctx.current_slice:04d}"

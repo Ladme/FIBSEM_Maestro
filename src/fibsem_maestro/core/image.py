@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Generic, Self, TypeVar
 
 import numpy as np
 
+from fibsem_maestro.core.format import ImageFormat
 from fibsem_maestro.core.resolution import Resolution
 
 if TYPE_CHECKING:
@@ -16,6 +17,7 @@ if TYPE_CHECKING:
         AdornedImage as AdornedImageAs,
     )
     from numpy.typing import NDArray
+    from tifffile import TiffFile
 
     from fibsem_maestro.core.scanning_area import RelativeScanningArea
 
@@ -31,6 +33,7 @@ class ImageError(Exception):
 
 
 class _ImageBase(np.ndarray[Any, np.dtype[TDType]], Generic[TDType]):
+    # in nanometers
     pixel_size: float
 
     def __new__(cls, image: NDArray[TDType], pixel_size: float) -> Self:
@@ -49,6 +52,37 @@ class _ImageBase(np.ndarray[Any, np.dtype[TDType]], Generic[TDType]):
         """Ensure slicing returns an instance of the same type."""
         result = super().__getitem__(key)
         return result.view(type(self))
+
+    @classmethod
+    def from_autoscript(cls, as_image: AdornedImageAs) -> Self:
+        """
+        Construct a native Image from Autoscript's AdornedImage.
+        """
+        if (metadata := as_image.metadata) is None:
+            raise ImageError(
+                "Could not convert autoscript image. Metadata not available."
+            )
+
+        if (pixel_size := metadata.binary_result.pixel_size) is None:
+            raise ImageError(
+                "Could not convert autoscript image. Pixel size not available."
+            )
+
+        return cls(np.asarray(as_image.data), pixel_size.x * 1e-9)
+
+    @classmethod
+    def from_tiff(cls, tiff_file: TiffFile) -> Self:
+        """
+        Construct a native Image from TiffFile.
+
+        The user of this method is reponsible for closing the TiffFile!
+        """
+        if (metadata := tiff_file.imagej_metadata) is None or (
+            pixel_size := metadata.get("pixel_size")
+        ) is None:
+            raise ImageError("Missing metadata for tiff file.")
+
+        return cls(tiff_file.asarray(), pixel_size)
 
     def crop(self, relative_area: RelativeScanningArea) -> Self:
         """
@@ -71,9 +105,19 @@ class _ImageBase(np.ndarray[Any, np.dtype[TDType]], Generic[TDType]):
             pixel_area.origin.x : pixel_area.origin.x + pixel_area.width,
         ]
 
-    def save(self, file_name: Path) -> None:
+    def save(self, file_name: Path, format: ImageFormat) -> None:
         """
-        Save the image in PNG format.
+        Save the image in the specified format.
+        """
+        match format:
+            case ImageFormat.PNG:
+                self._save_png(file_name)
+            case ImageFormat.TIF:
+                self._save_tif(file_name)
+
+    def _save_png(self, file_name: Path) -> None:
+        """
+        Save the image in the PNG format.
         """
         import matplotlib.pyplot as plt
 
@@ -81,11 +125,47 @@ class _ImageBase(np.ndarray[Any, np.dtype[TDType]], Generic[TDType]):
             figsize=(self.shape[1] / 100, self.shape[0] / 100), dpi=100
         )
 
-        ax.imshow(self, cmap="gray", interpolation="nearest", vmin=0.0, vmax=1.0)
+        _, range = self._estimate_bit_depth_and_range()
+
+        ax.imshow(
+            self, cmap="gray", interpolation="nearest", vmin=range[0], vmax=range[1]
+        )
         ax.axis("off")
         fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
         plt.savefig(file_name, format="png", dpi=100)
         plt.close(fig)
+
+    def _save_tif(self, file_name: Path) -> None:
+        """
+        Save the image in the TIF format.
+        """
+        import tifffile
+
+        tifffile.imwrite(
+            file_name, self, imagej=True, metadata={"pixel_size": self.pixel_size}
+        )
+
+    def _estimate_bit_depth_and_range(self) -> tuple[int, tuple[int, int]]:
+        """
+        Estimate the detector bit depth from image values and return its valid range.
+
+        The bit depth is inferred from the maximum value present in the image,
+        assuming unsigned integer detector behavior.
+
+        Args:
+            image (Image): Image which bit depth is obtained.
+
+        Returns:
+            A tuple containing:
+                - Estimated bit depth.
+                - Tuple of (min_value, max_value) allowed for that bit depth.
+        """
+        max_value = float(np.nanmax(self))
+
+        bit_depth = int(np.ceil(np.log2(max_value + 1)))
+        max_allowed = (1 << bit_depth) - 1
+
+        return bit_depth, (0, max_allowed)
 
     @property
     def resolution(self) -> Resolution:
@@ -108,23 +188,6 @@ class Image(_ImageBase[np.floating[Any]]):
             output = output / np.max(output) * 255
         output = np.ascontiguousarray(np.uint8(output))
         return Image8Bit(output, pixel_size)
-
-    @classmethod
-    def from_autoscript(cls, as_image: AdornedImageAs) -> Self:
-        """
-        Construct a native Image from Autoscript's AdornedImage.
-        """
-        if (metadata := as_image.metadata) is None:
-            raise ImageError(
-                "Could not convert autoscript image. Metadata not available."
-            )
-
-        if (pixel_size := metadata.binary_result.pixel_size) is None:
-            raise ImageError(
-                "Could not convert autoscript image. Pixel size not available."
-            )
-
-        return cls(np.asarray(as_image.data), pixel_size.x)
 
 
 class Image8Bit(_ImageBase[np.uint8]):

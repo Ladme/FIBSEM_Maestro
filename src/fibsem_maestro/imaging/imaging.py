@@ -7,7 +7,7 @@ from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.scanning_area import RelativeScanningArea
 from fibsem_maestro.imaging.error import ImagingError
-from fibsem_maestro.logging.context import LogContext, SliceContext
+from fibsem_maestro.logging.context import LogContext
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.global_properties import GlobalProperties
@@ -27,7 +27,6 @@ class Imaging:
         self,
         microscope: Microscope,
         settings: ImagingSettings,
-        slice_ctx: SliceContext,
         log_ctx: LogContext,
         txt_log: TextLogger,
     ):
@@ -43,31 +42,21 @@ class Imaging:
         """
         self._microscope = microscope
         self._settings = settings
-        self._slice_ctx = slice_ctx
         self._log_ctx = log_ctx
         self._txt_log = txt_log
 
     def grab_frame(self) -> None:
         """
-        Set the microscope parameters and acquire an image.
+        Set the microscope properties and acquire an image.
 
         Loads microscope properties from an input file, acquires an image, saves it,
-        increments the slice counter and updates the saved microscope properties for subsequent imaging.
+        and updates the saved microscope properties for subsequent imaging.
 
         Raises:
             ImagingError: If the image for the current slice already exists.
         """
-        # select the beam used for imaging
-        self._microscope.set_beam(self._settings.beam_type)
-
-        # set properties of the microscope
-        properties_file = self._construct_props_path()
-
-        self._txt_log.debug(
-            f"Loading microscope properties from {str(properties_file)}."
-        )
-        props = GlobalProperties.from_file(properties_file)
-        self._microscope.set_properties(props, beam=self._settings.beam_type)
+        # set the properties of the microscope
+        self.set_properties()
 
         # make sure that the image for the current slice does not exist
         if (image_path := self._construct_image_path()).exists():
@@ -82,20 +71,36 @@ class Imaging:
         # grab the frame and save it
         self._microscope.beam.grab_frame(image_path)
 
-        # increment the slice counter
-        self._slice_ctx.increment()
-
         # update the saved microscope properties
-        self.save_properties()
+        self.save_properties(slice=(self._log_ctx.slice_ctx.current_slice or 0) + 1)
 
-    def save_properties(self) -> None:
+    def set_properties(self) -> None:
+        """
+        Set the microscope properties.
+        """
+        # select the beam used for imaging
+        self._microscope.set_beam(self._settings.beam_type)
+
+        # set properties of the microscope
+        properties_file = self._construct_props_path()
+        self._txt_log.debug(
+            f"Loading microscope properties from {str(properties_file)}."
+        )
+        props = GlobalProperties.from_file(properties_file)
+        self._microscope.set_properties(props, beam=self._settings.beam_type)
+
+    def save_properties(self, slice: int | None = None) -> None:
         """
         Save selected properties from the microscope to a file.
+
+        Args:
+            slice (int | None): The slice for which properties should be saved.
+                                If `None`, the current slice is used.
 
         Collects the selected properties from the microscope and saves them to the
         properties file.
         """
-        properties_file = self._construct_props_path()
+        properties_file = self._construct_props_path(slice)
         self._txt_log.debug(f"Saving microscope properties to {str(properties_file)}.")
 
         # set bit depth, if specified in the settings
@@ -122,6 +127,10 @@ class Imaging:
                     and (area := beam_props.scanning_area) is not None
                     and not area.is_full_frame()
                 ):
+                    self._txt_log.debug(
+                        "Setting scanning area using extended resolution."
+                    )
+
                     # shift the beam to the center of the scanning area
                     img_res = self._microscope.beam.resolution
                     pixel_size = self._microscope.beam.pixel_size
@@ -171,12 +180,13 @@ class Imaging:
         """
         return (
             self._settings.images_directory
-            / f"slice_{self._slice_ctx.current_slice}.{self._microscope.beam.acquired_image_extension}"
+            / f"slice_{self._log_ctx.slice_ctx.current_slice}.{self._microscope.beam.acquired_image_extension}"
         )
 
-    def _construct_props_path(self) -> Path:
+    def _construct_props_path(self, slice: int | None = None) -> Path:
         """
-        Construct the path to the microscope properties file.
+        Construct the path to the microscope properties file for the specified slice
+        or the current slice (if `slice` is None).
 
         The returned path can be used either to load existing microscope properties
         or to save updated properties.
@@ -184,4 +194,4 @@ class Imaging:
         Returns:
             Path: Path to the microscope properties file.
         """
-        return self._log_ctx.slice_dir() / self._settings.properties_file
+        return self._log_ctx.slice_dir(slice) / self._settings.properties_file

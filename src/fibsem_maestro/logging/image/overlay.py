@@ -51,7 +51,8 @@ class PolylineOverlay(Overlay):
         linewidth: Line width used to draw the polyline.
     """
 
-    points: Sequence[Point]
+    # TODO: change point to a non-generic structure
+    points: Sequence[Point]  # type: ignore
     color: str = "black"
     linewidth: float = 1.0
 

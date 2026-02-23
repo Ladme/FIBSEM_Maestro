@@ -9,6 +9,7 @@ from typing import Any
 import numpy as np
 
 from fibsem_maestro.core.beam_shift import BeamShift
+from fibsem_maestro.core.format import ImageFormat
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
 from fibsem_maestro.core.resolution import Resolution
@@ -281,9 +282,11 @@ class SimulatedBeamControl(BeamControl):
             image = image.crop(self.scanning_area)
 
         if file_name is not None:
-            image.save(file_name)
+            image.save(file_name, ImageFormat.PNG)
 
-        return image
+        # convert image based on bit depth
+        max_adc = (1 << self.bit_depth) - 1
+        return Image(np.round(image * max_adc).astype(int), image.pixel_size)
 
     def get_image(self, crop_to_scanning_area: bool = False) -> Image:
         self._txt_log.debug("Getting an image.")
