@@ -72,7 +72,9 @@ def main():
 
     # initialize the logging
     slice = SliceContext(1)
-    log_context = LogContext(Path(args.log_dir), slice, logging.DEBUG)
+    log_context = LogContext(
+        Path(args.log_dir), slice, logging.DEBUG if args.verbose else logging.INFO
+    )
     txt_log = SliceAwareTextLogger("microscope", log_context)
     img_log = SliceAwareImageLogger(log_context)
 

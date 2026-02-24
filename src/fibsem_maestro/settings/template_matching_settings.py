@@ -72,3 +72,10 @@ class TemplateMatchingSettings(BaseSettings):
             description="The maximum expected drift in nanometers defining how far the template is allowed to search for a match."
         ),
     ]
+    stop_acquisition_at_failure: Annotated[
+        bool,
+        Field(
+            default=False,
+            description="Should image acquisition be stopped if drift correction fails?",
+        ),
+    ]

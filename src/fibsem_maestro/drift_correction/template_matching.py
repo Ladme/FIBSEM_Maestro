@@ -1,6 +1,7 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
+import shutil
 from pathlib import Path
 
 import cv2
@@ -49,10 +50,6 @@ class TemplateMatchingDriftCorrection:
         self._txt_log.info("Acquiring template image.")
         template_image = self._microscope.beam.grab_frame()
 
-        # make sure that the directory for storing templates exists
-        if not self._settings.templates_directory.exists():
-            self._settings.templates_directory.mkdir(parents=True, exist_ok=True)
-
         for i, area in enumerate(self._settings.areas):
             self._save_template(template_image.crop(area), i)
 
@@ -66,7 +63,10 @@ class TemplateMatchingDriftCorrection:
         shifts_x: list[float] = []
         shifts_y: list[float] = []
         for i, area in enumerate(self._settings.areas):
-            if (shift := self._calculate_shift(image, area, i)) is None:
+            shift = self._calculate_shift(image, area, i)
+            self._update_template(image, area, i)
+
+            if shift is None:
                 continue
 
             shifts_x.append(shift[0])
@@ -74,23 +74,27 @@ class TemplateMatchingDriftCorrection:
 
         # make sure that at least one template match had sufficient confidence
         if len(shifts_x) == 0:
-            # TODO: or just log a warning?
-            raise DriftCorrectionError(
+            if self._settings.stop_acquisition_at_failure:
+                raise DriftCorrectionError(
+                    f"Confidence of all templates is below the limit of {self._settings.min_confidence}. Cannot perform drift correction."
+                )
+
+            self._txt_log.warning(
                 f"Confidence of all templates is below the limit of {self._settings.min_confidence}. Cannot perform drift correction."
             )
-
-        # get the mean image shift and convert to beam shift
-        beam_shift_x = (
-            float(np.mean(shifts_x)) * self._microscope.beam.image_to_beam_shift[0]
-        )
-        beam_shift_y = (
-            float(np.mean(shifts_y)) * self._microscope.beam.image_to_beam_shift[1]
-        )
-        beam_shift = BeamShift(x=beam_shift_x, y=beam_shift_y)
+            beam_shift = BeamShift(x=0.0, y=0.0)
+        else:
+            # get the mean image shift and convert to beam shift
+            beam_shift_x = (
+                float(np.mean(shifts_x)) * self._microscope.beam.image_to_beam_shift[0]
+            )
+            beam_shift_y = (
+                float(np.mean(shifts_y)) * self._microscope.beam.image_to_beam_shift[1]
+            )
+            beam_shift = BeamShift(x=beam_shift_x, y=beam_shift_y)
 
         next_slice = (self._log_ctx.slice_ctx.current_slice or 0) + 1
         # apply beam shift to correct the drift and update the drift correction parameters
-        # TODO: should we perform this updating?
         self._microscope.add_beam_shift_with_verification(beam_shift)
         self.save_properties(slice=next_slice)
 
@@ -98,8 +102,7 @@ class TemplateMatchingDriftCorrection:
         # and update the imaging parameters for the current slice
         self._imaging.set_properties()
         self._microscope.add_beam_shift_with_verification(beam_shift)
-        # TODO: we should make sure that beam shift (and stage position?)
-        # are among the properties collected for imaging
+        # TODO: check that beam shift and stage position are safed and print warning if they are not
         self._imaging.save_properties()
 
     def set_properties(self) -> None:
@@ -147,16 +150,6 @@ class TemplateMatchingDriftCorrection:
         self._txt_log.info(
             f"Drift correction for template {index}: {dx_nm},{dy_nm}. Confidence: {template_match.confidence}."
         )
-
-        # save the current image as the new template at specified intervals
-        if (
-            (slice := self._log_ctx.slice_ctx.current_slice) is not None
-            and slice > 0
-            and slice % self._settings.rescan == 0
-        ):
-            image.crop(area).save(
-                self._construct_template_path(index), format=ImageFormat.TIF
-            )
 
         # ignore the calculated shift if the confidence is too low
         if template_match.confidence < self._settings.min_confidence:
@@ -227,6 +220,11 @@ class TemplateMatchingDriftCorrection:
 
     def _save_template(self, template: Image, index: int) -> None:
         template_path = self._construct_template_path(index)
+
+        # make sure that the directory for storing templates exists
+        if not template_path.parent.exists():
+            template_path.parent.mkdir(parents=True, exist_ok=True)
+
         self._txt_log.debug(f"Saving template {index} into {str(template_path)}.")
         template.to_8bit().save(template_path, format=ImageFormat.TIF)
 
@@ -236,9 +234,33 @@ class TemplateMatchingDriftCorrection:
         with TiffFile(template_path) as tiff_file:
             return Image8Bit.from_tiff(tiff_file)
 
-    def _construct_template_path(self, index: int) -> Path:
+    def _update_template(
+        self, image: Image8Bit, area: RelativeArea, index: int
+    ) -> None:
+        slice = self._log_ctx.slice_ctx.current_slice or 0
+        template_path = self._construct_template_path(index, slice + 1)
+
+        # make sure that the template directory for the next slice exists
+        if not template_path.parent.exists():
+            template_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if slice > 0 and slice % self._settings.rescan == 0:
+            # save the current image as the new template
+            self._txt_log.debug(
+                f"Updating template image {index} for slice {slice + 1}."
+            )
+            image.crop(area).save(template_path, format=ImageFormat.TIF)
+        else:
+            # copy the current template to the next slice
+            self._txt_log.debug(
+                f"Using template image {index} from slice {slice} as template image for slice {slice + 1}."
+            )
+            shutil.copyfile(self._construct_template_path(index), template_path)
+
+    def _construct_template_path(self, index: int, slice: int | None = None) -> Path:
         return (
-            self._settings.templates_directory
+            self._log_ctx.slice_dir(slice)
+            / self._settings.templates_directory
             / f"drift_correction_template_{index}.tif"
         )
 
