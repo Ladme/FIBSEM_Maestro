@@ -6,11 +6,11 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
+from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
 from fibsem_maestro.core.resolution import Resolution
-from fibsem_maestro.core.scanning_area import RelativeScanningArea
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
 from fibsem_maestro.logging.text.text_logger import TextLogger
@@ -471,23 +471,23 @@ class BeamControl(ABC):
 
     @property
     @abstractmethod
-    def scanning_area(self) -> RelativeScanningArea:
+    def scanning_area(self) -> RelativeArea:
         """
         Get the active scanning area.
 
         Returns:
-            RelativeScanningArea: The current scanning area.
+            RelativeArea: The current scanning area.
         """
         pass
 
     @scanning_area.setter
     @abstractmethod
-    def scanning_area(self, value: RelativeScanningArea) -> None:
+    def scanning_area(self, value: RelativeArea) -> None:
         """
         Set the active scanning area.
 
         Args:
-            value (RelativeScanningArea): Scanning area definition.
+            value (RelativeArea): Scanning area definition.
         """
         pass
 

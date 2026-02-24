@@ -14,17 +14,17 @@ T = TypeVar("T", PixelPoint, RelativePoint, NMPoint, MPoint)
 U = TypeVar("U", int, float)
 
 
-class _ScanningArea(BaseModel, Generic[T, U]):
+class _Area(BaseModel, Generic[T, U]):
     """
-    Represents a scanning area in an electron microscope.
+    Represents an area of an image.
 
     Attributes:
         origin (T):
-            Coordinates of the top left corner of the scanning area.
+            Coordinates of the top left corner of the area.
         width (float):
-            The width of the scanning area.
+            The width of the area.
         height (float):
-            The height of the scanning area.
+            The height of the area.
     """
 
     origin: T
@@ -37,75 +37,73 @@ class _ScanningArea(BaseModel, Generic[T, U]):
 
     def update(self, other: Self) -> None:
         """
-        Update the scanning area with the values from another ScanningArea instance.
+        Update the area with the values from another area instance.
 
         Args:
-            other (ScanningArea): Another ScanningArea instance to copy values from.
+            other (_Area): Another _Area instance to copy values from.
         """
         self.origin = other.origin
         self.width = other.width
         self.height = other.height
 
 
-class RelativeScanningArea(_ScanningArea[RelativePoint, float]):
+class RelativeArea(_Area[RelativePoint, float]):
     """
-    Represents a scanning area using relative coordinates (0-1).
+    Represents an area using relative coordinates (0-1).
     """
 
     def __init__(self, origin: RelativePoint, width: float, height: float):
         # pydantic BaseModel requires keyword arguments
         super().__init__(origin=origin, width=width, height=height)
 
-    def to_pixels(self, resolution: Resolution) -> "PixelScanningArea":
+    def to_pixels(self, resolution: Resolution) -> "PixelArea":
         """
-        Convert the relative scanning area to pixel coordinates.
+        Convert the relative area to pixel coordinates.
 
         Args:
             resolution (Resolution): Resolution of the image in pixels.
 
         Returns:
-            PixelScanningArea: A new instance of PixelScanningArea with coordinates
+            PixelArea: A new instance of PixelArea with coordinates
                 and dimensions converted to absolute pixel values.
         """
-        return PixelScanningArea(
+        return PixelArea(
             origin=self.origin.to_pixels(resolution),
             width=int(round(self.width * resolution.width)),
             height=int(round(self.height * resolution.height)),
         )
 
-    def to_nanometers(
-        self, resolution: Resolution, pixel_size_nm: float
-    ) -> "NMScanningArea":
+    def to_nanometers(self, resolution: Resolution, pixel_size_nm: float) -> "NMArea":
         """
-        Convert the relative scanning area to nanometers.
+        Convert the relative area to nanometers.
 
         Args:
             resolution (Resolution): Resolution of the image in pixels.
             pixel_size_nm (float): The size of a pixel in nanometers.
 
         Returns:
-            NMScanningArea: A new instance of NMScanningArea with coordinates
+            NMArea: A new instance of NMArea with coordinates
                 and dimensions converted to nanometers.
         """
         return self.to_pixels(resolution).to_nanometers(pixel_size_nm)
 
-    def to_meters(self, resolution: Resolution, pixel_size_m: float) -> "MScanningArea":
+    def to_meters(self, resolution: Resolution, pixel_size_m: float) -> "MArea":
         """
-        Convert the relative scanning area to meters.
+        Convert the relative area to meters.
 
         Args:
             resolution (Resolution): Resolution of the image in pixels.
             pixel_size_m (float): The size of a pixel in meters.
 
         Returns:
-            MScanningArea: A new instance of MScanningArea with coordinates
+            MArea: A new instance of MArea with coordinates
                 and dimensions converted to meters.
         """
         return self.to_pixels(resolution).to_meters(pixel_size_m)
 
     def is_full_frame(self) -> bool:
         """
-        Returns True if the scanning area captures the entire field of view.
+        Returns True if the area captures the entire field of view.
         """
         return (
             self.origin.x == 0.0
@@ -117,11 +115,10 @@ class RelativeScanningArea(_ScanningArea[RelativePoint, float]):
     @classmethod
     def full(cls) -> Self:
         """
-        Get scanning area that captures the entire field of view.
+        Get area that captures the entire field of view.
 
         Returns:
-            RelativeScanningArea: An instance of relative scanning area that captures
-                the entire field of view.
+            RelativeArea: An instance of relative area that captures the entire field of view.
         """
         return cls(origin=RelativePoint(x=0.0, y=0.0), width=1.0, height=1.0)
 
@@ -140,10 +137,10 @@ class RelativeScanningArea(_ScanningArea[RelativePoint, float]):
     @classmethod
     def from_autoscript(cls, rectangle: RectangleAs) -> Self:
         """
-        Convert Autoscript's rectangle to relative scanning area.
+        Convert Autoscript's rectangle to relative area.
 
         Returns:
-            RelativeScanningArea: A new instance of relative scanning area with the same
+            RelativeArea: A new instance of relative area with the same
                 coordinates and dimenions as the rectangle.
         """
 
@@ -154,31 +151,31 @@ class RelativeScanningArea(_ScanningArea[RelativePoint, float]):
         )
 
 
-class PixelScanningArea(_ScanningArea[PixelPoint, int]):
-    """Represents a scanning area using absolute pixel coordinates."""
+class PixelArea(_Area[PixelPoint, int]):
+    """Represents an area using absolute pixel coordinates."""
 
     def __init__(self, origin: PixelPoint, width: int, height: int):
         # pydantic BaseModel requires keyword arguments
         super().__init__(origin=origin, width=width, height=height)
 
-    def to_relative(self, resolution: Resolution) -> "RelativeScanningArea":
+    def to_relative(self, resolution: Resolution) -> "RelativeArea":
         """
-        Convert the pixel-based scanning area to relative coordinates.
+        Convert the pixel-based area to relative coordinates.
 
         Args:
             resolution (Resolution): Resolution of the image in pixels.
 
         Returns:
-            RelativeScanningArea: A new instance of RelativeScanningArea with coordinates
+            RelativeArea: A new instance of RelativeArea with coordinates
                 and dimensions converted to relative values (0-1).
         """
-        return RelativeScanningArea(
+        return RelativeArea(
             origin=self.origin.to_relative(resolution),
             width=self.width / resolution.width,
             height=self.height / resolution.height,
         )
 
-    def to_nanometers(self, pixel_size_nm: float) -> "NMScanningArea":
+    def to_nanometers(self, pixel_size_nm: float) -> "NMArea":
         """
         Convert the pixel-based scanning area to nanometers.
 
@@ -186,35 +183,35 @@ class PixelScanningArea(_ScanningArea[PixelPoint, int]):
             pixel_size_nm (float): The size of a pixel in nanometers.
 
         Returns:
-            NMScanningArea: A new instance of NMScanningArea with coordinates
+            NMArea: A new instance of NMArea with coordinates
                 and dimensions converted to nanometers.
         """
-        return NMScanningArea(
+        return NMArea(
             origin=self.origin.to_nanometers(pixel_size_nm),
             width=self.width * pixel_size_nm,
             height=self.height * pixel_size_nm,
         )
 
-    def to_meters(self, pixel_size_m: float) -> "MScanningArea":
+    def to_meters(self, pixel_size_m: float) -> "MArea":
         """
-        Convert the pixel-based scanning area to meters.
+        Convert the pixel-based area to meters.
 
         Args:
             pixel_size_m (float): The size of a pixel in meters.
 
         Returns:
-            MScanningArea: A new instance of MScanningArea with coordinates
+            MArea: A new instance of MArea with coordinates
                 and dimensions converted to meters.
         """
-        return MScanningArea(
+        return MArea(
             origin=self.origin.to_meters(pixel_size_m),
             width=self.width * pixel_size_m,
             height=self.height * pixel_size_m,
         )
 
 
-class NMScanningArea(_ScanningArea[NMPoint, float]):
-    """Represents a scanning area in nanometers."""
+class NMArea(_Area[NMPoint, float]):
+    """Represents an area in nanometers."""
 
     def __init__(self, origin: NMPoint, width: float, height: float):
         # pydantic BaseModel requires keyword arguments
@@ -222,21 +219,21 @@ class NMScanningArea(_ScanningArea[NMPoint, float]):
 
     def to_relative(
         self, resolution: Resolution, pixel_size_nm: float
-    ) -> "RelativeScanningArea":
+    ) -> "RelativeArea":
         """
-        Convert the nanometer-based scanning area to relative coordinates.
+        Convert the nanometer-based area to relative coordinates.
 
         Args:
             resolution (Resolution): Resolution of the image in pixels.
             pixel_size_nm (float): The size of a pixel in nanometers.
 
         Returns:
-            RelativeScanningArea: A new instance of RelativeScanningArea with coordinates
+            RelativeArea: A new instance of RelativeArea with coordinates
                 and dimensions converted to relative values (0-1).
         """
         return self.to_pixels(pixel_size_nm).to_relative(resolution)
 
-    def to_pixels(self, pixel_size_nm: float) -> "PixelScanningArea":
+    def to_pixels(self, pixel_size_nm: float) -> "PixelArea":
         """
         Convert the nanometer-based scanning area to pixel coordinates.
 
@@ -244,32 +241,32 @@ class NMScanningArea(_ScanningArea[NMPoint, float]):
             pixel_size_nm (float): The size of a pixel in nanometers.
 
         Returns:
-            PixelScanningArea: A new instance of PixelScanningArea with coordinates
+            PixelArea: A new instance of PixelArea with coordinates
                 and dimensions converted to absolute pixel values.
         """
-        return PixelScanningArea(
+        return PixelArea(
             origin=self.origin.to_pixels(pixel_size_nm),
             width=int(round(self.width / pixel_size_nm)),
             height=int(round(self.height / pixel_size_nm)),
         )
 
-    def to_meters(self) -> "MScanningArea":
+    def to_meters(self) -> "MArea":
         """
-        Convert the nanometer-based scanning area to meters.
+        Convert the nanometer-based area to meters.
 
         Returns:
-            MScanningArea: A new instance of MScanningArea with coordinates
+            MArea: A new instance of MArea with coordinates
                 and dimensions converted to meters.
         """
-        return MScanningArea(
+        return MArea(
             origin=self.origin.to_meters(),
             width=self.width * 1e-9,
             height=self.height * 1e-9,
         )
 
 
-class MScanningArea(_ScanningArea[MPoint, float]):
-    """Represents a scanning area in meters."""
+class MArea(_Area[MPoint, float]):
+    """Represents an area in meters."""
 
     def __init__(self, origin: MPoint, width: float, height: float):
         # pydantic BaseModel requires keyword arguments
@@ -277,46 +274,46 @@ class MScanningArea(_ScanningArea[MPoint, float]):
 
     def to_relative(
         self, resolution: Resolution, pixel_size_m: float
-    ) -> "RelativeScanningArea":
+    ) -> "RelativeArea":
         """
-        Convert the meter-based scanning area to relative coordinates.
+        Convert the meter-based area to relative coordinates.
 
         Args:
             resolution (Resolution): Resolution of the image in pixels.
             pixel_size_m (float): The size of a pixel in meters.
 
         Returns:
-            RelativeScanningArea: A new instance of RelativeScanningArea with coordinates
+            RelativeArea: A new instance of RelativeArea with coordinates
                 and dimensions converted to relative values (0-1).
         """
         return self.to_pixels(pixel_size_m).to_relative(resolution)
 
-    def to_pixels(self, pixel_size_m: float) -> "PixelScanningArea":
+    def to_pixels(self, pixel_size_m: float) -> "PixelArea":
         """
-        Convert the meter-based scanning area to pixel coordinates.
+        Convert the meter-based area to pixel coordinates.
 
         Args:
             pixel_size_m (float): The size of a pixel in meters.
 
         Returns:
-            PixelScanningArea: A new instance of PixelScanningArea with coordinates
+            PixelArea: A new instance of PixelArea with coordinates
                 and dimensions converted to absolute pixel values.
         """
-        return PixelScanningArea(
+        return PixelArea(
             origin=self.origin.to_pixels(pixel_size_m),
             width=int(round(self.width / pixel_size_m)),
             height=int(round(self.height / pixel_size_m)),
         )
 
-    def to_nanometers(self) -> "NMScanningArea":
+    def to_nanometers(self) -> "NMArea":
         """
-        Convert the meter-based scanning area to nanometers.
+        Convert the meter-based area to nanometers.
 
         Returns:
-            NMScanningArea: A new instance of NMScanningArea with coordinates
+            NMArea: A new instance of NMArea with coordinates
                 and dimensions converted to nanometers.
         """
-        return NMScanningArea(
+        return NMArea(
             origin=self.origin.to_nanometers(),
             width=self.width * 1e9,
             height=self.height * 1e9,

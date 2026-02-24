@@ -8,10 +8,10 @@ import numpy as np
 from scipy import ndimage  # type: ignore
 from tifffile import TiffFile
 
+from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.format import ImageFormat
 from fibsem_maestro.core.image import Image, Image8Bit
-from fibsem_maestro.core.scanning_area import RelativeScanningArea
 from fibsem_maestro.drift_correction.error import DriftCorrectionError
 from fibsem_maestro.drift_correction.template_match_result import TemplateMatchResult
 from fibsem_maestro.imaging.imaging import Imaging
@@ -131,7 +131,7 @@ class TemplateMatchingDriftCorrection:
         props.to_file(properties_file)
 
     def _calculate_shift(
-        self, image: Image8Bit, area: RelativeScanningArea, index: int
+        self, image: Image8Bit, area: RelativeArea, index: int
     ) -> tuple[float, float] | None:
         # load the template from file
         template = self._load_template(index)
@@ -167,7 +167,7 @@ class TemplateMatchingDriftCorrection:
 
         return (dx_nm, dy_nm)
 
-    def _select_area(self, image: Image8Bit, area: RelativeScanningArea):
+    def _select_area(self, image: Image8Bit, area: RelativeArea):
         pixel_size = image.pixel_size
         pixel_area = area.to_pixels(image.resolution)
         correction_margin_px = int(self._settings.correction_margin / pixel_size)

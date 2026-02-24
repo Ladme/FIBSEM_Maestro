@@ -6,9 +6,10 @@ import argparse
 import logging
 from pathlib import Path
 
+from fibsem_maestro.core.scanning_area import RelativeScanningArea
+
 from fibsem_maestro.core.point import RelativePoint
 from fibsem_maestro.core.resolution import Resolution
-from fibsem_maestro.core.scanning_area import RelativeScanningArea
 from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.imaging.imaging import Imaging
 from fibsem_maestro.logging.context import LogContext, SliceContext

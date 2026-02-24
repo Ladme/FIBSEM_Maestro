@@ -5,10 +5,10 @@ from typing import Annotated
 
 from pydantic import Field
 
+from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.lens_alignment import LensAlignment
 from fibsem_maestro.core.resolution import Resolution
-from fibsem_maestro.core.scanning_area import RelativeScanningArea
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
 from fibsem_maestro.settings.base_settings import BaseSettings
@@ -82,7 +82,7 @@ class BeamProperties(BaseSettings):
         ),
     ]
     scanning_area: Annotated[
-        RelativeScanningArea | None,
+        RelativeArea | None,
         Field(default=None, description="Area to be scanned."),
     ]
     working_distance: Annotated[

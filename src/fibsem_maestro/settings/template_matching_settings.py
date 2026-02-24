@@ -6,8 +6,8 @@ from typing import Annotated
 
 from pydantic import Field
 
+from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.beam_type import BeamType
-from fibsem_maestro.core.scanning_area import RelativeScanningArea
 from fibsem_maestro.settings.base_settings import BaseSettings
 from fibsem_maestro.settings.property_names import PropertyNames
 
@@ -43,7 +43,7 @@ class TemplateMatchingSettings(BaseSettings):
         ),
     ]
     areas: Annotated[
-        list[RelativeScanningArea],
+        list[RelativeArea],
         Field(
             min_length=1,
             description="Areas of the image used for template matching defined in relative units.",

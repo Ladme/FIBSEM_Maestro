@@ -7,11 +7,12 @@ from typing import Any
 
 import numpy as np
 
+from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.beam_shift import BeamShift
+from fibsem_maestro.core.format import ImageFormat
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
 from fibsem_maestro.core.resolution import Resolution
-from fibsem_maestro.core.scanning_area import RelativeScanningArea
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
 from fibsem_maestro.logging.text.text_logger import TextLogger
@@ -45,7 +46,7 @@ class MockBeamControl(BeamControl):
         self._vertical_field_width: float = 0.0
         self._pixel_size: float = 0.0
 
-        self._scanning_area = RelativeScanningArea.full()
+        self._scanning_area = RelativeArea.full()
 
         self._beam_shift_to_stage_move: tuple[float, float] = (1.0, 1.0)
         self._image_to_beam_shift: tuple[float, float] = (1.0, 1.0)
@@ -176,11 +177,11 @@ class MockBeamControl(BeamControl):
         self._pixel_size = value
 
     @property
-    def scanning_area(self) -> RelativeScanningArea:
+    def scanning_area(self) -> RelativeArea:
         return self._scanning_area
 
     @scanning_area.setter
-    def scanning_area(self, value: RelativeScanningArea) -> None:
+    def scanning_area(self, value: RelativeArea) -> None:
         self._scanning_area = value
 
     def blank(self) -> None:
@@ -202,7 +203,7 @@ class MockBeamControl(BeamControl):
         self._current_image = image
 
         if file_name is not None:
-            image.save(file_name)
+            image.save(file_name, format=ImageFormat.PNG)
 
         return image
 

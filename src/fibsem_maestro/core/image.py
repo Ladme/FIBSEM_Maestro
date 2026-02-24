@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from numpy.typing import NDArray
     from tifffile import TiffFile
 
-    from fibsem_maestro.core.scanning_area import RelativeScanningArea
+    from fibsem_maestro.core.area import RelativeArea
 
 TDType = TypeVar("TDType", bound=np.generic)
 
@@ -84,16 +84,16 @@ class _ImageBase(np.ndarray[Any, np.dtype[TDType]], Generic[TDType]):
 
         return cls(tiff_file.asarray(), pixel_size)
 
-    def crop(self, relative_area: RelativeScanningArea) -> Self:
+    def crop(self, relative_area: RelativeArea) -> Self:
         """
-        Crops the image to the specified relative scanning area.
+        Crops the image to the specified relative area.
 
-        Converts the given relative scanning area to pixel coordinates and returns
+        Converts the given relative area to pixel coordinates and returns
         the corresponding subregion of the image. The cropped image retains the
         same pixel size as the original image.
 
         Args:
-            relative_area (RelativeScanningArea): The relative scanning area specifying the region to crop.
+            relative_area (RelativeArea): The relative area specifying the region to crop.
                 This area is defined in relative coordinates (0 to 1).
 
         Returns:

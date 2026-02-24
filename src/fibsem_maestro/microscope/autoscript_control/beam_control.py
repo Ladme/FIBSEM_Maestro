@@ -15,12 +15,12 @@ from autoscript_sdb_microscope_client.sdb_microscope.beams._ion_beam import (
 from autoscript_sdb_microscope_client.sdb_microscope_client import SdbMicroscopeClient
 from autoscript_sdb_microscope_client.structures import AdornedImage, GrabFrameSettings
 
+from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
 from fibsem_maestro.core.resolution import Resolution
-from fibsem_maestro.core.scanning_area import RelativeScanningArea
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
 from fibsem_maestro.logging.text.text_logger import TextLogger
@@ -356,15 +356,13 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         self._beam.scanning.rotation.value = value
 
     @property
-    def scanning_area(self) -> RelativeScanningArea:
-        area = RelativeScanningArea.from_autoscript(
-            self._beam.scanning.mode.reduced_area.value
-        )
+    def scanning_area(self) -> RelativeArea:
+        area = RelativeArea.from_autoscript(self._beam.scanning.mode.reduced_area.value)
         self._txt_log.debug(f"Getting scanning area ({self._modality}): {area}.")
         return area
 
     @scanning_area.setter
-    def scanning_area(self, value: RelativeScanningArea) -> None:
+    def scanning_area(self, value: RelativeArea) -> None:
         # copy dwell and resolution to reduced area scanning mode
         backup_dwell = self.dwell_time
         backup_res = self.resolution

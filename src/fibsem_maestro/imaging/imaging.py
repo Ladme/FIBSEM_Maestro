@@ -3,9 +3,9 @@
 
 from pathlib import Path
 
+from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
-from fibsem_maestro.core.scanning_area import RelativeScanningArea
 from fibsem_maestro.imaging.error import ImagingError
 from fibsem_maestro.logging.context import LogContext
 from fibsem_maestro.logging.text.text_logger import TextLogger
@@ -157,7 +157,7 @@ class Imaging:
                     # set the FOV to the scanning area
                     self._microscope.beam.horizontal_field_width = area_nm.width
                     self._microscope.beam.vertical_field_width = area_nm.height
-                    self._microscope.beam.scanning_area = RelativeScanningArea.full()
+                    self._microscope.beam.scanning_area = RelativeArea.full()
 
                 # set resolution based on the pixel size
                 # this is done even if scanning area is not specified

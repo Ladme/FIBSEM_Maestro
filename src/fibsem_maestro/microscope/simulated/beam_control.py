@@ -8,12 +8,12 @@ from typing import Any
 
 import numpy as np
 
+from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.format import ImageFormat
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
 from fibsem_maestro.core.resolution import Resolution
-from fibsem_maestro.core.scanning_area import RelativeScanningArea
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.core.stigmator import Stigmator
@@ -59,7 +59,7 @@ class SimulatedBeamControl(BeamControl):
         self._bit_depth = 8
         self._resolution = Resolution(1024, 768)
         self._horizontal_field_width = 20_000.0
-        self._scanning_area: RelativeScanningArea = RelativeScanningArea.full()
+        self._scanning_area = RelativeArea.full()
 
         self._beam_shift_to_stage_move = (1.0, 1.0)
         self._image_to_beam_shift = (1.0, 1.0)
@@ -389,13 +389,13 @@ class SimulatedBeamControl(BeamControl):
         )
 
     @property
-    def scanning_area(self) -> RelativeScanningArea:
+    def scanning_area(self) -> RelativeArea:
         value = self._scanning_area
         self._txt_log.debug(f"Getting scanning area: {value}.")
         return value
 
     @scanning_area.setter
-    def scanning_area(self, value: RelativeScanningArea) -> None:
+    def scanning_area(self, value: RelativeArea) -> None:
         self._txt_log.debug(f"Setting scanning area: {value}.")
         self._scanning_area = value
 
