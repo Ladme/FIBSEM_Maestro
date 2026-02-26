@@ -16,16 +16,15 @@ class TemplateMatchingSettings(BaseSettings):
     properties_file: Annotated[
         Path,
         Field(
-            description="Path to a file storing properties of the microscope used for drift correction imaging."
+            default=Path("template_matching_props.yaml"),
+            description="Path to a file storing properties of the microscope used for drift correction imaging.",
         ),
     ]
     templates_directory: Annotated[
         Path,
         Field(
-            default=Path(
-                "template_matching",
-                description="Path to a directory where templates will be saved.",
-            )
+            default=Path("template_matching"),
+            description="Path to a directory where templates will be saved.",
         ),
     ]
     properties_to_collect: Annotated[
@@ -45,14 +44,15 @@ class TemplateMatchingSettings(BaseSettings):
     areas: Annotated[
         list[RelativeArea],
         Field(
-            min_length=1,
+            default_factory=list,
             description="Areas of the image used for template matching defined in relative units.",
         ),
     ]
     min_confidence: Annotated[
         float,
         Field(
-            description="Minimal cross-correlation value required for a template match to be accepted as a valid drift measurement."
+            default=0.8,
+            description="Minimal cross-correlation value required for a template match to be accepted as a valid drift measurement.",
         ),
     ]
     rescan: Annotated[
@@ -62,14 +62,15 @@ class TemplateMatchingSettings(BaseSettings):
     blur: Annotated[
         int,
         Field(
-            default=0,
+            default=3,
             description="Standard deviation (in pixels) of a Gaussian filter applied to the image before template matching.",
         ),
     ]
     correction_margin: Annotated[
         float,
         Field(
-            description="The maximum expected drift in nanometers defining how far the template is allowed to search for a match."
+            default=20000,
+            description="The maximum expected drift in nanometers defining how far the template is allowed to search for a match.",
         ),
     ]
     stop_acquisition_at_failure: Annotated[

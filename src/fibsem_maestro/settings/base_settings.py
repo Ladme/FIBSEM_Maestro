@@ -56,7 +56,7 @@ class BaseSettings(ReactiveModel):
         """
         SerializerCls.write(
             file,
-            self.model_dump(exclude_none=True),
+            self.model_dump(mode="json", exclude_none=True),
         )
 
     def reload(

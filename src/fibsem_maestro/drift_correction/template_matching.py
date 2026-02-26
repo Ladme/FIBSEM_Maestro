@@ -9,6 +9,7 @@ import numpy as np
 from scipy import ndimage  # type: ignore
 from tifffile import TiffFile
 
+from fibsem_maestro.core.action import Action
 from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.format import ImageFormat
@@ -24,7 +25,7 @@ from fibsem_maestro.settings.global_properties import GlobalProperties
 from fibsem_maestro.settings.template_matching_settings import TemplateMatchingSettings
 
 
-class TemplateMatchingDriftCorrection:
+class TemplateMatchingDriftCorrection(Action):
     def __init__(
         self,
         microscope: Microscope,

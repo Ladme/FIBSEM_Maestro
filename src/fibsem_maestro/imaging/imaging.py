@@ -3,6 +3,7 @@
 
 from pathlib import Path
 
+from fibsem_maestro.core.action import Action
 from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
@@ -18,7 +19,7 @@ from fibsem_maestro.settings.imaging_settings import (
 )
 
 
-class Imaging:
+class Imaging(Action):
     """
     Handles image acquisition for the electron microscope.
     """

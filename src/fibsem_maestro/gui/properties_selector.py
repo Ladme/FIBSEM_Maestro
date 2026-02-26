@@ -14,8 +14,8 @@ class PropertiesSelector:
     def __init__(self, microscope: Microscope):
         property_names = microscope.get_property_names()
 
-        with ui.card().classes("w-full"):
-            ui.label("Properties to save").classes("text-lg font-bold")
+        with ui.column().classes("w-full"):
+            ui.label("Properties to save").classes("font-bold")
 
             with ui.column().classes("w-full gap-4"):
                 self.microscope = (

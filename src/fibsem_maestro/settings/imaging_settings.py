@@ -18,7 +18,7 @@ class StandardResolution(BaseSettings):
 class ExtendedResolution(BaseSettings):
     type: Literal["extended"] = "extended"
     pixel_size: Annotated[
-        float, Field(description="Requested size of each pixel in nm.")
+        float, Field(default=20, description="Requested size of each pixel in nm.")
     ]
 
 
@@ -31,6 +31,7 @@ class ImagingSettings(BaseSettings):
     properties_file: Annotated[
         Path,
         Field(
+            default=Path("imaging_props.yaml"),
             description="Path to a file storing properties of the microscope used for imaging.",
         ),
     ]
