@@ -176,8 +176,8 @@ class _ImageBase(np.ndarray[Any, np.dtype[TDType]], Generic[TDType]):
         return Resolution(shape[1], shape[0])
 
 
-class Image(_ImageBase[np.floating[Any]]):
-    def __new__(cls, image: NDArray[np.floating[Any]], pixel_size: float) -> Self:
+class Image(_ImageBase[np.integer[Any]]):
+    def __new__(cls, image: NDArray[np.integer[Any]], pixel_size: float) -> Self:
         return super().__new__(cls, image, pixel_size)
 
     def to_8bit(self) -> Image8Bit:

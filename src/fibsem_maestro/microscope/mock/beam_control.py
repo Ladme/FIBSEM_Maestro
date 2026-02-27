@@ -57,7 +57,6 @@ class MockBeamControl(BeamControl):
         }
 
         self._minimal_dwell: float = 0.0
-        self._acquired_image_extension: str = "tif"
 
         self._current_image: Image | None = None
 
@@ -197,7 +196,7 @@ class MockBeamControl(BeamControl):
         self._acquiring = False
 
     def grab_frame(self, file_name: Path | None = None) -> Image:
-        data = np.zeros((8, 8), dtype=np.float32)
+        data = np.zeros((8, 8), dtype=np.uint16)
         image = Image(data, pixel_size=self.pixel_size or 1.0)
 
         self._current_image = image
@@ -238,10 +237,6 @@ class MockBeamControl(BeamControl):
     @property
     def minimal_dwell(self) -> float:
         return self._minimal_dwell
-
-    @property
-    def acquired_image_extension(self) -> str:
-        return self._acquired_image_extension
 
     def limits(self, var: str) -> tuple[float, float]:
         mock_limits: dict[str, tuple[float, float]] = {

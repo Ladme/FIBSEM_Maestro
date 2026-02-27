@@ -181,7 +181,7 @@ class Imaging(Action):
         """
         return (
             self._settings.images_directory
-            / f"slice_{self._log_ctx.slice_ctx.current_slice}.{self._microscope.beam.acquired_image_extension}"
+            / f"slice_{self._log_ctx.slice_ctx.current_slice}.tif"
         )
 
     def _construct_props_path(self, slice: int | None = None) -> Path:

@@ -548,17 +548,6 @@ class BeamControl(ABC):
         """
         pass
 
-    @property
-    @abstractmethod
-    def acquired_image_extension(self) -> str:
-        """
-        File extension used for images acquired by the microscope.
-
-        Returns:
-            str: File extension to use for saved acquired images.
-        """
-        pass
-
     @abstractmethod
     def limits(self, var: str) -> tuple[float, float]:
         """

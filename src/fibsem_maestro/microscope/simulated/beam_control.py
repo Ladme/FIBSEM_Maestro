@@ -275,18 +275,24 @@ class SimulatedBeamControl(BeamControl):
             image, self.detector_brightness, self.detector_contrast
         )
 
-        image = Image(image, pixel_size=self.pixel_size)
-        self._current_image = image
+        # convert image based on bit depth
+        max_adc = (1 << self.bit_depth) - 1
+        image = Image(
+            np.round(image * max_adc).astype(
+                np.uint8 if self.bit_depth == 8 else np.uint16
+            ),
+            self.pixel_size,
+        )
 
         if not self.scanning_area.is_full_frame():
             image = image.crop(self.scanning_area)
 
-        if file_name is not None:
-            image.save(file_name, ImageFormat.PNG)
+        self._current_image = image
 
-        # convert image based on bit depth
-        max_adc = (1 << self.bit_depth) - 1
-        return Image(np.round(image * max_adc).astype(int), image.pixel_size)
+        if file_name is not None:
+            image.save(file_name, ImageFormat.TIF)
+
+        return image
 
     def get_image(self, crop_to_scanning_area: bool = False) -> Image:
         self._txt_log.debug("Getting an image.")
