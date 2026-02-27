@@ -3,6 +3,7 @@
 
 from pathlib import Path
 from typing import Any
+
 from nicegui import ui
 
 from fibsem_maestro.core.beam_type import BeamType

@@ -3,13 +3,13 @@
 
 
 import tempfile
-import numpy as np
-from fibsem_maestro.core.area import RelativeArea
-from fibsem_maestro.core.image import Image
 
+import numpy as np
 from nicegui import events, ui
 from PIL import Image as PILImage
 
+from fibsem_maestro.core.area import RelativeArea
+from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.point import RelativePoint
 
 
