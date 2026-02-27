@@ -68,7 +68,7 @@ class _ImageBase(np.ndarray[Any, np.dtype[TDType]], Generic[TDType]):
                 "Could not convert autoscript image. Pixel size not available."
             )
 
-        return cls(np.asarray(as_image.data), pixel_size.x * 1e-9)
+        return cls(np.asarray(as_image.data), pixel_size.x * 1e9)
 
     @classmethod
     def from_tiff(cls, tiff_file: TiffFile) -> Self:
