@@ -202,7 +202,7 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
             if file_name is not None:
                 grabbed_image.save(str(file_name))
         # the `grab_frame` method can fail if the image is too large
-        # if that happens, we grab the image to disk and the load it to memory
+        # if that happens, we grab the image to disk and then load it to memory
         except Exception as e:
             self._txt_log.warning(f"Grab frame error: {e}. Grabbing image to disk.")
 

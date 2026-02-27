@@ -6,10 +6,6 @@ import argparse
 import logging
 from pathlib import Path
 
-from fibsem_maestro.core.area import RelativeArea
-from fibsem_maestro.core.point import RelativePoint
-from fibsem_maestro.core.resolution import Resolution
-from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.imaging.imaging import Imaging
 from fibsem_maestro.logging.context import LogContext, SliceContext
 from fibsem_maestro.logging.image.slice_aware import SliceAwareImageLogger
@@ -76,22 +72,22 @@ def main():
     )
 
     # set microscope properties manually
-    # input("Set microscope properties interactively and then press ENTER.")
+    input("Set microscope properties interactively and then press ENTER.")
 
-    microscope._control.try_set_stage_position(
-        StagePosition(x=10_000.0, y=10_000.0, z=5_000_000.0, rotation=0, tilt=0)
-    )
-    microscope.beam.resolution = Resolution(1000, 1000)
-    microscope.beam.horizontal_field_width = 2000
-    microscope.beam.scanning_area = RelativeArea(
-        RelativePoint(x=0.25, y=0.5), 0.5, 0.25
-    )
+    # microscope._control.try_set_stage_position(
+    #    StagePosition(x=10_000.0, y=10_000.0, z=5_000_000.0, rotation=0, tilt=0)
+    # )
+    # microscope.beam.resolution = Resolution(1000, 1000)
+    # microscope.beam.horizontal_field_width = 2000
+    # microscope.beam.scanning_area = RelativeArea(
+    #    RelativePoint(x=0.25, y=0.5), 0.5, 0.25
+    # )
 
     # save microscope properties
     imaging.save_properties()
 
     # optionally change microscope properties to test that the previously saved properties are reloaded before imaging
-    # input("Microscope properties saved. Press ENTER.")
+    input("Microscope properties saved. Press ENTER.")
 
     # run imaging
     for _ in range(args.slices):
