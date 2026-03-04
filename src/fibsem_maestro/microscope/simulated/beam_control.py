@@ -61,8 +61,8 @@ class SimulatedBeamControl(BeamControl):
         self._horizontal_field_width = 20_000.0
         self._scanning_area = RelativeArea.full()
 
-        self._beam_shift_to_stage_move = (1.0, 1.0)
-        self._image_to_beam_shift = (1.0, 1.0)
+        self._beam_shift_to_stage_move = (-1.0, -1.0)
+        self._image_to_beam_shift = (-1.0, 1.0)
 
         self._manufacturer_properties: dict[str, Any] = {
             "beam.custom_parameter": 1.0,
@@ -204,20 +204,13 @@ class SimulatedBeamControl(BeamControl):
         width, height = self.resolution.to_tuple()
         pos = self._stage_position
 
-        # beam shift is in image coordinates - convert to stage coordinates
-        # using the same matrix that Microscope._beam_shift_to_stage_move uses
+        # stretch the beam shift
         theta = np.radians(pos.tilt)
-        phi = np.radians(pos.rotation)
         cos_theta = np.cos(theta)
-        cos_phi, sin_phi = np.cos(phi), np.sin(phi)
-        r_phi = np.array([[cos_phi, -sin_phi], [sin_phi, cos_phi]])
-        r_minus_phi = np.array([[cos_phi, sin_phi], [-sin_phi, cos_phi]])
         stretch = 1.0 / cos_theta if cos_theta > 1e-4 else 1.0
-        M = r_phi @ np.array([[1.0, 0.0], [0.0, stretch]]) @ r_minus_phi
-        bs_stage = M @ np.array([self.beam_shift.x, self.beam_shift.y])
 
-        cx = pos.x + bs_stage[0]
-        cy = pos.y + bs_stage[1]
+        cx = -pos.x - self.beam_shift.x  # beam shift in x is flipped
+        cy = -pos.y + self.beam_shift.y * stretch
 
         X, Y = SimulatedSample.world_grid(
             cx,
@@ -228,8 +221,9 @@ class SimulatedBeamControl(BeamControl):
             self.vertical_field_width,
         )
 
+        # rotate around the center
         if pos.rotation != 0.0:
-            X, Y = SimulatedSample.rotate_grid(X, Y, cx, cy, pos.rotation)
+            X, Y = SimulatedSample.rotate_grid(X, Y, 0, 0, pos.rotation)
 
         # handle tilt
         tilt_rad = math.radians(pos.tilt)

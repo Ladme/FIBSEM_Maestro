@@ -35,13 +35,7 @@ class SimulatedSample:
         Sample the surface at world coordinates (nm).
         Coordinates outside the sample are clipped.
         """
-
-        px = (X / self.pixel_size).astype(np.int64)
-        py = (Y / self.pixel_size).astype(np.int64)
-
-        px = np.clip(px, 0, self.data.shape[1] - 1)
-        py = np.clip(py, 0, self.data.shape[0] - 1)
-
+        px, py = self._world_to_array_indices(X, Y)
         return self.data[py, px]
 
     def surface_z(
@@ -50,12 +44,7 @@ class SimulatedSample:
         Y: NDArray[np.floating],
     ) -> NDArray[np.floating]:
         """Return the surface height Z (nm) in the stage frame at world XY (nm)."""
-        px = np.clip(
-            (X / self.pixel_size).astype(np.int64), 0, self.height_data.shape[1] - 1
-        )
-        py = np.clip(
-            (Y / self.pixel_size).astype(np.int64), 0, self.height_data.shape[0] - 1
-        )
+        px, py = self._world_to_array_indices(X, Y)
         return self.height_data[py, px]
 
     def surface_shading(
@@ -67,12 +56,7 @@ class SimulatedSample:
         Lambertian shading from surface normals, illuminated along -Y (top of image).
         Returns a [0, 1] multiplier to modulate the texture.
         """
-        px = np.clip(
-            (X / self.pixel_size).astype(np.int64), 0, self.height_data.shape[1] - 1
-        )
-        py = np.clip(
-            (Y / self.pixel_size).astype(np.int64), 0, self.height_data.shape[0] - 1
-        )
+        px, py = self._world_to_array_indices(X, Y)
 
         dzdx = np.gradient(self.height_data, axis=1)[py, px] / self.pixel_size
         dzdy = np.gradient(self.height_data, axis=0)[py, px] / self.pixel_size
@@ -269,3 +253,20 @@ class SimulatedSample:
         noise /= noise.max()
 
         return noise
+
+    def _world_to_array_indices(
+        self,
+        X: NDArray[np.floating],
+        Y: NDArray[np.floating],
+    ) -> tuple[NDArray[np.integer[Any]], NDArray[np.integer[Any]]]:
+        """Convert world coordinates (nm) to sample array indices, treating sample as centered at origin."""
+        half_width = self.data.shape[1] * self.pixel_size / 2.0
+        half_height = self.data.shape[0] * self.pixel_size / 2.0
+
+        px = ((X + half_width) / self.pixel_size).astype(np.int64)
+        py = ((Y + half_height) / self.pixel_size).astype(np.int64)
+
+        px = np.clip(px, 0, self.data.shape[1] - 1)
+        py = np.clip(py, 0, self.data.shape[0] - 1)
+
+        return px, py

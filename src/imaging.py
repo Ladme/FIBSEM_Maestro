@@ -75,7 +75,7 @@ def main():
     input("Set microscope properties interactively and then press ENTER.")
 
     # microscope._control.try_set_stage_position(
-    #    StagePosition(x=10_000.0, y=10_000.0, z=5_000_000.0, rotation=0, tilt=0)
+    #    StagePosition(x=0.0, y=0.0, z=5_000_000.0, rotation=0, tilt=0)
     # )
     # microscope.beam.resolution = Resolution(1000, 1000)
     # microscope.beam.horizontal_field_width = 2000

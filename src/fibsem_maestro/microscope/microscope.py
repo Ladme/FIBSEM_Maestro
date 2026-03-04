@@ -165,9 +165,6 @@ class Microscope:
         )
         theta = np.radians(effective_tilt)
 
-        # get the rotation angle
-        phi = np.radians(self._control.stage_position.rotation)
-
         if (cos_theta := np.cos(theta)) < 1e-4:
             raise MicroscopeError(
                 f"Effective tilt ({effective_tilt:.3f}°) is too close to 90°. Conversion unstable."
@@ -175,27 +172,13 @@ class Microscope:
 
         stretch = 1.0 / cos_theta
 
-        # construct rotation matrices
-        cos_phi = np.cos(phi)
-        sin_phi = np.sin(phi)
-
-        r_phi = np.array(
-            [[cos_phi, -sin_phi], [sin_phi, cos_phi]],
-            dtype=float,
-        )
-
-        r_minus_phi = np.array(
-            [[cos_phi, sin_phi], [-sin_phi, cos_phi]],
-            dtype=float,
-        )
-
         # construct matrix for stretching along the tilt direction
         stretch_matrix = np.array(
             [[1.0, 0.0], [0.0, stretch]],
             dtype=float,
         )
 
-        conversion_matrix = r_phi @ stretch_matrix @ r_minus_phi
+        conversion_matrix = -stretch_matrix
         self._txt_log.debug(
             f"Beam shift to stage move conversion matrix: {list(conversion_matrix)}"
         )
