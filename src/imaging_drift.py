@@ -5,7 +5,10 @@
 import argparse
 import logging
 from pathlib import Path
+import random
 
+from fibsem_maestro.core.resolution import Resolution
+from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.drift_correction.template_matching import (
     TemplateMatchingDriftCorrection,
 )
@@ -14,6 +17,9 @@ from fibsem_maestro.logging.context import LogContext, SliceContext
 from fibsem_maestro.logging.image.slice_aware import SliceAwareImageLogger
 from fibsem_maestro.logging.text.slice_aware import SliceAwareTextLogger
 from fibsem_maestro.microscope.microscope import Microscope
+from fibsem_maestro.microscope.simulated.microscope_control import (
+    SimulatedMicroscopeControl,
+)
 from fibsem_maestro.settings.imaging_settings import ImagingSettings
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
 from fibsem_maestro.settings.template_matching_settings import TemplateMatchingSettings
@@ -98,14 +104,13 @@ def main():
     )
 
     # set microscope properties manually
-    input("Set microscope properties interactively and then press ENTER.")
+    # input("Set microscope properties interactively and then press ENTER.")
 
-    # microscope._control.try_set_stage_position(
-    #    StagePosition(x=10_000.0, y=10_000.0, z=5_000_000.0, rotation=0, tilt=0)
-    # )
-    # microscope.beam.resolution = Resolution(1024, 768)
-    # microscope.beam.horizontal_field_width = 2000
-    # microscope.beam.line_integration = 12
+    microscope._control.try_set_stage_position(
+        StagePosition(x=0.0, y=0.0, z=5_000_000.0, rotation=0, tilt=0)
+    )
+    microscope.beam.resolution = Resolution(1024, 768)
+    microscope.beam.horizontal_field_width = 2000
 
     # save microscope properties
     imaging.save_properties()
@@ -118,6 +123,12 @@ def main():
 
     # run imaging
     for _ in range(args.slices):
+        control = microscope._control
+        if isinstance(control, SimulatedMicroscopeControl):
+            control._sample.apply_drift(  # pyright: ignore[reportAttributeAccessIssue]
+                drift_x=random.randrange(-40, 41), drift_y=random.randrange(-40, 41)
+            )
+            print(control._sample.drift)  # pyright: ignore[reportAttributeAccessIssue]
         drift_correction.correct_drift()
         imaging.grab_frame()
         slice.increment()

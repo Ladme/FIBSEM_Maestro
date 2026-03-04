@@ -65,7 +65,6 @@ class TemplateMatchingDriftCorrection(Action):
         shifts_y: list[float] = []
         for i, area in enumerate(self._settings.areas):
             shift = self._calculate_shift(image, area, i)
-            self._update_template(image, area, i)
 
             if shift is None:
                 continue
@@ -97,13 +96,16 @@ class TemplateMatchingDriftCorrection(Action):
         next_slice = (self._log_ctx.slice_ctx.current_slice or 0) + 1
         # apply beam shift to correct the drift and update the drift correction parameters
         self._microscope.add_beam_shift_with_verification(beam_shift)
+        # update templates - we need to do this AFTER adding the beam shift
+        # otherwise newly scanned templates may already compensate for the drift in the next slice
+        self._update_templates()
         self.save_properties(slice=next_slice)
 
         # load imaging parameters to the microscope, apply beam shift,
         # and update the imaging parameters for the current slice
         self._imaging.set_properties()
         self._microscope.add_beam_shift_with_verification(beam_shift)
-        # TODO: check that beam shift and stage position are safed and print warning if they are not
+        # TODO: check that beam shift and stage position are saved and print warning if they are not
         self._imaging.save_properties()
 
     def set_properties(self) -> None:
@@ -235,28 +237,31 @@ class TemplateMatchingDriftCorrection(Action):
         with TiffFile(template_path) as tiff_file:
             return Image8Bit.from_tiff(tiff_file)
 
-    def _update_template(
-        self, image: Image8Bit, area: RelativeArea, index: int
-    ) -> None:
+    def _update_templates(self) -> None:
         slice = self._log_ctx.slice_ctx.current_slice or 0
-        template_path = self._construct_template_path(index, slice + 1)
+        template_path = self._construct_template_path(0, slice + 1)
 
         # make sure that the template directory for the next slice exists
         if not template_path.parent.exists():
             template_path.parent.mkdir(parents=True, exist_ok=True)
 
         if slice > 0 and slice % self._settings.rescan == 0:
-            # save the current image as the new template
-            self._txt_log.debug(
-                f"Updating template image {index} for slice {slice + 1}."
+            # perform new scan and save the templates
+            self._txt_log.info(
+                f"Rescanning drift correction templates for slice {slice + 1}."
             )
-            image.crop(area).save(template_path, format=ImageFormat.TIF)
+            image = self._microscope.beam.grab_frame().to_8bit()
+            for i, area in enumerate(self._settings.areas):
+                image.crop(area).save(
+                    self._construct_template_path(i, slice + 1), format=ImageFormat.TIF
+                )
         else:
-            # copy the current template to the next slice
-            self._txt_log.debug(
-                f"Using template image {index} from slice {slice} as template image for slice {slice + 1}."
-            )
-            shutil.copyfile(self._construct_template_path(index), template_path)
+            # continue using the current templates
+            for i, area in enumerate(self._settings.areas):
+                shutil.copyfile(
+                    self._construct_template_path(i),
+                    self._construct_template_path(i, slice + 1),
+                )
 
     def _construct_template_path(self, index: int, slice: int | None = None) -> Path:
         return (

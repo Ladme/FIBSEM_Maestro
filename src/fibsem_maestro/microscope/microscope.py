@@ -88,6 +88,7 @@ class Microscope:
 
             beam_shift_array = np.array([new_beam_shift.x, new_beam_shift.y])
             new_stage_move = self._beam_shift_to_stage_move() @ beam_shift_array
+            self.beam.beam_shift_to_stage_move
 
             # move stage
             self._control.try_move_stage_position(
@@ -172,13 +173,22 @@ class Microscope:
 
         stretch = 1.0 / cos_theta
 
+        # construct scaling matrix from beam_shift_to_stage_move factors
+        scale_matrix = np.array(
+            [
+                [self.beam.beam_shift_to_stage_move[0], 0.0],
+                [0.0, self.beam.beam_shift_to_stage_move[1]],
+            ],
+            dtype=float,
+        )
+
         # construct matrix for stretching along the tilt direction
         stretch_matrix = np.array(
             [[1.0, 0.0], [0.0, stretch]],
             dtype=float,
         )
 
-        conversion_matrix = -stretch_matrix
+        conversion_matrix = scale_matrix @ stretch_matrix
         self._txt_log.debug(
             f"Beam shift to stage move conversion matrix: {list(conversion_matrix)}"
         )

@@ -77,7 +77,7 @@ class Imaging(Action):
 
     def set_properties(self) -> None:
         """
-        Set the microscope properties.
+        Configure the electron microscope with settings from the properties file.
         """
         # select the beam used for imaging
         self._microscope.set_beam(self._settings.beam_type)

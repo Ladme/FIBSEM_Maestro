@@ -209,7 +209,7 @@ class SimulatedBeamControl(BeamControl):
         cos_theta = np.cos(theta)
         stretch = 1.0 / cos_theta if cos_theta > 1e-4 else 1.0
 
-        cx = -pos.x - self.beam_shift.x  # beam shift in x is flipped
+        cx = pos.x - self.beam_shift.x  # beam shift in x is flipped
         cy = -pos.y + self.beam_shift.y * stretch
 
         X, Y = SimulatedSample.world_grid(

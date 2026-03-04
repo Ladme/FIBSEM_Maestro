@@ -26,6 +26,40 @@ class SimulatedSample:
             rng, width, height, scale=100.0, octaves=8
         )
 
+        # drift offset in nm
+        self._drift_x = 0.0
+        self._drift_y = 0.0
+        self._drift_z = 0.0
+
+    def apply_drift(
+        self, drift_x: float = 0.0, drift_y: float = 0.0, drift_z: float = 0.0
+    ) -> None:
+        """
+        Apply drift to the sample.
+
+        Drift is accumulated over multiple calls. The drift offset is applied
+        when sampling the surface.
+
+        Args:
+            drift_x: Drift in X direction (nm). Positive moves sample right.
+            drift_y: Drift in Y direction (nm). Positive moves sample down.
+            drift_z: Drift in Z direction (nm). Positive moves sample up.
+        """
+        self._drift_x += drift_x
+        self._drift_y += drift_y
+        self._drift_z += drift_z
+
+    def reset_drift(self) -> None:
+        """Reset all drift offsets to zero."""
+        self._drift_x = 0.0
+        self._drift_y = 0.0
+        self._drift_z = 0.0
+
+    @property
+    def drift(self) -> tuple[float, float, float]:
+        """Return current drift offsets as (drift_x, drift_y, drift_z) in nm."""
+        return (self._drift_x, self._drift_y, self._drift_z)
+
     def sample(
         self,
         X: NDArray[np.floating],
@@ -260,11 +294,15 @@ class SimulatedSample:
         Y: NDArray[np.floating],
     ) -> tuple[NDArray[np.integer[Any]], NDArray[np.integer[Any]]]:
         """Convert world coordinates (nm) to sample array indices, treating sample as centered at origin."""
+        # apply drift offset
+        X_drifted = X + self._drift_x
+        Y_drifted = Y + self._drift_y
+
         half_width = self.data.shape[1] * self.pixel_size / 2.0
         half_height = self.data.shape[0] * self.pixel_size / 2.0
 
-        px = ((X + half_width) / self.pixel_size).astype(np.int64)
-        py = ((Y + half_height) / self.pixel_size).astype(np.int64)
+        px = ((X_drifted + half_width) / self.pixel_size).astype(np.int64)
+        py = ((Y_drifted + half_height) / self.pixel_size).astype(np.int64)
 
         px = np.clip(px, 0, self.data.shape[1] - 1)
         py = np.clip(py, 0, self.data.shape[0] - 1)
