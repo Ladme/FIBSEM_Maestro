@@ -1,6 +1,5 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
-
 import shutil
 from pathlib import Path
 
@@ -10,10 +9,12 @@ from scipy import ndimage  # type: ignore
 from tifffile import TiffFile
 
 from fibsem_maestro.core.action import Action
-from fibsem_maestro.core.area import RelativeArea
+from fibsem_maestro.core.area import NMArea, RelativeArea
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.format import ImageFormat
 from fibsem_maestro.core.image import Image, Image8Bit
+from fibsem_maestro.core.point import NMPoint
+from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.drift_correction.error import DriftCorrectionError
 from fibsem_maestro.drift_correction.template_match_result import TemplateMatchResult
 from fibsem_maestro.imaging.imaging import Imaging
@@ -65,6 +66,7 @@ class TemplateMatchingDriftCorrection(Action):
         shifts_y: list[float] = []
         for i, area in enumerate(self._settings.areas):
             shift = self._calculate_shift(image, area, i)
+            self._update_template(image, area, shift, i)
 
             if shift is None:
                 continue
@@ -96,9 +98,6 @@ class TemplateMatchingDriftCorrection(Action):
         next_slice = (self._log_ctx.slice_ctx.current_slice or 0) + 1
         # apply beam shift to correct the drift and update the drift correction parameters
         self._microscope.add_beam_shift_with_verification(beam_shift)
-        # update templates - we need to do this AFTER adding the beam shift
-        # otherwise newly scanned templates may already compensate for the drift in the next slice
-        self._update_templates()
         self.save_properties(slice=next_slice)
 
         # load imaging parameters to the microscope, apply beam shift,
@@ -163,7 +162,7 @@ class TemplateMatchingDriftCorrection(Action):
 
         return (dx_nm, dy_nm)
 
-    def _select_area(self, image: Image8Bit, area: RelativeArea):
+    def _select_area(self, image: Image8Bit, area: RelativeArea) -> Image8Bit:
         pixel_size = image.pixel_size
         pixel_area = area.to_pixels(image.resolution)
         correction_margin_px = int(self._settings.correction_margin / pixel_size)
@@ -237,31 +236,49 @@ class TemplateMatchingDriftCorrection(Action):
         with TiffFile(template_path) as tiff_file:
             return Image8Bit.from_tiff(tiff_file)
 
-    def _update_templates(self) -> None:
+    def _update_template(
+        self,
+        image: Image8Bit,
+        area: RelativeArea,
+        shift: tuple[float, float] | None,
+        index: int,
+    ) -> None:
         slice = self._log_ctx.slice_ctx.current_slice or 0
-        template_path = self._construct_template_path(0, slice + 1)
+        template_path = self._construct_template_path(index, slice + 1)
 
         # make sure that the template directory for the next slice exists
         if not template_path.parent.exists():
             template_path.parent.mkdir(parents=True, exist_ok=True)
 
-        if slice > 0 and slice % self._settings.rescan == 0:
-            # perform new scan and save the templates
-            self._txt_log.info(
-                f"Rescanning drift correction templates for slice {slice + 1}."
+        if (slice > 0 and slice % self._settings.rescan == 0) and shift is not None:
+            # save the current image as the new template
+            self._txt_log.debug(
+                f"Updating template image {index} for slice {slice + 1}."
             )
-            image = self._microscope.beam.grab_frame().to_8bit()
-            for i, area in enumerate(self._settings.areas):
-                image.crop(area).save(
-                    self._construct_template_path(i, slice + 1), format=ImageFormat.TIF
-                )
+            image.crop(
+                self._shift_area(area, shift, image.resolution, image.pixel_size)
+            ).save(template_path, format=ImageFormat.TIF)
         else:
-            # continue using the current templates
-            for i, area in enumerate(self._settings.areas):
-                shutil.copyfile(
-                    self._construct_template_path(i),
-                    self._construct_template_path(i, slice + 1),
-                )
+            # copy the current template to the next slice
+            shutil.copyfile(self._construct_template_path(index), template_path)
+
+    def _shift_area(
+        self,
+        area: RelativeArea,
+        shift_nm: tuple[float, float],
+        resolution: Resolution,
+        pixel_size: float,
+    ) -> RelativeArea:
+        area_nm = area.to_nanometers(resolution, pixel_size)
+        shifted_area_nm = NMArea(
+            origin=NMPoint(
+                x=area_nm.origin.x + shift_nm[0], y=area_nm.origin.y + shift_nm[1]
+            ),
+            width=area_nm.width,
+            height=area_nm.height,
+        )
+
+        return shifted_area_nm.to_relative(resolution, pixel_size)
 
     def _construct_template_path(self, index: int, slice: int | None = None) -> Path:
         return (

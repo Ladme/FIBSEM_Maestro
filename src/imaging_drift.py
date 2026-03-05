@@ -4,8 +4,8 @@
 
 import argparse
 import logging
-from pathlib import Path
 import random
+from pathlib import Path
 
 from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.stage_position import StagePosition
@@ -126,7 +126,10 @@ def main():
         control = microscope._control
         if isinstance(control, SimulatedMicroscopeControl):
             control._sample.apply_drift(  # pyright: ignore[reportAttributeAccessIssue]
-                drift_x=random.randrange(-40, 41), drift_y=random.randrange(-40, 41)
+                drift_x=random.randrange(-40, 41),
+                drift_y=random.randrange(-40, 41),
+                # drift_x=-10,
+                # drift_y=-10,
             )
             print(control._sample.drift)  # pyright: ignore[reportAttributeAccessIssue]
         drift_correction.correct_drift()
