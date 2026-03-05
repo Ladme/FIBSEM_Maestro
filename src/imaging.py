@@ -6,13 +6,18 @@ import argparse
 import logging
 from pathlib import Path
 
+from fibsem_maestro.core.area import RelativeArea
+from fibsem_maestro.core.point import RelativePoint
+from fibsem_maestro.core.resolution import Resolution
+from fibsem_maestro.core.slice import SliceContext
+from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.imaging.imaging import Imaging
-from fibsem_maestro.logging.context import LogContext, SliceContext
-from fibsem_maestro.logging.image.slice_aware import SliceAwareImageLogger
-from fibsem_maestro.logging.text.slice_aware import SliceAwareTextLogger
+from fibsem_maestro.logging.text.file import FileTextLogger
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.imaging_settings import ImagingSettings
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
+from fibsem_maestro.store.frame.file import FileFrameStore
+from fibsem_maestro.store.props.file import FilePropsStore
 
 
 def main():
@@ -57,31 +62,31 @@ def main():
     microscope_settings = MicroscopeSettings.from_file(args.microscope)
     imaging_settings = ImagingSettings.from_file(args.imaging)
 
-    # initialize the logging
-    slice = SliceContext(1)
-    log_context = LogContext(Path(args.log_dir), slice, logging.DEBUG)
-    txt_log = SliceAwareTextLogger("microscope", log_context)
-    img_log = SliceAwareImageLogger(log_context)
+    # initialize the loggers and stores
+    slice = SliceContext(Path("logs"), 1)
+    txt_log = FileTextLogger(
+        slice, "microscope", logging.DEBUG if args.verbose else logging.INFO
+    )
+    props_store = FilePropsStore(slice)
+    frame_store = FileFrameStore(slice, imaging_settings.images_directory)
 
     # initialize the microscope
-    microscope = Microscope(microscope_settings, txt_log, img_log)
+    microscope = Microscope(microscope_settings, txt_log)
 
     # initialize the imaging
-    imaging = Imaging(
-        microscope, imaging_settings, log_ctx=log_context, txt_log=txt_log
-    )
+    imaging = Imaging(microscope, imaging_settings, props_store, frame_store, txt_log)
 
     # set microscope properties manually
     input("Set microscope properties interactively and then press ENTER.")
 
-    # microscope._control.try_set_stage_position(
-    #    StagePosition(x=0.0, y=0.0, z=5_000_000.0, rotation=0, tilt=0)
-    # )
-    # microscope.beam.resolution = Resolution(1000, 1000)
-    # microscope.beam.horizontal_field_width = 2000
-    # microscope.beam.scanning_area = RelativeArea(
-    #    RelativePoint(x=0.25, y=0.5), 0.5, 0.25
-    # )
+    microscope._control.try_set_stage_position(
+        StagePosition(x=0.0, y=0.0, z=5_000_000.0, rotation=0, tilt=0)
+    )
+    microscope.beam.resolution = Resolution(1000, 1000)
+    microscope.beam.horizontal_field_width = 2000
+    microscope.beam.scanning_area = RelativeArea(
+        RelativePoint(x=0.25, y=0.5), 0.5, 0.25
+    )
 
     # save microscope properties
     imaging.save_properties()

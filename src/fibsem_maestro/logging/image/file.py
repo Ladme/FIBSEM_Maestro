@@ -9,7 +9,7 @@ from matplotlib.axes import Axes
 from matplotlib.patches import Rectangle
 from numpy.typing import NDArray
 
-from fibsem_maestro.logging.context import LogContext
+from fibsem_maestro.core.slice import SliceContext
 from fibsem_maestro.logging.image.curve import Curve
 from fibsem_maestro.logging.image.image_logger import ImageLogger
 from fibsem_maestro.logging.image.overlay import (
@@ -21,21 +21,21 @@ from fibsem_maestro.logging.image.overlay import (
 )
 
 
-class SliceAwareImageLogger(ImageLogger):
+class FileImageLogger(ImageLogger):
     """
-    Image logger that saves figures into slice-aware directories.
+    ImageLogger that renders and writes PNG files into slice-aware directories.
 
-    This logger uses a `LogContext` to determine the correct output
-    directory based on the currently active slice. Images and plots
-    are rendered using Matplotlib and written to disk with overlays,
-    curves, or annotations applied as required.
+    Images and plots are rendered with Matplotlib and written to the `images`
+    subdirectory of the current slice, as resolved by the provided `SliceContext`.
+
+    Args:
+        ctx: Slice context used to resolve the active image output directory.
     """
 
-    def __init__(self, ctx: LogContext):
-        """Initialize a slice-aware image logger.
-
+    def __init__(self, ctx: SliceContext):
+        """
         Args:
-            ctx: The logging context providing directory paths.
+            ctx: Slice context used to resolve the active image output directory.
         """
         self._ctx = ctx
 
@@ -47,19 +47,19 @@ class SliceAwareImageLogger(ImageLogger):
         title: str | None = None,
     ) -> None:
         """
-        Save an image with optional overlays.
+        Render and save a grayscale image as a PNG, optionally annotated with overlays.
 
-        The image is displayed using Matplotlib and saved into the
-        slice directory determined by the `LogContext`. Overlays
-        such as rectangles, polylines, heatmaps, or vertical lines
-        may be drawn on top of the image.
+        The file is written to the current slice's image directory as
+        `{filename}.png`. Supported overlay types are `RectangleOverlay`,
+        `PolylineOverlay`, `VerticalLineOverlay`, and `HeatmapOverlay`.
 
         Args:
-            filename: Base filename (without extension) for the saved image.
-            img: 2D array-like object representing the image to be saved.
-            overlays: Optional list of overlay objects to render on top
-                of the image. If omitted, the raw image is saved.
-            title: Optional title to display at the top of the figure.
+            filename: Output filename without extension, relative to the current
+                slice's image directory.
+            img: 2-D floating-point array containing the image data.
+            overlays: Optional sequence of overlay objects to draw on top of the
+                image. Unsupported overlay types are silently skipped.
+            title: Optional title rendered above the image.
         """
         fig, ax = plt.subplots()
         ax.imshow(img, cmap="gray")
@@ -121,12 +121,13 @@ class SliceAwareImageLogger(ImageLogger):
         ylabel: str | None = None,
     ) -> None:
         """
-        Save a plot containing one or more curves.
+        Render and save a multi-curve plot as a PNG.
 
         Args:
-            filename: Base filename (without extension) for the saved plot.
-            curves: A sequence of `Curve` objects defining data series to be plotted.
-            title: Optional title for the plot.
+            filename: Output filename without extension, relative to the current
+                slice's image directory.
+            curves: Sequence of `Curve` objects to plot.
+            title: Optional title rendered above the plot.
             xlabel: Optional x-axis label.
             ylabel: Optional y-axis label.
         """

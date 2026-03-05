@@ -10,7 +10,6 @@ from scipy.spatial import distance  # pyright: ignore[reportMissingTypeStubs]
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.stage_position import StagePosition
-from fibsem_maestro.logging.image.image_logger import ImageLogger
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.error import MicroscopeError
 from fibsem_maestro.microscope.microscope_registry import MicroscopeRegistry
@@ -25,10 +24,8 @@ class Microscope:
         self,
         settings: MicroscopeSettings,
         txt_log: TextLogger,
-        img_log: ImageLogger,
     ):
         self._txt_log = txt_log
-        self._img_log = img_log
 
         self._apply_settings(settings)
         self._settings.on_change(self._update)

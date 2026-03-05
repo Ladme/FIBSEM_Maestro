@@ -2,7 +2,6 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
-from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -18,6 +17,7 @@ from fibsem_maestro.core.stigmator import Stigmator
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
 from fibsem_maestro.microscope.error import MicroscopeError
+from fibsem_maestro.store.frame.frame_store import FrameStore
 
 
 class MockBeamControl(BeamControl):
@@ -195,14 +195,17 @@ class MockBeamControl(BeamControl):
     def stop_acquisition(self) -> None:
         self._acquiring = False
 
-    def grab_frame(self, file_name: Path | None = None) -> Image:
+    def grab_frame(self, frame_store: FrameStore | None = None) -> Image:
         data = np.zeros((8, 8), dtype=np.uint16)
         image = Image(data, pixel_size=self.pixel_size or 1.0)
 
         self._current_image = image
 
-        if file_name is not None:
-            image.save(file_name, format=ImageFormat.PNG)
+        path = frame_store.path() if frame_store is not None else None
+        if path is not None:
+            image.save(path, ImageFormat.PNG)
+        elif frame_store is not None:
+            frame_store.save_to_memory(image)
 
         return image
 

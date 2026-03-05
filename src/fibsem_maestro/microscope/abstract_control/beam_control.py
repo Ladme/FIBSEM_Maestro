@@ -3,7 +3,6 @@
 
 import inspect
 from abc import ABC, abstractmethod
-from pathlib import Path
 from typing import Any
 
 from fibsem_maestro.core.area import RelativeArea
@@ -16,6 +15,7 @@ from fibsem_maestro.core.stigmator import Stigmator
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.error import MicroscopeError
 from fibsem_maestro.settings.beam_properties import BeamProperties
+from fibsem_maestro.store.frame.frame_store import FrameStore
 
 
 class BeamControl(ABC):
@@ -277,16 +277,16 @@ class BeamControl(ABC):
         pass
 
     @abstractmethod
-    def grab_frame(self, file_name: Path | None = None) -> Image:
+    def grab_frame(self, frame_store: FrameStore | None = None) -> Image:
         """
-        Scan and retrieve an image from the microscope. Optionally store the image in the specified file.
+        Scan and retrieve an image from the microscope.
 
         Args:
-            file_name (Path | None): The path to the file where the image will be saved.
-                                    If None, the image will not be saved to a file.
+            frame_store: Optional store controlling how the acquired frame is
+                persisted. If `None`, the frame is returned but not stored.
 
         Returns:
-            Image: The acquired image from the microscope.
+            The acquired image.
         """
         pass
 

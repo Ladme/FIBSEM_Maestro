@@ -1,22 +1,21 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
-from pathlib import Path
 
 from fibsem_maestro.core.action import Action
 from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.imaging.error import ImagingError
-from fibsem_maestro.logging.context import LogContext
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope import Microscope
-from fibsem_maestro.settings.global_properties import GlobalProperties
 from fibsem_maestro.settings.imaging_settings import (
     ExtendedResolution,
     ImagingSettings,
     StandardResolution,
 )
+from fibsem_maestro.store.frame.frame_store import FrameStore
+from fibsem_maestro.store.props.props_store import PropsStore
 
 
 class Imaging(Action):
@@ -28,7 +27,8 @@ class Imaging(Action):
         self,
         microscope: Microscope,
         settings: ImagingSettings,
-        log_ctx: LogContext,
+        props_store: PropsStore,
+        frame_store: FrameStore,
         txt_log: TextLogger,
     ):
         """
@@ -37,13 +37,14 @@ class Imaging(Action):
         Args:
             microscope (Microscope): The microscope instance used for imaging.
             settings (ImagingSettings): Settings for image acquisition.
-            slice_ctx (SliceContext): Context for the current slice being imaged.
-            log_ctx (LogContext): Context for logging.
+            props_store (PropsStore): Handler for storing microscope properties.
+            frame_store (FrameStore): Handler for storing acquired frames.
             txt_log (TextLogger): A textual logger.
         """
         self._microscope = microscope
         self._settings = settings
-        self._log_ctx = log_ctx
+        self._props_store = props_store
+        self._frame_store = frame_store
         self._txt_log = txt_log
 
     def grab_frame(self) -> None:
@@ -60,20 +61,13 @@ class Imaging(Action):
         self.set_properties()
 
         # make sure that the image for the current slice does not exist
-        if (image_path := self._construct_image_path()).exists():
-            raise ImagingError(
-                f"Image {str(image_path)} already exists. Unable to perform image acquisition."
-            )
-
-        # make sure that the directory for storing images exists
-        if not self._settings.images_directory.exists():
-            self._settings.images_directory.mkdir(parents=True, exist_ok=True)
+        self._frame_store.raise_if_exists(ImagingError)
 
         # grab the frame and save it
-        self._microscope.beam.grab_frame(image_path)
+        self._microscope.beam.grab_frame(self._frame_store)
 
-        # update the saved microscope properties
-        self.save_properties(slice=(self._log_ctx.slice_ctx.current_slice or 0) + 1)
+        # update the saved microscope properties for the next frame
+        self.save_properties(self._props_store.next)
 
     def set_properties(self) -> None:
         """
@@ -82,27 +76,24 @@ class Imaging(Action):
         # select the beam used for imaging
         self._microscope.set_beam(self._settings.beam_type)
 
-        # set properties of the microscope
-        properties_file = self._construct_props_path()
-        self._txt_log.debug(
-            f"Loading microscope properties from {str(properties_file)}."
-        )
-        props = GlobalProperties.from_file(properties_file)
+        # read properties
+        self._txt_log.debug("Loading microscope properties for imaging.")
+        props = self._props_store.read(str(self._settings.properties_file))
+
+        # set properties to the microscope
         self._microscope.set_properties(props, beam=self._settings.beam_type)
 
-    def save_properties(self, slice: int | None = None) -> None:
+    def save_properties(self, store: PropsStore | None = None) -> None:
         """
         Save selected properties from the microscope to a file.
 
         Args:
-            slice (int | None): The slice for which properties should be saved.
-                                If `None`, the current slice is used.
-
-        Collects the selected properties from the microscope and saves them to the
-        properties file.
+            store (PropsStore | None): Handler specifying the slice
+                for which microscope properties should be saved.
+                If `None`, the properties are saved for the current slice.
         """
-        properties_file = self._construct_props_path(slice)
-        self._txt_log.debug(f"Saving microscope properties to {str(properties_file)}.")
+        store = store or self._props_store
+        self._txt_log.debug("Saving microscope properties for imaging.")
 
         # set bit depth, if specified in the settings
         if (bd := self._settings.bit_depth) is not None:
@@ -170,29 +161,4 @@ class Imaging(Action):
                 )
 
         # save the properties to a file
-        props.to_file(properties_file)
-
-    def _construct_image_path(self) -> Path:
-        """
-        Construct the path to the output image file.
-
-        Returns:
-            Path: The path to the output image file for the current slice.
-        """
-        return (
-            self._settings.images_directory
-            / f"slice_{self._log_ctx.slice_ctx.current_slice}.tif"
-        )
-
-    def _construct_props_path(self, slice: int | None = None) -> Path:
-        """
-        Construct the path to the microscope properties file for the specified slice
-        or the current slice (if `slice` is None).
-
-        The returned path can be used either to load existing microscope properties
-        or to save updated properties.
-
-        Returns:
-            Path: Path to the microscope properties file.
-        """
-        return self._log_ctx.slice_dir(slice) / self._settings.properties_file
+        store.write(str(self._settings.properties_file), props)

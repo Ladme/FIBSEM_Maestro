@@ -13,8 +13,8 @@ from fibsem_maestro.logging.image.image_logger import ImageLogger
 from fibsem_maestro.logging.image.overlay import Overlay
 
 
-class InMemoryImageLogger(ImageLogger):
-    """In-memory image logger for testing purposes."""
+class MemoryImageLogger(ImageLogger):
+    """ImageLogger that stores images in memory for testing purposes."""
 
     def __init__(self) -> None:
         self.saved_images: list[dict[str, Any]] = []

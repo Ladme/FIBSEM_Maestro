@@ -63,14 +63,14 @@ class SimulatedMicroscopeControl(MicroscopeControl):
             name="electron",
             stage_position=self._stage_position,
             sample=self._sample,
-            txt_log=self._txt_log.derive("electron beam"),
+            txt_log=self._txt_log.derive("electron_beam"),
             rng=self._rng,
         )
         self._ion_beam = SimulatedBeamControl(
             name="ion",
             stage_position=self._stage_position,
             sample=self._sample,
-            txt_log=self._txt_log.derive("ion beam"),
+            txt_log=self._txt_log.derive("ion_beam"),
             rng=self._rng,
         )
 

@@ -105,6 +105,31 @@ class _ImageBase(np.ndarray[Any, np.dtype[TDType]], Generic[TDType]):
             pixel_area.origin.x : pixel_area.origin.x + pixel_area.width,
         ]
 
+    def crop_with_correction_margin(
+        self, relative_area: RelativeArea, correction_margin_nm: float
+    ) -> Self:
+        """
+        Crops the image to the specified relative area + correction margin.
+        """
+        pixel_size = self.pixel_size
+        pixel_area = relative_area.to_pixels(self.resolution)
+        correction_margin_px = int(correction_margin_nm / pixel_size)
+
+        # pad the image to accomodate the correction_margin
+        image_padded = type(self)(
+            np.pad(self, correction_margin_px, mode="edge"), self.pixel_size
+        )
+
+        # select the region for template matching
+        return image_padded[
+            pixel_area.origin.y : pixel_area.origin.y
+            + pixel_area.height
+            + 2 * correction_margin_px,
+            pixel_area.origin.x : pixel_area.origin.x
+            + pixel_area.width
+            + 2 * correction_margin_px,
+        ]
+
     def save(self, file_name: Path, format: ImageFormat) -> None:
         """
         Save the image in the specified format.

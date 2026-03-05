@@ -7,15 +7,16 @@ import logging
 import random
 from pathlib import Path
 
+from fibsem_maestro.core.image import Image8Bit
 from fibsem_maestro.core.resolution import Resolution
+from fibsem_maestro.core.slice import SliceContext
 from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.drift_correction.template_matching import (
     TemplateMatchingDriftCorrection,
 )
 from fibsem_maestro.imaging.imaging import Imaging
-from fibsem_maestro.logging.context import LogContext, SliceContext
-from fibsem_maestro.logging.image.slice_aware import SliceAwareImageLogger
-from fibsem_maestro.logging.text.slice_aware import SliceAwareTextLogger
+from fibsem_maestro.logging.image.file import FileImageLogger
+from fibsem_maestro.logging.text.file import FileTextLogger
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.microscope.simulated.microscope_control import (
     SimulatedMicroscopeControl,
@@ -23,6 +24,9 @@ from fibsem_maestro.microscope.simulated.microscope_control import (
 from fibsem_maestro.settings.imaging_settings import ImagingSettings
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
 from fibsem_maestro.settings.template_matching_settings import TemplateMatchingSettings
+from fibsem_maestro.store.frame.file import FileFrameStore
+from fibsem_maestro.store.image.file import FileImageStore
+from fibsem_maestro.store.props.file import FilePropsStore
 
 
 def main():
@@ -74,23 +78,26 @@ def main():
     imaging_settings = ImagingSettings.from_file(args.imaging)
     drift_corr_settings = TemplateMatchingSettings.from_file(args.drift)
 
-    # initialize the logging
-    slice = SliceContext(1)
-    log_context = LogContext(
-        Path(args.log_dir), slice, logging.DEBUG if args.verbose else logging.INFO
+    # initialize the loggers and stores
+    slice = SliceContext(Path("logs"), 1)
+    txt_log = FileTextLogger(
+        slice, "microscope", logging.DEBUG if args.verbose else logging.INFO
     )
-    txt_log = SliceAwareTextLogger("microscope", log_context)
-    img_log = SliceAwareImageLogger(log_context)
+    img_log = FileImageLogger(slice)
+    props_store = FilePropsStore(slice)
+    frame_store = FileFrameStore(slice, imaging_settings.images_directory)
+    image_store = FileImageStore(slice, Image8Bit, Path("templates"))
 
     # initialize the microscope
-    microscope = Microscope(microscope_settings, txt_log, img_log)
+    microscope = Microscope(microscope_settings, txt_log)
 
     # initialize the imaging
     imaging = Imaging(
         microscope,
         imaging_settings,
-        log_ctx=log_context,
-        txt_log=txt_log.derive("imaging"),
+        props_store,
+        frame_store,
+        txt_log.derive("imaging"),
     )
 
     # initialize the drift correction
@@ -98,8 +105,9 @@ def main():
         microscope,
         drift_corr_settings,
         imaging,
-        log_context,
-        txt_log.derive("template matching"),
+        props_store,
+        image_store,
+        txt_log.derive("template_matching"),
         img_log,
     )
 

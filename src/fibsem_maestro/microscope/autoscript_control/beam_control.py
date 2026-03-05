@@ -29,6 +29,7 @@ from fibsem_maestro.microscope.autoscript_control.manufacturer_props import (
     AutoscriptManufacturerPropertiesRegistry,
 )
 from fibsem_maestro.microscope.error import MicroscopeError
+from fibsem_maestro.store.frame.frame_store import FrameStore
 
 BeamT = TypeVar(
     "BeamT",
@@ -171,7 +172,7 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
 
         return image
 
-    def grab_frame(self, file_name: Path | None = None) -> Image:
+    def grab_frame(self, frame_store: FrameStore | None = None) -> Image:
         self.select_modality()
         self._txt_log.debug(f"Grabbing frame ({self._modality}).")
 
@@ -196,29 +197,34 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
             f"working_distance={self.working_distance})"
         )
 
+        path = frame_store.path() if frame_store is not None else None
+
         try:
-            grabbed_image = self._microscope.imaging.grab_frame(imaging_settings)
-            self._txt_log.info("Image grabbed.")
-            if file_name is not None:
-                grabbed_image.save(str(file_name))
+            grabbed = self._microscope.imaging.grab_frame(imaging_settings)
+            image = Image.from_autoscript(grabbed)
+            if path is not None:
+                grabbed.save(str(path))
+            elif frame_store is not None:
+                frame_store.save_to_memory(image)
         # the `grab_frame` method can fail if the image is too large
         # if that happens, we grab the image to disk and then load it to memory
         except Exception as e:
-            self._txt_log.warning(f"Grab frame error: {e} Grabbing image to disk.")
-
-            if file_name is None:
-                file_name = Path("temp.tif")
-                self._txt_log.warning(
-                    f"File name not provided. The image will be saved as '{str(file_name)}'."
-                )
-
+            self._txt_log.warning(f"Grab frame error: {e}. Grabbing image to disk.")
+            tmp = path or Path("_temp_frame.tif")
             self._microscope.imaging.grab_frame_to_disk(
-                str(file_name), ImageFileFormat.TIFF, imaging_settings
+                str(tmp), ImageFileFormat.TIFF, imaging_settings
             )
-            self._txt_log.info("Image grabbed to disk.")
-            grabbed_image = AdornedImage.load(str(file_name))
+            grabbed = AdornedImage.load(str(tmp))
+            image = Image.from_autoscript(grabbed)
 
-        return Image.from_autoscript(grabbed_image)
+            if path is None:
+                tmp.unlink()
+
+                if frame_store is not None:
+                    frame_store.save_to_memory(image)
+
+        self._txt_log.info("Image grabbed.")
+        return image
 
     @property
     def line_integration(self) -> int:

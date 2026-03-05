@@ -14,10 +14,11 @@ from fibsem_maestro.logging.image.overlay import Overlay
 
 class ImageLogger(ABC):
     """
-    Interface for image and plot logging.
+    Abstract interface for image and plot logging.
 
-    Implementations of this interface provide mechanisms for saving images
-    with optional overlays and saving plot figures composed of one or more curves.
+    Implementations provide mechanisms for saving diagnostic images with
+    optional geometric overlays and for saving plots composed of one or
+    more curves.
     """
 
     @abstractmethod
@@ -38,7 +39,6 @@ class ImageLogger(ABC):
                 geometric annotations to draw on top of the image.
             title: Optional title text to render above the image.
         """
-        pass
 
     @abstractmethod
     def save_plot(
@@ -59,4 +59,3 @@ class ImageLogger(ABC):
             xlabel: Optional label for the x-axis.
             ylabel: Optional label for the y-axis.
         """
-        pass

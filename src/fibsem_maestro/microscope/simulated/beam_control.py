@@ -3,7 +3,6 @@
 
 
 import math
-from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -21,6 +20,7 @@ from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
 from fibsem_maestro.microscope.error import MicroscopeError
 from fibsem_maestro.microscope.simulated.sample import SimulatedSample
+from fibsem_maestro.store.frame.frame_store import FrameStore
 
 
 class SimulatedBeamControl(BeamControl):
@@ -199,7 +199,7 @@ class SimulatedBeamControl(BeamControl):
         self._txt_log.debug("Acquisition stopped.")
         self._acquiring = False
 
-    def grab_frame(self, file_name: Path | None = None) -> Image:
+    def grab_frame(self, frame_store: FrameStore | None = None) -> Image:
         self._txt_log.debug("Grabbing frame.")
         width, height = self.resolution.to_tuple()
         pos = self._stage_position
@@ -283,8 +283,11 @@ class SimulatedBeamControl(BeamControl):
 
         self._current_image = image
 
-        if file_name is not None:
-            image.save(file_name, ImageFormat.TIF)
+        path = frame_store.path() if frame_store is not None else None
+        if path is not None:
+            image.save(path, ImageFormat.TIF)
+        elif frame_store is not None:
+            frame_store.save_to_memory(image)
 
         return image
 

@@ -26,8 +26,8 @@ class MockMicroscopeControl(MicroscopeControl):
             x=0.0, y=0.0, z=0.0, rotation=0.0, tilt=0.0
         )
 
-        self._electron_beam = MockBeamControl(self._txt_log.derive("electron beam"))
-        self._ion_beam = MockBeamControl(self._txt_log.derive("ion beam"))
+        self._electron_beam = MockBeamControl(self._txt_log.derive("electron_beam"))
+        self._ion_beam = MockBeamControl(self._txt_log.derive("ion_beam"))
 
         self._manufacturer_properties: dict[str, Any] = {
             "microscope.custom_parameter": 0.0,

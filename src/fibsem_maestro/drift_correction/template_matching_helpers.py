@@ -3,6 +3,7 @@
 
 from dataclasses import dataclass
 
+import numpy as np
 from cv2.typing import MatLike
 
 
@@ -21,3 +22,18 @@ class TemplateMatchResult:
 
     heatmap: MatLike
     """Full correlation map returned by OpenCV."""
+
+
+@dataclass(frozen=True)
+class ShiftsCollection:
+    dx: list[float]
+    """Horizontal shifts in nanometers for all areas with enough confidence."""
+
+    dy: list[float]
+    """Vertical shifts in nanometers for all areas with enough confidence."""
+
+    def get_mean_shift(self) -> tuple[float, float] | None:
+        if len(self.dx) == 0 or len(self.dy) == 0:
+            return None
+
+        return (float(np.mean(self.dx)), float(np.mean(self.dy)))
