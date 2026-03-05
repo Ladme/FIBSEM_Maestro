@@ -1,7 +1,10 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
+from typing import Any
+
 import cv2
+from numpy.typing import NDArray
 from scipy import ndimage  # type: ignore
 
 from fibsem_maestro.core.action import Action
@@ -17,6 +20,7 @@ from fibsem_maestro.drift_correction.template_matching_helpers import (
 )
 from fibsem_maestro.imaging.imaging import Imaging
 from fibsem_maestro.logging.image.image_logger import ImageLogger
+from fibsem_maestro.logging.image.overlay import RectangleOverlay
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.template_matching_settings import TemplateMatchingSettings
@@ -43,8 +47,6 @@ class TemplateMatchingDriftCorrection(Action):
         self._img_log = img_log
         self._imaging = imaging
 
-        self._template_matching_results = []
-
     def create_templates(self) -> None:
         if len(self._settings.areas) == 0:
             raise DriftCorrectionError("No template matching areas defined.")
@@ -65,6 +67,9 @@ class TemplateMatchingDriftCorrection(Action):
 
         # calculate shifts for each template
         shifts = self._calculate_shifts(image)
+
+        # create an image log visualizing the individual areas and their shifts
+        self._log_image_shifts(image, shifts)
 
         # convert image shifts to beam shift
         beam_shift = self._shifts_to_beam_shift(shifts)
@@ -117,8 +122,7 @@ class TemplateMatchingDriftCorrection(Action):
         store.write(str(self._settings.properties_file), props)
 
     def _calculate_shifts(self, image: Image8Bit) -> ShiftsCollection:
-        shifts_x: list[float] = []
-        shifts_y: list[float] = []
+        shifts = ShiftsCollection()
         for i, area in enumerate(self._settings.areas):
             # load the template from file
             template = self._load_template(i)
@@ -132,6 +136,9 @@ class TemplateMatchingDriftCorrection(Action):
             template_match = TemplateMatchingDriftCorrection._calculate_match(
                 template, cropped, self._settings.blur
             )
+
+            # log the heatmap for the template
+            self._log_heatmap(template_match.heatmap, i)
 
             # convert shift to nm
             dx_nm = template_match.dx * cropped.pixel_size
@@ -150,8 +157,8 @@ class TemplateMatchingDriftCorrection(Action):
                 self._copy_template(i, self._image_store, self._image_store.next)
                 continue
 
-            shifts_x.append(dx_nm)
-            shifts_y.append(dy_nm)
+            shifts.dx[i] = dx_nm
+            shifts.dy[i] = dy_nm
 
             # use the new acquired image as template for the next slice
             slice = self._image_store.slice or 0
@@ -161,8 +168,7 @@ class TemplateMatchingDriftCorrection(Action):
                 )
 
                 new_template = image.crop(
-                    # select the correct region for template matching
-                    self._shift_area(
+                    TemplateMatchingDriftCorrection._shift_area(
                         area, (dx_nm, dy_nm), image.resolution, image.pixel_size
                     )
                 )
@@ -174,7 +180,7 @@ class TemplateMatchingDriftCorrection(Action):
                 # copy the current template to the next slice
                 self._copy_template(i, self._image_store, self._image_store.next)
 
-        return ShiftsCollection(dx=shifts_x, dy=shifts_y)
+        return shifts
 
     @staticmethod
     def _calculate_match(
@@ -230,8 +236,8 @@ class TemplateMatchingDriftCorrection(Action):
             y=mean_shift[1] * self._microscope.beam.image_to_beam_shift[1],
         )
 
+    @staticmethod
     def _shift_area(
-        self,
         area: RelativeArea,
         shift_nm: tuple[float, float],
         resolution: Resolution,
@@ -277,3 +283,50 @@ class TemplateMatchingDriftCorrection(Action):
 
     def _construct_template_name(self, index: int) -> str:
         return f"template_drift_corr_{index}.tif"
+
+    def _log_image_shifts(self, image: Image8Bit, shifts: ShiftsCollection) -> None:
+        overlays = []
+        for i, area in enumerate(self._settings.areas):
+            area_px = area.to_pixels(image.resolution)
+
+            overlays.append(
+                RectangleOverlay(
+                    x=area_px.origin.x,
+                    y=area_px.origin.y,
+                    width=area_px.width,
+                    height=area_px.height,
+                    color="red",
+                )
+            )
+
+            if (dx := shifts.dx.get(i)) is None or (dy := shifts.dy.get(i)) is None:
+                continue
+
+            shifted_area_px = TemplateMatchingDriftCorrection._shift_area(
+                area, (dx, dy), image.resolution, image.pixel_size
+            ).to_pixels(image.resolution)
+
+            overlays.append(
+                RectangleOverlay(
+                    x=shifted_area_px.origin.x,
+                    y=shifted_area_px.origin.y,
+                    width=shifted_area_px.width,
+                    height=shifted_area_px.height,
+                    color="blue",
+                )
+            )
+
+        self._img_log.save_image(
+            "template_matching_log.png",
+            image,
+            overlays,
+            title="Template matching drift correction",
+        )
+
+    def _log_heatmap(self, heatmap: NDArray[Any], index: int) -> None:
+        self._img_log.save_image(
+            f"template_matching_heatmap_{index}.png",
+            heatmap,
+            overlays=None,
+            title=f"Template matching heatmap for template {index}",
+        )

@@ -50,11 +50,11 @@ class FileImageLogger(ImageLogger):
         Render and save a grayscale image as a PNG, optionally annotated with overlays.
 
         The file is written to the current slice's image directory as
-        `{filename}.png`. Supported overlay types are `RectangleOverlay`,
+        `{filename}`. Supported overlay types are `RectangleOverlay`,
         `PolylineOverlay`, `VerticalLineOverlay`, and `HeatmapOverlay`.
 
         Args:
-            filename: Output filename without extension, relative to the current
+            filename: Output filename with extension, relative to the current
                 slice's image directory.
             img: 2-D floating-point array containing the image data.
             overlays: Optional sequence of overlay objects to draw on top of the
@@ -73,7 +73,7 @@ class FileImageLogger(ImageLogger):
         ax.axis("off")
         fig.tight_layout()
 
-        out_path = self._ctx.images() / f"{filename}.png"
+        out_path = self._ctx.images() / filename
         fig.savefig(out_path, dpi=100)
         plt.close(fig)
 
@@ -124,7 +124,7 @@ class FileImageLogger(ImageLogger):
         Render and save a multi-curve plot as a PNG.
 
         Args:
-            filename: Output filename without extension, relative to the current
+            filename: Output filename with extension, relative to the current
                 slice's image directory.
             curves: Sequence of `Curve` objects to plot.
             title: Optional title rendered above the plot.
@@ -148,6 +148,6 @@ class FileImageLogger(ImageLogger):
 
         fig.tight_layout()
 
-        out_path = self._ctx.images() / f"{filename}.png"
+        out_path = self._ctx.images() / filename
         fig.savefig(out_path, dpi=100)
         plt.close(fig)

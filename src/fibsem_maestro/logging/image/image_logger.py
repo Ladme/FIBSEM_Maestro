@@ -4,8 +4,8 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
+from typing import Any
 
-import numpy as np
 from numpy.typing import NDArray
 
 from fibsem_maestro.logging.image.curve import Curve
@@ -25,7 +25,7 @@ class ImageLogger(ABC):
     def save_image(
         self,
         filename: str,
-        img: NDArray[np.floating],
+        img: NDArray[Any],
         overlays: Sequence[Overlay] | None = None,
         title: str | None = None,
     ) -> None:
