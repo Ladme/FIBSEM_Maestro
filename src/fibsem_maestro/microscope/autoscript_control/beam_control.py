@@ -141,15 +141,15 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         )
         self._microscope.detector.brightness.value = value
 
-    def blank(self):
+    def blank(self) -> None:
         self.select_modality()
         self._txt_log.debug(f"Blanking beam ({self._modality}).")
-        self._beam.blank()
+        self._beam.blank()  # ty:ignore[invalid-argument-type]
 
-    def unblank(self):
+    def unblank(self) -> None:
         self.select_modality()
         self._txt_log.debug(f"Unblanking beam ({self._modality}).")
-        self._beam.unblank()
+        self._beam.unblank()  # ty:ignore[invalid-argument-type]
 
     def start_acquisition(self):
         self.select_modality()
@@ -467,7 +467,7 @@ class AutoscriptElectronBeamControl(AutoscriptBeamControl[ElectronBeamAs]):
 
     @property
     def beam_shift_to_stage_move(self) -> tuple[int, int]:
-        return (-1, -1)
+        return (1, -1)
 
     @property
     def image_to_beam_shift(self) -> tuple[int, int]:

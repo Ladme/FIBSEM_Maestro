@@ -61,8 +61,8 @@ class SimulatedBeamControl(BeamControl):
         self._horizontal_field_width = 20_000.0
         self._scanning_area = RelativeArea.full()
 
-        self._beam_shift_to_stage_move = (-1.0, -1.0)
-        self._image_to_beam_shift = (-1.0, 1.0)
+        self._beam_shift_to_stage_move = (1, -1)
+        self._image_to_beam_shift = (-1, 1)
 
         self._manufacturer_properties: dict[str, Any] = {
             "beam.custom_parameter": 1.0,
@@ -209,7 +209,7 @@ class SimulatedBeamControl(BeamControl):
         cos_theta = np.cos(theta)
         stretch = 1.0 / cos_theta if cos_theta > 1e-4 else 1.0
 
-        cx = pos.x - self.beam_shift.x  # beam shift in x is flipped
+        cx = -pos.x - self.beam_shift.x  # beam shift in x is flipped
         cy = -pos.y + self.beam_shift.y * stretch
 
         X, Y = SimulatedSample.world_grid(
