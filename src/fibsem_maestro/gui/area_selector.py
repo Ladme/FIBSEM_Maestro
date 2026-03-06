@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import tempfile
 from collections import Counter
+from collections.abc import Callable
 from enum import Enum
 from typing import TYPE_CHECKING
 
@@ -133,13 +134,27 @@ class AreaSelector:
         with self._container:
             self._image_selector.build()
 
+    def _on_image_selector_closed(self) -> None:
+        """Handle closing the image selector to go back to empty."""
+        assert self._container is not None
+        self._container.clear()
+
+        with self._container:
+            self._empty_selector = _AreaSelectorEmpty(
+                self._microscope, self._area_limits, self._on_image_selector_closed
+            )
+            self._empty_selector._on_placeholder_clicked = self._on_image_loaded
+            self._empty_selector.build()
+
+        self._image_selector = None
+
     def build(self) -> None:
         """Build the UI component."""
         self._container = ui.card().classes("!border-0 !shadow-none")
 
         with self._container:
             self._empty_selector = _AreaSelectorEmpty(
-                self._microscope, self._area_limits
+                self._microscope, self._area_limits, self._on_image_selector_closed
             )
             self._empty_selector._on_placeholder_clicked = self._on_image_loaded
             self._empty_selector.build()
@@ -163,6 +178,7 @@ class _AreaSelectorEmpty:
         self,
         microscope: Microscope,
         area_limits: AreaLimits,
+        on_close: Callable[[], None],
     ):
         """
         Initialize empty area selector for image loading.
@@ -175,6 +191,7 @@ class _AreaSelectorEmpty:
         self._height: int = 884
 
         self._area_limits = area_limits
+        self._on_close = on_close
 
     async def load_image(self) -> _AreaSelectorWithImage:
         """
@@ -187,7 +204,7 @@ class _AreaSelectorEmpty:
             Exception: If image loading fails.
         """
         image = self._microscope.beam.get_image()
-        return _AreaSelectorWithImage(image, self._area_limits)
+        return _AreaSelectorWithImage(image, self._area_limits, self._on_close)
 
     async def _on_placeholder_clicked(self) -> None:
         """Handle click on the empty placeholder."""
@@ -225,7 +242,9 @@ class _AreaSelectorEmpty:
 class _AreaSelectorWithImage:
     """Interactive area selector for image regions."""
 
-    def __init__(self, image: Image, area_limits: AreaLimits):
+    def __init__(
+        self, image: Image, area_limits: AreaLimits, on_close: Callable[[], None]
+    ):
         """
         Initialize AreaSelector with a loaded image.
 
@@ -239,6 +258,7 @@ class _AreaSelectorWithImage:
         self._selected_area_index: int | None = None
         self._current_pos: tuple[int, int] = (0, 0)
         self._edit_mode = False
+        self._on_close = on_close
 
         self._resolution = self._image.resolution
         self._width = self._resolution.width
@@ -341,6 +361,17 @@ class _AreaSelectorWithImage:
 """)
 
         with ui.card():
+            # close button
+            with ui.element("div").style(
+                "position: relative; display: inline-block; width: 100%;"
+            ):
+                ui.button(icon="close", on_click=self._on_close_clicked).style(
+                    "position: absolute; top: 0; right: -10px; z-index: 10; "
+                    "width: 30px !important; height: 30px !important; min-width: 30px !important; "
+                    "padding: 0 !important; background-color: black !important; color: white !important; "
+                    "border: none !important;"
+                )
+
             # image viewer
             self._image_widget = ui.interactive_image(
                 self._image_path,
@@ -350,8 +381,12 @@ class _AreaSelectorWithImage:
                 sanitize=False,
             ).classes("no-select crosshair-cursor")
 
-            self._area_type_row = ui.row().bind_visibility_from(
-                self, "_active_area_type", lambda active: active is not None
+            self._area_type_row = (
+                ui.row()
+                .bind_visibility_from(
+                    self, "_active_area_type", lambda active: active is not None
+                )
+                .classes("items-center gap-2")
             )
 
             # area type selector
@@ -681,3 +716,7 @@ class _AreaSelectorWithImage:
                 area_index = self._find_area_at_point(mx, my)
                 if area_index is not None:
                     self._select_area(area_index)
+
+    def _on_close_clicked(self) -> None:
+        """Handle close button click."""
+        self._on_close()
