@@ -1,0 +1,50 @@
+# Released under MIT License.
+# Copyright (c) 2024-2025 CEMCOF
+
+import logging
+from pathlib import Path
+
+from nicegui import ui
+
+from fibsem_maestro.core.resolution import Resolution
+from fibsem_maestro.core.slice import SliceContext
+from fibsem_maestro.core.stage_position import StagePosition
+from fibsem_maestro.gui.area_selector import AreaLimits, AreaSelector, AreaType
+from fibsem_maestro.logging.text.file import FileTextLogger
+from fibsem_maestro.microscope.microscope import Microscope
+from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
+
+
+@ui.page("/")
+def main():
+    ui.add_head_html("""
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+    body {
+        font-family: 'Inter', sans-serif;
+    }
+</style>
+""")
+
+    microscope_settings = MicroscopeSettings.from_file(
+        Path("../fibsem_playground/simulator.yaml")
+    )
+
+    slice = SliceContext(Path("logs"), 1)
+    txt_log = FileTextLogger(slice, "microscope", logging.INFO)
+
+    # initialize the microscope
+    microscope = Microscope(microscope_settings, txt_log)
+    microscope.beam.resolution = Resolution(4000, 4000)
+    microscope._control.try_set_stage_position(
+        StagePosition(x=0.0, y=0.0, z=5_000_000.0, rotation=0, tilt=0)
+    )
+
+    areas = AreaLimits()
+    areas.add_limit(AreaType.SCANNING, 1)
+    areas.add_limit(AreaType.TEMPLATE, 5)
+    selector = AreaSelector(microscope, areas)
+    selector.build()
+
+
+ui.run()

@@ -31,10 +31,6 @@ class _Area(BaseModel, Generic[T, U]):
     width: U
     height: U
 
-    def __init__(self, origin: T, width: U, height: U):
-        # pydantic BaseModel requires keyword arguments
-        super().__init__(origin=origin, width=width, height=height)
-
     def update(self, other: Self) -> None:
         """
         Update the area with the values from another area instance.
@@ -51,10 +47,6 @@ class RelativeArea(_Area[RelativePoint, float]):
     """
     Represents an area using relative coordinates (0-1).
     """
-
-    def __init__(self, origin: RelativePoint, width: float, height: float):
-        # pydantic BaseModel requires keyword arguments
-        super().__init__(origin=origin, width=width, height=height)
 
     def to_pixels(self, resolution: Resolution) -> "PixelArea":
         """
@@ -154,10 +146,6 @@ class RelativeArea(_Area[RelativePoint, float]):
 class PixelArea(_Area[PixelPoint, int]):
     """Represents an area using absolute pixel coordinates."""
 
-    def __init__(self, origin: PixelPoint, width: int, height: int):
-        # pydantic BaseModel requires keyword arguments
-        super().__init__(origin=origin, width=width, height=height)
-
     def to_relative(self, resolution: Resolution) -> "RelativeArea":
         """
         Convert the pixel-based area to relative coordinates.
@@ -213,10 +201,6 @@ class PixelArea(_Area[PixelPoint, int]):
 class NMArea(_Area[NMPoint, float]):
     """Represents an area in nanometers."""
 
-    def __init__(self, origin: NMPoint, width: float, height: float):
-        # pydantic BaseModel requires keyword arguments
-        super().__init__(origin=origin, width=width, height=height)
-
     def to_relative(
         self, resolution: Resolution, pixel_size_nm: float
     ) -> "RelativeArea":
@@ -267,10 +251,6 @@ class NMArea(_Area[NMPoint, float]):
 
 class MArea(_Area[MPoint, float]):
     """Represents an area in meters."""
-
-    def __init__(self, origin: MPoint, width: float, height: float):
-        # pydantic BaseModel requires keyword arguments
-        super().__init__(origin=origin, width=width, height=height)
 
     def to_relative(
         self, resolution: Resolution, pixel_size_m: float

@@ -6,13 +6,12 @@ from pathlib import Path
 
 from nicegui import ui
 
+from fibsem_maestro.core.slice import SliceContext
 from fibsem_maestro.gui.action_sequence import ActionButton
 from fibsem_maestro.gui.main_view import MainView
 from fibsem_maestro.gui.settings_form.imaging_form import ImagingForm
 from fibsem_maestro.gui.settings_form.template_matching_form import TemplateMatchingForm
-from fibsem_maestro.logging.context import LogContext, SliceContext
-from fibsem_maestro.logging.image.slice_aware import SliceAwareImageLogger
-from fibsem_maestro.logging.text.central import CentralTextLogger
+from fibsem_maestro.logging.text.file import FileTextLogger
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.imaging_settings import ImagingSettings
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
@@ -34,13 +33,11 @@ def main():
         Path("../fibsem_playground/simulator.yaml")
     )
 
-    slice = SliceContext(0)
-    log_context = LogContext(Path("logs"), slice, logging.DEBUG)
-    txt_log = CentralTextLogger("microscope", log_context)
-    img_log = SliceAwareImageLogger(log_context)
+    slice = SliceContext(Path("logs"), 1)
+    txt_log = FileTextLogger(slice, "microscope", logging.INFO)
 
     # initialize the microscope
-    microscope = Microscope(microscope_settings, txt_log, img_log)
+    microscope = Microscope(microscope_settings, txt_log)
 
     ui.label("FIBSEM Maestro").classes("text-2xl font-bold mb-6")
 
