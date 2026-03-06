@@ -6,7 +6,12 @@ from typing import Any
 
 from nicegui import ui
 
+from fibsem_maestro.core.action import Action
 from fibsem_maestro.core.beam_type import BeamType
+from fibsem_maestro.drift_correction.template_matching import (
+    TemplateMatchingDriftCorrection,
+)
+from fibsem_maestro.gui.area_selector import AreaLimits, AreaSelector, AreaType
 from fibsem_maestro.gui.properties_selector import PropertiesSelector
 from fibsem_maestro.gui.settings_form.settings_form import SettingsForm
 from fibsem_maestro.microscope.microscope import Microscope
@@ -14,17 +19,22 @@ from fibsem_maestro.settings.template_matching_settings import TemplateMatchingS
 
 
 class TemplateMatchingForm(SettingsForm):
-    """Simple form for TemplateMatchingSettings with real-time instance updates."""
+    """Simple form for TemplateMatchingDriftCorrection with real-time instance updates."""
 
     def __init__(
         self,
-        instance: TemplateMatchingSettings,
+        action: TemplateMatchingDriftCorrection,
         microscope: Microscope,
     ):
-        self.instance = instance
+        self.action = action
         self.microscope = microscope
         self.widgets = {}
         self.properties_selector = None
+
+        area_limits = AreaLimits()
+        area_limits.add_limit(AreaType.TEMPLATE, 100)
+        area_limits.add_limit(AreaType.SCANNING, 1)
+        self._area_selector = AreaSelector(self.microscope, area_limits)
 
     def build(self):
         with ui.card().classes("w-full"):
@@ -35,7 +45,7 @@ class TemplateMatchingForm(SettingsForm):
                 self.widgets["properties_file"] = (
                     ui.input(
                         label="Properties file",
-                        value=str(self.instance.properties_file),
+                        value=str(self.action._settings.properties_file),
                     )
                     .classes("w-full")
                     .on_value_change(
@@ -47,7 +57,7 @@ class TemplateMatchingForm(SettingsForm):
                 self.widgets["templates_directory"] = (
                     ui.input(
                         label="Templates directory",
-                        value=str(self.instance.templates_directory),
+                        value=str(self.action._settings.templates_directory),
                     )
                     .classes("w-full")
                     .on_value_change(
@@ -62,7 +72,7 @@ class TemplateMatchingForm(SettingsForm):
                     ui.select(
                         {e.value: e.value for e in BeamType},
                         label="Beam type",
-                        value=self.instance.beam_type.value,
+                        value=self.action._settings.beam_type.value,
                     )
                     .classes("w-full")
                     .on_value_change(
@@ -74,7 +84,7 @@ class TemplateMatchingForm(SettingsForm):
                 self.widgets["min_confidence"] = (
                     ui.number(
                         label="Minimum confidence",
-                        value=self.instance.min_confidence,
+                        value=self.action._settings.min_confidence,
                         min=0.0,
                         max=1.0,
                         step=0.01,
@@ -89,7 +99,7 @@ class TemplateMatchingForm(SettingsForm):
                 self.widgets["rescan"] = (
                     ui.number(
                         label="Rescan interval",
-                        value=self.instance.rescan,
+                        value=self.action._settings.rescan,
                         step=1,
                     )
                     .classes("w-full")
@@ -102,7 +112,7 @@ class TemplateMatchingForm(SettingsForm):
                 self.widgets["blur"] = (
                     ui.number(
                         label="Blur",
-                        value=self.instance.blur,
+                        value=self.action._settings.blur,
                         step=1,
                     )
                     .classes("w-full")
@@ -113,7 +123,7 @@ class TemplateMatchingForm(SettingsForm):
                 self.widgets["correction_margin"] = (
                     ui.number(
                         label="Correction margin [nm]",
-                        value=self.instance.correction_margin,
+                        value=self.action._settings.correction_margin,
                         step=1000,
                     )
                     .classes("w-full")
@@ -128,7 +138,7 @@ class TemplateMatchingForm(SettingsForm):
                 self.widgets["stop_acquisition_at_failure"] = (
                     ui.checkbox(
                         text="Stop acquisition at failure",
-                        value=self.instance.stop_acquisition_at_failure,
+                        value=self.action._settings.stop_acquisition_at_failure,
                     )
                     .classes("w-full")
                     .on_value_change(
@@ -139,15 +149,30 @@ class TemplateMatchingForm(SettingsForm):
                 )
 
                 # properties selector
-                self.properties_selector = PropertiesSelector(self.microscope)
+                self.properties_selector = PropertiesSelector(
+                    self.microscope, self.action._settings.properties_to_collect
+                )
+
+                # area selector
+                self._area_selector.build()
 
     def get_settings(self) -> TemplateMatchingSettings:
-        """Return the current instance (now updated in real-time)."""
-        # ensure properties are current from selector
-        if self.properties_selector is not None:
-            self.instance.properties_to_collect = self.properties_selector.props
-        return self.instance
+        """Return the current instance."""
+        # TODO: make this dynamic
+        areas = self._area_selector.get_areas()
+        template_areas = areas.get(AreaType.TEMPLATE, [])
+        self.action._settings.areas = template_areas
+
+        return self.action._settings
 
     def _update_field(self, field_name: str, value: Any):
         """Update a single field on the instance."""
-        setattr(self.instance, field_name, value)
+        setattr(self.action._settings, field_name, value)
+
+    def get_action(self) -> Action:
+        # TODO: make this dynamic
+        areas = self._area_selector.get_areas()
+        template_areas = areas.get(AreaType.TEMPLATE, [])
+        self.action._settings.areas = template_areas
+
+        return self.action

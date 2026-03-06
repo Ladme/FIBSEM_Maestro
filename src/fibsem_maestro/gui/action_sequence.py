@@ -19,9 +19,19 @@ class ActionSequence:
         self,
         actions: list[ActionButton],
         on_action_click: Callable[[ActionButton], None],
+        on_slices_click: Callable[[], None],
     ):
+        """
+        Initialize ActionSequence.
+
+        Args:
+            actions: List of ActionButton objects.
+            on_action_click: Callback when an action is clicked.
+            on_slices_click: Callback when slices button is clicked.
+        """
         self._actions = actions
         self._external_click_handler = on_action_click
+        self._slices_click_handler = on_slices_click
         self._selected_action: ActionButton | None = None
 
         self._row = ui.row().classes("gap-2")
@@ -37,6 +47,11 @@ class ActionSequence:
                 ui.button(action.name).props(f"color={color} unelevated").classes(
                     "px-6 py-3 text-white rounded font-semibold"
                 ).on_click(lambda _, a=action: self._handle_click(a))
+
+            # slices button
+            ui.button("Run").props("color=primary unelevated").classes(
+                "px-6 py-3 text-white rounded font-semibold"
+            ).on_click(self._slices_click_handler)
 
     def _handle_click(self, action: ActionButton) -> None:
         # toggle selection

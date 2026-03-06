@@ -9,6 +9,7 @@ from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.imaging.error import ImagingError
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope import Microscope
+from fibsem_maestro.settings.base_settings import BaseSettings
 from fibsem_maestro.settings.imaging_settings import (
     ExtendedResolution,
     ImagingSettings,
@@ -46,6 +47,10 @@ class Imaging(Action):
         self._props_store = props_store
         self._frame_store = frame_store
         self._txt_log = txt_log
+
+    @property
+    def settings(self) -> BaseSettings:
+        return self._settings
 
     def grab_frame(self) -> None:
         """

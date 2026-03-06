@@ -7,10 +7,12 @@ from typing import Any
 
 from nicegui import ui
 
+from fibsem_maestro.core.action import Action
 from fibsem_maestro.core.beam_type import BeamType
-from fibsem_maestro.gui.area_selector import AreaSelector
+from fibsem_maestro.gui.area_selector import AreaLimits, AreaSelector, AreaType
 from fibsem_maestro.gui.properties_selector import PropertiesSelector
 from fibsem_maestro.gui.settings_form.settings_form import SettingsForm
+from fibsem_maestro.imaging.imaging import Imaging
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.imaging_settings import (
     ExtendedResolution,
@@ -24,16 +26,17 @@ class ImagingForm(SettingsForm):
 
     def __init__(
         self,
-        instance: ImagingSettings,
+        action: Imaging,
         microscope: Microscope,
     ):
-        self.instance = instance
+        self.action = action
         self.microscope = microscope
         self.widgets = {}
         self.properties_selector = None
-        self._area_selector = AreaSelector(
-            self.microscope.beam.get_image(), max_areas=1
-        )
+
+        area_limits = AreaLimits()
+        area_limits.add_limit(AreaType.SCANNING, 1)
+        self._area_selector = AreaSelector(self.microscope, area_limits)
 
     def build(self):
         with ui.card().classes("w-full"):
@@ -44,7 +47,7 @@ class ImagingForm(SettingsForm):
                 self.widgets["properties_file"] = (
                     ui.input(
                         label="Properties file",
-                        value=str(self.instance.properties_file),
+                        value=str(self.action._settings.properties_file),
                     )
                     .classes("w-full")
                     .on_value_change(
@@ -56,7 +59,7 @@ class ImagingForm(SettingsForm):
                 self.widgets["images_directory"] = (
                     ui.input(
                         label="Images directory",
-                        value=str(self.instance.images_directory),
+                        value=str(self.action._settings.images_directory),
                     )
                     .classes("w-full")
                     .on_value_change(
@@ -69,7 +72,7 @@ class ImagingForm(SettingsForm):
                     ui.select(
                         {e.value: e.value for e in BeamType},
                         label="Beam type",
-                        value=self.instance.beam_type.value,
+                        value=self.action._settings.beam_type.value,
                     )
                     .classes("w-full")
                     .on_value_change(
@@ -81,7 +84,7 @@ class ImagingForm(SettingsForm):
                 self.widgets["bit_depth"] = (
                     ui.number(
                         label="Bit depth",
-                        value=self.instance.bit_depth or None,
+                        value=self.action._settings.bit_depth or None,
                         step=1,
                     )
                     .classes("w-full")
@@ -95,22 +98,21 @@ class ImagingForm(SettingsForm):
                 # resolution mode
                 self._build_resolution_mode()
 
+                # properties selector
+                self.properties_selector = PropertiesSelector(
+                    self.microscope, self.action._settings.properties_to_collect
+                )
+
                 # area selector
                 self._area_selector.build()
 
-                # properties selector
-                self.properties_selector = PropertiesSelector(self.microscope)
-
     def get_settings(self) -> ImagingSettings:
-        """Return the current instance (now updated in real-time)."""
-        # ensure properties are current from selector
-        if self.properties_selector is not None:
-            self.instance.properties_to_collect = self.properties_selector.props
-        return self.instance
+        """Return the current settings."""
+        return self.action._settings
 
     def _build_resolution_mode(self):
         """Build resolution mode radio with conditional extended fields."""
-        current_mode = self.instance.resolution_mode
+        current_mode = self.action._settings.resolution_mode
         is_extended = isinstance(current_mode, ExtendedResolution)
 
         ui.label("Resolution mode").classes("font-semibold mt-4")
@@ -141,7 +143,7 @@ class ImagingForm(SettingsForm):
         container.clear()
 
         if self.widgets["resolution_radio"].value == "extended":
-            current_mode = self.instance.resolution_mode
+            current_mode = self.action._settings.resolution_mode
             pixel_size = ExtendedResolution().pixel_size  # pyright: ignore[reportCallIssue]
             if isinstance(current_mode, ExtendedResolution):
                 pixel_size = current_mode.pixel_size
@@ -163,12 +165,15 @@ class ImagingForm(SettingsForm):
     def _update_resolution_mode(self):
         """Update resolution mode on the instance."""
         if self.widgets["resolution_radio"].value == "standard":
-            self.instance.resolution_mode = StandardResolution()
+            self.action._settings.resolution_mode = StandardResolution()
         else:
-            self.instance.resolution_mode = ExtendedResolution()  # pyright: ignore[reportCallIssue]
+            self.action._settings.resolution_mode = ExtendedResolution()  # pyright: ignore[reportCallIssue]
             if (pixel_size := self.widgets["pixel_size"].value) is not None:
-                self.instance.resolution_mode.pixel_size = pixel_size
+                self.action._settings.resolution_mode.pixel_size = pixel_size
 
     def _update_field(self, field_name: str, value: Any):
         """Update a single field on the instance."""
-        setattr(self.instance, field_name, value)
+        setattr(self.action._settings, field_name, value)
+
+    def get_action(self) -> Action:
+        return self.action

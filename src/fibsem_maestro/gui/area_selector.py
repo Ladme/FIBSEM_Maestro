@@ -4,8 +4,7 @@
 from __future__ import annotations
 
 import tempfile
-from collections import Counter
-from collections.abc import Callable
+from collections import Counter, defaultdict
 from enum import Enum
 from typing import TYPE_CHECKING
 
@@ -14,11 +13,13 @@ from nicegui import events, ui
 from PIL import Image as PILImage
 from scipy import ndimage  # type: ignore
 
-from fibsem_maestro.core.area import PixelArea
+from fibsem_maestro.core.area import PixelArea, RelativeArea
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.point import PixelPoint
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from fibsem_maestro.microscope.microscope import Microscope
 
 
@@ -119,6 +120,7 @@ class AreaSelector:
         self._container = None
         self._empty_selector: _AreaSelectorEmpty | None = None
         self._image_selector: _AreaSelectorWithImage | None = None
+        self._active_container = None
 
         self._area_limits = area_limits
 
@@ -126,6 +128,7 @@ class AreaSelector:
         """Handle image loading and transition to image selector."""
         assert self._empty_selector is not None
         self._image_selector = await self._empty_selector.load_image()
+        self._active_container = self._image_selector
 
         # clear and rebuild container
         assert self._container is not None
@@ -147,19 +150,24 @@ class AreaSelector:
             self._empty_selector.build()
 
         self._image_selector = None
+        self._active_container = self._empty_selector
 
     def build(self) -> None:
         """Build the UI component."""
         self._container = ui.card().classes("!border-0 !shadow-none")
 
         with self._container:
-            self._empty_selector = _AreaSelectorEmpty(
-                self._microscope, self._area_limits, self._on_image_selector_closed
-            )
-            self._empty_selector._on_placeholder_clicked = self._on_image_loaded
-            self._empty_selector.build()
+            if isinstance(self._active_container, _AreaSelectorWithImage):
+                self._active_container.build()
+            else:
+                self._empty_selector = _AreaSelectorEmpty(
+                    self._microscope, self._area_limits, self._on_image_selector_closed
+                )
+                self._active_container = self._empty_selector
+                self._empty_selector._on_placeholder_clicked = self._on_image_loaded
+                self._empty_selector.build()
 
-    def get_areas(self) -> list[SelectedArea]:
+    def get_areas(self) -> dict[AreaType, list[RelativeArea]]:
         """
         Retrieve all finalized areas.
 
@@ -167,7 +175,7 @@ class AreaSelector:
             List of SelectedArea objects that have been created.
         """
         if self._image_selector is None:
-            return []
+            return {}
         return self._image_selector.get_areas()
 
 
@@ -231,6 +239,7 @@ class _AreaSelectorEmpty:
                 .on("click", self._on_placeholder_clicked)
             ),
         ):
+            ui.label("Area selector").classes("font-bold")
             ui.html(
                 f'<svg width="{self._width}" height="{self._height}" style="border: 2px dashed #ccc; background-color: #f5f5f5; display: block;">'
                 f'<text x="{self._width // 2}" y="{self._height // 2}" text-anchor="middle" dominant-baseline="middle" fill="#999" font-size="24">'
@@ -361,6 +370,8 @@ class _AreaSelectorWithImage:
 """)
 
         with ui.card():
+            ui.label("Area selector").classes("font-bold")
+
             # close button
             with ui.element("div").style(
                 "position: relative; display: inline-block; width: 100%;"
@@ -391,7 +402,7 @@ class _AreaSelectorWithImage:
 
             # area type selector
             with self._area_type_row:
-                ui.label("Area Type:")
+                ui.label("Area type:")
                 self._area_type_select = ui.select(
                     {},
                     on_change=lambda e: self._set_active_area_type(e.value),
@@ -403,6 +414,8 @@ class _AreaSelectorWithImage:
             self._preview_layer = self._image_widget.add_layer()
             self._mouse_layer = self._image_widget.add_layer()
 
+            self._redraw_final_layer()
+
         ui.keyboard(on_key=self._on_key_pressed)
 
     def _update_area_type_options(self) -> None:
@@ -413,9 +426,12 @@ class _AreaSelectorWithImage:
         self._area_type_row.clear()
 
         available_types = self._area_limits.get_available(self._areas)
+        # add the active area if in edit mode
+        if self._active_area_type is not None and self._edit_mode:
+            available_types.append(self._active_area_type)
 
         with self._area_type_row:
-            ui.label("Area Type:")
+            ui.label("Area type:")
             self._area_type_select = ui.select(
                 {
                     area_type.value: area_type.value.replace("_", " ").title()
@@ -607,14 +623,16 @@ class _AreaSelectorWithImage:
         self._update_area_type_options()
         self._update_active_area_type()
 
-    def get_areas(self) -> list[SelectedArea]:
+    def get_areas(self) -> dict[AreaType, list[RelativeArea]]:
         """
-        Retrieve all finalized areas.
+        Retrieve all finalized areas in relative units separated by AreaType.
+        """
+        grouped: dict[AreaType, list[RelativeArea]] = defaultdict(list)
 
-        Returns:
-            List of SelectedArea objects that have been created.
-        """
-        return self._areas
+        for area in self._areas:
+            grouped[area.type].append(area.to_relative(self._image.resolution))
+
+        return grouped
 
     def _find_area_at_point(self, x: int, y: int) -> int | None:
         """
@@ -659,6 +677,8 @@ class _AreaSelectorWithImage:
         self._selected_area_index = 0
         self._edit_mode = True
 
+        self._update_area_type_options()
+
         # re-render
         self._redraw_final_layer()
 
@@ -669,6 +689,9 @@ class _AreaSelectorWithImage:
             self._selected_area_index = None
 
         self._edit_mode = False
+
+        self._update_area_type_options()
+        self._update_active_area_type()
 
         # re-render
         self._redraw_final_layer()
