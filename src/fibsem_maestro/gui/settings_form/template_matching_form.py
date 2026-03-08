@@ -33,7 +33,6 @@ class TemplateMatchingForm(SettingsForm):
 
         area_limits = AreaLimits()
         area_limits.add_limit(AreaType.TEMPLATE, 100)
-        area_limits.add_limit(AreaType.SCANNING, 1)
         self._area_selector = AreaSelector(self.microscope, area_limits)
 
     def build(self):
