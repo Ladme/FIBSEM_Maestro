@@ -94,6 +94,30 @@ class TemplateMatchingDriftCorrection(Action):
         image = self._microscope.beam.grab_frame().to_8bit()
 
         # perform template matching for each template
+        matches = self._get_template_matches(image)
+
+        # log the results of template matching
+        self._log_heatmaps(matches)
+        self._log_image_shifts(image, matches)
+
+        # get beam shift based on the template matching
+        beam_shift = self._matches_to_beam_shift(matches, image.pixel_size)
+
+        # update the templates for the next slice
+        self._update_templates(image, matches)
+
+        # add the beam shift to the drift correction parameters for the next slice
+        props = self.read_properties()
+        props.accumulate_property("beam_shift", beam_shift, self.beam_type)
+        self.write_properties(props, self._props_store.next)
+
+        # add the beam shift to the imaging parameters for the current slice
+        for imaging in self._imagings:
+            props = imaging.read_properties()
+            props.accumulate_property("beam_shift", beam_shift, imaging.beam_type)
+            imaging.write_properties(props)
+
+    def _get_template_matches(self, image: Image8Bit) -> list[TemplateMatchResult]:
         matches = []
         for i, area in enumerate(self._settings.areas):
             # load the template from file
@@ -109,25 +133,7 @@ class TemplateMatchingDriftCorrection(Action):
                 )
             )
 
-        # log the results of template matching
-        self._log_heatmaps(matches)
-        self._log_image_shifts(image, matches)
-
-        # get beam shift based on the template matching
-        beam_shift = self._matches_to_beam_shift(matches, image.pixel_size)
-
-        # update the templates for the next slice
-        self._update_templates(image, matches)
-
-        # add the beam shift to the drift correction parameters for the next slice
-        self._microscope.add_beam_shift_with_verification(beam_shift)
-        self.collect_and_write_properties(self._props_store.next)
-
-        # add the beam shift to the imaging parameters for the current slice
-        for imaging in self._imagings:
-            props = imaging.read_properties()
-            props.accumulate_property("beam_shift", beam_shift, imaging.beam_type)
-            imaging.write_properties(props)
+        return matches
 
     @staticmethod
     def _calculate_match(
