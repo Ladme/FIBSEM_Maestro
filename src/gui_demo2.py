@@ -104,8 +104,14 @@ def main():
     microscope.beam.horizontal_field_width = 2000
 
     def run(slices: int):
+        random.seed(1234567)
         template_matching.create_templates()
         for _ in range(slices):
+            # microscope._control.try_move_stage_position(
+            #    StagePosition(
+            #        x=random.randrange(-1000, 1001), y=random.randrange(-1000, 1001)
+            #    )
+            # )
             control = microscope._control
             if isinstance(control, SimulatedMicroscopeControl):
                 control._sample.apply_drift(  # pyright: ignore[reportAttributeAccessIssue]
