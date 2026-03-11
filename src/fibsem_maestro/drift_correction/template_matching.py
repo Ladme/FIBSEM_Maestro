@@ -4,19 +4,17 @@
 from typing import Any
 
 import cv2
+import numpy as np
 from numpy.typing import NDArray
 from scipy import ndimage  # type: ignore
 
 from fibsem_maestro.core.action import Action
-from fibsem_maestro.core.area import NMArea, RelativeArea
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.image import Image, Image8Bit
-from fibsem_maestro.core.point import NMPoint
-from fibsem_maestro.core.resolution import Resolution
+from fibsem_maestro.core.point import PixelPoint
 from fibsem_maestro.drift_correction.error import DriftCorrectionError
-from fibsem_maestro.drift_correction.template_matching_helpers import (
-    ShiftsCollection,
+from fibsem_maestro.drift_correction.helpers import (
     TemplateMatchResult,
 )
 from fibsem_maestro.imaging.imaging import Imaging
@@ -24,7 +22,6 @@ from fibsem_maestro.logging.image.image_logger import ImageLogger
 from fibsem_maestro.logging.image.overlay import RectangleOverlay
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope import Microscope
-from fibsem_maestro.settings.beam_properties import BeamProperties
 from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.settings.template_matching_settings import TemplateMatchingSettings
 from fibsem_maestro.store.image.image_store import ImageStore
@@ -96,121 +93,41 @@ class TemplateMatchingDriftCorrection(Action):
         self._txt_log.info("Acquiring drift correction image.")
         image = self._microscope.beam.grab_frame().to_8bit()
 
-        # calculate shifts for each template
-        shifts = self._calculate_shifts(image)
+        # perform template matching for each template
+        matches = []
+        for i, area in enumerate(self._settings.areas):
+            # load the template from file
+            template = self._load_template(i)
 
-        # create an image log visualizing the individual areas and their shifts
-        self._log_image_shifts(image, shifts)
+            # select the area for template matching from the provided image
+            cropped = image.crop_with_padding(area, self._settings.correction_margin)
 
-        # convert image shifts to beam shift
-        beam_shift = self._shifts_to_beam_shift(shifts)
+            # calculate the match between template and the cropped image
+            matches.append(
+                TemplateMatchingDriftCorrection._calculate_match(
+                    template, cropped, self._settings.blur
+                )
+            )
+
+        # log the results of template matching
+        self._log_heatmaps(matches)
+        self._log_image_shifts(image, matches)
+
+        # get beam shift based on the template matching
+        beam_shift = self._matches_to_beam_shift(matches, image.pixel_size)
+
+        # update the templates for the next slice
+        self._update_templates(image, matches)
 
         # add the beam shift to the drift correction parameters for the next slice
-        props = self.read_properties()
-        props.accumulate_property("beam_shift", beam_shift, self.beam_type)
-        self.write_properties(props, self.props_store.next)
+        self._microscope.add_beam_shift_with_verification(beam_shift)
+        self.collect_and_write_properties(self._props_store.next)
 
         # add the beam shift to the imaging parameters for the current slice
         for imaging in self._imagings:
             props = imaging.read_properties()
             props.accumulate_property("beam_shift", beam_shift, imaging.beam_type)
             imaging.write_properties(props)
-
-    def _add_beam_shift_to_properties(
-        self, beam_shift: BeamShift, store: PropsStore | None = None
-    ) -> None:
-        """
-        Update beam shift properties using the properties store.
-        """
-        store = store or self._props_store
-        # read the properties
-        props = store.read(str(self._settings.properties_file))
-
-        # get the appropriate beam properties based on beam type
-        beam_props_attr = (
-            "electron_beam"
-            if self._settings.beam_type == BeamType.ELECTRON
-            else "ion_beam"
-        )
-
-        # initialize or update beam properties
-        current_beam_props: BeamProperties | None = getattr(props, beam_props_attr)
-        if current_beam_props is None:
-            setattr(
-                props,
-                beam_props_attr,
-                BeamProperties.model_validate({"beam_shift": beam_shift}),
-            )
-        else:
-            current_beam_props.beam_shift = (
-                beam_shift
-                if current_beam_props.beam_shift is None
-                else current_beam_props.beam_shift + beam_shift
-            )
-
-        # write the properties
-        store.write(str(self._settings.properties_file), props)
-
-    def _calculate_shifts(self, image: Image8Bit) -> ShiftsCollection:
-        shifts = ShiftsCollection()
-        for i, area in enumerate(self._settings.areas):
-            # load the template from file
-            template = self._load_template(i)
-
-            # select the area for template matching from the provided image
-            cropped = image.crop_with_correction_margin(
-                area, self._settings.correction_margin
-            )
-
-            # calculate the match between template and the cropped image
-            template_match = TemplateMatchingDriftCorrection._calculate_match(
-                template, cropped, self._settings.blur
-            )
-
-            # log the heatmap for the template
-            self._log_heatmap(template_match.heatmap, i)
-
-            # convert shift to nm
-            dx_nm = template_match.dx * cropped.pixel_size
-            dy_nm = template_match.dy * cropped.pixel_size
-
-            self._txt_log.info(
-                f"Drift correction for template {i}: {dx_nm},{dy_nm}. Confidence: {template_match.confidence}."
-            )
-
-            # ignore the calculated shift if the confidence is too low
-            if template_match.confidence < self._settings.min_confidence:
-                self._txt_log.warning(
-                    f"Template match confidence ({template_match.confidence}) is too low (limit: {self._settings.min_confidence}). Ignoring."
-                )
-                # copy the current template to the next slice
-                self._copy_template(i, self._image_store, self._image_store.next)
-                continue
-
-            shifts.dx[i] = dx_nm
-            shifts.dy[i] = dy_nm
-
-            # use the new acquired image as template for the next slice
-            slice = self._image_store.slice or 0
-            if slice > 0 and slice % self._settings.rescan == 0:
-                self._txt_log.debug(
-                    f"Updating template image {i} for slice {slice + 1}."
-                )
-
-                new_template = image.crop(
-                    TemplateMatchingDriftCorrection._shift_area(
-                        area, (dx_nm, dy_nm), image.resolution, image.pixel_size
-                    )
-                )
-
-                self._image_store.next.write(
-                    self._construct_template_name(i), new_template
-                )
-            else:
-                # copy the current template to the next slice
-                self._copy_template(i, self._image_store, self._image_store.next)
-
-        return shifts
 
     @staticmethod
     def _calculate_match(
@@ -249,8 +166,32 @@ class TemplateMatchingDriftCorrection(Action):
             heatmap=heatmap,
         )
 
-    def _shifts_to_beam_shift(self, shifts: ShiftsCollection) -> BeamShift:
-        if (mean_shift := shifts.get_mean_shift()) is None:
+    def _matches_to_beam_shift(
+        self, matches: list[TemplateMatchResult], pixel_size: float
+    ) -> BeamShift:
+        shifts_x = []
+        shifts_y = []
+        for i, match in enumerate(matches):
+            # convert shift to nm
+            dx_nm = match.dx * pixel_size
+            dy_nm = match.dy * pixel_size
+
+            self._txt_log.info(
+                f"Drift correction for template {i}: {dx_nm},{dy_nm}. Confidence: {match.confidence}."
+            )
+
+            # ignore templates for which the template matching confidence was too low
+            if match.confidence < self._settings.min_confidence:
+                self._txt_log.warning(
+                    f"Template match confidence ({match.confidence}) is too low (limit: {self._settings.min_confidence}). Ignoring."
+                )
+                continue
+
+            shifts_x.append(dx_nm)
+            shifts_y.append(dy_nm)
+
+        # check that at least one template had a high enough confidence
+        if len(shifts_x) == 0 or len(shifts_y) == 0:
             if self._settings.stop_acquisition_at_failure:
                 raise DriftCorrectionError(
                     f"Confidence of all templates is below the limit of {self._settings.min_confidence}. Cannot perform drift correction."
@@ -261,28 +202,41 @@ class TemplateMatchingDriftCorrection(Action):
             )
             return BeamShift(x=0.0, y=0.0)
 
+        # calculate average image shift
+        mean_shift_x = float(np.mean(shifts_x))
+        mean_shift_y = float(np.mean(shifts_y))
+
+        # convert image shift to beam shift
         return BeamShift(
-            x=mean_shift[0] * self._microscope.beam.image_to_beam_shift[0],
-            y=mean_shift[1] * self._microscope.beam.image_to_beam_shift[1],
+            x=mean_shift_x * self._microscope.beam.image_to_beam_shift[0],
+            y=mean_shift_y * self._microscope.beam.image_to_beam_shift[1],
         )
 
-    @staticmethod
-    def _shift_area(
-        area: RelativeArea,
-        shift_nm: tuple[float, float],
-        resolution: Resolution,
-        pixel_size: float,
-    ) -> RelativeArea:
-        area_nm = area.to_nanometers(resolution, pixel_size)
-        shifted_area_nm = NMArea(
-            origin=NMPoint(
-                x=area_nm.origin.x + shift_nm[0], y=area_nm.origin.y + shift_nm[1]
-            ),
-            width=area_nm.width,
-            height=area_nm.height,
-        )
+    def _update_templates(
+        self, image: Image8Bit, matches: list[TemplateMatchResult]
+    ) -> None:
+        for i, (area, match) in enumerate(zip(self._settings.areas, matches)):
+            if match.confidence < self._settings.min_confidence:
+                self._copy_template(i, self._image_store, self._image_store.next)
+                continue
 
-        return shifted_area_nm.to_relative(resolution, pixel_size)
+            slice = self._image_store.slice or 0
+            if slice > 0 and slice % self._settings.rescan == 0:
+                self._txt_log.debug(
+                    f"Updating template image {i} for slice {slice + 1}."
+                )
+
+                new_template = image.crop(
+                    area.shifted(
+                        PixelPoint(x=match.dx, y=match.dy).to_relative(image.resolution)
+                    )
+                )
+
+                self._image_store.next.write(
+                    self._construct_template_name(i), new_template
+                )
+            else:
+                self._copy_template(i, self._image_store, self._image_store.next)
 
     def _save_template(
         self,
@@ -314,9 +268,15 @@ class TemplateMatchingDriftCorrection(Action):
     def _construct_template_name(self, index: int) -> str:
         return f"template_drift_corr_{index}.tif"
 
-    def _log_image_shifts(self, image: Image8Bit, shifts: ShiftsCollection) -> None:
+    def _log_heatmaps(self, matches: list[TemplateMatchResult]) -> None:
+        for i, match in enumerate(matches):
+            self._log_heatmap(match.heatmap, i)
+
+    def _log_image_shifts(
+        self, image: Image8Bit, matches: list[TemplateMatchResult]
+    ) -> None:
         overlays = []
-        for i, area in enumerate(self._settings.areas):
+        for i, (area, match) in enumerate(zip(self._settings.areas, matches)):
             area_px = area.to_pixels(image.resolution)
 
             overlays.append(
@@ -329,12 +289,13 @@ class TemplateMatchingDriftCorrection(Action):
                 )
             )
 
-            if (dx := shifts.dx.get(i)) is None or (dy := shifts.dy.get(i)) is None:
+            if match.confidence < self._settings.min_confidence:
+                self._txt_log.debug(
+                    f"Confidence is too low for template {i}. Shifted template area will not be displayed in the log."
+                )
                 continue
 
-            shifted_area_px = TemplateMatchingDriftCorrection._shift_area(
-                area, (dx, dy), image.resolution, image.pixel_size
-            ).to_pixels(image.resolution)
+            shifted_area_px = area_px.shifted(PixelPoint(x=match.dx, y=match.dy))
 
             overlays.append(
                 RectangleOverlay(

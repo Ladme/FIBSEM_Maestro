@@ -4,7 +4,6 @@
 
 import argparse
 import logging
-import random
 from pathlib import Path
 
 from fibsem_maestro.core.area import RelativeArea

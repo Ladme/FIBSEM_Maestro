@@ -72,7 +72,10 @@ class Microscope:
 
     def set_beam_shift_with_verification(
         self, new_beam_shift: BeamShift, beam: BeamControl | None = None
-    ) -> None:
+    ) -> bool:
+        """
+        Returns `True` if the beam shift is in limit.
+        """
         beam = beam or self.beam
         # try setting beam shift
         try:
@@ -85,6 +88,8 @@ class Microscope:
 
             if dist > self._settings.beam_shift_tolerance:
                 raise MicroscopeError("Beam shift out of range.")
+
+            return True
         except Exception as e:
             self._txt_log.warning(f"Beam shift error: {e}. Adjusting stage position.")
 
@@ -99,11 +104,16 @@ class Microscope:
             # set beam shift to zero
             beam.beam_shift = BeamShift(0.0, 0.0)
 
+            return False
+
     def add_beam_shift_with_verification(
         self, delta: BeamShift, beam: BeamControl | None = None
-    ) -> None:
+    ) -> bool:
+        """
+        Returns `True` if the beam shift is in limit.
+        """
         beam = beam or self.beam
-        self.set_beam_shift_with_verification(beam.beam_shift + delta, beam)
+        return self.set_beam_shift_with_verification(beam.beam_shift + delta, beam)
 
     @property
     def prop_names(self) -> PropertyNames:

@@ -42,6 +42,14 @@ class _Area(BaseModel, Generic[T, U]):
         self.width = other.width
         self.height = other.height
 
+    def shifted(self, delta: T) -> Self:
+        """
+        Get an area of the same type and dimensions with origin shifted by `delta`.
+        """
+        return type(self)(
+            origin=self.origin + delta, width=self.width, height=self.height
+        )
+
 
 class RelativeArea(_Area[RelativePoint, float]):
     """
