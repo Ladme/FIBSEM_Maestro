@@ -62,5 +62,5 @@ class MainView:
         ui.notify(
             f"Collecting microscope properties for action {self._active_action.name}..."
         )
-        action.save_properties()
+        action.collect_and_write_properties()
         ui.notify("Saved microscope properties.")

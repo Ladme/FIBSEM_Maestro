@@ -17,7 +17,7 @@ class PropertiesSelector:
             properties: PropertyNames object to be modified by the user's selections.
         """
         self._properties = properties
-        property_names = microscope.get_property_names()
+        property_names = microscope.prop_names
 
         with ui.column().classes("w-full"):
             ui.label("Properties to save").classes("font-bold")
