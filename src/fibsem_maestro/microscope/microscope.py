@@ -11,10 +11,12 @@ from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.logging.text.text_logger import TextLogger
+from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
 from fibsem_maestro.microscope.error import MicroscopeError
 from fibsem_maestro.microscope.microscope_registry import MicroscopeRegistry
 from fibsem_maestro.settings.global_properties import GlobalProperties
 from fibsem_maestro.settings.imaging_settings import ImagingSettings
+from fibsem_maestro.settings.microscope_properties import MicroscopeProperties
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
 from fibsem_maestro.settings.property_names import PropertyNames
 
@@ -68,11 +70,14 @@ class Microscope:
     def move_stage_position_with_verification(self, delta: StagePosition) -> None:
         self.set_stage_position_with_verification(self._control.stage_position + delta)
 
-    def set_beam_shift_with_verification(self, new_beam_shift: BeamShift) -> None:
+    def set_beam_shift_with_verification(
+        self, new_beam_shift: BeamShift, beam: BeamControl | None = None
+    ) -> None:
+        beam = beam or self.beam
         # try setting beam shift
         try:
-            self.beam.beam_shift = new_beam_shift
-            actual_beam_shift = self.beam.beam_shift
+            beam.beam_shift = new_beam_shift
+            actual_beam_shift = beam.beam_shift
 
             dist = distance.euclidean(
                 actual_beam_shift.to_tuple(), new_beam_shift.to_tuple()
@@ -85,17 +90,41 @@ class Microscope:
 
             beam_shift_array = np.array([new_beam_shift.x, new_beam_shift.y])
             new_stage_move = self._beam_shift_to_stage_move() @ beam_shift_array
-            self.beam.beam_shift_to_stage_move
+            beam.beam_shift_to_stage_move
 
             # move stage
-            self._control.try_move_stage_position(
+            self.move_stage_position_with_verification(
                 StagePosition(x=float(new_stage_move[0]), y=float(new_stage_move[1]))
             )
             # set beam shift to zero
-            self.beam.beam_shift = BeamShift(0.0, 0.0)
+            beam.beam_shift = BeamShift(0.0, 0.0)
 
-    def add_beam_shift_with_verification(self, delta: BeamShift) -> None:
-        self.set_beam_shift_with_verification(self.beam.beam_shift + delta)
+    def add_beam_shift_with_verification(
+        self, delta: BeamShift, beam: BeamControl | None = None
+    ) -> None:
+        beam = beam or self.beam
+        self.set_beam_shift_with_verification(beam.beam_shift + delta, beam)
+
+    @property
+    def prop_names(self) -> PropertyNames:
+        """
+        Get a collection of all properties of the microscope and its beams,
+        including the inner properties.
+
+        Return:
+            MicroscopePropertyNames: Collection of all the properties of the microscope and its beams.
+        """
+        properties = list(MicroscopeProperties.model_fields.keys())
+        properties.extend(self._control.manufacturer_prop_names)
+
+        electron_properties = self._control.electron_beam.prop_names
+        ion_properties = self._control.ion_beam.prop_names
+
+        return PropertyNames(
+            microscope=properties,
+            electron_beam=electron_properties,
+            ion_beam=ion_properties,
+        )
 
     def set_properties(
         self, properties: GlobalProperties, beam: BeamType | None
@@ -111,7 +140,46 @@ class Microscope:
             beam (BeamType | None): The type of beam for which properties should be loaded.
                                 If None, properties for all beams are loaded.
         """
-        self._control.set_properties(properties, beam)
+        if (microscope := properties.microscope) is not None:
+            if (stage_position := microscope.stage_position) is not None:
+                self.set_stage_position_with_verification(stage_position)
+
+            # set manufacturer properties of the microscope
+            for field_name in filter(
+                lambda x: x in self._control.manufacturer_prop_names,
+                microscope.model_dump(exclude_none=True).keys(),
+            ):
+                try:
+                    value = getattr(microscope, field_name)
+                    self._control.set_manufacturer_prop(field_name, value)
+                    continue
+                except Exception as e:
+                    raise MicroscopeError(
+                        f"Could not set manufacturer property '{field_name}': {e}"
+                    ) from e
+
+        # set properties of the electron beam
+        if properties.electron_beam is not None and (
+            beam is None or beam is BeamType.ELECTRON
+        ):
+            # beam shift has to be handled on this level since stage movement can be required
+            if (beam_shift := properties.electron_beam.beam_shift) is not None:
+                self.set_beam_shift_with_verification(
+                    beam_shift, self._control.electron_beam
+                )
+                properties.electron_beam.beam_shift = None
+
+            self._control.electron_beam.set_properties(properties.electron_beam)
+
+        # set properties of the ion beam
+        if properties.ion_beam is not None and (beam is None or beam is BeamType.ION):
+            if (beam_shift := properties.ion_beam.beam_shift) is not None:
+                self.set_beam_shift_with_verification(
+                    beam_shift, self._control.ion_beam
+                )
+                properties.ion_beam.beam_shift = None
+
+            self._control.ion_beam.set_properties(properties.ion_beam)
 
     def collect_properties(
         self, properties_to_collect: PropertyNames
@@ -125,16 +193,47 @@ class Microscope:
         Returns:
             GlobalProperties: The collected properties of the microscope.
         """
-        return self._control.collect_properties(properties_to_collect)
+        # get field names to write out
+        field_names = list(
+            filter(
+                lambda x: x in properties_to_collect.microscope,
+                MicroscopeProperties.model_fields.keys(),
+            )
+        )
 
-    def get_property_names(self) -> PropertyNames:
-        """
-        Retrieve the names of all properties of the microscope and its beams.
+        # collect the values of the properties
+        values = {}
+        for field_name in field_names:
+            values[field_name] = getattr(self._control, field_name)
 
-        Returns:
-            PropertyNames: The names of all properties available on the microscope and its beams.
-        """
-        return self._control.prop_names
+        # collect internal properties
+        for field_name in filter(
+            lambda x: x in properties_to_collect.microscope,
+            self._control.manufacturer_prop_names,
+        ):
+            values[field_name] = self._control.manufacturer_prop(field_name)
+
+        # get unknown properties
+        unknown = [
+            prop for prop in properties_to_collect.microscope if prop not in values
+        ]
+        if len(unknown) > 0:
+            self._txt_log.warning(
+                f"The following selected microscope properties are not known: {' '.join(unknown)}"
+            )
+
+        electron_beam_properties = self._control.electron_beam.collect_properties(
+            properties_to_collect.electron_beam
+        )
+        ion_beam_properties = self._control.ion_beam.collect_properties(
+            properties_to_collect.ion_beam
+        )
+
+        return GlobalProperties(
+            microscope=MicroscopeProperties(**values),
+            electron_beam=electron_beam_properties,
+            ion_beam=ion_beam_properties,
+        )
 
     def set_beam(self, type: BeamType) -> None:
         """

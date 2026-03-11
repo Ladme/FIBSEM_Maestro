@@ -89,7 +89,7 @@ def main():
     )
 
     # save microscope properties
-    imaging.save_properties()
+    imaging.collect_and_write_properties()
 
     # optionally change microscope properties to test that the previously saved properties are reloaded before imaging
     input("Microscope properties saved. Press ENTER.")

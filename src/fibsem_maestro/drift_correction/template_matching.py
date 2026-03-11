@@ -10,6 +10,7 @@ from scipy import ndimage  # type: ignore
 from fibsem_maestro.core.action import Action
 from fibsem_maestro.core.area import NMArea, RelativeArea
 from fibsem_maestro.core.beam_shift import BeamShift
+from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.image import Image, Image8Bit
 from fibsem_maestro.core.point import NMPoint
 from fibsem_maestro.core.resolution import Resolution
@@ -23,6 +24,8 @@ from fibsem_maestro.logging.image.image_logger import ImageLogger
 from fibsem_maestro.logging.image.overlay import RectangleOverlay
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope import Microscope
+from fibsem_maestro.settings.beam_properties import BeamProperties
+from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.settings.template_matching_settings import TemplateMatchingSettings
 from fibsem_maestro.store.image.image_store import ImageStore
 from fibsem_maestro.store.props.props_store import PropsStore
@@ -33,7 +36,7 @@ class TemplateMatchingDriftCorrection(Action):
         self,
         microscope: Microscope,
         settings: TemplateMatchingSettings,
-        imaging: Imaging,
+        imagings: list[Imaging],
         props_store: PropsStore,
         image_store: ImageStore[Image8Bit],
         txt_log: TextLogger,
@@ -45,14 +48,42 @@ class TemplateMatchingDriftCorrection(Action):
         self._image_store = image_store
         self._txt_log = txt_log
         self._img_log = img_log
-        self._imaging = imaging
+        self._imagings = imagings
+
+    @property
+    def name(self) -> str:
+        return "template matching drift correction"
+
+    @property
+    def props_file(self) -> str:
+        return str(self._settings.properties_file)
+
+    @property
+    def props_store(self) -> PropsStore:
+        return self._props_store
+
+    @property
+    def beam_type(self) -> BeamType:
+        return self._settings.beam_type
+
+    @property
+    def props_to_collect(self) -> PropertyNames:
+        return self._settings.properties_to_collect
+
+    @property
+    def microscope(self) -> Microscope:
+        return self._microscope
+
+    @property
+    def txt_log(self) -> TextLogger:
+        return self._txt_log
 
     def create_templates(self) -> None:
         if len(self._settings.areas) == 0:
             raise DriftCorrectionError("No template matching areas defined.")
 
         # grab an image using the specified microscope properties
-        self.set_properties()
+        self.read_and_set_properties()
         self._txt_log.info("Acquiring template image.")
         template_image = self._microscope.beam.grab_frame()
 
@@ -61,7 +92,7 @@ class TemplateMatchingDriftCorrection(Action):
 
     def correct_drift(self) -> None:
         # grab image for drift correction
-        self.set_properties()
+        self.read_and_set_properties()
         self._txt_log.info("Acquiring drift correction image.")
         image = self._microscope.beam.grab_frame().to_8bit()
 
@@ -74,51 +105,50 @@ class TemplateMatchingDriftCorrection(Action):
         # convert image shifts to beam shift
         beam_shift = self._shifts_to_beam_shift(shifts)
 
-        # apply beam shift to correct the drift and update the drift correction parameters
-        self._microscope.add_beam_shift_with_verification(beam_shift)
-        self.save_properties(self._props_store.next)
+        # add the beam shift to the drift correction parameters for the next slice
+        props = self.read_properties()
+        props.accumulate_property("beam_shift", beam_shift, self.beam_type)
+        self.write_properties(props, self.props_store.next)
 
-        # load imaging parameters to the microscope, apply beam shift,
-        # and update the imaging parameters for the current slice
-        self._imaging.set_properties()
-        self._microscope.add_beam_shift_with_verification(beam_shift)
-        # TODO: check that beam shift and stage position are saved and print warning if they are not
-        self._imaging.save_properties()
+        # add the beam shift to the imaging parameters for the current slice
+        for imaging in self._imagings:
+            props = imaging.read_properties()
+            props.accumulate_property("beam_shift", beam_shift, imaging.beam_type)
+            imaging.write_properties(props)
 
-    def set_properties(self, store: PropsStore | None = None) -> None:
+    def _add_beam_shift_to_properties(
+        self, beam_shift: BeamShift, store: PropsStore | None = None
+    ) -> None:
         """
-        Configure the electron microscope with settings from the properties file.
+        Update beam shift properties using the properties store.
         """
-        # default: current frame
         store = store or self._props_store
-
-        # select the beam used for imaging
-        self._microscope.set_beam(self._settings.beam_type)
-
-        # read properties
-        self._txt_log.debug(
-            "Loading microscope properties for template matching drift correction."
-        )
+        # read the properties
         props = store.read(str(self._settings.properties_file))
 
-        # set properties to the microscope
-        self._microscope.set_properties(props, beam=self._settings.beam_type)
-
-    def save_properties(self, store: PropsStore | None = None) -> None:
-        """
-        Save microscope properties for drift correction.
-        """
-        # default: current frame
-        store = store or self._props_store
-
-        self._txt_log.debug(
-            "Saving microscope properties for template matching drift correction."
+        # get the appropriate beam properties based on beam type
+        beam_props_attr = (
+            "electron_beam"
+            if self._settings.beam_type == BeamType.ELECTRON
+            else "ion_beam"
         )
 
-        props = self._microscope.collect_properties(
-            self._settings.properties_to_collect
-        )
+        # initialize or update beam properties
+        current_beam_props: BeamProperties | None = getattr(props, beam_props_attr)
+        if current_beam_props is None:
+            setattr(
+                props,
+                beam_props_attr,
+                BeamProperties.model_validate({"beam_shift": beam_shift}),
+            )
+        else:
+            current_beam_props.beam_shift = (
+                beam_shift
+                if current_beam_props.beam_shift is None
+                else current_beam_props.beam_shift + beam_shift
+            )
 
+        # write the properties
         store.write(str(self._settings.properties_file), props)
 
     def _calculate_shifts(self, image: Image8Bit) -> ShiftsCollection:

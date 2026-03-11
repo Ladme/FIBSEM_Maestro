@@ -181,12 +181,13 @@ class BeamControl(ABC):
         pass
 
     @beam_shift.setter
-    def beam_shift(self, value: BeamShift):
+    @abstractmethod
+    def beam_shift(self, value: BeamShift) -> None:
         """
         Set the beam shift.
 
         Args:
-            value (BeamShift): New beam shift values.
+            value (BeamShift): New beam shift value.
         """
         pass
 

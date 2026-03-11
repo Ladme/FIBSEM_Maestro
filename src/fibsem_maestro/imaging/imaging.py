@@ -9,12 +9,12 @@ from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.imaging.error import ImagingError
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope import Microscope
-from fibsem_maestro.settings.base_settings import BaseSettings
 from fibsem_maestro.settings.imaging_settings import (
     ExtendedResolution,
     ImagingSettings,
     StandardResolution,
 )
+from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.store.frame.frame_store import FrameStore
 from fibsem_maestro.store.props.props_store import PropsStore
 
@@ -49,8 +49,32 @@ class Imaging(Action):
         self._txt_log = txt_log
 
     @property
-    def settings(self) -> BaseSettings:
-        return self._settings
+    def name(self) -> str:
+        return "imaging"
+
+    @property
+    def props_file(self) -> str:
+        return str(self._settings.properties_file)
+
+    @property
+    def props_store(self) -> PropsStore:
+        return self._props_store
+
+    @property
+    def beam_type(self) -> BeamType:
+        return self._settings.beam_type
+
+    @property
+    def props_to_collect(self) -> PropertyNames:
+        return self._settings.properties_to_collect
+
+    @property
+    def microscope(self) -> Microscope:
+        return self._microscope
+
+    @property
+    def txt_log(self) -> TextLogger:
+        return self._txt_log
 
     def grab_frame(self) -> None:
         """
@@ -63,7 +87,7 @@ class Imaging(Action):
             ImagingError: If the image for the current slice already exists.
         """
         # set the properties of the microscope
-        self.set_properties()
+        self.read_and_set_properties()
 
         # make sure that the image for the current slice does not exist
         self._frame_store.raise_if_exists(ImagingError)
@@ -72,23 +96,9 @@ class Imaging(Action):
         self._microscope.beam.grab_frame(self._frame_store)
 
         # update the saved microscope properties for the next frame
-        self.save_properties(self._props_store.next)
+        self.collect_and_write_properties(self._props_store.next)
 
-    def set_properties(self) -> None:
-        """
-        Configure the electron microscope with settings from the properties file.
-        """
-        # select the beam used for imaging
-        self._microscope.set_beam(self._settings.beam_type)
-
-        # read properties
-        self._txt_log.debug("Loading microscope properties for imaging.")
-        props = self._props_store.read(str(self._settings.properties_file))
-
-        # set properties to the microscope
-        self._microscope.set_properties(props, beam=self._settings.beam_type)
-
-    def save_properties(self, store: PropsStore | None = None) -> None:
+    def collect_and_write_properties(self, store: PropsStore | None = None) -> None:
         """
         Save selected properties from the microscope to a file.
 

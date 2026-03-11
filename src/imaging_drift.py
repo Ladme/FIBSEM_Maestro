@@ -7,7 +7,9 @@ import logging
 import random
 from pathlib import Path
 
+from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.image import Image8Bit
+from fibsem_maestro.core.point import RelativePoint
 from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.slice import SliceContext
 from fibsem_maestro.core.stage_position import StagePosition
@@ -104,7 +106,7 @@ def main():
     drift_correction = TemplateMatchingDriftCorrection(
         microscope,
         drift_corr_settings,
-        imaging,
+        [imaging],
         props_store,
         image_store,
         txt_log.derive("template_matching"),
@@ -120,9 +122,14 @@ def main():
     microscope.beam.resolution = Resolution(1024, 768)
     microscope.beam.horizontal_field_width = 2000
 
+    drift_correction.collect_and_write_properties()
+
+    microscope.beam.scanning_area = RelativeArea(
+        origin=RelativePoint(x=0.25, y=0.5), width=0.5, height=0.25
+    )
+
     # save microscope properties
-    imaging.save_properties()
-    drift_correction.save_properties()
+    imaging.collect_and_write_properties()
     # create templates for drift correction
     drift_correction.create_templates()
 
@@ -134,10 +141,10 @@ def main():
         control = microscope._control
         if isinstance(control, SimulatedMicroscopeControl):
             control._sample.apply_drift(  # pyright: ignore[reportAttributeAccessIssue]
-                drift_x=random.randrange(-40, 41),
-                drift_y=random.randrange(-40, 41),
-                # drift_x=-10,
-                # drift_y=-10,
+                # drift_x=random.randrange(-40, 41),
+                # drift_y=random.randrange(-40, 41),
+                drift_x=-10,
+                drift_y=-10,
             )
             print(control._sample.drift)  # pyright: ignore[reportAttributeAccessIssue]
         drift_correction.correct_drift()

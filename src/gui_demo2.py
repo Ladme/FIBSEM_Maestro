@@ -85,7 +85,7 @@ def main():
     template_matching = TemplateMatchingDriftCorrection(
         microscope,
         template_matching_settings,
-        imaging,
+        [imaging],
         props_store,
         image_store,
         txt_log.derive("template_matching"),

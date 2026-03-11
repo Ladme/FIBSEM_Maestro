@@ -546,7 +546,7 @@ class AutoscriptIonBeamControl(AutoscriptBeamControl[IonBeamAs]):
 
     @property
     def beam_shift_to_stage_move(self) -> tuple[int, int]:
-        return (0, 0)
+        return (-1, -1)
 
     @property
     def image_to_beam_shift(self) -> tuple[int, int]:
