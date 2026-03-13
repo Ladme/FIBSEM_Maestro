@@ -57,7 +57,7 @@ window.addEventListener("keydown", function(e) {
 
     # initialize the microscope
     microscope = Microscope(microscope_settings, txt_log)
-    microscope.beam.resolution = Resolution(2000, 2000)
+    microscope.beam.resolution = Resolution(1000, 1000)
     microscope.beam.horizontal_field_width = 2000
     microscope.set_stage_position_with_verification(
         StagePosition(x=0.0, y=0.0, z=5_000_000.0, rotation=0, tilt=30)
