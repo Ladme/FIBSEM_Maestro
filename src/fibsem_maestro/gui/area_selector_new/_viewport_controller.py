@@ -8,6 +8,7 @@ from nicegui import events
 from fibsem_maestro.core.area import PixelArea
 from fibsem_maestro.core.point import PixelPoint
 from fibsem_maestro.core.resolution import Resolution
+from fibsem_maestro.gui.area_selector.selected_area import SelectedArea
 
 
 class ViewportController:
@@ -38,6 +39,37 @@ class ViewportController:
             origin=PixelPoint(x=0, y=0),
             width=resolution.width,
             height=resolution.height,
+        )
+
+    def screen_to_image(
+        self,
+        x: float,
+        y: float,
+    ) -> tuple[int, int]:
+        rel_x = x / self._resolution.width
+        rel_y = y / self._resolution.height
+        return (
+            int(round(self._viewport.origin.x + rel_x * self._viewport.width)),
+            int(round(self._viewport.origin.y + rel_y * self._viewport.height)),
+        )
+
+    def image_to_screen(self, x: int, y: int) -> tuple[float, float]:
+        rel_x = (x - self._viewport.origin.x) / self._viewport.width
+        rel_y = (y - self._viewport.origin.y) / self._viewport.height
+        return (
+            rel_x * self._resolution.width,
+            rel_y * self._resolution.height,
+        )
+
+    def render_area(self, area: SelectedArea) -> str:
+        x, y = self.image_to_screen(area.origin.x, area.origin.y)
+
+        return (
+            f'<rect x="{x}" y="{y}" width="{area.width}" height="{area.height}" '
+            f'fill="{area.color}" fill-opacity="0.1" stroke="{area.color}" stroke-width="5" />'
+            f'<text x="{x + area.width // 2}" y="{y + 20}" text-anchor="middle" '
+            f'dominant-baseline="middle" fill="{area.color}" font-size="12">'
+            f"{area.label}</text>"
         )
 
     @property
@@ -87,7 +119,7 @@ class ViewportController:
         pan_step_y = int(self._viewport.height * 0.1)
 
         match str(e.key):
-            case "+":
+            case "+" | "=":
                 self.set_zoom(self._zoom_level * 1.2)
             case "-":
                 self.set_zoom(self._zoom_level / 1.2)
@@ -107,9 +139,4 @@ class ViewportController:
     def handle_mouse(self, e: events.MouseEventArguments) -> None:
         """Track cursor position for zoom centering."""
         if e.type == "mousemove":
-            rel_x = e.image_x / self._max_display_width
-            rel_y = e.image_y / self._max_display_height
-            self._cursor_x = int(self._viewport.origin.x + rel_x * self._viewport.width)
-            self._cursor_y = int(
-                self._viewport.origin.y + rel_y * self._viewport.height
-            )
+            self._cursor_x, self._cursor_y = self.screen_to_image(e.image_x, e.image_y)

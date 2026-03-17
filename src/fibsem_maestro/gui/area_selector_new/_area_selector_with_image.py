@@ -12,6 +12,7 @@ from scipy import ndimage  # type: ignore
 from fibsem_maestro.core.area import PixelArea, RelativeArea
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.point import PixelPoint
+from fibsem_maestro.gui.area_selector._area_drawer import AreaDrawer
 from fibsem_maestro.gui.area_selector._viewport_controller import ViewportController
 from fibsem_maestro.gui.area_selector.area_limits import AreaLimits
 from fibsem_maestro.gui.area_selector.area_type import AreaType
@@ -55,12 +56,14 @@ class AreaSelectorWithImage:
             on_change=self._on_viewport_changed,
         )
 
+        self._area_drawer = AreaDrawer(
+            self._image_original.resolution, self._viewport_controller
+        )
+
         self._image_widget: ui.interactive_image | None = None
         self._image_base64 = self._get_image_base64()
 
-        self._image_base64 = self._get_image_base64()
-
-        self._image_widget = None
+        self._areas = []
 
     def build(self) -> None:
         """Build the UI component."""
@@ -90,10 +93,24 @@ class AreaSelectorWithImage:
             self._image_widget = ui.interactive_image(
                 self._image_base64,
                 on_mouse=self._mouse_handler,
-                events=["mousedown", "mousemove", "mouseup", "dblclick"],
-                cross=True,
+                events=["mousedown", "mousemove", "mouseup"],
+                cross=self._area_drawer.is_active(),
                 sanitize=False,
-            ).classes("no-select crosshair-cursor")
+            ).classes(
+                f"no-select {'crosshair-cursor' if self._area_drawer.is_active() else ''}"
+            )
+
+            ui.toggle(
+                {
+                    x: x.value.replace("_", " ").title()
+                    for x in self._area_limits.get_available(self._areas)
+                },
+                value=self._area_drawer.get_drawn_area_type(),
+                clearable=True,
+                on_change=lambda e: self._set_area_type(e.value),
+            )
+
+            self._area_drawer.build_layers(self._image_widget)
 
         ui.keyboard(on_key=self._on_key_pressed)
 
@@ -142,3 +159,18 @@ class AreaSelectorWithImage:
 
     def _mouse_handler(self, e: events.MouseEventArguments) -> None:
         self._viewport_controller.handle_mouse(e)
+
+        self._area_drawer.handle_mouse(e)
+
+    def _set_area_type(self, area_type: AreaType | None):
+        self._area_drawer.update(area_type)
+
+        if self._image_widget is not None:
+            self._image_widget.props(
+                add="cross" if self._area_drawer.is_active() else None,
+                remove=None if self._area_drawer.is_active() else "cross",
+            )
+            self._image_widget.classes(
+                add="crosshair-cursor" if self._area_drawer.is_active() else None,
+                remove=None if self._area_drawer.is_active() else "crosshair-cursor",
+            )

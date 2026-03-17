@@ -9,9 +9,9 @@ from nicegui import ui
 from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.slice import SliceContext
 from fibsem_maestro.core.stage_position import StagePosition
-from fibsem_maestro.gui.area_selector.area_limits import AreaLimits
-from fibsem_maestro.gui.area_selector.area_selector import AreaSelector
-from fibsem_maestro.gui.area_selector.area_type import AreaType
+from fibsem_maestro.gui.area_selector_new.area_limits import AreaLimits
+from fibsem_maestro.gui.area_selector_new.area_selector import AreaSelector
+from fibsem_maestro.gui.area_selector_new.area_type import AreaType
 from fibsem_maestro.logging.text.file import FileTextLogger
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings

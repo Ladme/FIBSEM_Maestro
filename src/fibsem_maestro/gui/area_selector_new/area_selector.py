@@ -29,7 +29,7 @@ class AreaSelector:
         self,
         microscope: Microscope,
         area_limits: AreaLimits,
-        max_display_dimensions: tuple[int, int] = (1024, 884),
+        max_display_dimensions: tuple[int, int] = (768, 663),
     ):
         self._microscope = microscope
         self._area_limits = area_limits
