@@ -36,7 +36,13 @@ class ImagingForm(SettingsForm):
 
         area_limits = AreaLimits()
         area_limits.add_limit(AreaType.SCANNING, 1)
-        self._area_selector = AreaSelector(self.microscope, area_limits)
+        scanning_area = self.action._settings.scanning_area
+
+        self._area_selector = AreaSelector(
+            self.microscope,
+            area_limits,
+            {AreaType.SCANNING: [scanning_area]} if scanning_area is not None else {},
+        )
 
     def build(self):
         with ui.card().classes("w-full"):
@@ -108,7 +114,23 @@ class ImagingForm(SettingsForm):
 
     def get_settings(self) -> ImagingSettings:
         """Return the current settings."""
+        self._get_areas()
+
         return self.action._settings
+
+    def _get_areas(self) -> None:
+        areas = self._area_selector.get_areas()
+        scanning_areas = areas.get(AreaType.SCANNING, [])
+        print(scanning_areas)
+
+        if len(scanning_areas) > 1:
+            raise ValueError(
+                f"Expected at most one scanning area, got {len(scanning_areas)}"
+            )
+
+        self.action._settings.scanning_area = (
+            scanning_areas[0] if scanning_areas else None
+        )
 
     def _build_resolution_mode(self):
         """Build resolution mode radio with conditional extended fields."""
@@ -176,4 +198,5 @@ class ImagingForm(SettingsForm):
         setattr(self.action._settings, field_name, value)
 
     def get_action(self) -> Action:
+        self._get_areas()
         return self.action

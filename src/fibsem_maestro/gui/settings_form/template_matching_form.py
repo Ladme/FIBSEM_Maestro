@@ -33,7 +33,11 @@ class TemplateMatchingForm(SettingsForm):
 
         area_limits = AreaLimits()
         area_limits.add_limit(AreaType.TEMPLATE, 100)
-        self._area_selector = AreaSelector(self.microscope, area_limits)
+        self._area_selector = AreaSelector(
+            self.microscope,
+            area_limits,
+            {AreaType.TEMPLATE: self.action._settings.areas},
+        )
 
     def build(self):
         with ui.card().classes("w-full"):

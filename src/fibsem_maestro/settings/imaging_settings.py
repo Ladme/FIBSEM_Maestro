@@ -6,6 +6,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field
 
+from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.settings.base_settings import BaseSettings
 from fibsem_maestro.settings.property_names import PropertyNames
@@ -52,7 +53,7 @@ class ImagingSettings(BaseSettings):
     resolution_mode: Annotated[
         ResolutionMode,
         Field(
-            default=StandardResolution,
+            default=StandardResolution(),
             description="Use standard or extended resolution?",
         ),
     ]
@@ -61,4 +62,8 @@ class ImagingSettings(BaseSettings):
     ]
     bit_depth: Annotated[
         int | None, Field(default=None, description="Imaging bit depth.")
+    ]
+    scanning_area: Annotated[
+        RelativeArea | None,
+        Field(default=None, description="Scanning area to use for imaging."),
     ]

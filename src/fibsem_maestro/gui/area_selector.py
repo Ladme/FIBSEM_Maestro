@@ -6,7 +6,7 @@ from __future__ import annotations
 import tempfile
 from collections import Counter, defaultdict
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Self
 
 import numpy as np
 from nicegui import events, ui
@@ -20,6 +20,7 @@ from fibsem_maestro.core.point import PixelPoint
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from fibsem_maestro.core.resolution import Resolution
     from fibsem_maestro.microscope.microscope import Microscope
 
 
@@ -78,6 +79,19 @@ class SelectedArea(PixelArea):
             f"{self.label}</text>"
         )
 
+    @classmethod
+    def from_relative(
+        cls, relative_area: RelativeArea, type: AreaType, resolution: Resolution
+    ) -> Self:
+        pixel_area = relative_area.to_pixels(resolution)
+        return cls(
+            origin=pixel_area.origin,
+            width=pixel_area.width,
+            height=pixel_area.height,
+            type=type,
+            active=False,
+        )
+
 
 class AreaLimits:
     def __init__(self):
@@ -109,6 +123,7 @@ class AreaSelector:
         self,
         microscope: Microscope,
         area_limits: AreaLimits,
+        initial_areas: dict[AreaType, list[RelativeArea]],
     ):
         """
         Initialize the area selector.
@@ -123,6 +138,7 @@ class AreaSelector:
         self._active_container = None
 
         self._area_limits = area_limits
+        self._init_areas = initial_areas
 
     async def _on_image_loaded(self) -> None:
         """Handle image loading and transition to image selector."""
@@ -144,7 +160,10 @@ class AreaSelector:
 
         with self._container:
             self._empty_selector = _AreaSelectorEmpty(
-                self._microscope, self._area_limits, self._on_image_selector_closed
+                self._microscope,
+                self._area_limits,
+                self._init_areas,
+                self._on_image_selector_closed,
             )
             self._empty_selector._on_placeholder_clicked = self._on_image_loaded
             self._empty_selector.build()
@@ -161,7 +180,10 @@ class AreaSelector:
                 self._active_container.build()
             else:
                 self._empty_selector = _AreaSelectorEmpty(
-                    self._microscope, self._area_limits, self._on_image_selector_closed
+                    self._microscope,
+                    self._area_limits,
+                    self._init_areas,
+                    self._on_image_selector_closed,
                 )
                 self._active_container = self._empty_selector
                 self._empty_selector._on_placeholder_clicked = self._on_image_loaded
@@ -186,6 +208,7 @@ class _AreaSelectorEmpty:
         self,
         microscope: Microscope,
         area_limits: AreaLimits,
+        initial_areas: dict[AreaType, list[RelativeArea]],
         on_close: Callable[[], None],
     ):
         """
@@ -199,6 +222,7 @@ class _AreaSelectorEmpty:
         self._height: int = 884
 
         self._area_limits = area_limits
+        self._init_areas = initial_areas
         self._on_close = on_close
 
     async def load_image(self) -> _AreaSelectorWithImage:
@@ -212,7 +236,9 @@ class _AreaSelectorEmpty:
             Exception: If image loading fails.
         """
         image = self._microscope.beam.get_image()
-        return _AreaSelectorWithImage(image, self._area_limits, self._on_close)
+        return _AreaSelectorWithImage(
+            image, self._area_limits, self._init_areas, self._on_close
+        )
 
     async def _on_placeholder_clicked(self) -> None:
         """Handle click on the empty placeholder."""
@@ -252,7 +278,11 @@ class _AreaSelectorWithImage:
     """Interactive area selector for image regions."""
 
     def __init__(
-        self, image: Image, area_limits: AreaLimits, on_close: Callable[[], None]
+        self,
+        image: Image,
+        area_limits: AreaLimits,
+        initial_areas: dict[AreaType, list[RelativeArea]],
+        on_close: Callable[[], None],
     ):
         """
         Initialize AreaSelector with a loaded image.
@@ -262,7 +292,7 @@ class _AreaSelectorWithImage:
         """
         self._image = self._downscale_image_if_needed(image)
 
-        self._areas: list[SelectedArea] = []
+        self._areas: list[SelectedArea] = self._convert_initial_areas(initial_areas)
         self._start: tuple[int, int] | None = None
         self._selected_area_index: int | None = None
         self._current_pos: tuple[int, int] = (0, 0)
@@ -275,9 +305,10 @@ class _AreaSelectorWithImage:
 
         self._image_path = self._save_temp_image(self._image)
         self._area_limits = area_limits
-        self._active_area_type: AreaType | None = self._area_limits.get_available(
-            self._areas
-        )[0]
+        available_area_types = self._area_limits.get_available(self._areas)
+        self._active_area_type: AreaType | None = (
+            available_area_types[0] if len(available_area_types) > 0 else None
+        )
 
         self._image_widget = None
         self._final_layer = None
@@ -314,6 +345,16 @@ class _AreaSelectorWithImage:
 
         downscaled = ndimage.zoom(img_array, scale, order=1)
         return Image(downscaled, pixel_size=image.pixel_size * scale)
+
+    def _convert_initial_areas(
+        self, init_areas: dict[AreaType, list[RelativeArea]]
+    ) -> list[SelectedArea]:
+        res = self._image.resolution
+        return [
+            SelectedArea.from_relative(area, area_type, res)
+            for area_type, areas in init_areas.items()
+            for area in areas
+        ]
 
     def _save_temp_image(self, image: Image) -> str:
         """

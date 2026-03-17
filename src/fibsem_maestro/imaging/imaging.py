@@ -48,6 +48,10 @@ class Imaging(Action):
         self._frame_store = frame_store
         self._txt_log = txt_log
 
+        # was scanning area selected using extended resolution
+        # necessary to avoid shrinking the selected area in subsequent imagings
+        self._scanning_area_selected = False
+
     @property
     def name(self) -> str:
         return "imaging"
@@ -110,70 +114,72 @@ class Imaging(Action):
         store = store or self._props_store
         self._txt_log.debug("Saving microscope properties for imaging.")
 
+        self._microscope.set_beam(self._settings.beam_type)
+
         # set bit depth, if specified in the settings
         if (bd := self._settings.bit_depth) is not None:
             self._microscope.beam.bit_depth = bd
 
+        match self._settings.resolution_mode:
+            case StandardResolution():
+                # set the scanning area, if specified in the settings
+                if (area := self._settings.scanning_area) is not None:
+                    self._microscope.beam.scanning_area = area
+                # otherwise set the scanning area to full frame to override any external set up
+                else:
+                    self._microscope.beam.scanning_area = RelativeArea.full()
+            case ExtendedResolution() as mode:
+                self._set_extended_resolution_props(mode.pixel_size)
+
+        # collect the microscope properties
         props = self._microscope.collect_properties(
             self._settings.properties_to_collect
         )
 
-        match self._settings.resolution_mode:
-            case StandardResolution():
-                pass
-            case ExtendedResolution() as mode:
-                beam_props = (
-                    props.electron_beam
-                    if self._settings.beam_type == BeamType.ELECTRON
-                    else props.ion_beam
-                )
-
-                # image only the scanning area
-                if (
-                    beam_props is not None
-                    and (area := beam_props.scanning_area) is not None
-                    and not area.is_full_frame()
-                ):
-                    self._txt_log.debug(
-                        "Setting scanning area using extended resolution."
-                    )
-
-                    # shift the beam to the center of the scanning area
-                    img_res = self._microscope.beam.resolution
-                    pixel_size = self._microscope.beam.pixel_size
-                    area_nm = area.to_nanometers(img_res, pixel_size)
-                    image_to_beam_shift = self._microscope.beam.image_to_beam_shift
-
-                    shift = BeamShift(
-                        image_to_beam_shift[0]
-                        * (
-                            area_nm.origin.x
-                            - (img_res.width // 2 * pixel_size)
-                            + area_nm.width / 2.0
-                        ),
-                        image_to_beam_shift[1]
-                        * (
-                            area_nm.origin.y
-                            - (img_res.height // 2 * pixel_size)
-                            + area_nm.height / 2.0
-                        ),
-                    )
-
-                    self._microscope.add_beam_shift_with_verification(shift)
-
-                    # set the FOV to the scanning area
-                    self._microscope.beam.horizontal_field_width = area_nm.width
-                    self._microscope.beam.vertical_field_width = area_nm.height
-                    self._microscope.beam.scanning_area = RelativeArea.full()
-
-                # set resolution based on the pixel size
-                # this is done even if scanning area is not specified
-                self._microscope.beam.pixel_size = mode.pixel_size
-
-                # collect the updated properties
-                props = self._microscope.collect_properties(
-                    self._settings.properties_to_collect
-                )
-
         # save the properties to a file
         store.write(str(self._settings.properties_file), props)
+
+    def _set_extended_resolution_props(self, new_pixel_size: float) -> None:
+        # image only the scanning area
+        if (
+            (area := self._settings.scanning_area) is not None
+            and not area.is_full_frame()
+            and not self._scanning_area_selected
+        ):
+            self._txt_log.debug("Setting scanning area using extended resolution.")
+
+            # shift the beam to the center of the scanning area
+            img_res = self._microscope.beam.resolution
+            pixel_size = self._microscope.beam.pixel_size
+            area_nm = area.to_nanometers(img_res, pixel_size)
+            image_to_beam_shift = self._microscope.beam.image_to_beam_shift
+
+            shift = BeamShift(
+                image_to_beam_shift[0]
+                * (
+                    area_nm.origin.x
+                    - (img_res.width // 2 * pixel_size)
+                    + area_nm.width / 2.0
+                ),
+                image_to_beam_shift[1]
+                * (
+                    area_nm.origin.y
+                    - (img_res.height // 2 * pixel_size)
+                    + area_nm.height / 2.0
+                ),
+            )
+
+            self._microscope.add_beam_shift_with_verification(shift)
+
+            # set the FOV to the scanning area
+            self._microscope.beam.horizontal_field_width = area_nm.width
+            self._microscope.beam.vertical_field_width = area_nm.height
+
+            self._scanning_area_selected = True
+
+        # always set scanning area to full frame
+        self._microscope.beam.scanning_area = RelativeArea.full()
+
+        # set resolution based on the new pixel size
+        # this is done even if scanning area is not specified
+        self._microscope.beam.pixel_size = new_pixel_size
