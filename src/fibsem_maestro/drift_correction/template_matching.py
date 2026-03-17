@@ -107,12 +107,14 @@ class TemplateMatchingDriftCorrection(Action):
         self._update_templates(image, matches)
 
         # add the beam shift to the drift correction parameters for the next slice
+        self._txt_log.debug(f"Updating microscope properties for '{self.name}'.")
         props = self.read_properties()
         props.accumulate_property("beam_shift", beam_shift, self.beam_type)
         self.write_properties(props, self._props_store.next)
 
         # add the beam shift to the imaging parameters for the current slice
         for imaging in self._imagings:
+            self._txt_log.debug(f"Updating microscope properties for '{imaging.name}'.")
             props = imaging.read_properties()
             props.accumulate_property("beam_shift", beam_shift, imaging.beam_type)
             imaging.write_properties(props)
