@@ -116,6 +116,9 @@ class Imaging(Action):
 
         self._microscope.set_beam(self._settings.beam_type)
 
+        # store the current scanning area
+        backup_scanning_area = self._microscope.beam.scanning_area
+
         # set bit depth, if specified in the settings
         if (bd := self._settings.bit_depth) is not None:
             self._microscope.beam.bit_depth = bd
@@ -138,6 +141,9 @@ class Imaging(Action):
 
         # save the properties to a file
         store.write(str(self._settings.properties_file), props)
+
+        # set the original scanning area
+        self._microscope.beam.scanning_area = backup_scanning_area
 
     def _set_extended_resolution_props(self, new_pixel_size: float) -> None:
         # image only the scanning area

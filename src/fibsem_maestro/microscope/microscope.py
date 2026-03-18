@@ -95,7 +95,6 @@ class Microscope:
 
             beam_shift_array = np.array([new_beam_shift.x, new_beam_shift.y])
             new_stage_move = self._beam_shift_to_stage_move() @ beam_shift_array
-            beam.beam_shift_to_stage_move
 
             # move stage
             self.move_stage_position_with_verification(

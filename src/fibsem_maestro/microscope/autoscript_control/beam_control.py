@@ -5,7 +5,11 @@ from abc import abstractmethod
 from pathlib import Path
 from typing import Any, Generic, TypeVar
 
-from autoscript_sdb_microscope_client.enumerations import ImageFileFormat, ImagingDevice
+from autoscript_sdb_microscope_client.enumerations import (
+    ImageFileFormat,
+    ImagingDevice,
+    ScanningMode,
+)
 from autoscript_sdb_microscope_client.sdb_microscope.beams._electron_beam import (
     ElectronBeam as ElectronBeamAs,
 )
@@ -363,8 +367,15 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
 
     @property
     def scanning_area(self) -> RelativeArea:
-        area = RelativeArea.from_autoscript(self._beam.scanning.mode.reduced_area.value)
-        self._txt_log.debug(f"Getting scanning area ({self._modality}): {area}.")
+        if self._beam.scanning.mode.value is ScanningMode.REDUCED_AREA:
+            area = RelativeArea.from_autoscript(
+                self._beam.scanning.mode.reduced_area.value
+            )
+            self._txt_log.debug(f"Getting scanning area ({self._modality}): {area}.")
+            return area
+
+        area = RelativeArea.full()
+        self._txt_log.debug(f"Getting scanning area ({self._modality}): {area}")
         return area
 
     @scanning_area.setter
