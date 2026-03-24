@@ -6,7 +6,7 @@ from collections.abc import Callable
 
 import numpy as np
 
-from fibsem_maestro.image_criteria.error import CriterionError
+from fibsem_maestro.criterion.error import CriterionError
 
 NumpyFunction = Callable[..., np.floating]
 

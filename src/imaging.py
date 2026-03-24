@@ -84,9 +84,9 @@ def main():
     )
     microscope.beam.resolution = Resolution(1000, 1000)
     microscope.beam.horizontal_field_width = 2000
-    microscope.beam.scanning_area = RelativeArea(
-        origin=RelativePoint(x=0.25, y=0.5), width=0.5, height=0.25
-    )
+    # microscope.beam.scanning_area = RelativeArea(
+    #    origin=RelativePoint(x=0.25, y=0.5), width=0.5, height=0.25
+    # )
 
     # save microscope properties
     imaging.collect_and_write_properties()

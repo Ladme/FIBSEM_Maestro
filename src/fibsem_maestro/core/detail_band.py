@@ -22,14 +22,9 @@ class DetailBand:
     # high-detail cutoff, in nanometers
     high: float
 
-    def to_meters(self) -> tuple[float, float]:
-        """Return the DetailBand in meters."""
-        return (self.low * 1e-9, self.high * 1e-9)
-
     def to_frequency_range(self) -> tuple[float, float]:
-        """Return the equivalent frequency range (Hz = 1/m)."""
-        band_m = self.to_meters()
-        return (1.0 / band_m[0], 1.0 / band_m[1])
+        """Return the equivalent spatial frequency range in 1/nm."""
+        return (1.0 / self.high, 1.0 / self.low)
 
     def __post_init__(self):
         if self.low <= 0 or self.high <= 0:

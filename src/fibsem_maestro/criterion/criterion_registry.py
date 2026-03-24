@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from fibsem_maestro.image_criteria.error import CriterionError
+from fibsem_maestro.criterion.error import CriterionError
 
 if TYPE_CHECKING:
     from fibsem_maestro.core.image import Image

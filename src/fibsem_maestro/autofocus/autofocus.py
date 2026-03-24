@@ -9,15 +9,15 @@ from enum import Enum
 from itertools import groupby
 from typing import TYPE_CHECKING
 
-from fibsem_maestro.autofunctions.autofocus_registry import AutofocusRegistry
-from fibsem_maestro.autofunctions.error import AutofunctionError
+from fibsem_maestro.autofocus.autofocus_registry import AutofocusRegistry
+from fibsem_maestro.autofocus.error import AutofunctionError
 from fibsem_maestro.core.image_tools import get_stripes
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    from fibsem_maestro.autofunctions.autofunction import Autofunction
-    from fibsem_maestro.autofunctions.sweep_step import SweepStep
+    from fibsem_maestro.autofocus.autofunction import Autofunction
+    from fibsem_maestro.autofocus.sweep_step import SweepStep
     from fibsem_maestro.core.image import Image
     from fibsem_maestro.settings.autofunction_settings import (
         AutofocusMode as AutofocusModeSettings,

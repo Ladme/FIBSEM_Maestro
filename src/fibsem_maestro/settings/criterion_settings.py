@@ -6,9 +6,10 @@ from typing import Annotated, Literal
 
 from pydantic import Field, field_validator
 
+from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.detail_band import DetailBand
-from fibsem_maestro.image_criteria.criterion_registry import CriterionRegistry
-from fibsem_maestro.image_criteria.reductors_registry import ReductorsRegistry
+from fibsem_maestro.criterion.criterion_registry import CriterionRegistry
+from fibsem_maestro.criterion.reductors_registry import ReductorsRegistry
 from fibsem_maestro.settings.base_settings import BaseSettings
 
 
@@ -74,7 +75,7 @@ CriterionTilingMode = Annotated[
 
 
 class CriterionSettings(BaseSettings):
-    resolution_metric_fn: Annotated[
+    sharpness_metric_fn: Annotated[
         str, Field(description="Criterion calculation function.")
     ]
     detail: Annotated[
@@ -83,21 +84,20 @@ class CriterionSettings(BaseSettings):
             description="Bandpass parameters: low and high details to filter out (in nm).",
         ),
     ]
-    border_fraction: Annotated[
-        float,
+    area: Annotated[
+        RelativeArea,
         Field(
-            ge=0,
-            le=1,
-            description="Fraction of image size that will be excluded from image criterion calculation.",
+            default=RelativeArea.full(),
+            description="Relative area of the image that should be used for image criterion calculation.",
         ),
     ]
-    log_resolution_map: Annotated[
-        bool, Field(default=False, description="Should log resolution map(s).")
+    log_sharpness_map: Annotated[
+        bool, Field(default=False, description="Should log sharpness map(s).")
     ]
     log_best_tile: Annotated[
         bool,
         Field(
-            default=False, description="Should log the tile with the best resolution."
+            default=False, description="Should log the tile with the best sharpness."
         ),
     ]
     calculation_mode: Annotated[
@@ -105,10 +105,10 @@ class CriterionSettings(BaseSettings):
     ]
     tiling_mode: Annotated[CriterionTilingMode, Field(description="Mode of tiling.")]
 
-    @field_validator("resolution_metric_fn")
+    @field_validator("sharpness_metric_fn")
     def validate_function(cls, v: str):
         if not CriterionRegistry.has(v):
             raise ValueError(
-                f"Invalid resolution_metric_fn '{v}'. Allowed: {CriterionRegistry.allowed()}"
+                f"Invalid sharpness_metric_fn '{v}'. Allowed: {CriterionRegistry.allowed()}"
             )
         return v

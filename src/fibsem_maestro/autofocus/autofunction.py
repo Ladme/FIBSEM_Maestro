@@ -10,15 +10,15 @@ from typing import Any
 
 import numpy as np
 
-from fibsem_maestro.autofunctions.autofocus import AutofocusStatus
-from fibsem_maestro.autofunctions.autofocus_registry import AutofocusRegistry
-from fibsem_maestro.autofunctions.error import AutofunctionError
-from fibsem_maestro.autofunctions.result import AutofocusResult
-from fibsem_maestro.autofunctions.sweep_step import SweepStep
-from fibsem_maestro.autofunctions.sweeping import Sweeping
+from fibsem_maestro.autofocus.autofocus import AutofocusStatus
+from fibsem_maestro.autofocus.autofocus_registry import AutofocusRegistry
+from fibsem_maestro.autofocus.error import AutofunctionError
+from fibsem_maestro.autofocus.result import AutofocusResult
+from fibsem_maestro.autofocus.sweep_step import SweepStep
+from fibsem_maestro.autofocus.sweeping import Sweeping
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.stage_position import StagePosition
-from fibsem_maestro.image_criteria.criterion import Criterion
+from fibsem_maestro.criterion.criterion import Criterion
 from fibsem_maestro.logging.image.image_logger import ImageLogger
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope import Microscope

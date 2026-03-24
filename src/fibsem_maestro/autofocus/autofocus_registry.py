@@ -5,8 +5,8 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from fibsem_maestro.autofunctions.autofocus import AutofocusMode
-from fibsem_maestro.autofunctions.error import AutofunctionError
+    from fibsem_maestro.autofocus.autofocus import AutofocusMode
+from fibsem_maestro.autofocus.error import AutofunctionError
 
 
 class AutofocusRegistry:

@@ -9,8 +9,8 @@ from numpy.typing import NDArray
 from scipy.ndimage import gaussian_filter  # type: ignore
 
 from fibsem_maestro.core.image import Image
+from fibsem_maestro.criterion.criterion_registry import CriterionRegistry
 from fibsem_maestro.frc.frc import frc  # type: ignore
-from fibsem_maestro.image_criteria.criterion_registry import CriterionRegistry
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.settings.criterion_settings import CriterionSettings
 
@@ -131,13 +131,9 @@ def fft_2d_criterion(
     # lowest and highest detail frequency
     low_frequency, high_frequency = settings.detail.to_frequency_range()
 
-    # make freq filter
-    freq[freq > high_frequency] = 0
-    freq[freq < low_frequency] = 0
-    freq[freq > 0] = 1
-
-    fft_img *= freq  # filter freq
-    return np.sum(abs(fft_img))
+    # make freq filter and filter frequency
+    band_mask = (freq >= low_frequency) & (freq <= high_frequency)
+    return np.sum(np.abs(fft_img) * band_mask)
 
 
 @CriterionRegistry.register("fft")
@@ -188,6 +184,7 @@ def frc_criterion(
         np.floating: FRC score, or `np.nan` if FRC computation fails.
     """
     _ = settings
+    # TODO: check that the frc has the same polarity as other criteria
 
     try:
         res = frc(img, img.pixel_size)
