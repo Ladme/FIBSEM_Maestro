@@ -91,7 +91,7 @@ class Criterion:
 
             case MaskMode() as mode:
                 _ = mode
-                raise NotImplementedError("Mask mode is not yet implemented.")
+                raise NotImplementedError("Mask mode is not yet implemented")
                 # TODO: masking
 
         self._txt_log.info("Finished sharpness calculation.")
@@ -103,11 +103,13 @@ class Criterion:
 
         # calculate sharpness for the whole image
         if isinstance(self._tiling_mode, SingleTileMode):
+            self._txt_log.debug("Calculating sharpness in a single tile mode.")
             tiles = [RelativeArea.full()]
             sharpnesses = [self._calculate_sharpness_for_tile(cropped, tiles[0])]
             final_sharpness = sharpnesses[0]
         # calculate sharpness for the individual tiles
         else:
+            self._txt_log.debug("Calculating sharpness in a multi tile mode.")
             tiles = list(
                 self._iter_tiles(
                     cropped,
@@ -115,6 +117,8 @@ class Criterion:
                     self._tile_relative_overlap,
                 )
             )
+
+            self._txt_log.debug(f"Number of tiles for criterion: {len(tiles)}.")
 
             sharpnesses: list[float] = []
             for tile in tiles:
@@ -156,13 +160,13 @@ class Criterion:
         tile_img = image.crop(tile)
 
         try:
-            return float(
+            sharpness = float(
                 self._sharpness_metric_fn(tile_img, self._settings, self._txt_log)
             )
+            self._txt_log.debug(f"Sharpness for tile {tile}: {sharpness}")
+            return sharpness
         except Exception as e:
-            self._txt_log.warning(
-                f"Resolution calculation failed for tile (relative coordinates: {tile}): {e}"
-            )
+            self._txt_log.warning(f"Resolution calculation failed for tile {tile}: {e}")
             return np.nan
 
     def _iter_tiles(
