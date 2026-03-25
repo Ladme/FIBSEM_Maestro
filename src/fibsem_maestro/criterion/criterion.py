@@ -38,10 +38,12 @@ if TYPE_CHECKING:
 class Criterion:
     def __init__(
         self,
+        name: str,
         settings: CriterionSettings,
         txt_log: TextLogger,
         img_log: ImageLogger,
     ):
+        self._name = name
         self._txt_log = txt_log
         self._img_log = img_log
 
@@ -56,6 +58,14 @@ class Criterion:
             )
             self._tile_size = self._tiling_mode.tile_size
             self._tile_relative_overlap = self._tiling_mode.relative_overlap
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def name_with_underscores(self) -> str:
+        return self._name.replace(" ", "_")
 
     def calculate_sharpness(self, image: Image) -> float:
         self._txt_log.info("Sharpness calculation started.")
@@ -231,15 +241,27 @@ class Criterion:
     ):
         self._txt_log.debug("Logging criterion images.")
 
-        self._log_image_with_tiles("criterion", full_image, tiles)
+        self._log_image_with_tiles(self.name_with_underscores, full_image, tiles)
         if map is not None:
-            self._img_log.save_image(
-                "criterion_sharpness_map", map, None, "Sharpness map"
-            )
+            try:
+                self._img_log.save_image(
+                    f"{self.name_with_underscores}_sharpness_map",
+                    map,
+                    None,
+                    "Sharpness map",
+                )
+            except Exception as e:
+                self._txt_log.warning(f"Could not log a sharpness map: {e}")
         if best_tile is not None:
-            self._img_log.save_image(
-                "criterion_best_tile", best_tile, None, "Best tile"
-            )
+            try:
+                self._img_log.save_image(
+                    f"{self.name_with_underscores}_best_tile",
+                    best_tile,
+                    None,
+                    "Best tile",
+                )
+            except Exception as e:
+                self._txt_log.warning(f"Could not log a criterion best tile: {e}")
 
     @staticmethod
     def _tiles_to_pixels_in_full_image(

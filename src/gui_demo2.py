@@ -69,6 +69,7 @@ def main():
     ui.label("FIBSEM Maestro").classes("text-2xl font-bold mb-6")
 
     imaging = Imaging(
+        "imaging",
         microscope,
         imaging_settings,
         props_store,
@@ -83,6 +84,7 @@ def main():
     )
 
     template_matching = TemplateMatchingDriftCorrection(
+        "template matching drift correction",
         microscope,
         template_matching_settings,
         [imaging],

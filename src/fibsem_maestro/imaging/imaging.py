@@ -26,6 +26,7 @@ class Imaging(Action):
 
     def __init__(
         self,
+        name: str,
         microscope: Microscope,
         settings: ImagingSettings,
         props_store: PropsStore,
@@ -36,12 +37,14 @@ class Imaging(Action):
         Initialize the Imaging instance.
 
         Args:
+            name (str): Identifier of this Imaging object.
             microscope (Microscope): The microscope instance used for imaging.
             settings (ImagingSettings): Settings for image acquisition.
             props_store (PropsStore): Handler for storing microscope properties.
             frame_store (FrameStore): Handler for storing acquired frames.
             txt_log (TextLogger): A textual logger.
         """
+        self._name = name
         self._microscope = microscope
         self._settings = settings
         self._props_store = props_store
@@ -54,7 +57,7 @@ class Imaging(Action):
 
     @property
     def name(self) -> str:
-        return "imaging"
+        return self._name
 
     @property
     def props_file(self) -> str:

@@ -31,6 +31,7 @@ from fibsem_maestro.store.props.props_store import PropsStore
 class TemplateMatchingDriftCorrection(Action):
     def __init__(
         self,
+        name: str,
         microscope: Microscope,
         settings: TemplateMatchingSettings,
         imagings: list[Imaging],
@@ -39,6 +40,7 @@ class TemplateMatchingDriftCorrection(Action):
         txt_log: TextLogger,
         img_log: ImageLogger,
     ):
+        self._name = name
         self._microscope = microscope
         self._settings = settings
         self._props_store = props_store
@@ -49,7 +51,11 @@ class TemplateMatchingDriftCorrection(Action):
 
     @property
     def name(self) -> str:
-        return "template matching drift correction"
+        return self._name
+
+    @property
+    def name_with_underscores(self) -> str:
+        return self._name.replace(" ", "_")
 
     @property
     def props_file(self) -> str:
@@ -274,7 +280,7 @@ class TemplateMatchingDriftCorrection(Action):
         dest.write(self._construct_template_name(index), image)
 
     def _construct_template_name(self, index: int) -> str:
-        return f"template_drift_corr_{index}.tif"
+        return f"{self.name_with_underscores}_template_{index}.tif"
 
     def _log_heatmaps(self, matches: list[TemplateMatchResult]) -> None:
         for i, match in enumerate(matches):
@@ -315,17 +321,27 @@ class TemplateMatchingDriftCorrection(Action):
                 )
             )
 
-        self._img_log.save_image(
-            "template_matching_log.png",
-            image,
-            overlays,
-            title="Template matching drift correction",
-        )
+        try:
+            self._img_log.save_image(
+                f"{self.name_with_underscores}_log.png",
+                image,
+                overlays,
+                title="Template matching drift correction",
+            )
+        except Exception as e:
+            self._txt_log.warning(
+                f"Could not log a template matching drift correction result image: {e}"
+            )
 
     def _log_heatmap(self, heatmap: NDArray[Any], index: int) -> None:
-        self._img_log.save_image(
-            f"template_matching_heatmap_{index}.png",
-            heatmap,
-            overlays=None,
-            title=f"Template matching heatmap for template {index}",
-        )
+        try:
+            self._img_log.save_image(
+                f"{self.name_with_underscores}_heatmap_{index}.png",
+                heatmap,
+                overlays=None,
+                title=f"Template matching heatmap for template {index}",
+            )
+        except Exception as e:
+            self._txt_log.warning(
+                f"Could not log a template matching drift correction heatmap: {e}"
+            )
