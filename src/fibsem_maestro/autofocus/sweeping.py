@@ -5,9 +5,9 @@
 from collections.abc import Iterator
 from typing import Any
 
-from fibsem_maestro.autofunctions.result import AutofocusResult
-from fibsem_maestro.autofunctions.sweep_step import SweepStep
-from fibsem_maestro.autofunctions.sweeping_registry import SweepingRegistry
+from fibsem_maestro.autofocus.result import AutofocusResult
+from fibsem_maestro.autofocus.sweep_step import SweepStep
+from fibsem_maestro.autofocus.sweeping_registry import SweepingRegistry
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.abstract_control.microscope_control import (
@@ -24,9 +24,6 @@ class Sweeping:
     microscope beam over a range of values. It uses a registered sweeping strategy
     to generate candidate values and yields only values that are within the hardware
     limits of the beam.
-
-    The sweeping behavior is fully defined by a `SweepingSettings` object and
-    updates dynamically when settings change.
     """
 
     def __init__(
@@ -49,33 +46,6 @@ class Sweeping:
         self._microscope_control = microscope_control
         self._txt_log = txt_log
 
-        self._apply_settings(settings)
-        self._settings.on_change(self._update)
-
-        self._base: float | None = None
-        self.set_base()
-
-    def _update(self, settings: SweepingSettings) -> None:
-        """
-        Update sweeping configuration when settings change.
-
-        This method is registered as a callback and re-applies all sweeping
-        parameters whenever the settings object is updated.
-
-        Args:
-            settings (SweepingSettings):
-                Updated sweeping settings.
-        """
-        self._apply_settings(settings)
-
-    def _apply_settings(self, settings: SweepingSettings) -> None:
-        """
-        Apply all configurable fields from the given settings object.
-
-        Args:
-            settings (SweepingSettings):
-                Sweeping configuration to apply.
-        """
         self._settings = settings
 
         match settings.target_beam:
@@ -89,6 +59,9 @@ class Sweeping:
         self._sweeping_strategy = SweepingRegistry.get(self._settings.strategy.type)(
             self._settings.strategy
         )
+
+        self._base: float | None = None
+        self.set_base()
 
     def sweep(self) -> Iterator[SweepStep]:
         steps = (
