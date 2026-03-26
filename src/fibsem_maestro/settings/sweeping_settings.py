@@ -31,16 +31,25 @@ SweepingStrategySettings = Annotated[
 
 class SweepingSettings(BaseSettings):
     model_config = ConfigDict(use_enum_values=True)
-    strategy: Annotated[
-        SweepingStrategySettings, Field(description="Sweeping strategy to use.")
-    ]
-    range: Annotated[tuple[float, float], Field(description="Range of variable sweep.")]
-    steps: Annotated[int, Field(gt=0, description="Number of steps in sweeping range.")]
-    cycles: Annotated[int, Field(gt=0, description="Number of sweeping repeats.")]
-    target_beam: Annotated[
-        BeamType, Field(description="Beam which property should be optimized.")
-    ]
-    target_attribute: Annotated[str, Field(description="Attribute to optimize.")]
+
+    strategy: SweepingStrategySettings = Field(
+        description="Sweeping strategy to use.",
+    )
+    range: tuple[float, float] = Field(
+        description="Range of variable sweep.",
+    )
+    steps: Annotated[int, Field(gt=0)] = Field(
+        description="Number of steps in sweeping range.",
+    )
+    cycles: Annotated[int, Field(gt=0)] = Field(
+        description="Number of sweeping repeats.",
+    )
+    target_beam: BeamType = Field(
+        description="Beam which property should be optimized.",
+    )
+    target_attribute: str = Field(
+        description="Attribute to optimize.",
+    )
 
     @field_validator("target_attribute")
     def validate_target_attribute(cls, a: str):
@@ -49,7 +58,6 @@ class SweepingSettings(BaseSettings):
             raise ValueError(
                 f"Invalid beam attribute '{a}'. Allowed: {beam_attributes}"
             )
-
         return a
 
     @field_validator("range")

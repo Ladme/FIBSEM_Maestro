@@ -8,11 +8,8 @@ from typing import Any
 from fibsem_maestro.autofocus.result import AutofocusResult
 from fibsem_maestro.autofocus.sweep_step import SweepStep
 from fibsem_maestro.autofocus.sweeping_registry import SweepingRegistry
-from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.logging.text.text_logger import TextLogger
-from fibsem_maestro.microscope.abstract_control.microscope_control import (
-    MicroscopeControl,
-)
+from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.sweeping_settings import SweepingSettings
 
 
@@ -28,7 +25,7 @@ class Sweeping:
 
     def __init__(
         self,
-        microscope_control: MicroscopeControl,
+        microscope: Microscope,
         settings: SweepingSettings,
         txt_log: TextLogger,
     ):
@@ -36,24 +33,19 @@ class Sweeping:
         Initialize a sweeping controller.
 
         Args:
-            microscope_control (MicroscopeControl):
-                Microscope control interface providing access to beam objects.
+            microscope (Microscope):
+                Microscope object.
             settings (SweepingSettings):
                 Initial sweeping configuration.
             txt_log (TextLogger):
                 Logger for sweep-related messages.
         """
-        self._microscope_control = microscope_control
+        self._microscope = microscope
         self._txt_log = txt_log
 
         self._settings = settings
 
-        match settings.target_beam:
-            case BeamType.ELECTRON:
-                self._beam = self._microscope_control.electron_beam
-            case BeamType.ION:
-                self._beam = self._microscope_control.ion_beam
-
+        self._microscope.set_beam(settings.target_beam)
         self._sweep_attribute = settings.target_attribute
 
         self._sweeping_strategy = SweepingRegistry.get(self._settings.strategy.type)(
@@ -61,7 +53,11 @@ class Sweeping:
         )
 
         self._base: float | None = None
-        self.set_base()
+        self._set_base()
+
+    @property
+    def sweep_attribute(self) -> str:
+        return self._sweep_attribute
 
     def sweep(self) -> Iterator[SweepStep]:
         steps = (
@@ -85,13 +81,13 @@ class Sweeping:
             Any:
                 Current value of the beam attribute being swept.
         """
-        return getattr(self._beam, self._sweep_attribute)
+        return getattr(self._microscope.beam, self._sweep_attribute)
 
     def set_attribute_value(self, value: Any) -> None:
         """
         Set the sweeping attribute of the beam to the specified value.
         """
-        setattr(self._beam, self._sweep_attribute, value)
+        setattr(self._microscope.beam, self._sweep_attribute, value)
 
     def evaluate_best_sweep(self, results: list[AutofocusResult]) -> float:
         """
@@ -99,7 +95,7 @@ class Sweeping:
         """
         return self._sweeping_strategy.evaluate(results)
 
-    def set_base(self) -> None:
+    def _set_base(self) -> None:
         """
         Set the base value of the sweeping attribute based on the current value of the beam.
         """
@@ -126,7 +122,7 @@ class Sweeping:
         sweep_space = self._sweeping_strategy.generate(
             self._base, self._settings.range, self._settings.steps, repetition
         )
-        limits = self._beam.limits(self._sweep_attribute)
+        limits = self._microscope.beam.limits(self._sweep_attribute)
 
         for s in sweep_space:
             if limits[0] <= s <= limits[1]:

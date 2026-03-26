@@ -3,8 +3,8 @@
 
 
 from fibsem_maestro.core.area import PixelArea
-from fibsem_maestro.gui.area_selector.area_state import AreaState
-from fibsem_maestro.gui.area_selector.area_type import AreaType
+from fibsem_maestro.gui.area_selector_new.area_state import AreaState
+from fibsem_maestro.gui.area_selector_new.area_type import AreaType
 
 
 class SelectedArea(PixelArea):

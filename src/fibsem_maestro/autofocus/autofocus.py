@@ -3,82 +3,44 @@
 
 from __future__ import annotations
 
-import time
 from abc import ABC, abstractmethod
-from enum import Enum
-from itertools import groupby
 from typing import TYPE_CHECKING
 
 from fibsem_maestro.autofocus.autofocus_registry import AutofocusRegistry
-from fibsem_maestro.autofocus.error import AutofunctionError
-from fibsem_maestro.core.image_tools import get_stripes
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Generator
 
-    from fibsem_maestro.autofocus.autofunction import Autofunction
-    from fibsem_maestro.autofocus.sweep_step import SweepStep
-    from fibsem_maestro.core.image import Image
-    from fibsem_maestro.settings.autofunction_settings import (
-        AutofocusMode as AutofocusModeSettings,
-    )
-    from fibsem_maestro.settings.autofunction_settings import (
-        BasicMode as BasicModeSettings,
-    )
-    from fibsem_maestro.settings.autofunction_settings import (
-        LineMode as LineModeSettings,
-    )
-    from fibsem_maestro.settings.autofunction_settings import (
-        ManufacturerMode as ManufacturerModeSettings,
-    )
-    from fibsem_maestro.settings.autofunction_settings import (
-        StepMode as StepModeSettings,
-    )
+    from fibsem_maestro.autofocus.autofunction_context import AutofunctionContext
+    from fibsem_maestro.autofocus.jobs_manager import JobsManager
 
 
 class AutofocusMode(ABC):
     @abstractmethod
-    def __init__(self, autofunction: Autofunction, settings: AutofocusModeSettings):
+    def execute(
+        self, ctx: AutofunctionContext, jobs: JobsManager
+    ) -> Generator[None, None, None]:
         pass
-
-    @abstractmethod
-    def execute(self) -> AutofocusStatus:
-        pass
-
-
-class AutofocusStatus(Enum):
-    IN_PROGRESS = "in_progress"
-    DONE = "done"
 
 
 @AutofocusRegistry.register("basic")
 class BasicMode(AutofocusMode):
-    def __init__(self, autofunction: Autofunction, settings: BasicModeSettings):
-        _ = settings
-        self._af = autofunction
-
-    def execute(self) -> AutofocusStatus:
-        af = self._af
-        af.clear_results()
-
-        af.setup_microscope()
-        with af.temporary_stage_x_offset():
-            for sweep in af.sweeping.sweep():
-                af.txt_log.info(
+    def execute(
+        self, ctx: AutofunctionContext, jobs: JobsManager
+    ) -> Generator[None, None, None]:
+        with ctx.temporary_stage_x_offset():
+            for sweep in ctx.sweeping.sweep():
+                ctx.txt_log.info(
                     f"Autofunction step {sweep.index + 1} (repetition {sweep.repetition}): value {sweep.value}"
                 )
-                af.sweeping.set_attribute_value(sweep.value)
-                image = af.microscope.beam.grab_frame()
-                af.submit_resolution_job(image, sweep)
+                ctx.sweeping.set_attribute_value(sweep.value)
+                image = ctx.microscope.beam.grab_frame()
+                jobs.submit(ctx.make_resolution_job(image, sweep))
 
-        af.wait_for_resolution_jobs()
-        best = af.evaluate_best_sweep()
-        af.txt_log.info(f"Best sweep value: {best}")
-        af.sweeping.set_attribute_value(best)
-
-        return AutofocusStatus.DONE
+        yield from ()
 
 
+"""
 @AutofocusRegistry.register("line")
 class LineMode(AutofocusMode):
     def __init__(self, autofunction: Autofunction, settings: LineModeSettings):
@@ -283,3 +245,4 @@ class ManufacturerMode(AutofocusMode):
 
     def execute(self) -> AutofocusStatus:
         raise NotImplementedError("Not yet implemented.")
+"""

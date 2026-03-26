@@ -2,15 +2,8 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
-from fibsem_maestro.autofunctions.autofocus import AutofocusStatus
-from fibsem_maestro.autofunctions.autofunction import Autofunction
-from fibsem_maestro.logging.image.image_logger import ImageLogger
-from fibsem_maestro.logging.text.text_logger import TextLogger
-from fibsem_maestro.microscope.microscope import Microscope
-from fibsem_maestro.notifications.notification_service import NotificationService
-from fibsem_maestro.settings.settings import Settings
 
-
+"""
 class AutofunctionManager:
     def __init__(
         self,
@@ -77,3 +70,4 @@ class AutofunctionManager:
         # start the next autofunction in queue
         if not self._queue:
             return
+"""

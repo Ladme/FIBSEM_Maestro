@@ -75,35 +75,32 @@ CriterionTilingMode = Annotated[
 
 
 class CriterionSettings(BaseSettings):
-    sharpness_metric_fn: Annotated[
-        str, Field(description="Criterion calculation function.")
-    ]
-    detail: Annotated[
-        DetailBand,
-        Field(
-            description="Bandpass parameters: low and high details to filter out (in nm).",
-        ),
-    ]
-    area: Annotated[
-        RelativeArea,
-        Field(
-            default=RelativeArea.full(),
-            description="Relative area of the image that should be used for image criterion calculation.",
-        ),
-    ]
-    log_sharpness_map: Annotated[
-        bool, Field(default=False, description="Should log sharpness map(s).")
-    ]
-    log_best_tile: Annotated[
-        bool,
-        Field(
-            default=False, description="Should log the tile with the best sharpness."
-        ),
-    ]
-    calculation_mode: Annotated[
-        CriterionCalculationMode, Field(description="Mode of calculation.")
-    ]
-    tiling_mode: Annotated[CriterionTilingMode, Field(description="Mode of tiling.")]
+    sharpness_metric_fn: str = Field(
+        description="Criterion calculation function.",
+    )
+    detail: DetailBand = Field(
+        description="Bandpass parameters: low and high details to filter out (in nm).",
+    )
+    area: RelativeArea = Field(
+        default=RelativeArea.full(),
+        description="Relative area of the image that should be used for image criterion calculation.",
+    )
+    log_sharpness_map: bool = Field(
+        default=False,
+        description="Should log sharpness map(s).",
+    )
+    log_best_tile: bool = Field(
+        default=False,
+        description="Should log the tile with the best sharpness.",
+    )
+    calculation_mode: CriterionCalculationMode = Field(
+        default=BasicMode(),
+        description="Mode of calculation.",
+    )
+    tiling_mode: CriterionTilingMode = Field(
+        default=SingleTileMode(),
+        description="Mode of tiling.",
+    )
 
     @field_validator("sharpness_metric_fn")
     def validate_function(cls, v: str):
