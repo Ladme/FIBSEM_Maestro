@@ -3,6 +3,8 @@
 
 import inspect
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Any
 
 from fibsem_maestro.core.area import RelativeArea
@@ -572,6 +574,29 @@ class BeamControl(ABC):
             list[str]: List of all manufacturer properties of the beam.
         """
         pass
+
+    @contextmanager
+    def total_blanked(self) -> Iterator[None]:
+        """
+        Context manager that blanks the beam with zero contrast and brightness.
+
+        Saves the current detector contrast and brightness, sets both to zero,
+        and blanks the beam on entry. Restores the original values and unblanks
+        the beam on exit, even if an exception occurs.
+        """
+        contrast_backup = self.detector_contrast
+        brightness_backup = self.detector_brightness
+
+        self.detector_contrast = 0
+        self.detector_brightness = 0
+        self.blank()
+
+        try:
+            yield
+        finally:
+            self.detector_contrast = contrast_backup
+            self.detector_brightness = brightness_backup
+            self.unblank()
 
     @property
     @abstractmethod

@@ -7,10 +7,10 @@ from typing import TYPE_CHECKING
 import numpy as np
 from numpy.typing import NDArray
 
-from fibsem_maestro.autofunctions.error import AutofunctionError
+from fibsem_maestro.autofocus.error import AutofunctionError
 
 if TYPE_CHECKING:
-    from fibsem_maestro.autofunctions.sweeping_strategy import SweepingStrategy
+    from fibsem_maestro.autofocus.sweeping_strategy import SweepingStrategy
 
 SweepingSpaceFunction = Callable[
     [float, tuple[float, float], int, int], NDArray[np.floating]

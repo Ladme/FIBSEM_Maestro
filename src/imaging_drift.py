@@ -94,6 +94,7 @@ def main():
 
     # initialize the imaging
     imaging = Imaging(
+        "imaging",
         microscope,
         imaging_settings,
         props_store,
@@ -103,6 +104,7 @@ def main():
 
     # initialize the drift correction
     drift_correction = TemplateMatchingDriftCorrection(
+        "template matching",
         microscope,
         drift_corr_settings,
         [imaging],

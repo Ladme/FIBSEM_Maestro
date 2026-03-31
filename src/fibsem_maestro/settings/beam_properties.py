@@ -21,7 +21,21 @@ class BeamProperties(BaseSettings):
         Stigmator | None,
         Field(
             default=None,
-            description="Stigmator settings for beam correction (in nanometers).",
+            description="Stigmator settings for beam correction.",
+        ),
+    ]
+    stigmator_x: Annotated[
+        float | None,
+        Field(
+            default=None,
+            description="Stigmator in the x-dimension.",
+        ),
+    ]
+    stigmator_y: Annotated[
+        float | None,
+        Field(
+            default=None,
+            description="Stigmator in the y-dimension).",
         ),
     ]
     lens_alignment: Annotated[
@@ -29,6 +43,20 @@ class BeamProperties(BaseSettings):
         Field(
             default=None,
             description="Alignment of lens in the microscope (in nanometers).",
+        ),
+    ]
+    lens_alignment_x: Annotated[
+        float | None,
+        Field(
+            default=None,
+            description="Alignment of lens in the microscope along the x-dimension (in nanometers).",
+        ),
+    ]
+    lens_alignment_y: Annotated[
+        float | None,
+        Field(
+            default=None,
+            description="Alignment of lens in the microscope along the y-dimension (in nanometers).",
         ),
     ]
     beam_shift: Annotated[

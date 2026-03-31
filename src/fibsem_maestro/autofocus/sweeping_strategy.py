@@ -8,9 +8,9 @@ from collections import defaultdict
 import numpy as np
 from numpy.typing import NDArray
 
-from fibsem_maestro.autofunctions.error import AutofunctionError
-from fibsem_maestro.autofunctions.result import AutofocusResult
-from fibsem_maestro.autofunctions.sweeping_registry import SweepingRegistry
+from fibsem_maestro.autofocus.error import AutofunctionError
+from fibsem_maestro.autofocus.result import AutofocusResult
+from fibsem_maestro.autofocus.sweeping_registry import SweepingRegistry
 from fibsem_maestro.settings.sweeping_settings import (
     BasicStrategySettings,
     InterleavedStrategySettings,
@@ -147,7 +147,7 @@ class BasicSweepingStrategy(SweepingStrategy):
 
         # collect resolutions obtained for the same sweep value
         for r in results:
-            resolution_sum[r.sweep.value] += r.resolution
+            resolution_sum[r.sweep.value] += r.sharpness
             resolution_count[r.sweep.value] += 1
 
         if not resolution_sum:
@@ -251,10 +251,10 @@ class InterleavedSweepingStrategy(SweepingStrategy):
         # iterate over consecutive (baseline, candidate) result pairs
         for base, curr in zip(sorted_results[:-1], sorted_results[1:]):
             # calculate resolution improvement relative to the preceding baseline
-            delta = curr.resolution - base.resolution
+            delta = curr.sharpness - base.sharpness
 
             # keep only improvements that exceed the minimum relative threshold
-            if delta > base.resolution * self._settings.min_diff:
+            if delta > base.sharpness * self._settings.min_diff:
                 delta_sum[curr.sweep.value] += delta
                 delta_count[curr.sweep.value] += 1
 

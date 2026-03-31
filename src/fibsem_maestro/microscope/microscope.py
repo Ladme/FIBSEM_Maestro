@@ -32,6 +32,14 @@ class Microscope:
         self._apply_settings(settings)
         self._settings.on_change(self._update)
 
+    @property
+    def electron_beam(self) -> BeamControl:
+        return self._control.electron_beam
+
+    @property
+    def ion_beam(self) -> BeamControl:
+        return self._control.ion_beam
+
     def _apply_settings(self, settings: MicroscopeSettings) -> None:
         self._settings = settings
         self._control = MicroscopeRegistry.get(settings.control)(

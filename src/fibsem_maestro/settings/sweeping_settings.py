@@ -5,7 +5,6 @@ from typing import Annotated, Literal
 
 from pydantic import ConfigDict, Field, field_validator
 
-from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
 from fibsem_maestro.settings.base_settings import BaseSettings
 
@@ -33,6 +32,7 @@ class SweepingSettings(BaseSettings):
     model_config = ConfigDict(use_enum_values=True)
 
     strategy: SweepingStrategySettings = Field(
+        default=BasicStrategySettings(),
         description="Sweeping strategy to use.",
     )
     range: tuple[float, float] = Field(
@@ -44,20 +44,15 @@ class SweepingSettings(BaseSettings):
     cycles: Annotated[int, Field(gt=0)] = Field(
         description="Number of sweeping repeats.",
     )
-    target_beam: BeamType = Field(
-        description="Beam which property should be optimized.",
-    )
-    target_attribute: str = Field(
-        description="Attribute to optimize.",
+    target: str = Field(
+        description="Attribute to sweep.",
     )
 
-    @field_validator("target_attribute")
-    def validate_target_attribute(cls, a: str):
+    @field_validator("target")
+    def validate_target(cls, a: str):
         beam_attributes = BeamControl.get_property_names()
         if a not in beam_attributes:
-            raise ValueError(
-                f"Invalid beam attribute '{a}'. Allowed: {beam_attributes}"
-            )
+            raise ValueError(f"Invalid target '{a}'. Allowed: {beam_attributes}")
         return a
 
     @field_validator("range")

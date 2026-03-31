@@ -1,9 +1,14 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
+import re
 from collections.abc import Sequence
+from pathlib import Path
 
+import matplotlib as mpl
 import numpy as np
+
+mpl.use("Agg")
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.patches import Rectangle
@@ -73,7 +78,7 @@ class FileImageLogger(ImageLogger):
         ax.axis("off")
         fig.tight_layout()
 
-        out_path = self._ctx.images() / filename
+        out_path = FileImageLogger._unique_path(self._ctx.images() / filename)
         fig.savefig(out_path, dpi=100)
         plt.close(fig)
 
@@ -148,6 +153,39 @@ class FileImageLogger(ImageLogger):
 
         fig.tight_layout()
 
-        out_path = self._ctx.images() / filename
+        out_path = FileImageLogger._unique_path(self._ctx.images() / filename)
         fig.savefig(out_path, dpi=100)
         plt.close(fig)
+
+    @staticmethod
+    def _unique_path(path: Path) -> Path:
+        """
+        Return a unique path by appending or incrementing a numeric suffix.
+
+        Scans the parent directory for files sharing the same stem, regardless of
+        extension, then returns a path with a suffix one above the current maximum.
+        If no conflicting files exist, the original path is returned unchanged.
+
+        Args:
+            path: The desired file path.
+
+        Returns:
+            The original path if it does not conflict with any existing file,
+            otherwise a path of the form `<stem>_N<suffix>` where `N` is
+            one greater than the highest conflicting index found.
+        """
+        clean_stem = re.sub(r"_\d+$", "", path.stem)
+
+        nums = []
+        for p in path.parent.iterdir():
+            if p.stem == clean_stem:
+                nums.append(1)
+            elif p.stem.startswith(clean_stem + "_"):
+                rest = p.stem[len(clean_stem) + 1 :]
+                if rest.isdigit():
+                    nums.append(int(rest))
+
+        if not nums:
+            return path
+
+        return path.with_name(f"{clean_stem}_{max(nums) + 1}{path.suffix}")

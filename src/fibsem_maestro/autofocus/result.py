@@ -3,10 +3,10 @@
 
 from dataclasses import dataclass
 
-from fibsem_maestro.autofunctions.sweep_step import SweepStep
+from fibsem_maestro.autofocus.sweep_step import SweepStep
 
 
 @dataclass(frozen=True)
 class AutofocusResult:
-    resolution: float
+    sharpness: float
     sweep: SweepStep

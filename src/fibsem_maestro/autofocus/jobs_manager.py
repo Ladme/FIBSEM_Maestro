@@ -32,7 +32,7 @@ class JobsManager:
         self._own_executor = executor is None
         self._executor: Executor = executor or ThreadPoolExecutor()
 
-        self._pending: list[Future[float]] = []
+        self._pending: list[Future[AutofocusResult]] = []
         self._pending_lock = threading.Lock()
         self._results: list[AutofocusResult] = []
         self._results_lock = threading.Lock()
@@ -47,6 +47,9 @@ class JobsManager:
                 return
 
         future.add_done_callback(_on_done)
+
+        with self._pending_lock:
+            self._pending.append(future)
 
     def wait_and_collect(self) -> list[AutofocusResult]:
         """

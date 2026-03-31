@@ -3,16 +3,21 @@
 
 from __future__ import annotations
 
+import time
 from abc import ABC, abstractmethod
+from itertools import groupby
 from typing import TYPE_CHECKING
 
 from fibsem_maestro.autofocus.autofocus_registry import AutofocusRegistry
+from fibsem_maestro.core.image_tools import get_stripes
+from fibsem_maestro.settings.autofunction_settings import LineMode as LineModeSettings
 
 if TYPE_CHECKING:
     from collections.abc import Generator
 
     from fibsem_maestro.autofocus.autofunction_context import AutofunctionContext
     from fibsem_maestro.autofocus.jobs_manager import JobsManager
+    from fibsem_maestro.core.image import Image
 
 
 class AutofocusMode(ABC):
@@ -31,7 +36,7 @@ class BasicMode(AutofocusMode):
         with ctx.temporary_stage_x_offset():
             for sweep in ctx.sweeping.sweep():
                 ctx.txt_log.info(
-                    f"Autofunction step {sweep.index + 1} (repetition {sweep.repetition}): value {sweep.value}"
+                    f"Autofunction step {sweep.index + 1} (repetition {sweep.repetition + 1}): value {sweep.value}"
                 )
                 ctx.sweeping.set_attribute_value(sweep.value)
                 image = ctx.microscope.beam.grab_frame()
@@ -40,88 +45,53 @@ class BasicMode(AutofocusMode):
         yield from ()
 
 
-"""
 @AutofocusRegistry.register("line")
 class LineMode(AutofocusMode):
-    def __init__(self, autofunction: Autofunction, settings: LineModeSettings):
-        self._af = autofunction
-        self._settings = settings
+    def execute(
+        self, ctx: AutofunctionContext, jobs: JobsManager
+    ) -> Generator[None, None, None]:
+        with ctx.temporary_stage_x_offset():
+            line_time = self._estimate_line_time(ctx)
 
-    def execute(self) -> AutofocusStatus:
-        af = self._af
-        af.clear_results()
-
-        with af.temporary_stage_x_offset():
-            af.microscope.blank_screen()  # TODO: is this necessary?
-            af.setup_microscope()
-
-            line_time = self._estimate_line_time()
-
-            self._variable_sweeping_during_scan(line_time)
+            self._variable_sweeping_during_scan(ctx, line_time)
 
             # grab final image after acquisition
-            self.line_focus_image = af.microscope.beam.get_image(
-                crop_to_scanning_area=True
-            )
+            line_focus_image = ctx.microscope.beam.get_image(crop_to_scanning_area=True)
 
-            # schedule resolution jobs from the image
-            self._process_image(self.line_focus_image)
+            # schedule sharpness jobs from the image
+            self._process_image(ctx, jobs, line_focus_image)
 
-        af.wait_for_resolution_jobs()
-        best = af.evaluate_best_sweep()
-        af.txt_log.info(f"Best sweep value: {best}")
-        af.sweeping.set_attribute_value(best)
+        yield from ()
 
-        return AutofocusStatus.DONE
+    def _estimate_line_time(self, ctx: AutofunctionContext) -> float:
+        dwell_time = ctx.microscope.beam.dwell_time
+        line_integration = ctx.microscope.beam.line_integration
+        resolution = ctx.microscope.beam.resolution
+        scanning_area = ctx.microscope.beam.scanning_area
 
-    def _estimate_line_time(self) -> float:
-        af = self._af
-        imaging = af.imaging_settings
+        return dwell_time * line_integration * resolution.width * scanning_area.width
 
-        dwell = imaging.dwell_time
-        if dwell is None:
-            raise AutofunctionError(
-                "Imaging setting 'dwell_time' must be set for line autofocus."
-            )
+    def _variable_sweeping_during_scan(
+        self, ctx: AutofunctionContext, line_time: float
+    ) -> None:
+        mode = ctx.settings.mode
+        assert isinstance(mode, LineModeSettings)
 
-        line_integration = imaging.line_integration
-        if line_integration is None:
-            raise AutofunctionError(
-                "Imaging setting 'line_integration' must be set for line autofocus."
-            )
-
-        resolution = imaging.resolution
-        if resolution is None:
-            raise AutofunctionError(
-                "Imaging setting 'resolution' must be set for line autofocus."
-            )
-
-        estimated = dwell * line_integration * resolution[0]
-
-        area = imaging.scanning_area
-        if area and area.width > 0 and area.height > 0:
-            estimated *= area.width
-
-        return estimated
-
-    def _variable_sweeping_during_scan(self, line_time: float) -> None:
-        af = self._af
-
-        pre_delay = self._settings.pre_imaging_delay
-        hold = self._settings.lines_per_sweep * line_time
+        pre_delay = mode.pre_imaging_delay
+        hold = mode.lines_per_sweep * line_time
 
         # iterate over repetitions
         for repetition, steps in groupby(
-            af.sweeping.sweep(), key=lambda x: x.repetition
+            ctx.sweeping.sweep(), key=lambda x: x.repetition
         ):
-            af.txt_log.info(f"Line sweep cycle {repetition}")
+            ctx.txt_log.info(f"Line sweep cycle {repetition}")
 
             if repetition == 0:
                 # start the image acquisition
-                af.microscope.beam.start_acquisition()
+                ctx.microscope.beam.start_acquisition()
 
             # blank to create a dark separator band between the stripes
-            with af.microscope.total_blank():
+            with ctx.microscope.beam.total_blanked():
                 # at the start of the first repetition, wait for additional time
                 if repetition == 0 and pre_delay > 0:
                     time.sleep(pre_delay)
@@ -130,17 +100,22 @@ class LineMode(AutofocusMode):
 
             # acquire part of the stripe with each sweep value
             for sweep in steps:
-                af.sweeping.set_attribute_value(sweep.value)
+                ctx.sweeping.set_attribute_value(sweep.value)
                 time.sleep(hold)
 
         # final hold [TODO: do we need it?]
         time.sleep(hold)
-        af.microscope.beam.stop_acquisition()
+        ctx.microscope.beam.stop_acquisition()
 
-    def _process_image(self, image: Image) -> None:
-        forbidden_stripes = self._settings.forbidden_stripe_indices
-        separator_threshold = self._settings.stripe_separator_threshold
-        min_stripe_width = self._settings.minimal_stripe_width
+    def _process_image(
+        self, ctx: AutofunctionContext, jobs: JobsManager, image: Image
+    ) -> None:
+        mode = ctx.settings.mode
+        assert isinstance(mode, LineModeSettings)
+
+        forbidden_stripes = mode.forbidden_stripe_indices
+        separator_threshold = mode.stripe_separator_threshold
+        min_stripe_width = mode.minimal_stripe_width
 
         # convert the image to 8-bit
         img_8bit = image.to_8bit()
@@ -150,9 +125,7 @@ class LineMode(AutofocusMode):
         stripes = get_stripes(img_8bit, separator_threshold, min_stripe_width)
 
         # collect sweeps and group them
-        sweep_groups = groupby(
-            self._af.sweeping.sweep(), key=lambda step: step.repetition
-        )
+        sweep_groups = groupby(ctx.sweeping.sweep(), key=lambda step: step.repetition)
 
         for stripe, (rep, steps_iter) in zip(stripes, sweep_groups):
             # skip forbidden stripes
@@ -171,9 +144,10 @@ class LineMode(AutofocusMode):
             # submit a resolution calculation job for each line of the stripe
             for line_index, step in zip(stripe, steps):
                 image_line = image[:, line_index]
-                self._af.submit_resolution_job(image_line, step)
+                jobs.submit(ctx.make_resolution_job(image_line, step))
 
 
+"""
 @AutofocusRegistry.register("step")
 class StepMode(AutofocusMode):
     def __init__(self, autofunction: Autofunction, settings: StepModeSettings):

@@ -1,17 +1,19 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
-
 import argparse
 import logging
 from pathlib import Path
 
+from fibsem_maestro.autofocus.autofunction import Autofunction
 from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.slice import SliceContext
 from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.imaging.imaging import Imaging
+from fibsem_maestro.logging.image.file import FileImageLogger
 from fibsem_maestro.logging.text.file import FileTextLogger
 from fibsem_maestro.microscope.microscope import Microscope
+from fibsem_maestro.settings.autofunction_settings import AutofunctionSettings
 from fibsem_maestro.settings.imaging_settings import ImagingSettings
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
 from fibsem_maestro.store.frame.file import FileFrameStore
@@ -19,7 +21,7 @@ from fibsem_maestro.store.props.file import FilePropsStore
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Control the imaging.")
+    parser = argparse.ArgumentParser(description="Control imaging with autofocus.")
 
     # define arguments
     parser.add_argument(
@@ -33,6 +35,12 @@ def main():
         type=Path,
         required=True,
         help="Path to the YAML file containing imaging settings.",
+    )
+    parser.add_argument(
+        "--autofunction",
+        type=Path,
+        required=True,
+        help="Path to the YAML file containing autofunction settings.",
     )
     parser.add_argument(
         "--log-dir",
@@ -59,12 +67,15 @@ def main():
     # load settings
     microscope_settings = MicroscopeSettings.from_file(args.microscope)
     imaging_settings = ImagingSettings.from_file(args.imaging)
+    autofunction_settings = AutofunctionSettings.from_file(args.autofunction)
 
-    # initialize the loggers and stores
+    print(autofunction_settings)
+
     slice = SliceContext(Path("logs"), 1)
     txt_log = FileTextLogger(
         slice, "microscope", logging.DEBUG if args.verbose else logging.INFO
     )
+    img_log = FileImageLogger(slice)
     props_store = FilePropsStore(slice)
     frame_store = FileFrameStore(slice, imaging_settings.images_directory)
 
@@ -73,31 +84,36 @@ def main():
 
     # initialize the imaging
     imaging = Imaging(
-        "imaging", microscope, imaging_settings, props_store, frame_store, txt_log
+        "imaging",
+        microscope,
+        imaging_settings,
+        props_store,
+        frame_store,
+        txt_log.derive("imaging"),
     )
 
-    # set microscope properties manually
-    input("Set microscope properties interactively and then press ENTER.")
+    # initialize autofocus
+    autofunction = Autofunction(
+        "autofunction",
+        microscope,
+        autofunction_settings,
+        [imaging],
+        props_store,
+        txt_log.derive("autofunction"),
+        img_log,
+    )
 
     microscope._control.try_set_stage_position(
         StagePosition(x=0.0, y=0.0, z=5_000_000.0, rotation=0, tilt=0)
     )
     microscope.beam.resolution = Resolution(1000, 1000)
     microscope.beam.horizontal_field_width = 2000
-    # microscope.beam.scanning_area = RelativeArea(
-    #    origin=RelativePoint(x=0.25, y=0.5), width=0.5, height=0.25
-    # )
 
-    # save microscope properties
+    autofunction.collect_and_write_properties()
     imaging.collect_and_write_properties()
 
-    # optionally change microscope properties to test that the previously saved properties are reloaded before imaging
-    input("Microscope properties saved. Press ENTER.")
-
-    # run imaging
-    for _ in range(args.slices):
-        imaging.grab_frame()
-        slice.increment()
+    autofunction.perform_autofocus(0, None)
+    imaging.grab_frame()
 
 
 if __name__ == "__main__":

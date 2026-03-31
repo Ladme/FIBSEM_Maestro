@@ -1,7 +1,7 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 
 from fibsem_maestro.autofocus.result import AutofocusResult
@@ -27,22 +27,22 @@ class AutofunctionContext:
         self.microscope = microscope
         self.sweeping = sweeping
         self.txt_log = txt_log
+        self.settings = settings
 
         self._criterion = criterion
-        self._settings = settings
 
     @contextmanager
-    def temporary_stage_x_offset(self):
+    def temporary_stage_x_offset(self) -> Iterator[None]:
         """
         Temporarily move the stage in X to a nearby focusing area and
         always restore the original position afterward.
         """
         # move the stage away
         self.microscope._control.try_move_stage_position(
-            StagePosition(x=-self._settings.delta_x)
+            StagePosition(x=-self.settings.delta_x)
         )
         self.txt_log.info(
-            f"Moving stage to focusing area (X offset {-self._settings.delta_x:+g})"
+            f"Moving stage to focusing area (X offset {-self.settings.delta_x:+g})"
         )
 
         try:
@@ -50,10 +50,10 @@ class AutofunctionContext:
         finally:
             # move the stage back
             self.microscope._control.try_move_stage_position(
-                StagePosition(x=self._settings.delta_x)
+                StagePosition(x=self.settings.delta_x)
             )
             self.txt_log.info(
-                f"Restoring stage position (X offset {self._settings.delta_x:+g})"
+                f"Restoring stage position (X offset {self.settings.delta_x:+g})"
             )
 
     def make_resolution_job(

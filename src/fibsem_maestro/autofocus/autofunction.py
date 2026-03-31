@@ -28,8 +28,8 @@ class Autofunction(Action):
     def __init__(
         self,
         name: str,
-        settings: AutofunctionSettings,
         microscope: Microscope,
+        settings: AutofunctionSettings,
         imagings: list[Imaging],
         props_store: PropsStore,
         txt_log: TextLogger,
@@ -46,7 +46,9 @@ class Autofunction(Action):
         self._settings = settings
 
         self._sweeping = Sweeping(
-            self._microscope,
+            self._microscope.electron_beam
+            if self._settings.beam_type is BeamType.ELECTRON
+            else self._microscope.ion_beam,
             self._settings.sweeping,
             self._txt_log.derive("sweeping"),
         )
@@ -128,9 +130,13 @@ class Autofunction(Action):
         if not self._should_execute(slice_number, image_sharpness):
             return
 
-        self.read_and_set_properties()
+        props = self.read_properties()
+        self.microscope.set_properties(props, beam=None)
+        self.microscope.set_beam(self._settings.beam_type)
         self._active_gen = self._mode.execute(self._ctx, self._jobs)
         self._advance()
+
+        self.write_properties(props, self._props_store.next)
 
     def _should_execute(self, slice_number: int, image_sharpness: float | None) -> bool:
         if (
@@ -163,6 +169,7 @@ class Autofunction(Action):
         except StopIteration:
             results = self._jobs.wait_and_collect()
             best = self._sweeping.evaluate_best_sweep(results)
+            self._txt_log.info(f"Best sweep attribute value: {best}.")
 
             # update the associated imagings based on the autofocus results
             for imaging in self._imagings:
