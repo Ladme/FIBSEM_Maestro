@@ -6,7 +6,7 @@ from collections.abc import Awaitable, Callable
 
 from nicegui import ui
 
-from fibsem_maestro.gui.area_selector.area_limits import AreaLimits
+from fibsem_maestro.gui.area_selector_new.area_limits import AreaLimits
 from fibsem_maestro.microscope.microscope import Microscope
 
 

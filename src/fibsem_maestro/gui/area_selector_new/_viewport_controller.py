@@ -8,7 +8,7 @@ from nicegui import events
 from fibsem_maestro.core.area import PixelArea
 from fibsem_maestro.core.point import PixelPoint
 from fibsem_maestro.core.resolution import Resolution
-from fibsem_maestro.gui.area_selector.selected_area import SelectedArea
+from fibsem_maestro.gui.area_selector_new.selected_area import SelectedArea
 
 
 class ViewportController:

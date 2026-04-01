@@ -12,10 +12,10 @@ from scipy import ndimage  # type: ignore
 from fibsem_maestro.core.area import PixelArea, RelativeArea
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.point import PixelPoint
-from fibsem_maestro.gui.area_selector._area_drawer import AreaDrawer
-from fibsem_maestro.gui.area_selector._viewport_controller import ViewportController
-from fibsem_maestro.gui.area_selector.area_limits import AreaLimits
-from fibsem_maestro.gui.area_selector.area_type import AreaType
+from fibsem_maestro.gui.area_selector_new._area_drawer import AreaDrawer
+from fibsem_maestro.gui.area_selector_new._viewport_controller import ViewportController
+from fibsem_maestro.gui.area_selector_new.area_limits import AreaLimits
+from fibsem_maestro.gui.area_selector_new.area_type import AreaType
 
 
 class AreaSelectorWithImage:

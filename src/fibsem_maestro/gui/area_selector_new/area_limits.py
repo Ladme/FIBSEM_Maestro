@@ -4,8 +4,8 @@
 
 from collections import Counter
 
-from fibsem_maestro.gui.area_selector.area_type import AreaType
-from fibsem_maestro.gui.area_selector.selected_area import SelectedArea
+from fibsem_maestro.gui.area_selector_new.area_type import AreaType
+from fibsem_maestro.gui.area_selector_new.selected_area import SelectedArea
 
 
 class AreaLimits:

@@ -6,12 +6,12 @@ from enum import Enum
 from nicegui import ui
 
 from fibsem_maestro.core.area import RelativeArea
-from fibsem_maestro.gui.area_selector._area_selector_empty import AreaSelectorEmpty
-from fibsem_maestro.gui.area_selector._area_selector_with_image import (
+from fibsem_maestro.gui.area_selector_new._area_selector_empty import AreaSelectorEmpty
+from fibsem_maestro.gui.area_selector_new._area_selector_with_image import (
     AreaSelectorWithImage,
 )
-from fibsem_maestro.gui.area_selector.area_limits import AreaLimits
-from fibsem_maestro.gui.area_selector.area_type import AreaType
+from fibsem_maestro.gui.area_selector_new.area_limits import AreaLimits
+from fibsem_maestro.gui.area_selector_new.area_type import AreaType
 from fibsem_maestro.microscope.microscope import Microscope
 
 
