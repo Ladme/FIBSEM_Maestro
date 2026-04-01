@@ -98,6 +98,7 @@ def main():
         props_store,
         frame_store,
         txt_log.derive("imaging"),
+        img_log,
     )
 
     # initialize the drift correction

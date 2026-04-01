@@ -10,6 +10,7 @@ from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.slice import SliceContext
 from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.imaging.imaging import Imaging
+from fibsem_maestro.logging.image.file import FileImageLogger
 from fibsem_maestro.logging.text.file import FileTextLogger
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.imaging_settings import ImagingSettings
@@ -65,6 +66,7 @@ def main():
     txt_log = FileTextLogger(
         slice, "microscope", logging.DEBUG if args.verbose else logging.INFO
     )
+    img_log = FileImageLogger(slice)
     props_store = FilePropsStore(slice)
     frame_store = FileFrameStore(slice, imaging_settings.images_directory)
 
@@ -73,7 +75,13 @@ def main():
 
     # initialize the imaging
     imaging = Imaging(
-        "imaging", microscope, imaging_settings, props_store, frame_store, txt_log
+        "imaging",
+        microscope,
+        imaging_settings,
+        props_store,
+        frame_store,
+        txt_log,
+        img_log,
     )
 
     # set microscope properties manually

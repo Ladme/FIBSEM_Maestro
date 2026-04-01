@@ -2,11 +2,16 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
+import threading
+
 from fibsem_maestro.core.action import Action
 from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
+from fibsem_maestro.core.image import Image
+from fibsem_maestro.criterion.criterion import Criterion
 from fibsem_maestro.imaging.error import ImagingError
+from fibsem_maestro.logging.image.image_logger import ImageLogger
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.imaging_settings import (
@@ -32,6 +37,7 @@ class Imaging(Action):
         props_store: PropsStore,
         frame_store: FrameStore,
         txt_log: TextLogger,
+        img_log: ImageLogger,
     ):
         """
         Initialize the Imaging instance.
@@ -43,6 +49,7 @@ class Imaging(Action):
             props_store (PropsStore): Handler for storing microscope properties.
             frame_store (FrameStore): Handler for storing acquired frames.
             txt_log (TextLogger): A textual logger.
+            img_log (ImageLogger): An image logger.
         """
         self._name = name
         self._microscope = microscope
@@ -51,9 +58,23 @@ class Imaging(Action):
         self._frame_store = frame_store
         self._txt_log = txt_log
 
+        if criterion_settings := self._settings.criterion:
+            self._criterion = Criterion(
+                f"{self._name} criterion",
+                criterion_settings,
+                self._txt_log.derive("criterion"),
+                img_log,
+            )
+        else:
+            self._criterion = None
+
         # was scanning area selected using extended resolution
         # necessary to avoid shrinking the selected area in subsequent imagings
         self._scanning_area_selected = False
+
+        # sharpness of the acquired image
+        self._image_sharpness: float | None = None
+        self._sharpness_thread: threading.Thread | None = None
 
     @property
     def name(self) -> str:
@@ -90,6 +111,11 @@ class Imaging(Action):
         Loads microscope properties from an input file, acquires an image, saves it,
         and updates the saved microscope properties for subsequent imaging.
 
+        If a `Criterion` is configured, image sharpness is calculated
+        asynchronously on a background thread. The result is stored in
+        `image_sharpness` once the calculation completes.
+        Use `wait_for_sharpness` to block until the value is available.
+
         Raises:
             ImagingError: If the image for the current slice already exists.
         """
@@ -100,10 +126,24 @@ class Imaging(Action):
         self._frame_store.raise_if_exists(ImagingError)
 
         # grab the frame and save it
-        self._microscope.beam.grab_frame(self._frame_store)
+        image = self._microscope.beam.grab_frame(self._frame_store)
 
         # update the saved microscope properties for the next frame
         self.collect_and_write_properties(self._props_store.next)
+
+        # calculate image sharpness in a separate thread
+        self._image_sharpness = None
+        if self._criterion is not None:
+            self._sharpness_thread = threading.Thread(
+                target=self._calculate_sharpness,
+                args=(image,),
+                daemon=True,
+            )
+            self._sharpness_thread.start()
+        else:
+            self._txt_log.debug(
+                f"Criterion is not configured for {self._name}. Image sharpness will not be calculated."
+            )
 
     def collect_and_write_properties(self, store: PropsStore | None = None) -> None:
         """
@@ -147,6 +187,18 @@ class Imaging(Action):
 
         # set the original scanning area
         self._microscope.beam.scanning_area = backup_scanning_area
+
+    def wait_for_sharpness(self) -> float | None:
+        """
+        Block until the background sharpness calculation finishes.
+
+        Returns:
+            The calculated sharpness value, or `None` if no criterion is
+            configured or the calculation failed.
+        """
+        if self._sharpness_thread is not None:
+            self._sharpness_thread.join()
+        return self._image_sharpness
 
     def _set_extended_resolution_props(self, new_pixel_size: float) -> None:
         # image only the scanning area
@@ -192,3 +244,19 @@ class Imaging(Action):
         # set resolution based on the new pixel size
         # this is done even if scanning area is not specified
         self._microscope.beam.pixel_size = new_pixel_size
+
+    def _calculate_sharpness(self, image: Image) -> None:
+        """
+        Calculate the sharpness of `image` via the configured criterion.
+
+        Intended to run on a background thread. The result is stored in
+        `self._image_sharpness`. Any exception is caught and logged as a
+        warning so that a failed sharpness calculation cannot crash the thread.
+        """
+        assert self._criterion is not None
+
+        try:
+            self._image_sharpness = self._criterion.calculate_sharpness(image)
+            self._txt_log.debug(f"Image sharpness: {self._image_sharpness}.")
+        except Exception as e:
+            self._txt_log.warning(f"Could not calculate image sharpness: {e}")
