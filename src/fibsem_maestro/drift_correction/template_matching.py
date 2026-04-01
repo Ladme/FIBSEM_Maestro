@@ -14,10 +14,9 @@ from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.image import Image, Image8Bit
 from fibsem_maestro.core.point import PixelPoint
 from fibsem_maestro.drift_correction.error import DriftCorrectionError
-from fibsem_maestro.drift_correction.helpers import (
+from fibsem_maestro.drift_correction.result import (
     TemplateMatchResult,
 )
-from fibsem_maestro.imaging.imaging import Imaging
 from fibsem_maestro.logging.image.image_logger import ImageLogger
 from fibsem_maestro.logging.image.overlay import RectangleOverlay
 from fibsem_maestro.logging.text.text_logger import TextLogger
@@ -29,12 +28,24 @@ from fibsem_maestro.store.props.props_store import PropsStore
 
 
 class TemplateMatchingDriftCorrection(Action):
+    """
+    Drift correction action based on normalized cross-correlation template matching.
+
+    Args:
+        name: Human-readable identifier for this action instance.
+        microscope: Interface to the electron microscope hardware.
+        settings: Template matching settings.
+        props_store: Store used to read and write microscope properties.
+        image_store: Store used to persist template images across slices.
+        txt_log: Logger for status and diagnostic text messages.
+        img_log: Logger for annotated images and heatmaps.
+    """
+
     def __init__(
         self,
         name: str,
         microscope: Microscope,
         settings: TemplateMatchingSettings,
-        imagings: list[Imaging],
         props_store: PropsStore,
         image_store: ImageStore[Image8Bit],
         txt_log: TextLogger,
@@ -47,7 +58,6 @@ class TemplateMatchingDriftCorrection(Action):
         self._image_store = image_store
         self._txt_log = txt_log
         self._img_log = img_log
-        self._imagings = imagings
 
     @property
     def name(self) -> str:
@@ -82,6 +92,17 @@ class TemplateMatchingDriftCorrection(Action):
         return self._txt_log
 
     def create_templates(self) -> None:
+        """
+        Acquire a reference image and save a template crop for each configured area.
+
+        Sets the microscope properties defined in the action's properties file,
+        acquires a single frame, crops each configured area from that frame, and
+        writes the resulting templates to the image store.
+
+        Raises:
+            DriftCorrectionError: If no template matching areas have been configured
+                in the settings.
+        """
         if len(self._settings.areas) == 0:
             raise DriftCorrectionError("No template matching areas defined.")
 
@@ -91,14 +112,61 @@ class TemplateMatchingDriftCorrection(Action):
         template_image = self._microscope.beam.grab_frame()
 
         for i, area in enumerate(self._settings.areas):
-            self._save_template(template_image.crop(area), i)
+            self._save_template(template_image.crop(area).to_8bit(), i)
 
     def correct_drift(self) -> None:
+        """
+        Acquire a new frame, calculate the drift, and apply a compensating beam shift.
+
+        The correction is performed in up to two passes:
+
+        1. A frame is acquired and template matching is used to calculate the
+           required beam shift. The shift is applied via `Microscope.add_beam_shift_with_verification`.
+        2. If the beam shift limit was exceeded and the stage had to be moved
+           instead, a second frame is acquired and a fine-tuning correction is
+           applied to remove any residual stage-positioning error.
+
+        After correction the current microscope properties are written to the
+        property store and the templates are updated for the next slice.
+        """
         # grab image for drift correction
         self.read_and_set_properties()
         self._txt_log.info("Acquiring drift correction image.")
         image = self._microscope.beam.grab_frame().to_8bit()
+        beam_shift, matches = self._calculate_correction_beam_shift(image)
 
+        if not (self._microscope.add_beam_shift_with_verification(beam_shift)):
+            # this branch is taken if stage is moved
+            self._txt_log.info(
+                "Fine-tuning drift correction to remove stage positioning error."
+            )
+
+            # grab a new image
+            image = self._microscope.beam.grab_frame().to_8bit()
+            beam_shift, matches = self._calculate_correction_beam_shift(image)
+            # we assume that beam shift will always be in limit here
+            self._microscope.add_beam_shift_with_verification(beam_shift)
+
+        # collect and save the microscope properties for the next slice
+        self.collect_and_write_properties(self._props_store.next)
+
+        # update the templates for the next slice
+        self._update_templates(image, matches)
+
+    def _calculate_correction_beam_shift(
+        self, image: Image8Bit
+    ) -> tuple[BeamShift, list[TemplateMatchResult]]:
+        """
+        Run template matching and convert the results to a beam shift.
+
+        Args:
+            image: The drift-correction frame to match templates against.
+
+        Returns:
+            A tuple of:
+                - The beam shift that compensates for the detected drift.
+                - The individual match results for each template area.
+        """
         # perform template matching for each template
         matches = self._get_template_matches(image)
 
@@ -109,23 +177,19 @@ class TemplateMatchingDriftCorrection(Action):
         # get beam shift based on the template matching
         beam_shift = self._matches_to_beam_shift(matches, image.pixel_size)
 
-        # update the templates for the next slice
-        self._update_templates(image, matches)
-
-        # add the beam shift to the drift correction parameters for the next slice
-        self._txt_log.debug(f"Updating microscope properties for '{self.name}'.")
-        props = self.read_properties()
-        props.accumulate_property("beam_shift", beam_shift, self.beam_type)
-        self.write_properties(props, self._props_store.next)
-
-        # add the beam shift to the imaging parameters for the current slice
-        for imaging in self._imagings:
-            self._txt_log.debug(f"Updating microscope properties for '{imaging.name}'.")
-            props = imaging.read_properties()
-            props.accumulate_property("beam_shift", beam_shift, imaging.beam_type)
-            imaging.write_properties(props)
+        return beam_shift, matches
 
     def _get_template_matches(self, image: Image8Bit) -> list[TemplateMatchResult]:
+        """
+        Load each template and compute its match within the corresponding image region.
+
+        Args:
+            image: Full drift-correction frame to search within.
+
+        Returns:
+            One `TemplateMatchResult` per configured template area, in the
+            same order as `settings.areas`.
+        """
         matches = []
         for i, area in enumerate(self._settings.areas):
             # load the template from file
@@ -147,6 +211,27 @@ class TemplateMatchingDriftCorrection(Action):
     def _calculate_match(
         template: Image8Bit, image: Image8Bit, blur: int
     ) -> TemplateMatchResult:
+        """
+        Compute the normalized cross-correlation between `template` and `image`.
+
+        Optionally applies a Gaussian blur to both images before matching in order
+        to suppress high-frequency noise that could otherwise dominate the
+        correlation. The peak of the resulting heatmap is located and its offset
+        from the heatmap centre is returned as the image-space displacement.
+
+        Args:
+            template: Reference patch to locate within `image`.
+            image: Image region to search; must be larger than `template` by at
+                least the expected drift on each side.
+            blur: Standard deviation of the Gaussian kernel applied before
+                matching. Pass `0` to skip blurring.
+
+        Returns:
+            A `TemplateMatchResult` containing the pixel displacement
+            `(dx, dy)` from the image centre to the best-match location,
+            together with the peak normalised cross-correlation score and the
+            full heatmap array.
+        """
         # blur the images, if requested
         if blur > 0:
             image = Image8Bit(
@@ -183,6 +268,23 @@ class TemplateMatchingDriftCorrection(Action):
     def _matches_to_beam_shift(
         self, matches: list[TemplateMatchResult], pixel_size: float
     ) -> BeamShift:
+        """
+        Convert a list of template match results to a single compensating beam shift.
+
+        Args:
+            matches: Template match results, one per configured area.
+            pixel_size: Physical size of one pixel in nanometres.
+
+        Returns:
+            The beam shift to apply in order to compensate for the detected
+            drift. Returns a zero shift when no template exceeds the confidence
+            threshold and the acquisition is configured to continue.
+
+        Raises:
+            DriftCorrectionError: If all template confidences are below
+                `settings.min_confidence` and
+                `settings.stop_acquisition_at_failure` is `True`.
+        """
         shifts_x = []
         shifts_y = []
         for i, match in enumerate(matches):
@@ -229,6 +331,20 @@ class TemplateMatchingDriftCorrection(Action):
     def _update_templates(
         self, image: Image8Bit, matches: list[TemplateMatchResult]
     ) -> None:
+        """
+        Refresh the stored templates for the next slice, subject to the rescan period.
+
+        For each template area:
+        - If the match confidence was too low, the existing template is copied forward unchanged.
+        - Otherwise, if the current slice index is a nonzero multiple of
+          `settings.rescan`, the template is re-cropped from the corrected
+          position in the current frame and written to the next-slice image store.
+        - In all other cases the existing template is copied forward.
+
+        Args:
+            image: Drift-correction frame from the current slice.
+            matches: Template match results for the current slice.
+        """
         for i, (area, match) in enumerate(zip(self._settings.areas, matches)):
             if match.confidence < self._settings.min_confidence:
                 self._copy_template(i, self._image_store, self._image_store.next)
@@ -254,19 +370,37 @@ class TemplateMatchingDriftCorrection(Action):
 
     def _save_template(
         self,
-        template: Image,
+        template: Image8Bit,
         index: int,
         image_store: ImageStore[Image8Bit] | None = None,
     ) -> None:
+        """
+        Save a template to the image store.
+
+        Args:
+            template: 8-bit image to save.
+            index: Zero-based template index.
+            image_store: Destination store. Defaults to the current-slice store if `None`.
+        """
         # default: current slice
         store = image_store or self._image_store
 
         self._txt_log.debug(f"Saving template {index}.")
-        store.write(self._construct_template_name(index), template.to_8bit())
+        store.write(self._construct_template_name(index), template)
 
     def _load_template(
         self, index: int, image_store: ImageStore[Image8Bit] | None = None
     ) -> Image8Bit:
+        """
+        Read a previously saved template from the image store.
+
+        Args:
+            index: Zero-based template index matching the one used when saving.
+            image_store: Source store. Defaults to the current-slice store if `None`.
+
+        Returns:
+            The stored 8-bit template image.
+        """
         # default: current slice
         store = image_store or self._image_store
 
@@ -276,19 +410,52 @@ class TemplateMatchingDriftCorrection(Action):
     def _copy_template(
         self, index: int, src: ImageStore[Image8Bit], dest: ImageStore[Image8Bit]
     ) -> None:
+        """
+        Copy a template image from one store to another without modification.
+
+        Args:
+            index: Zero-based template index.
+            src: Store to read the template from.
+            dest: Store to write the template to.
+        """
         image = src.read(self._construct_template_name(index))
         dest.write(self._construct_template_name(index), image)
 
     def _construct_template_name(self, index: int) -> str:
+        """
+        Build the filename used to persist a template image.
+
+        Args:
+            index: Zero-based template index.
+
+        Returns:
+            A filename of the form `<action_name>_template_<index>.tif`,
+            with spaces in the action name replaced by underscores.
+        """
         return f"{self.name_with_underscores}_template_{index}.tif"
 
     def _log_heatmaps(self, matches: list[TemplateMatchResult]) -> None:
+        """
+        Save a heatmap image for each template match result to the image log.
+
+        Args:
+            matches: Template match results whose heatmaps should be logged.
+        """
         for i, match in enumerate(matches):
             self._log_heatmap(match.heatmap, i)
 
     def _log_image_shifts(
         self, image: Image8Bit, matches: list[TemplateMatchResult]
     ) -> None:
+        """
+        Overlay the original and shifted template areas on the drift-correction frame and log it.
+
+        Args:
+            image: Drift-correction frame to annotate.
+            matches: Template match results providing per-area displacements
+                and confidence scores.
+        """
+
         overlays = []
         for i, (area, match) in enumerate(zip(self._settings.areas, matches)):
             area_px = area.to_pixels(image.resolution)
@@ -334,6 +501,13 @@ class TemplateMatchingDriftCorrection(Action):
             )
 
     def _log_heatmap(self, heatmap: NDArray[Any], index: int) -> None:
+        """
+        Save a single normalised cross-correlation heatmap to the image log.
+
+        Args:
+            heatmap: 2D array of normalised cross-correlation scores.
+            index: Zero-based template index, used to construct the filename.
+        """
         try:
             self._img_log.save_image(
                 f"{self.name_with_underscores}_heatmap_{index}.png",

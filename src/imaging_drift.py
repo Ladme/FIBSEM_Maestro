@@ -107,7 +107,6 @@ def main():
         "template matching",
         microscope,
         drift_corr_settings,
-        [imaging],
         props_store,
         image_store,
         txt_log.derive("template_matching"),
@@ -125,17 +124,13 @@ def main():
 
     drift_correction.collect_and_write_properties()
 
-    microscope.beam.scanning_area = RelativeArea(
-        origin=RelativePoint(x=0.25, y=0.5), width=0.5, height=0.25
-    )
-
     # save microscope properties
     imaging.collect_and_write_properties()
     # create templates for drift correction
     drift_correction.create_templates()
 
     # optionally change microscope properties to test that the previously saved properties are reloaded before imaging
-    input("Microscope properties saved. Press ENTER.")
+    # input("Microscope properties saved. Press ENTER.")
 
     # run imaging
     for _ in range(args.slices):
