@@ -11,7 +11,7 @@ from scipy import ndimage  # type: ignore
 from fibsem_maestro.core.action import Action
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
-from fibsem_maestro.core.image import Image, Image8Bit
+from fibsem_maestro.core.image import Image8Bit
 from fibsem_maestro.core.point import PixelPoint
 from fibsem_maestro.drift_correction.error import DriftCorrectionError
 from fibsem_maestro.drift_correction.result import (
