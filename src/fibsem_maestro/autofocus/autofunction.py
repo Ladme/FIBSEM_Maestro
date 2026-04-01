@@ -30,7 +30,7 @@ class Autofunction(Action):
         name: str,
         microscope: Microscope,
         settings: AutofunctionSettings,
-        imagings: list[Imaging],
+        imaging: Imaging,
         props_store: PropsStore,
         txt_log: TextLogger,
         img_log: ImageLogger,
@@ -41,7 +41,7 @@ class Autofunction(Action):
         self._img_log = img_log
 
         self._microscope = microscope
-        self._imagings = imagings
+        self._imaging = imaging
 
         self._settings = settings
 
@@ -108,9 +108,7 @@ class Autofunction(Action):
     def txt_log(self) -> TextLogger:
         return self._txt_log
 
-    def perform_autofocus(
-        self, slice_number: int, image_sharpness: float | None
-    ) -> None:
+    def perform_autofocus(self, slice_number: int) -> None:
         """
         Advance the autofocus execution by one step.
 
@@ -120,47 +118,59 @@ class Autofunction(Action):
 
         Args:
             slice_number: The current slice index, used for frequency gating.
-            image_sharpness: Optional sharpness metric for threshold gating.
         """
         if self._active_gen is not None:
             # mid-execution: keep going regardless of gating checks
             self._advance()
             return
 
+        # remove the results from previous slice
+        self._jobs.clear()
+
+        image_sharpness = self._imaging.wait_for_sharpness()
+        self._txt_log.debug(f"Last image sharpness: {image_sharpness}.")
         if not self._should_execute(slice_number, image_sharpness):
+            # copy the current microscope properties to the next slice
+            self.write_properties(self.read_properties(), self._props_store.next)
             return
 
-        props = self.read_properties()
-        self.microscope.set_properties(props, beam=None)
-        self.microscope.set_beam(self._settings.beam_type)
+        # read and set properties of the microscope from the YAML file
+        self.read_and_set_properties()
+
+        # execute the autofocus
         self._active_gen = self._mode.execute(self._ctx, self._jobs)
         self._advance()
 
-        self.write_properties(props, self._props_store.next)
+        # collect the microscope properties for the next slice
+        self.collect_and_write_properties(self._props_store.next)
 
     def _should_execute(self, slice_number: int, image_sharpness: float | None) -> bool:
+        # always execute autofocus in the first slice
+        if slice_number == 1:
+            self._txt_log.info("Executing autofocus: this is the first slice.")
+            return True
+
         if (
             self._settings.execution_frequency is not None
-            and slice_number % self._settings.execution_frequency != 0
+            and slice_number % self._settings.execution_frequency == 0
         ):
             self._txt_log.info(
-                f"Skipping autofunction: slice {slice_number} is not every {self._settings.execution_frequency}-th slice.",
+                f"Executing autofocus: slice {slice_number} matches execution frequency ({self._settings.execution_frequency})."
             )
-            return False
+            return True
 
-        if self._settings.sharpness_limit is not None:
-            if image_sharpness is None:
-                self._txt_log.info(
-                    "Skipping autofunction: sharpness limit is set but image sharpness is unavailable."
-                )
-                return False
-            if image_sharpness >= self._settings.sharpness_limit:
-                self._txt_log.info(
-                    f"Skipping autofunction: image sharpness {image_sharpness} is above limit {self._settings.sharpness_limit}.",
-                )
-                return False
+        if (
+            self._settings.sharpness_limit is not None
+            and image_sharpness is not None
+            and image_sharpness < self._settings.sharpness_limit
+        ):
+            self._txt_log.info(
+                f"Executing autofocus: image sharpness ({image_sharpness:.4f}) is below the limit ({self._settings.sharpness_limit:.4f})."
+            )
+            return True
 
-        return True
+        self._txt_log.info("Skipping autofocus.")
+        return False
 
     def _advance(self) -> None:
         assert self._active_gen is not None
@@ -171,18 +181,8 @@ class Autofunction(Action):
             best = self._sweeping.evaluate_best_sweep(results)
             self._txt_log.info(f"Best sweep attribute value: {best}.")
 
-            # update the associated imagings based on the autofocus results
-            for imaging in self._imagings:
-                self._txt_log.debug(
-                    f"Updating microscope properties for '{imaging.name}'."
-                )
-                props = imaging.read_properties()
-                props.set_property(
-                    self._sweeping.sweep_attribute, best, imaging.beam_type
-                )
-                imaging.write_properties(props)
-
-            # TODO: should we also update the autofocus for the following slice?
+            # set the microscope to the best attribute value
+            self._sweeping.set_attribute_value(best)
 
             self._active_gen = None
         except Exception:

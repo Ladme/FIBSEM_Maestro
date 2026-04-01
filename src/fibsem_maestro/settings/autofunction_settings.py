@@ -74,11 +74,11 @@ class AutofunctionSettings(BaseSettings):
     )
     sharpness_limit: Annotated[float, Field(gt=0)] | None = Field(
         default=None,
-        description="Autofunction runs only if image sharpness is below this limit. None disables this condition.",
+        description="Autofunction runs if image sharpness is below this limit. None disables this condition.",
     )
     execution_frequency: Annotated[int, Field(gt=0)] | None = Field(
         default=None,
-        description="Autofunction runs only every N-th slice. None disables this condition.",
+        description="Autofunction runs every N-th slice. None disables this condition.",
     )
     max_workers: int = Field(
         default=1,

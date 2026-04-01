@@ -6,17 +6,26 @@ import logging
 from pathlib import Path
 
 from fibsem_maestro.autofocus.autofunction import Autofunction
+from fibsem_maestro.core.image import Image8Bit
 from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.slice import SliceContext
 from fibsem_maestro.core.stage_position import StagePosition
+from fibsem_maestro.drift_correction.template_matching import (
+    TemplateMatchingDriftCorrection,
+)
 from fibsem_maestro.imaging.imaging import Imaging
 from fibsem_maestro.logging.image.file import FileImageLogger
 from fibsem_maestro.logging.text.file import FileTextLogger
 from fibsem_maestro.microscope.microscope import Microscope
+from fibsem_maestro.microscope.simulated.microscope_control import (
+    SimulatedMicroscopeControl,
+)
 from fibsem_maestro.settings.autofunction_settings import AutofunctionSettings
 from fibsem_maestro.settings.imaging_settings import ImagingSettings
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
+from fibsem_maestro.settings.template_matching_settings import TemplateMatchingSettings
 from fibsem_maestro.store.frame.file import FileFrameStore
+from fibsem_maestro.store.image.file import FileImageStore
 from fibsem_maestro.store.props.file import FilePropsStore
 
 
@@ -41,6 +50,12 @@ def main():
         type=Path,
         required=True,
         help="Path to the YAML file containing autofunction settings.",
+    )
+    parser.add_argument(
+        "--drift",
+        type=Path,
+        required=True,
+        help="Path to the YAML file containing drift correction settings.",
     )
     parser.add_argument(
         "--log-dir",
@@ -68,8 +83,7 @@ def main():
     microscope_settings = MicroscopeSettings.from_file(args.microscope)
     imaging_settings = ImagingSettings.from_file(args.imaging)
     autofunction_settings = AutofunctionSettings.from_file(args.autofunction)
-
-    print(autofunction_settings)
+    drift_settings = TemplateMatchingSettings.from_file(args.drift)
 
     slice = SliceContext(Path("logs"), 1)
     txt_log = FileTextLogger(
@@ -78,6 +92,7 @@ def main():
     img_log = FileImageLogger(slice)
     props_store = FilePropsStore(slice)
     frame_store = FileFrameStore(slice, imaging_settings.images_directory)
+    image_store = FileImageStore(slice, Image8Bit, Path("templates"))
 
     # initialize the microscope
     microscope = Microscope(microscope_settings, txt_log)
@@ -90,6 +105,18 @@ def main():
         props_store,
         frame_store,
         txt_log.derive("imaging"),
+        img_log,
+    )
+
+    # initialize drift correction
+    drift = TemplateMatchingDriftCorrection(
+        "template matching",
+        microscope,
+        drift_settings,
+        props_store,
+        image_store,
+        txt_log.derive("template_matching"),
+        img_log,
     )
 
     # initialize autofocus
@@ -97,7 +124,7 @@ def main():
         "autofunction",
         microscope,
         autofunction_settings,
-        [imaging],
+        imaging,
         props_store,
         txt_log.derive("autofunction"),
         img_log,
@@ -108,12 +135,28 @@ def main():
     )
     microscope.beam.resolution = Resolution(1000, 1000)
     microscope.beam.horizontal_field_width = 2000
+    microscope.beam.working_distance = 5_000_000.0
 
+    drift.collect_and_write_properties()
     autofunction.collect_and_write_properties()
     imaging.collect_and_write_properties()
+    drift.create_templates()
 
-    autofunction.perform_autofocus(0, None)
-    imaging.grab_frame()
+    for _ in range(args.slices):
+        control = microscope._control
+        if isinstance(control, SimulatedMicroscopeControl):
+            control._sample.apply_drift(  # pyright: ignore[reportAttributeAccessIssue]
+                # drift_x=random.randrange(-40, 41),
+                # drift_y=random.randrange(-40, 41),
+                drift_x=-10,
+                drift_y=-10,
+                drift_z=10_000,
+            )
+            print(control._sample.drift)  # pyright: ignore[reportAttributeAccessIssue]
+        drift.correct_drift()
+        autofunction.perform_autofocus(slice.current_slice or 0)
+        imaging.grab_frame()
+        slice.increment()
 
 
 if __name__ == "__main__":

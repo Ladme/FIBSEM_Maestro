@@ -253,7 +253,7 @@ class SimulatedBeamControl(BeamControl):
         image = np.clip(image, 0.0, 1.0)
 
         # defocus
-        defocus_map = pos.z - self.working_distance - Z_lab
+        defocus_map = pos.z - self.working_distance - Z_lab + self._sample.drift[2]
         image = SimulatedSample.apply_focus_and_astigmatism(
             image=image,
             defocus_map=defocus_map,
