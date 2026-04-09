@@ -19,10 +19,8 @@ class JobsManager:
     collects results asynchronously, and returns them once all jobs complete.
 
     Args:
-        criterion: The resolution criterion used to evaluate images.
-        log: Logger for per-job diagnostics.
-        executor: Optional external executor. If omitted, an internal one is
-            created and owned by this instance.
+        executor: Optional external executor. If omitted, an internal
+            ThreadPoolExecutor is created and owned by this instance.
     """
 
     def __init__(
@@ -38,6 +36,16 @@ class JobsManager:
         self._results_lock = threading.Lock()
 
     def submit(self, fn: Callable[[], AutofocusResult]) -> None:
+        """
+        Submit a callable for asynchronous resolution calculation.
+
+        The callable is executed in the thread pool. Its result is collected
+        automatically upon completion. Exceptions raised by the callable are
+        silently discarded.
+
+        Args:
+            fn: A zero-argument callable returning an AutofocusResult.
+        """
         future = self._executor.submit(fn)
 
         def _on_done(f: Future[AutofocusResult]) -> None:
@@ -57,7 +65,7 @@ class JobsManager:
 
         Returns:
             All successfully computed AutofocusResult instances, in completion
-            order. Failed jobs are logged and excluded.
+            order. Failed jobs are silently excluded.
         """
         self._drain()
         with self._results_lock:
@@ -69,6 +77,13 @@ class JobsManager:
             self._results = []
 
     def _drain(self) -> None:
+        """
+        Wait for all pending futures to complete.
+
+        Drains the pending queue in batches until no futures remain.
+        Exceptions are suppressed here as they are already handled in the
+        done callback registered in submit.
+        """
         while True:
             with self._pending_lock:
                 if not self._pending:
@@ -80,8 +95,10 @@ class JobsManager:
                     future.result()  # errors already handled in callback
 
     def __enter__(self) -> Self:
+        """Enter the context manager, returning this instance."""
         return self
 
     def __exit__(self, *_: object) -> None:
+        """Exit the context manager, shutting down the executor if owned."""
         if self._own_executor:
             self._executor.shutdown(wait=True)
