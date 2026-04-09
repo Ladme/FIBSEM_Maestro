@@ -36,6 +36,25 @@ if TYPE_CHECKING:
 
 
 class Criterion:
+    """
+    Computes a sharpness score for an image using a configurable metric pipeline.
+
+    The pipeline consists of three stages: area cropping, tiling, and metric
+    evaluation. The image is first cropped to a configured region of interest,
+    then optionally subdivided into overlapping square tiles, and finally scored
+    using a registered criterion function. Multi-tile scores are reduced to a
+    single value via a NumPy reduction function.
+
+    1D images bypass cropping, tiling, and masking entirely and are passed
+    directly to the metric function.
+
+    Args:
+        name: Human-readable name identifying this criterion instance.
+        settings: Criterion configuration.
+        txt_log: Logger for diagnostic and status messages.
+        img_log: Logger for saving tile overlays, sharpness maps, and best tile images.
+    """
+
     def __init__(
         self,
         name: str,
@@ -61,13 +80,29 @@ class Criterion:
 
     @property
     def name(self) -> str:
+        """Human-readable name of this criterion instance."""
         return self._name
 
     @property
     def name_with_underscores(self) -> str:
+        """Criterion name with spaces replaced by underscores, used for file naming."""
         return self._name.replace(" ", "_")
 
     def calculate_sharpness(self, image: Image) -> float:
+        """
+        Compute the sharpness score for an image.
+
+        For 1D images, the metric function is applied directly without cropping
+        or tiling. For 2D images, the configured calculation and tiling modes
+        are applied.
+
+        Args:
+            image: The image to evaluate.
+
+        Returns:
+            Sharpness score as a single float. Higher values indicate a sharper
+            image, though the scale depends on the chosen metric function.
+        """
         self._txt_log.info("Sharpness calculation started.")
 
         # handle 1D images - no cropping, no tiling, no masking
@@ -98,6 +133,21 @@ class Criterion:
         return sharpness
 
     def _calculate_sharpness_for_image(self, image: Image) -> CriterionResult:
+        """
+        Run the full sharpness pipeline on a 2D image.
+
+        Crops the image to the configured area, computes per-tile sharpness
+        scores, reduces them to a single value, and optionally assembles
+        logging artefacts.
+
+        Args:
+            image: The full 2D image to evaluate.
+
+        Returns:
+            A CriterionResult containing the final sharpness score, tile pixel
+            coordinates, the best-scoring tile image (if logging is enabled),
+            and a sharpness map (if logging is enabled).
+        """
         # crop the image
         cropped = image.crop(self._settings.area)
 
@@ -130,7 +180,7 @@ class Criterion:
 
         # get the tile with the best sharpness
         best_tile = (
-            cropped.crop(tiles[sharpnesses.index(max(sharpnesses))])
+            cropped.crop(tiles[int(np.nanargmax(sharpnesses))])
             if self._settings.log_best_tile
             else None
         )
@@ -157,6 +207,20 @@ class Criterion:
         )
 
     def _calculate_sharpness_for_tile(self, image: Image, tile: RelativeArea) -> float:
+        """
+        Compute the sharpness score for a single tile of an image.
+
+        Crops the image to the given tile and applies the configured
+        metric function. If the metric raises an exception, a warning is logged
+        and NaN is returned so the tile can be excluded from reduction.
+
+        Args:
+            image: The image to tile into.
+            tile: Relative area defining the tile within the image.
+
+        Returns:
+            Sharpness score for the tile, or NaN if computation failed.
+        """
         tile_img = image.crop(tile)
 
         try:
@@ -176,7 +240,20 @@ class Criterion:
         overlap: float,
     ) -> Iterable[RelativeArea]:
         """
-        Iterate over the coordinates of square tiles covering an image.
+        Iterate over square tiles covering an image.
+
+        Tiles are generated left-to-right, top-to-bottom, with a fixed step
+        size derived from the tile size and overlap fraction. Tiles that would
+        extend beyond the image boundary are omitted.
+
+        Args:
+            image: The image to tile.
+            tile_size: Side length of each square tile in nanometers.
+            overlap: Fractional overlap between adjacent tiles, in the range [0, 1).
+
+        Yields:
+            RelativeArea instances, each describing one tile's position and
+            size relative to the image dimensions.
         """
         # calculate the tile size in pixels
         tile_size_px = int(tile_size / image.pixel_size)
@@ -199,6 +276,20 @@ class Criterion:
         tiles: Iterable[PixelArea],
         sharpnesses: Iterable[float],
     ) -> SharpnessMap:
+        """
+        Build a sharpness map by painting tile scores onto a zero image.
+
+        Each tile's region in the output array is filled with the corresponding
+        sharpness value. Pixels not covered by any tile remain zero.
+
+        Args:
+            full_image: The original full-resolution image, used only for its shape.
+            tiles: Tile positions in pixel coordinates within the full image.
+            sharpnesses: Sharpness score for each tile, in the same order as tiles.
+
+        Returns:
+            A SharpnessMap with the same spatial dimensions as full_image.
+        """
         sharpness_map = np.zeros_like(full_image, dtype=np.float64).view(SharpnessMap)
 
         for sharpness, tile in zip(sharpnesses, tiles):
@@ -215,6 +306,17 @@ class Criterion:
         full_image: Image,
         tiles: Iterable[PixelArea],
     ) -> None:
+        """
+        Save the full image annotated with red tile outlines.
+
+        Each tile is drawn as a rectangle overlay. Failures are caught and
+        logged as warnings.
+
+        Args:
+            filename: Output filename passed to the image logger.
+            full_image: The image to annotate.
+            tiles: Tile positions in pixel coordinates to draw as overlays.
+        """
         overlays = []
         for tile in tiles:
             overlays.append(
@@ -243,6 +345,19 @@ class Criterion:
         best_tile: Image | None,
         map: SharpnessMap | None,
     ):
+        """
+        Save all optional diagnostic images for a completed sharpness calculation.
+
+        Always saves the full image with tile overlays. Saves the sharpness map
+        and best tile only when they are provided. Each save is attempted
+        independently so that one failure does not prevent the others.
+
+        Args:
+            full_image: The original full-resolution image.
+            tiles: Tile positions in pixel coordinates, used for overlays.
+            best_tile: The tile with the highest sharpness score, or None if best-tile logging is disabled.
+            map: The sharpness map, or None if sharpness map logging is disabled.
+        """
         self._txt_log.debug("Logging criterion images.")
 
         self._log_image_with_tiles(self.name_with_underscores, full_image, tiles)
@@ -275,9 +390,21 @@ class Criterion:
         cropped_image_resolution: Resolution,
     ) -> Iterable[PixelArea]:
         """
-        Converts tiles represented as relative areas to pixel areas in the original uncropped image.
+        Convert tile relative areas to pixel coordinates in the original uncropped image.
+
+        Tiles are initially expressed relative to the cropped image. This method
+        translates them back into the coordinate space of the full image by
+        adding the pixel offset of the cropped area's origin.
+
+        Args:
+            tiles: Tile positions relative to the cropped image.
+            criterion_area: The relative area that was cropped from the full image, used to compute the pixel offset.
+            full_image_resolution: Resolution of the original uncropped image.
+            cropped_image_resolution: Resolution of the cropped image.
+
+        Yields:
+            PixelArea instances in the coordinate space of the full image.
         """
-        criterion_area_px = criterion_area.to_pixels(full_image_resolution)
         criterion_area_px = criterion_area.to_pixels(full_image_resolution)
         offset_x, offset_y = criterion_area_px.origin.x, criterion_area_px.origin.y
 
