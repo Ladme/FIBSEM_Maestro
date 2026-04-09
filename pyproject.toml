@@ -20,7 +20,13 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pyright>=1.1.407", "pytest>=9.0.1", "ruff>=0.14.6"]
+dev = [
+    "codecov>=2.1.13",
+    "pyright>=1.1.407",
+    "pytest>=9.0.1",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.14.6",
+]
 
 [tool.ruff]
 exclude = ["src/fibsem_maestro_original", "src/criterion_playground.py"]

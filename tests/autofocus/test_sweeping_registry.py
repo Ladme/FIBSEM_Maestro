@@ -5,10 +5,10 @@ import numpy as np
 import pytest
 from numpy.typing import NDArray
 
-from fibsem_maestro.autofunctions.error import AutofunctionError
-from fibsem_maestro.autofunctions.result import AutofocusResult
-from fibsem_maestro.autofunctions.sweeping_registry import SweepingRegistry
-from fibsem_maestro.autofunctions.sweeping_strategy import SweepingStrategy
+from fibsem_maestro.autofocus.error import AutofunctionError
+from fibsem_maestro.autofocus.result import AutofocusResult
+from fibsem_maestro.autofocus.sweeping_registry import SweepingRegistry
+from fibsem_maestro.autofocus.sweeping_strategy import SweepingStrategy
 from fibsem_maestro.settings.sweeping_settings import (
     BasicStrategySettings,
     SweepingStrategySettings,

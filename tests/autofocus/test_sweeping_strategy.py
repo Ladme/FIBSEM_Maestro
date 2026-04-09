@@ -6,11 +6,11 @@ import numpy as np
 import pytest
 from numpy.typing import NDArray
 
-from fibsem_maestro.autofunctions.error import AutofunctionError
-from fibsem_maestro.autofunctions.result import AutofocusResult
-from fibsem_maestro.autofunctions.sweep_step import SweepStep
-from fibsem_maestro.autofunctions.sweeping_registry import SweepingRegistry
-from fibsem_maestro.autofunctions.sweeping_strategy import (
+from fibsem_maestro.autofocus.error import AutofunctionError
+from fibsem_maestro.autofocus.result import AutofocusResult
+from fibsem_maestro.autofocus.sweep_step import SweepStep
+from fibsem_maestro.autofocus.sweeping_registry import SweepingRegistry
+from fibsem_maestro.autofocus.sweeping_strategy import (
     BasicSweepingStrategy,
     InterleavedSweepingStrategy,
 )
@@ -44,13 +44,13 @@ def test_basic_sweeping_strategy_evaluate_simple():
 
     results = [
         AutofocusResult(
-            resolution=10.0, sweep=SweepStep(repetition=0, value=1.0, index=0)
+            sharpness=10.0, sweep=SweepStep(repetition=0, value=1.0, index=0)
         ),
         AutofocusResult(
-            resolution=11.0, sweep=SweepStep(repetition=0, value=3.0, index=2)
+            sharpness=11.0, sweep=SweepStep(repetition=0, value=3.0, index=2)
         ),
         AutofocusResult(
-            resolution=12.0, sweep=SweepStep(repetition=0, value=2.0, index=1)
+            sharpness=12.0, sweep=SweepStep(repetition=0, value=2.0, index=1)
         ),
     ]
 
@@ -63,16 +63,16 @@ def test_basic_sweeping_strategy_evaluate_groups_by_sweep_value():
 
     results = [
         AutofocusResult(
-            resolution=13.0, sweep=SweepStep(repetition=0, value=2.0, index=2)
+            sharpness=13.0, sweep=SweepStep(repetition=0, value=2.0, index=2)
         ),
         AutofocusResult(
-            resolution=13.0, sweep=SweepStep(repetition=1, value=2.0, index=3)
+            sharpness=13.0, sweep=SweepStep(repetition=1, value=2.0, index=3)
         ),
         AutofocusResult(
-            resolution=10.0, sweep=SweepStep(repetition=0, value=1.0, index=0)
+            sharpness=10.0, sweep=SweepStep(repetition=0, value=1.0, index=0)
         ),
         AutofocusResult(
-            resolution=14.0, sweep=SweepStep(repetition=1, value=1.0, index=1)
+            sharpness=14.0, sweep=SweepStep(repetition=1, value=1.0, index=1)
         ),
     ]
 
@@ -145,7 +145,7 @@ def test_interleaved_sweeping_strategy_evaluate_raises_on_too_few_results():
         strategy.evaluate(
             [
                 AutofocusResult(
-                    resolution=10.0, sweep=SweepStep(repetition=0, value=1.0, index=0)
+                    sharpness=10.0, sweep=SweepStep(repetition=0, value=1.0, index=0)
                 )
             ]
         )
@@ -156,10 +156,10 @@ def test_interleaved_sweeping_strategy_evaluate_simple():
 
     results = [
         AutofocusResult(
-            resolution=10.0, sweep=SweepStep(repetition=0, value=10.0, index=0)
+            sharpness=10.0, sweep=SweepStep(repetition=0, value=10.0, index=0)
         ),  # baseline
         AutofocusResult(
-            resolution=12.0, sweep=SweepStep(repetition=0, value=11.0, index=1)
+            sharpness=12.0, sweep=SweepStep(repetition=0, value=11.0, index=1)
         ),  # candidate
     ]
 
@@ -172,16 +172,16 @@ def test_interleaved_sweeping_strategy_evaluate_multiple_pairs_and_sorts_by_swee
 
     results = [
         AutofocusResult(
-            resolution=13.0, sweep=SweepStep(repetition=0, value=12.0, index=3)
+            sharpness=13.0, sweep=SweepStep(repetition=0, value=12.0, index=3)
         ),  # candidate
         AutofocusResult(
-            resolution=10.0, sweep=SweepStep(repetition=0, value=10.0, index=2)
+            sharpness=10.0, sweep=SweepStep(repetition=0, value=10.0, index=2)
         ),  # baseline
         AutofocusResult(
-            resolution=12.0, sweep=SweepStep(repetition=0, value=11.0, index=1)
+            sharpness=12.0, sweep=SweepStep(repetition=0, value=11.0, index=1)
         ),  # candidate
         AutofocusResult(
-            resolution=10.0, sweep=SweepStep(repetition=0, value=10.0, index=0)
+            sharpness=10.0, sweep=SweepStep(repetition=0, value=10.0, index=0)
         ),  # baseline
     ]
 
@@ -194,22 +194,22 @@ def test_interleaved_sweeping_strategy_evaluate_multiple_pairs_discards_some():
 
     results = [
         AutofocusResult(
-            resolution=13.0, sweep=SweepStep(repetition=0, value=12.0, index=3)
+            sharpness=13.0, sweep=SweepStep(repetition=0, value=12.0, index=3)
         ),  # candidate
         AutofocusResult(
-            resolution=10.0, sweep=SweepStep(repetition=0, value=10.0, index=2)
+            sharpness=10.0, sweep=SweepStep(repetition=0, value=10.0, index=2)
         ),  # baseline
         AutofocusResult(
-            resolution=12.0, sweep=SweepStep(repetition=0, value=11.0, index=1)
+            sharpness=12.0, sweep=SweepStep(repetition=0, value=11.0, index=1)
         ),  # candidate
         AutofocusResult(
-            resolution=10.0, sweep=SweepStep(repetition=0, value=10.0, index=0)
+            sharpness=10.0, sweep=SweepStep(repetition=0, value=10.0, index=0)
         ),  # baseline
         AutofocusResult(
-            resolution=8.0, sweep=SweepStep(repetition=1, value=12.0, index=5)
+            sharpness=8.0, sweep=SweepStep(repetition=1, value=12.0, index=5)
         ),  # candidate (discarded)
         AutofocusResult(
-            resolution=11.0, sweep=SweepStep(repetition=1, value=10.0, index=4)
+            sharpness=11.0, sweep=SweepStep(repetition=1, value=10.0, index=4)
         ),  # baseline
     ]
 
@@ -222,16 +222,16 @@ def test_interleaved_sweeping_strategy_evaluate_falls_back_to_baseline():
 
     results = [
         AutofocusResult(
-            resolution=100.0, sweep=SweepStep(repetition=0, value=10.0, index=0)
+            sharpness=100.0, sweep=SweepStep(repetition=0, value=10.0, index=0)
         ),  # baseline
         AutofocusResult(
-            resolution=105.0, sweep=SweepStep(repetition=0, value=11.0, index=1)
+            sharpness=105.0, sweep=SweepStep(repetition=0, value=11.0, index=1)
         ),  # candidate (discard)
         AutofocusResult(
-            resolution=100.0, sweep=SweepStep(repetition=0, value=10.0, index=2)
+            sharpness=100.0, sweep=SweepStep(repetition=0, value=10.0, index=2)
         ),  # baseline
         AutofocusResult(
-            resolution=109.0, sweep=SweepStep(repetition=0, value=12.0, index=3)
+            sharpness=109.0, sweep=SweepStep(repetition=0, value=12.0, index=3)
         ),  # candidate (discard)
     ]
 
