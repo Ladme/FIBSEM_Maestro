@@ -13,7 +13,7 @@ def test_crop_center():
     rng = np.random.default_rng()
     image_data = rng.random((100, 200)).astype(np.float32)
     pixel_size = 1.5
-    image = Image(image_data, pixel_size)
+    image = Image(image_data, pixel_size)  # type: ignore
 
     relative_area = RelativeArea(
         origin=RelativePoint(x=0.25, y=0.25), width=0.5, height=0.5
@@ -32,7 +32,7 @@ def test_crop_upper_left_edge():
     rng = np.random.default_rng()
     image_data = rng.random((100, 200)).astype(np.float32)
     pixel_size = 1.5
-    image = Image(image_data, pixel_size)
+    image = Image(image_data, pixel_size)  # type: ignore
 
     relative_area = RelativeArea(
         origin=RelativePoint(x=0.0, y=0.0),
@@ -53,7 +53,7 @@ def test_crop_full_image():
     rng = np.random.default_rng()
     image_data = rng.random((100, 200)).astype(np.float32)
     pixel_size = 1.5
-    image = Image(image_data, pixel_size)
+    image = Image(image_data, pixel_size)  # type: ignore
 
     relative_area = RelativeArea(
         origin=RelativePoint(x=0.0, y=0.0), width=1.0, height=1.0
@@ -68,7 +68,7 @@ def test_crop_zero_area():
     rng = np.random.default_rng()
     image_data = rng.random((100, 200)).astype(np.float32)
     pixel_size = 1.5
-    image = Image(image_data, pixel_size)
+    image = Image(image_data, pixel_size)  # type: ignore
 
     relative_area = RelativeArea(
         origin=RelativePoint(x=0.5, y=0.5), width=0.0, height=0.0
