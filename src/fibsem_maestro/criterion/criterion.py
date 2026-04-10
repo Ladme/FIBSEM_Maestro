@@ -9,6 +9,7 @@ import numpy as np
 
 from fibsem_maestro.core.area import PixelArea, RelativeArea
 from fibsem_maestro.core.point import PixelPoint
+from fibsem_maestro.criterion.error import CriterionError
 from fibsem_maestro.criterion.functions import (
     CriterionRegistry,
 )
@@ -157,6 +158,7 @@ class Criterion:
             tiles = [RelativeArea.full()]
             sharpnesses = [self._calculate_sharpness_for_tile(cropped, tiles[0])]
             final_sharpness = sharpnesses[0]
+            self._txt_log.debug(f"Final sharpness for image: {final_sharpness}.")
         # calculate sharpness for the individual tiles
         else:
             self._txt_log.debug("Calculating sharpness in a multi tile mode.")
@@ -177,6 +179,8 @@ class Criterion:
             final_sharpness = float(
                 self._tile_reduction_fn([x for x in sharpnesses if not np.isnan(x)])
             )
+
+            self._txt_log.debug(f"Final sharpness for image: {final_sharpness}.")
 
         # get the tile with the best sharpness
         best_tile = (
@@ -258,8 +262,16 @@ class Criterion:
         # calculate the tile size in pixels
         tile_size_px = int(tile_size / image.pixel_size)
         tile_size_px -= tile_size_px % 4  # must be divisible by 4
+        if tile_size_px < 4:
+            raise CriterionError(
+                "Tile size is smaller than 4x4 pixels. Increase the tile size."
+            )
 
         step = int(tile_size_px * (1 - overlap))
+        if step == 0:
+            raise CriterionError(
+                "Tiles could not be constructed. Overlap is too large or tiles are too small."
+            )
         height, width = image.shape[:2]
 
         for y in range(0, height - tile_size_px + 1, step):

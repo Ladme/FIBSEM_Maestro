@@ -3,6 +3,7 @@
 
 import argparse
 import logging
+import random
 from pathlib import Path
 
 from fibsem_maestro.autofocus.autofunction import Autofunction
@@ -146,11 +147,12 @@ def main():
         control = microscope._control
         if isinstance(control, SimulatedMicroscopeControl):
             control._sample.apply_drift(  # pyright: ignore[reportAttributeAccessIssue]
-                # drift_x=random.randrange(-40, 41),
-                # drift_y=random.randrange(-40, 41),
-                drift_x=-10,
-                drift_y=-10,
-                drift_z=10_000,
+                drift_x=random.randrange(-40, 41),
+                drift_y=random.randrange(-40, 41),
+                drift_z=random.choice([-10_000, -5000, 0, 5000, 10_000]),
+                # drift_x=-10,
+                # drift_y=-10,
+                # drift_z=10_000,
             )
             print(control._sample.drift)  # pyright: ignore[reportAttributeAccessIssue]
         drift.correct_drift()

@@ -4,6 +4,7 @@
 
 from collections.abc import Sequence
 
+import pytest
 import numpy as np
 from numpy.typing import NDArray
 
@@ -14,6 +15,7 @@ from fibsem_maestro.core.point import PixelPoint, RelativePoint
 from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.criterion.criterion import Criterion
 from fibsem_maestro.criterion.criterion_registry import CriterionRegistry
+from fibsem_maestro.criterion.error import CriterionError
 from fibsem_maestro.criterion.reductors_registry import ReductorsRegistry
 from fibsem_maestro.criterion.result import SharpnessMap
 from fibsem_maestro.logging.image.memory import MemoryImageLogger
@@ -334,6 +336,35 @@ def test_iter_tiles_tile_size_is_divisible_by_4():
     tiles = list(criterion._iter_tiles(img, tile_size=60.0, overlap=0.0))
 
     assert all(np.isclose(t.width, 28 / 64) for t in tiles)
+
+
+def test_iter_tiles_raises_when_tile_size_is_too_small():
+    # 25x25 px image, pixel_size 2nm
+    # tile_size 4 nm -> tile_size_px 2px rounded to 0px
+    settings = CriterionSettings(
+        sharpness_metric_fn="bandpass",
+        detail=DetailBand(low=10.0, high=100.0),
+    )
+    img = Image(np.zeros((25, 25), dtype=np.int32), pixel_size=2.0)
+    criterion = Criterion("test", settings, MemoryTextLogger(), MemoryImageLogger())
+
+    with pytest.raises(CriterionError, match=r"Tile size is smaller than 4x4 pixels"):
+        list(criterion._iter_tiles(img, tile_size=4.0, overlap=0.0))
+
+
+def test_iter_tiles_raises_when_overlap_is_1():
+    # full overlap between the tiles
+    settings = CriterionSettings(
+        sharpness_metric_fn="bandpass",
+        detail=DetailBand(low=10.0, high=100.0),
+    )
+    img = Image(np.zeros((64, 64), dtype=np.int32), pixel_size=2.0)
+    criterion = Criterion("test", settings, MemoryTextLogger(), MemoryImageLogger())
+
+    with pytest.raises(
+        CriterionError, match=r"Overlap is too large or tiles are too small"
+    ):
+        list(criterion._iter_tiles(img, tile_size=32.0, overlap=1.0))
 
 
 def test_create_sharpness_map_returns_sharpness_map_instance():
