@@ -9,6 +9,7 @@ from itertools import groupby
 from typing import TYPE_CHECKING
 
 from fibsem_maestro.autofocus.autofocus_registry import AutofocusRegistry
+from fibsem_maestro.autofocus.error import AutofunctionError
 from fibsem_maestro.core.image_tools import get_stripes
 from fibsem_maestro.settings.autofunction_settings import LineMode as LineModeSettings
 
@@ -17,19 +18,49 @@ if TYPE_CHECKING:
 
     from fibsem_maestro.autofocus.autofunction_context import AutofunctionContext
     from fibsem_maestro.autofocus.jobs_manager import JobsManager
+    from fibsem_maestro.autofocus.sweep_step import SweepStep
     from fibsem_maestro.core.image import Image
 
 
 class AutofocusMode(ABC):
+    """
+    Abstract base class for autofocus mode implementations.
+
+    Each subclass encodes a specific strategy for sweeping a beam parameter
+    and submitting sharpness evaluation jobs. Concrete modes are registered
+    with `AutofocusRegistry` and retrieved by name at runtime.
+    """
+
     @abstractmethod
     def execute(
         self, ctx: AutofunctionContext, jobs: JobsManager
     ) -> Generator[None, None, None]:
+        """
+        Drive the autofocus sweep and submit sharpness evaluation jobs.
+
+        Args:
+            ctx: Shared execution environment providing access to the
+                microscope, sweeping controller, criterion, and logger.
+            jobs: Job manager to which sharpness evaluation callables are
+                submitted for asynchronous execution.
+        """
         pass
 
 
 @AutofocusRegistry.register("basic")
 class BasicMode(AutofocusMode):
+    """
+    Autofocus mode that acquires one image per swept attribute value.
+
+    For each value in the sweep range, the target beam attribute is set,
+    a full frame is acquired, and its sharpness is evaluated. Once all
+    frames have been collected and their sharpness scores computed, the
+    best attribute value can be determined from the results.
+
+    The stage is temporarily displaced to a nearby focusing area for the
+    duration of the sweep and restored to its original position afterward.
+    """
+
     def execute(
         self, ctx: AutofunctionContext, jobs: JobsManager
     ) -> Generator[None, None, None]:
@@ -53,17 +84,27 @@ class LineMode(AutofocusMode):
         with ctx.temporary_stage_x_offset():
             line_time = self._estimate_line_time(ctx)
 
-            self._variable_sweeping_during_scan(ctx, line_time)
+            # generate sweep steps once so both acquisition and processing see the same steps
+            sweep_steps = list(ctx.sweeping.sweep())
 
-            # grab final image after acquisition
+            self._variable_sweeping_during_scan(ctx, line_time, sweep_steps)
+
             line_focus_image = ctx.microscope.beam.get_image(crop_to_scanning_area=True)
-
-            # schedule sharpness jobs from the image
-            self._process_image(ctx, jobs, line_focus_image)
+            self._process_image(ctx, jobs, line_focus_image, sweep_steps)
 
         yield from ()
 
     def _estimate_line_time(self, ctx: AutofunctionContext) -> float:
+        """
+        Estimate the time required to scan a single line.
+
+        Args:
+            ctx: Shared execution environment providing access to the microscope
+                and beam parameters.
+
+        Returns:
+            Estimated line scan time in seconds.
+        """
         dwell_time = ctx.microscope.beam.dwell_time
         line_integration = ctx.microscope.beam.line_integration
         resolution = ctx.microscope.beam.resolution
@@ -72,44 +113,111 @@ class LineMode(AutofocusMode):
         return dwell_time * line_integration * resolution.width * scanning_area.width
 
     def _variable_sweeping_during_scan(
-        self, ctx: AutofunctionContext, line_time: float
+        self,
+        ctx: AutofunctionContext,
+        line_time: float,
+        sweep_steps: list[SweepStep],
     ) -> None:
+        """
+        Sweep the target beam attribute while an image is being acquired line by line.
+
+        Starts a continuous acquisition and iterates over sweep cycles (repetitions).
+        Before each cycle, the beam is blanked for `lines_per_sweep` lines to create
+        a dark separator band. The beam is then unblanked and the target attribute is
+        set to each sweep step value in turn, holding for `lines_per_sweep` lines at
+        each value.
+
+        The resulting image has the following structure:
+
+        .. code-block:: text
+
+            [dark separator]
+            [lines at step 0]   <- first repetition
+            [lines at step 1]
+            ...
+            [lines at step N]
+            [dark separator]
+            [lines at step 0]   <- second repetition
+            ...
+
+        Each group of lines between two dark separators forms one stripe, corresponding
+        to one sweep cycle. Within a stripe, each contiguous block of `lines_per_sweep`
+        rows corresponds to one sweep step value, and is later matched to its sweep step
+        by index in `_process_image`.
+
+        At the start of the first cycle, an optional `pre_imaging_delay` is applied
+        while the beam is blanked, to allow the system to stabilise before scanning begins.
+
+        Args:
+            ctx: Shared execution environment providing access to the microscope,
+                sweeping controller, and logger.
+            line_time: Estimated time to scan a single line in seconds, used to
+                compute the hold duration per sweep step.
+            sweep_steps: Pre-generated list of sweep steps, shared with
+                `_process_image` to ensure consistency.
+        """
         mode = ctx.settings.mode
         assert isinstance(mode, LineModeSettings)
 
         pre_delay = mode.pre_imaging_delay
         hold = mode.lines_per_sweep * line_time
 
-        # iterate over repetitions
-        for repetition, steps in groupby(
-            ctx.sweeping.sweep(), key=lambda x: x.repetition
-        ):
-            ctx.txt_log.info(f"Line sweep cycle {repetition}")
+        ctx.microscope.beam.start_acquisition()
+        try:
+            # group consecutive sweep steps by repetition index so that each
+            # cycle produces one stripe in the acquired image
+            for repetition, steps in groupby(sweep_steps, key=lambda x: x.repetition):
+                ctx.txt_log.info(f"Line sweep cycle {repetition}")
 
-            if repetition == 0:
-                # start the image acquisition
-                ctx.microscope.beam.start_acquisition()
+                # blank to create a dark separator band between the stripes
+                with ctx.microscope.beam.total_blanked():
+                    if repetition == 0 and pre_delay > 0:
+                        time.sleep(pre_delay)
+                    time.sleep(hold)
 
-            # blank to create a dark separator band between the stripes
-            with ctx.microscope.beam.total_blanked():
-                # at the start of the first repetition, wait for additional time
-                if repetition == 0 and pre_delay > 0:
-                    time.sleep(pre_delay)
-
-                time.sleep(hold)
-
-            # acquire part of the stripe with each sweep value
-            for sweep in steps:
-                ctx.sweeping.set_attribute_value(sweep.value)
-                time.sleep(hold)
-
-        # final hold [TODO: do we need it?]
-        time.sleep(hold)
-        ctx.microscope.beam.stop_acquisition()
+                # acquire part of the stripe with each sweep value
+                for sweep in steps:
+                    ctx.sweeping.set_attribute_value(sweep.value)
+                    time.sleep(hold)
+        finally:
+            ctx.microscope.beam.stop_acquisition()
 
     def _process_image(
-        self, ctx: AutofunctionContext, jobs: JobsManager, image: Image
+        self,
+        ctx: AutofunctionContext,
+        jobs: JobsManager,
+        image: Image,
+        sweep_steps: list[SweepStep],
     ) -> None:
+        """
+        Extract per-line sharpness jobs from the acquired image.
+
+        Identifies horizontal stripes in the image using dark separator rows
+        produced by blanking during acquisition. Each stripe corresponds to one
+        sweep cycle (repetition). Within each stripe, individual rows are matched
+        to their corresponding sweep steps by index, and a sharpness evaluation
+        job is submitted for each row.
+
+        Stripes listed in `forbidden_stripe_indices` are skipped entirely.
+
+        An `AutofocusError` is raised if the number of rows in a stripe does not
+        match the number of sweep steps for that repetition, indicating a
+        mismatch between acquisition and the sweep configuration.
+
+        Args:
+            ctx: Shared execution environment providing access to settings
+                and the logger.
+            jobs: Job manager to which sharpness evaluation callables are
+                submitted for asynchronous execution.
+            image: The full image acquired during the sweep, containing
+                horizontal stripes separated by dark bands.
+            sweep_steps: Pre-generated list of sweep steps, shared with
+                `_variable_sweeping_during_scan` to ensure consistency.
+
+        Raises:
+            AutofunctionError: If the number of rows in a stripe does not match
+                the number of sweep steps for that repetition.
+        """
         mode = ctx.settings.mode
         assert isinstance(mode, LineModeSettings)
 
@@ -117,33 +225,33 @@ class LineMode(AutofocusMode):
         separator_threshold = mode.stripe_separator_threshold
         min_stripe_width = mode.minimal_stripe_width
 
-        # convert the image to 8-bit
+        # convert the image to 8-bit for stripe detection
         img_8bit = image.to_8bit()
 
-        # identify stripes from the image
+        # identify stripes from the image;
         # each stripe corresponds to one sweeping repetition
         stripes = get_stripes(img_8bit, separator_threshold, min_stripe_width)
 
-        # collect sweeps and group them
-        sweep_groups = groupby(ctx.sweeping.sweep(), key=lambda step: step.repetition)
+        # group sweep steps by repetition to match against stripes
+        sweep_groups = groupby(sweep_steps, key=lambda step: step.repetition)
 
         for stripe, (rep, steps_iter) in zip(stripes, sweep_groups):
-            # skip forbidden stripes
             if rep in forbidden_stripes:
                 continue
 
             steps = list(steps_iter)
 
-            # sanity check: stripe must have exactly the same length as the number of sweep steps for this repetition
+            # sanity check: stripe must have exactly the same number of rows
+            # as sweep steps for this repetition
             if len(stripe) != len(steps):
-                raise ValueError(
-                    f"Stripe length ({len(stripe)}) does not match sweep count ({len(steps)}) "
-                    f"for repetition {rep}"
+                raise AutofunctionError(
+                    f"Stripe length ({len(stripe)}) does not match sweep count ({len(steps)}) for repetition {rep}."
                 )
 
-            # submit a resolution calculation job for each line of the stripe
+            # submit a sharpness evaluation job for each row of the stripe,
+            # matched to its corresponding sweep step by index
             for line_index, step in zip(stripe, steps):
-                image_line = image[:, line_index]
+                image_line = image[line_index, :]
                 jobs.submit(ctx.make_resolution_job(image_line, step))
 
 

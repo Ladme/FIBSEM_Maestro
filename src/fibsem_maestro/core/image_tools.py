@@ -97,29 +97,29 @@ def get_stripes(
     minimal_stripe_width: int,
 ) -> Iterator[NDArray[np.integer]]:
     """
-    Yields vertical image stripes separated by darker separator columns.
+    Yields horizontal image stripes separated by darker separator rows.
 
     Args:
-      img: An 8-bit grayscale image.
-      separate_value: Threshold on the column-sum projection. Columns with
-        summed intensity strictly less than this value are considered separator
-        ("black") columns.
-      minimal_stripe_width: Minimum distance (in columns) between two separator
-        columns required to consider the region a valid stripe.
+        img: An 8-bit grayscale image.
+        separate_value: Threshold on the row-sum projection. Rows with
+            summed intensity lower than this value are considered separator ("dark") rows.
+        minimal_stripe_width: Minimum distance (in rows) between two separator
+            rows required to consider the region a valid stripe.
 
     Yields:
-        1D NumPy array of column indices belonging to the strip, excluding the separator columns.
+        1D NumPy array of row indices belonging to the stripe, excluding the
+        separator rows.
     """
-    # sum intensities per column (vertical projection)
-    col_sums = np.sum(img, axis=0)
+    # sum intensities per row
+    row_sums = np.sum(img, axis=1)
 
-    # separator columns are those that are dark enough in the projection
-    separator_cols = np.where(col_sums < separate_value)[0]
+    # separator rows are those that are dark enough
+    separator_rows = np.where(row_sums < separate_value)[0]
 
-    # each stripe is the region between two consecutive separator columns
-    for left, right in zip(separator_cols[:-1], separator_cols[1:]):
+    # each stripe is the region between two consecutive separator rows
+    for top, bottom in zip(separator_rows[:-1], separator_rows[1:]):
         # if separators are far enough apart, we treat the region as a stripe
-        if (right - left) >= minimal_stripe_width:
-            # exclude the separator columns themselves
-            cols = np.arange(left + 1, right - 1, dtype=int)
-            yield cols
+        if (bottom - top) >= minimal_stripe_width:
+            # exclude the separator rows themselves
+            rows = np.arange(top + 1, bottom - 1, dtype=int)
+            yield rows
