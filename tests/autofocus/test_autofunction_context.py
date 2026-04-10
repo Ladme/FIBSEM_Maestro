@@ -2,8 +2,9 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 import contextlib
-import numpy as np
 from unittest.mock import MagicMock
+
+import numpy as np
 import pytest
 
 from fibsem_maestro.autofocus.autofunction_context import AutofunctionContext
