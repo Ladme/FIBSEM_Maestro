@@ -26,7 +26,16 @@ from fibsem_maestro.store.props.props_store import PropsStore
 
 class Imaging(Action):
     """
-    Handles image acquisition for the electron microscope.
+    Orchestrates a single image acquisition cycle on the electron microscope.
+
+    Args:
+        name: Human-readable identifier for this imaging instance.
+        microscope: The microscope instance used for image acquisition.
+        settings: Configuration for image acquisition.
+        props_store: Store for reading and writing microscope properties.
+        frame_store: Store for persisting acquired frames.
+        txt_log: Logger for diagnostic and status messages.
+        img_log: Logger for saving helper images.
     """
 
     def __init__(
@@ -78,46 +87,53 @@ class Imaging(Action):
 
     @property
     def name(self) -> str:
+        """Human-readable identifier for this imaging instance."""
         return self._name
 
     @property
     def props_file(self) -> str:
+        """Filename used to read and write microscope properties."""
         return str(self._settings.properties_file)
 
     @property
     def props_store(self) -> PropsStore:
+        """Store used for reading and writing microscope properties."""
         return self._props_store
 
     @property
     def beam_type(self) -> BeamType:
+        """Beam type used for acquisition, either electron or ion."""
         return self._settings.beam_type
 
     @property
     def props_to_collect(self) -> PropertyNames:
+        """Names of microscope properties relevant for the image acquisition."""
         return self._settings.properties_to_collect
 
     @property
     def microscope(self) -> Microscope:
+        """The microscope instance used for the imaging."""
         return self._microscope
 
     @property
     def txt_log(self) -> TextLogger:
+        """Logger for diagnostic and status messages."""
         return self._txt_log
 
     def grab_frame(self) -> None:
         """
-        Set the microscope properties and acquire an image.
+        Execute the full image acquisition pipeline for the current slice.
 
-        Loads microscope properties from an input file, acquires an image, saves it,
-        and updates the saved microscope properties for subsequent imaging.
+        Loads stored microscope properties and applies them to the beam,
+        acquires a frame and persists it via the frame store, writes updated
+        properties to the next slice's store, and optionally launches a
+        background thread to evaluate image sharpness.
 
-        If a `Criterion` is configured, image sharpness is calculated
-        asynchronously on a background thread. The result is stored in
-        `image_sharpness` once the calculation completes.
-        Use `wait_for_sharpness` to block until the value is available.
+        Call `wait_for_sharpness` after this method to block until the
+        sharpness result is available.
 
         Raises:
-            ImagingError: If the image for the current slice already exists.
+            ImagingError: If a frame for the current slice already exists in the frame store.
         """
         # set the properties of the microscope
         self.read_and_set_properties()
@@ -147,12 +163,10 @@ class Imaging(Action):
 
     def collect_and_write_properties(self, store: PropsStore | None = None) -> None:
         """
-        Save selected properties from the microscope to a file.
+        Collect and save the relevant properties of the microscope.
 
         Args:
-            store (PropsStore | None): Handler specifying the slice
-                for which microscope properties should be saved.
-                If `None`, the properties are saved for the current slice.
+            store: Store to write properties to. If `None`, the current slice's store is used.
         """
         store = store or self._props_store
         self._txt_log.debug("Saving microscope properties for imaging.")
@@ -201,6 +215,20 @@ class Imaging(Action):
         return self._image_sharpness
 
     def _set_extended_resolution_props(self, new_pixel_size: float) -> None:
+        """
+        Configure the beam for extended resolution imaging.
+
+        When a non-full-frame scanning area is configured, shifts the beam
+        to the centre of that area and resizes the field of view to match its physical dimensions.
+
+        The scanning area is always reset to full frame after the adjustment,
+        since the beam shift and FOV take over the role of area selection in
+        extended resolution mode. The pixel size is always updated to
+        `new_pixel_size`, regardless of whether a scanning area is configured.
+
+        Args:
+            new_pixel_size: The target pixel size in nanometers.
+        """
         # image only the scanning area
         if (
             (area := self._settings.scanning_area) is not None
@@ -247,11 +275,15 @@ class Imaging(Action):
 
     def _calculate_sharpness(self, image: Image) -> None:
         """
-        Calculate the sharpness of `image` via the configured criterion.
+        Evaluate image sharpness on a background thread.
 
-        Intended to run on a background thread. The result is stored in
-        `self._image_sharpness`. Any exception is caught and logged as a
-        warning so that a failed sharpness calculation cannot crash the thread.
+        Computes the sharpness score via the configured criterion and stores
+        the result in `_image_sharpness`. Any exception raised during
+        calculation is caught and logged as a warning so that a failure cannot
+        crash the background thread.
+
+        Args:
+            image: The image to evaluate.
         """
         assert self._criterion is not None
 
