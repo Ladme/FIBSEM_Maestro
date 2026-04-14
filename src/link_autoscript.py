@@ -46,7 +46,7 @@ pth_file.write_text(str(autoscript_path) + "\n", encoding="utf-8")
 sys.path.insert(0, str(autoscript_path))
 try:
     from autoscript_sdb_microscope_client.sdb_microscope_client import (
-        SdbMicroscopeClient,  # noqa: F401
+        SdbMicroscopeClient,  # noqa: F401 # type: ignore
     )
 except ImportError as e:
     raise RuntimeError(

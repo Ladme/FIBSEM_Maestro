@@ -1,11 +1,18 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
+from __future__ import annotations
+
 import math
 from dataclasses import dataclass
-from typing import Self
+from typing import TYPE_CHECKING, Self
 
-from autoscript_sdb_microscope_client.structures import StagePosition as StagePositionAs
+from fibsem_maestro.core.errors import AutoscriptNotAvailableError
+
+if TYPE_CHECKING:
+    from autoscript_sdb_microscope_client.structures import (
+        StagePosition as StagePositionAs,
+    )
 
 
 @dataclass
@@ -48,7 +55,17 @@ class StagePosition:
         Returns:
             StagePosition: A StagePosition instance with coordinates
                 in nanometers and angles in degrees.
+
+        Raises:
+            AutoscriptNotAvailableError: If the Autoscript library is not installed.
         """
+        try:
+            from autoscript_sdb_microscope_client.structures import (
+                StagePosition,  # noqa: F401 # type: ignore
+            )
+        except ImportError as e:
+            raise AutoscriptNotAvailableError() from e
+
         # TODO: all fields can be None - how should we handle that?
         return cls(
             x=(stage_position_autoscript.x or 0) * 1e9,
@@ -67,7 +84,17 @@ class StagePosition:
         Returns:
             StagePositionAs: An AutoScript StagePosition object with
                 positional coordinates in meters and angular coordinates in radians.
+
+        Raises:
+            AutoscriptNotAvailableError: If the Autoscript library is not installed.
         """
+        try:
+            from autoscript_sdb_microscope_client.structures import (
+                StagePosition as StagePositionAs,
+            )
+        except ImportError as e:
+            raise AutoscriptNotAvailableError() from e
+
         return StagePositionAs(
             x=self.x * 1e-9,
             y=self.y * 1e-9,
@@ -77,7 +104,7 @@ class StagePosition:
             coordinate_system="Specimen",
         )
 
-    def __add__(self, other: "StagePosition") -> "StagePosition":
+    def __add__(self, other: StagePosition) -> StagePosition:
         """
         Adds two StagePosition instances element-wise.
 

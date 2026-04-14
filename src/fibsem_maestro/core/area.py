@@ -1,14 +1,19 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
+from __future__ import annotations
 
-from typing import Generic, Self, TypeVar
+from typing import TYPE_CHECKING, Generic, Self, TypeVar
 
-from autoscript_sdb_microscope_client.structures import Rectangle as RectangleAs
 from pydantic import BaseModel
 
+from fibsem_maestro.core.errors import AutoscriptNotAvailableError
 from fibsem_maestro.core.point import MPoint, NMPoint, PixelPoint, RelativePoint
-from fibsem_maestro.core.resolution import Resolution
+
+if TYPE_CHECKING:
+    from autoscript_sdb_microscope_client.structures import Rectangle as RectangleAs
+
+    from fibsem_maestro.core.resolution import Resolution
 
 T = TypeVar("T", PixelPoint, RelativePoint, NMPoint, MPoint)
 U = TypeVar("U", int, float)
@@ -56,7 +61,7 @@ class RelativeArea(_Area[RelativePoint, float]):
     Represents an area using relative coordinates (0-1).
     """
 
-    def to_pixels(self, resolution: Resolution) -> "PixelArea":
+    def to_pixels(self, resolution: Resolution) -> PixelArea:
         """
         Convert the relative area to pixel coordinates.
 
@@ -73,7 +78,7 @@ class RelativeArea(_Area[RelativePoint, float]):
             height=int(round(self.height * resolution.height)),
         )
 
-    def to_nanometers(self, resolution: Resolution, pixel_size_nm: float) -> "NMArea":
+    def to_nanometers(self, resolution: Resolution, pixel_size_nm: float) -> NMArea:
         """
         Convert the relative area to nanometers.
 
@@ -87,7 +92,7 @@ class RelativeArea(_Area[RelativePoint, float]):
         """
         return self.to_pixels(resolution).to_nanometers(pixel_size_nm)
 
-    def to_meters(self, resolution: Resolution, pixel_size_m: float) -> "MArea":
+    def to_meters(self, resolution: Resolution, pixel_size_m: float) -> MArea:
         """
         Convert the relative area to meters.
 
@@ -129,7 +134,17 @@ class RelativeArea(_Area[RelativePoint, float]):
         Returns:
             RectangleAs: A new instance of RectangleAs with the same coordinates
                 and dimensions as the relative scanning area.
+
+        Raises:
+            AutoscriptNotAvailableError: If the Autoscript library is not installed.
         """
+        try:
+            from autoscript_sdb_microscope_client.structures import (
+                Rectangle as RectangleAs,
+            )
+        except ImportError as e:
+            raise AutoscriptNotAvailableError() from e
+
         return RectangleAs(
             left=self.origin.x, top=self.origin.y, width=self.width, height=self.height
         )
@@ -142,7 +157,16 @@ class RelativeArea(_Area[RelativePoint, float]):
         Returns:
             RelativeArea: A new instance of relative area with the same
                 coordinates and dimenions as the rectangle.
+
+        Raises:
+            AutoscriptNotAvailableError: If the Autoscript library is not installed.
         """
+        try:
+            from autoscript_sdb_microscope_client.structures import (
+                Rectangle,  # noqa: F401 # type: ignore
+            )
+        except ImportError as e:
+            raise AutoscriptNotAvailableError() from e
 
         return cls(
             origin=RelativePoint(x=rectangle.left, y=rectangle.top),
@@ -154,7 +178,7 @@ class RelativeArea(_Area[RelativePoint, float]):
 class PixelArea(_Area[PixelPoint, int]):
     """Represents an area using absolute pixel coordinates."""
 
-    def to_relative(self, resolution: Resolution) -> "RelativeArea":
+    def to_relative(self, resolution: Resolution) -> RelativeArea:
         """
         Convert the pixel-based area to relative coordinates.
 
@@ -171,7 +195,7 @@ class PixelArea(_Area[PixelPoint, int]):
             height=self.height / resolution.height,
         )
 
-    def to_nanometers(self, pixel_size_nm: float) -> "NMArea":
+    def to_nanometers(self, pixel_size_nm: float) -> NMArea:
         """
         Convert the pixel-based scanning area to nanometers.
 
@@ -188,7 +212,7 @@ class PixelArea(_Area[PixelPoint, int]):
             height=self.height * pixel_size_nm,
         )
 
-    def to_meters(self, pixel_size_m: float) -> "MArea":
+    def to_meters(self, pixel_size_m: float) -> MArea:
         """
         Convert the pixel-based area to meters.
 
@@ -209,9 +233,7 @@ class PixelArea(_Area[PixelPoint, int]):
 class NMArea(_Area[NMPoint, float]):
     """Represents an area in nanometers."""
 
-    def to_relative(
-        self, resolution: Resolution, pixel_size_nm: float
-    ) -> "RelativeArea":
+    def to_relative(self, resolution: Resolution, pixel_size_nm: float) -> RelativeArea:
         """
         Convert the nanometer-based area to relative coordinates.
 
@@ -225,7 +247,7 @@ class NMArea(_Area[NMPoint, float]):
         """
         return self.to_pixels(pixel_size_nm).to_relative(resolution)
 
-    def to_pixels(self, pixel_size_nm: float) -> "PixelArea":
+    def to_pixels(self, pixel_size_nm: float) -> PixelArea:
         """
         Convert the nanometer-based scanning area to pixel coordinates.
 
@@ -242,7 +264,7 @@ class NMArea(_Area[NMPoint, float]):
             height=int(round(self.height / pixel_size_nm)),
         )
 
-    def to_meters(self) -> "MArea":
+    def to_meters(self) -> MArea:
         """
         Convert the nanometer-based area to meters.
 
@@ -260,9 +282,7 @@ class NMArea(_Area[NMPoint, float]):
 class MArea(_Area[MPoint, float]):
     """Represents an area in meters."""
 
-    def to_relative(
-        self, resolution: Resolution, pixel_size_m: float
-    ) -> "RelativeArea":
+    def to_relative(self, resolution: Resolution, pixel_size_m: float) -> RelativeArea:
         """
         Convert the meter-based area to relative coordinates.
 
@@ -276,7 +296,7 @@ class MArea(_Area[MPoint, float]):
         """
         return self.to_pixels(pixel_size_m).to_relative(resolution)
 
-    def to_pixels(self, pixel_size_m: float) -> "PixelArea":
+    def to_pixels(self, pixel_size_m: float) -> PixelArea:
         """
         Convert the meter-based area to pixel coordinates.
 
@@ -293,7 +313,7 @@ class MArea(_Area[MPoint, float]):
             height=int(round(self.height / pixel_size_m)),
         )
 
-    def to_nanometers(self) -> "NMArea":
+    def to_nanometers(self) -> NMArea:
         """
         Convert the meter-based area to nanometers.
 

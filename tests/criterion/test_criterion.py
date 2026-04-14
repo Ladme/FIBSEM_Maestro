@@ -4,8 +4,8 @@
 
 from collections.abc import Sequence
 
-import pytest
 import numpy as np
+import pytest
 from numpy.typing import NDArray
 
 from fibsem_maestro.core.area import PixelArea, RelativeArea

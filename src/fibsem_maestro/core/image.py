@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Generic, Self, TypeVar
 
 import numpy as np
 
+from fibsem_maestro.core.errors import AutoscriptNotAvailableError
 from fibsem_maestro.core.format import ImageFormat
 from fibsem_maestro.core.resolution import Resolution
 
@@ -57,7 +58,24 @@ class _ImageBase(np.ndarray[Any, np.dtype[TDType]], Generic[TDType]):
     def from_autoscript(cls, as_image: AdornedImageAs) -> Self:
         """
         Construct a native Image from Autoscript's AdornedImage.
+
+        Args:
+            as_image (AdornedImageAs): The adorned image from the Autoscript library.
+
+        Returns:
+            Self: An instance of this class constructed from the Autoscript image.
+
+        Raises:
+            ImageError: If metadata or pixel size is not available on the image.
+            AutoscriptNotAvailableError: If the Autoscript library is not installed.
         """
+        try:
+            from autoscript_sdb_microscope_client.structures import (
+                AdornedImage,  # noqa: F401 # type: ignore
+            )
+        except ImportError as e:
+            raise AutoscriptNotAvailableError() from e
+
         if (metadata := as_image.metadata) is None:
             raise ImageError(
                 "Could not convert autoscript image. Metadata not available."

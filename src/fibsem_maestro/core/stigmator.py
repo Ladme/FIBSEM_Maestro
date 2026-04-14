@@ -1,10 +1,15 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
-from dataclasses import dataclass
-from typing import Self
+from __future__ import annotations
 
-from autoscript_sdb_microscope_client.structures import Point as PointAs
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Self
+
+from fibsem_maestro.core.errors import AutoscriptNotAvailableError
+
+if TYPE_CHECKING:
+    from autoscript_sdb_microscope_client.structures import Point as PointAs
 
 
 @dataclass
@@ -24,7 +29,17 @@ class Stigmator:
 
         Returns:
             Stigmator: A converted Stigmator instance.
+
+        Raises:
+            AutoscriptNotAvailableError: If the Autoscript library is not installed.
         """
+        try:
+            from autoscript_sdb_microscope_client.structures import (
+                Point,  # noqa: F401 # type: ignore
+            )
+        except ImportError as e:
+            raise AutoscriptNotAvailableError() from e
+
         return cls(x=point_autoscript.x, y=point_autoscript.y)
 
     def to_point_autoscript(self) -> PointAs:
@@ -33,5 +48,13 @@ class Stigmator:
 
         Returns:
             PointAs: An AutoScript Point object.
+
+        Raises:
+            AutoscriptNotAvailableError: If the Autoscript library is not installed.
         """
+        try:
+            from autoscript_sdb_microscope_client.structures import Point as PointAs
+        except ImportError as e:
+            raise AutoscriptNotAvailableError() from e
+
         return PointAs(x=self.x, y=self.y)

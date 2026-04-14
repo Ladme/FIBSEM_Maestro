@@ -87,8 +87,7 @@ def resize_to_match(image: Image, target_shape: tuple[int, int]):
     """
     # center pad + crop to match (H, W) exactly
     padded = center_padding(image, target_shape)
-    cropped = center_cropping(padded, target_shape)
-    return cropped  # noqa: RET504
+    return center_cropping(padded, target_shape)
 
 
 def get_stripes(
