@@ -25,6 +25,9 @@ class MemoryFrameStore(FrameStore):
     def save(self, image: Image) -> None:
         self.frames[self._ctx.current_slice] = image
 
+    def save_to_memory(self, image: Image) -> None:
+        return self.save(image)
+
     def exists(self) -> bool:
         return self._ctx.current_slice in self.frames
 
