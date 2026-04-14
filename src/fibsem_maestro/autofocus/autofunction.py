@@ -64,6 +64,7 @@ class Autofunction(Action):
             self._microscope,
             self._sweeping,
             self._criterion,
+            self._imaging,
             self._settings,
             self._txt_log,
         )
@@ -130,7 +131,7 @@ class Autofunction(Action):
         image_sharpness = self._imaging.wait_for_sharpness()
         self._txt_log.debug(f"Last image sharpness: {image_sharpness}.")
         if not self._should_execute(slice_number, image_sharpness):
-            # copy the current microscope properties to the next slice
+            # copy the props file to the next slice
             self.write_properties(self.read_properties(), self._props_store.next)
             return
 
@@ -141,8 +142,10 @@ class Autofunction(Action):
         self._active_gen = self._mode.execute(self._ctx, self._jobs)
         self._advance()
 
-        # collect the microscope properties for the next slice
-        self.collect_and_write_properties(self._props_store.next)
+        # type checker may think that self._active_gen cannot be None, but we can set it to None inside self._advance()
+        if self._active_gen is not None:  # type: ignore
+            # mid-sweep - copy the props file to the next slice
+            self.write_properties(self.read_properties(), self._props_store.next)
 
     def _should_execute(self, slice_number: int, image_sharpness: float | None) -> bool:
         # always execute autofocus in the first slice
@@ -183,8 +186,10 @@ class Autofunction(Action):
 
             # set the microscope to the best attribute value
             self._sweeping.set_attribute_value(best)
-
             self._active_gen = None
+
+            # sweep finished: record the new best value for the next slice
+            self.collect_and_write_properties(self._props_store.next)
         except Exception:
             self._active_gen.close()
             self._active_gen = None

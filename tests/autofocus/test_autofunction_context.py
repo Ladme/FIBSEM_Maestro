@@ -2,6 +2,7 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 import contextlib
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -14,18 +15,23 @@ from fibsem_maestro.autofocus.sweep_step import SweepStep
 from fibsem_maestro.autofocus.sweeping import Sweeping
 from fibsem_maestro.core.detail_band import DetailBand
 from fibsem_maestro.core.image import Image
+from fibsem_maestro.core.slice import SliceContext
 from fibsem_maestro.criterion.criterion import Criterion
+from fibsem_maestro.imaging.imaging import Imaging
 from fibsem_maestro.logging.image.memory import MemoryImageLogger
 from fibsem_maestro.logging.text.memory import MemoryTextLogger
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.microscope.mock.beam_control import MockBeamControl
 from fibsem_maestro.settings.criterion_settings import CriterionSettings
+from fibsem_maestro.settings.imaging_settings import ImagingSettings
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
 from fibsem_maestro.settings.sweeping_settings import (
     BasicStrategySettings,
     SweepingSettings,
 )
+from fibsem_maestro.store.frame.memory import MemoryFrameStore
+from fibsem_maestro.store.props.memory import MemoryPropsStore
 
 
 def _make_microscope(txt_log: MemoryTextLogger) -> Microscope:
@@ -60,13 +66,40 @@ def _make_criterion(txt_log: MemoryTextLogger) -> Criterion:
     return Criterion("test", settings, txt_log, MemoryImageLogger())
 
 
+def _make_imaging(txt_log: MemoryTextLogger) -> Imaging:
+    microscope_settings = MicroscopeSettings(
+        control="mock",
+        ip_address="localhost",
+        beam_shift_tolerance=1.0,
+        stage_tolerance=100.0,
+        stage_trials=3,
+        holder_pretilt=0.0,
+    )
+    microscope = Microscope(microscope_settings, txt_log)
+    ctx = SliceContext(root_dir=Path("/tmp"), current_slice=0)
+    settings = ImagingSettings()
+
+    return Imaging(
+        name="test",
+        microscope=microscope,
+        settings=settings,
+        props_store=MemoryPropsStore(ctx),
+        frame_store=MemoryFrameStore(ctx),
+        txt_log=txt_log,
+        img_log=MemoryImageLogger(),
+    )
+
+
 def _make_ctx(txt_log: MemoryTextLogger, delta_x: float = 0.0) -> AutofunctionContext:
     microscope = _make_microscope(txt_log)
     sweeping = _make_sweeping(txt_log)
     criterion = _make_criterion(txt_log)
+    imaging = _make_imaging(txt_log)
     settings = MagicMock()
     settings.delta_x = delta_x
-    return AutofunctionContext(microscope, sweeping, criterion, settings, txt_log)
+    return AutofunctionContext(
+        microscope, sweeping, criterion, imaging, settings, txt_log
+    )
 
 
 def test_temporary_stage_x_offset_moves_stage_before_yield():

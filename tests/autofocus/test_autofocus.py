@@ -2,6 +2,7 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
+from pathlib import Path
 
 import numpy as np
 
@@ -12,12 +13,15 @@ from fibsem_maestro.autofocus.sweeping import Sweeping
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.detail_band import DetailBand
 from fibsem_maestro.core.image import Image
+from fibsem_maestro.core.slice import SliceContext
 from fibsem_maestro.criterion.criterion import Criterion
+from fibsem_maestro.imaging.imaging import Imaging
 from fibsem_maestro.logging.image.memory import MemoryImageLogger
 from fibsem_maestro.logging.text.memory import MemoryTextLogger
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.autofunction_settings import AutofunctionSettings
 from fibsem_maestro.settings.criterion_settings import CriterionSettings
+from fibsem_maestro.settings.imaging_settings import ImagingSettings
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
 from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.settings.sweeping_settings import (
@@ -25,6 +29,8 @@ from fibsem_maestro.settings.sweeping_settings import (
     SweepingSettings,
 )
 from fibsem_maestro.store.frame.frame_store import FrameStore
+from fibsem_maestro.store.frame.memory import MemoryFrameStore
+from fibsem_maestro.store.props.memory import MemoryPropsStore
 
 
 def _make_autofunction_settings(delta_x: float = 0.0) -> AutofunctionSettings:
@@ -80,10 +86,22 @@ def _make_ctx_for_basic_mode(
     )
     criterion = Criterion("test", criterion_settings, txt_log, MemoryImageLogger())
 
+    ctx = SliceContext(root_dir=Path("/tmp"), current_slice=0)
+
+    imaging = Imaging(
+        name="test",
+        microscope=microscope,
+        settings=ImagingSettings(),
+        props_store=MemoryPropsStore(ctx),
+        frame_store=MemoryFrameStore(ctx),
+        txt_log=txt_log,
+        img_log=MemoryImageLogger(),
+    )
+
     autofunction_settings = _make_autofunction_settings(delta_x=delta_x)
 
     return AutofunctionContext(
-        microscope, sweeping, criterion, autofunction_settings, txt_log
+        microscope, sweeping, criterion, imaging, autofunction_settings, txt_log
     )
 
 

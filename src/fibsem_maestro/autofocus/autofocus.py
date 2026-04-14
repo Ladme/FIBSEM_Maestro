@@ -67,7 +67,8 @@ class BasicMode(AutofocusMode):
         with ctx.temporary_stage_x_offset():
             for sweep in ctx.sweeping.sweep():
                 ctx.txt_log.info(
-                    f"Autofunction step {sweep.index + 1} (repetition {sweep.repetition + 1}): value {sweep.value}"
+                    f"Autofunction step {sweep.index + 1} "
+                    f"(repetition {sweep.repetition + 1}): value {sweep.value}"
                 )
                 ctx.sweeping.set_attribute_value(sweep.value)
                 image = ctx.microscope.beam.grab_frame()
@@ -167,7 +168,7 @@ class LineMode(AutofocusMode):
             # group consecutive sweep steps by repetition index so that each
             # cycle produces one stripe in the acquired image
             for repetition, steps in groupby(sweep_steps, key=lambda x: x.repetition):
-                ctx.txt_log.info(f"Line sweep cycle {repetition}")
+                ctx.txt_log.info(f"Line sweep cycle {repetition + 1}.")
 
                 # blank to create a dark separator band between the stripes
                 with ctx.microscope.beam.total_blanked():
@@ -255,69 +256,62 @@ class LineMode(AutofocusMode):
                 jobs.submit(ctx.make_sharpness_job(image_line, step))
 
 
-"""
 @AutofocusRegistry.register("step")
 class StepMode(AutofocusMode):
-    def __init__(self, autofunction: Autofunction, settings: StepModeSettings):
-        self._af = autofunction
-        _ = settings
+    """
+    Autofocus mode that spreads a parameter sweep across consecutive slices.
 
-        self._steps: Iterator[SweepStep] | None = None
-        self._initialized = False
+    Instead of acquiring its own images, this mode uses the main acquisition
+    loop: each slice's production image serves as one trial in the sweep.
+    This avoids extra exposure and throughput overhead, at the cost of
+    spreading a single autofocus run over many slices.
 
-    def execute(self) -> AutofocusStatus:
-        if not self._initialized:
-            self._initialize()
+    On each tick (one per slice) the mode advances the sweep by one step,
+    setting the attribute value that the upcoming acquisition will use.
+    The image acquired at that value is scored on the following tick, once
+    it becomes available from the main loop. After the final step, one
+    trailing tick is needed to score the last acquired image before the
+    best value can be selected.
+    """
 
-        assert self._steps is not None
-        af = self._af
+    def execute(
+        self, ctx: AutofunctionContext, jobs: JobsManager
+    ) -> Generator[None, None, None]:
+        previous_step: SweepStep | None = None
 
-        # if sweeping is exhausted, finalize and finish
-        try:
-            step = next(self._steps)
-        except StopIteration:
-            self._finalize()
-            return AutofocusStatus.DONE
+        for sweep in ctx.sweeping.sweep():
+            ctx.txt_log.info(
+                f"Autofunction step {sweep.index + 1} "
+                f"(repetition {sweep.repetition + 1}): value {sweep.value}"
+            )
 
-        af.txt_log.info(
-            f"Autofunction step {step.index + 1} (repetition {step.repetition}): value {step.value}"
-        )
+            # score the image from the previous slice, taken at the previous step's value
+            # this is skipped on the first tick
+            if previous_step is not None:
+                if (image := ctx.imaging.last_acquired_image) is None:
+                    ctx.txt_log.warning(
+                        f"Last acquired image is not available for {ctx.imaging.name}. "
+                        "Skipping sharpness evaluation for this sweep."
+                    )
+                else:
+                    jobs.submit(ctx.make_sharpness_job(image, previous_step))
 
-        af.sweeping.set_attribute_value(step.value)
-        image = af.microscope.beam.grab_frame()
-        af.submit_resolution_job(image, step)
+            # set the value that the upcoming acquisition will use
+            ctx.sweeping.set_attribute_value(sweep.value)
 
-        return AutofocusStatus.IN_PROGRESS
+            previous_step = sweep
+            yield
 
-    def _initialize(self) -> None:
-        af = self._af
-        af.clear_results()
-        af.setup_microscope()
+        # trailing tick: score the image acquired at the final step's value
+        assert previous_step is not None
+        if (image := ctx.imaging.last_acquired_image) is None:
+            ctx.txt_log.warning(
+                f"Last acquired image is not available for {ctx.imaging.name}. "
+                "Skipping sharpness evaluation for this sweep."
+            )
+        else:
+            jobs.submit(ctx.make_sharpness_job(image, previous_step))
 
-        self._steps = iter(af.sweeping.sweep())
-
-        # keep stage offset applied across ticks.
-        self._stage_ctx = af.temporary_stage_x_offset()
-        self._stage_ctx.__enter__()
-
-        self._initialized = True
-
-    def _finalize(self) -> None:
-        af = self._af
-
-        af.wait_for_resolution_jobs()
-        best = af.evaluate_best_sweep()
-        af.txt_log.info(f"Best sweep value: {best}")
-        af.sweeping.set_attribute_value(best)
-
-        # restore stage position.
-        if self._stage_ctx is not None:
-            self._stage_ctx.__exit__(None, None, None)
-            self._stage_ctx = None
-
-        self._steps = None
-        self._initialized = False
-"""
 
 """
 @AutofocusRegistry.register("manufacturer")
