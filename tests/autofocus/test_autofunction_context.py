@@ -110,31 +110,31 @@ def test_temporary_stage_x_offset_logs_move_and_restore():
     assert any("Restoring" in m for m in messages)
 
 
-def test_make_resolution_job_returns_callable():
+def test_make_sharpness_job_returns_callable():
     txt_log = MemoryTextLogger()
     ctx = _make_ctx(txt_log)
     img = Image(np.zeros((64, 64), dtype=np.int32), pixel_size=2.0)
     sweep = SweepStep(repetition=0, value=1000.0, index=0)
 
-    job = ctx.make_resolution_job(img, sweep)
+    job = ctx.make_sharpness_job(img, sweep)
 
     assert callable(job)
 
 
-def test_make_resolution_job_returns_autofocus_result_with_correct_sweep():
+def test_make_sharpness_job_returns_autofocus_result_with_correct_sweep():
     txt_log = MemoryTextLogger()
     ctx = _make_ctx(txt_log)
     rng = np.random.default_rng(42)
     img = Image(rng.integers(0, 255, (64, 64), dtype=np.int32), pixel_size=2.0)
     sweep = SweepStep(repetition=0, value=1000.0, index=0)
 
-    result = ctx.make_resolution_job(img, sweep)()
+    result = ctx.make_sharpness_job(img, sweep)()
 
     assert isinstance(result, AutofocusResult)
     assert result.sweep is sweep
 
 
-def test_make_resolution_job_raises_and_logs_warning_on_failure():
+def test_make_sharpness_job_raises_and_logs_warning_on_failure():
     txt_log = MemoryTextLogger()
     ctx = _make_ctx(txt_log)
     img = Image(np.zeros((64, 64), dtype=np.int32), pixel_size=2.0)
@@ -149,7 +149,7 @@ def test_make_resolution_job_raises_and_logs_warning_on_failure():
     ctx._criterion._sharpness_metric_fn = failing_metric
 
     with pytest.raises(AutofunctionError):
-        ctx.make_resolution_job(img, sweep)()
+        ctx.make_sharpness_job(img, sweep)()
 
     assert any(r.level == "warning" for r in txt_log.records)
     assert any("failed" in r.message for r in txt_log.records)

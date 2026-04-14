@@ -75,7 +75,7 @@ class AutofunctionContext:
                 f"Restoring stage position (X offset {self.settings.delta_x:+g})"
             )
 
-    def make_resolution_job(
+    def make_sharpness_job(
         self, image: Image, sweep: SweepStep
     ) -> Callable[[], AutofocusResult]:
         """

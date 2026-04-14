@@ -71,7 +71,7 @@ class BasicMode(AutofocusMode):
                 )
                 ctx.sweeping.set_attribute_value(sweep.value)
                 image = ctx.microscope.beam.grab_frame()
-                jobs.submit(ctx.make_resolution_job(image, sweep))
+                jobs.submit(ctx.make_sharpness_job(image, sweep))
 
         yield from ()
 
@@ -252,7 +252,7 @@ class LineMode(AutofocusMode):
             # matched to its corresponding sweep step by index
             for line_index, step in zip(stripe, steps):
                 image_line = image[line_index, :]
-                jobs.submit(ctx.make_resolution_job(image_line, step))
+                jobs.submit(ctx.make_sharpness_job(image_line, step))
 
 
 """
@@ -317,8 +317,9 @@ class StepMode(AutofocusMode):
 
         self._steps = None
         self._initialized = False
+"""
 
-
+"""
 @AutofocusRegistry.register("manufacturer")
 class ManufacturerMode(AutofocusMode):
     def __init__(self, autofunction: Autofunction, settings: ManufacturerModeSettings):
