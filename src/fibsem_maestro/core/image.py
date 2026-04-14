@@ -34,23 +34,59 @@ class ImageError(Exception):
 
 
 class _ImageBase(np.ndarray[Any, np.dtype[TDType]], Generic[TDType]):
+    """
+    Base class for microscope images backed by a NumPy array.
+
+    Extends `np.ndarray` with a `pixel_size` attribute (in nanometers)
+    that is automatically preserved across slicing, copying, and other array
+    operations.
+
+    Attributes:
+        pixel_size: Physical size of a single pixel in nanometers.
+    """
+
     # in nanometers
     pixel_size: float
 
     def __new__(cls, image: NDArray[TDType], pixel_size: float) -> Self:
+        """
+        Create a new image instance from an array and a pixel size.
+
+        Args:
+            image: Source array whose data is used to back this image.
+            pixel_size: Physical size of a single pixel in nanometers.
+
+        Returns:
+            A new instance of this class wrapping the given array.
+        """
+
         obj = np.asarray(image).view(cls)
         obj.pixel_size = pixel_size
         return obj
 
     def __array_finalize__(self, obj: Any) -> None:
-        """Called whenever the array is created."""
+        """
+        Preserve `pixel_size` when the array is sliced or copied.
+
+        Called by NumPy whenever a new array of this type is created as a
+        view of another. Copies `pixel_size` from the source object.
+        """
+
         if obj is None:
             return
         # preserve pixel_size when array is sliced or copied
         self.pixel_size = getattr(obj, "pixel_size", 1)
 
     def __getitem__(self, key: Any) -> Self:  # type: ignore
-        """Ensure slicing returns an instance of the same type."""
+        """
+        Return a slice of this image as an instance of the same subclass.
+
+        Args:
+            key: Index or slice used to select elements.
+
+        Returns:
+            A view of the selected elements as an instance of this class.
+        """
         result = super().__getitem__(key)
         return result.view(type(self))
 
@@ -91,9 +127,21 @@ class _ImageBase(np.ndarray[Any, np.dtype[TDType]], Generic[TDType]):
     @classmethod
     def from_tiff(cls, tiff_file: TiffFile) -> Self:
         """
-        Construct a native Image from TiffFile.
+        Construct an image from an open TiffFile.
 
-        The user of this method is reponsible for closing the TiffFile!
+        Reads the array data and pixel size from the file's ImageJ metadata.
+        The caller is responsible for closing the TiffFile after this call.
+
+        Args:
+            tiff_file: An open TiffFile instance to read from.
+
+        Returns:
+            A new instance of this class containing the image data and pixel
+            size read from the file.
+
+        Raises:
+            ImageError: If the file has no ImageJ metadata or does not contain
+                a `pixel_size` entry.
         """
         if (metadata := tiff_file.imagej_metadata) is None or (
             pixel_size := metadata.get("pixel_size")
@@ -124,7 +172,26 @@ class _ImageBase(np.ndarray[Any, np.dtype[TDType]], Generic[TDType]):
         ]
 
     def crop_with_padding(self, relative_area: RelativeArea, padding_nm: float) -> Self:
-        """Crop the image to a relative area with padding around it."""
+        """
+        Crop the image to a relative area extended by a padding border.
+
+        Crops a region that is `padding_nm` nanometers larger than the requested
+        area on all four sides, using real neighbouring pixels from the original
+        image.
+
+        When the padded region extends beyond the original image boundary, edge
+        pixel values are replicated to fill the missing area.
+
+        Args:
+            relative_area: The region of interest expressed in relative coordinates
+                (0-1). The actual crop will extend `padding_nm` beyond this area
+                on each side.
+            padding_nm: The amount of padding to add around the crop area, in nanometers.
+
+        Returns:
+            A cropped image extended by ``padding_px`` pixels on each side,
+            with the same pixel size as the original.
+        """
         pixel_size = self.pixel_size
         pixel_area = relative_area.to_pixels(self.resolution)
         padding_px = int(padding_nm / pixel_size)
@@ -145,7 +212,11 @@ class _ImageBase(np.ndarray[Any, np.dtype[TDType]], Generic[TDType]):
 
     def save(self, file_name: Path, format: ImageFormat) -> None:
         """
-        Save the image in the specified format.
+        Save the image to disk in the specified format.
+
+        Args:
+            file_name: Destination file path.
+            format: Output image format.
         """
         match format:
             case ImageFormat.PNG:
@@ -155,7 +226,14 @@ class _ImageBase(np.ndarray[Any, np.dtype[TDType]], Generic[TDType]):
 
     def _save_png(self, file_name: Path) -> None:
         """
-        Save the image in the PNG format.
+        Save the image as a PNG file using matplotlib.
+
+        The image is rendered in grayscale with pixel intensity range inferred
+        from the detected bit depth. Axes and whitespace are removed so the
+        output contains only the image content.
+
+        Args:
+            file_name: Destination file path.
         """
         import matplotlib.pyplot as plt
 
@@ -175,7 +253,10 @@ class _ImageBase(np.ndarray[Any, np.dtype[TDType]], Generic[TDType]):
 
     def _save_tif(self, file_name: Path) -> None:
         """
-        Save the image in the TIF format.
+        Save the image as a TIF file with pixel size stored in ImageJ metadata.
+
+        Args:
+            file_name: Destination file path.
         """
         import tifffile
 
@@ -188,15 +269,13 @@ class _ImageBase(np.ndarray[Any, np.dtype[TDType]], Generic[TDType]):
         Estimate the detector bit depth from image values and return its valid range.
 
         The bit depth is inferred from the maximum value present in the image,
-        assuming unsigned integer detector behavior.
-
-        Args:
-            image (Image): Image which bit depth is obtained.
+        assuming unsigned integer detector behaviour.
 
         Returns:
             A tuple containing:
-                - Estimated bit depth.
-                - Tuple of (min_value, max_value) allowed for that bit depth.
+                - The estimated bit depth as an integer.
+                - A `(min_value, max_value)` tuple giving the valid intensity
+                  range for that bit depth, where `min_value` is always 0.
         """
         max_value = float(np.nanmax(self))
 
@@ -208,18 +287,38 @@ class _ImageBase(np.ndarray[Any, np.dtype[TDType]], Generic[TDType]):
     @property
     def resolution(self) -> Resolution:
         """
-        Get the resolution of the image.
+        Spatial resolution of the image in pixels.
+
+        Returns:
+            A `Resolution` instance with `width` and `height` matching
+            the image's column and row count respectively.
         """
         shape = self.shape
         return Resolution(shape[1], shape[0])
 
 
 class Image(_ImageBase[np.integer[Any]]):
+    """
+    Integer-valued microscope image.
+
+    The standard image type for raw detector output. Pixel values are
+    integers of any width. Use `to_8bit` to obtain a display-ready copy.
+    """
+
     def __new__(cls, image: NDArray[np.integer[Any]], pixel_size: float) -> Self:
         return super().__new__(cls, image, pixel_size)
 
     def to_8bit(self) -> Image8Bit:
-        """Get an 8-bit copy of the image."""
+        """
+        Return an 8-bit copy of this image.
+
+        If the maximum pixel value exceeds 255, the entire image is linearly
+        scaled so that the maximum maps to 255. Values already within the
+        8-bit range are preserved exactly.
+
+        Returns:
+            A new `Image8Bit` with dtype `uint8` and the same pixel size.
+        """
         pixel_size = self.pixel_size
         output = self.copy()
         if np.max(output) > 255:
@@ -229,5 +328,9 @@ class Image(_ImageBase[np.integer[Any]]):
 
 
 class Image8Bit(_ImageBase[np.uint8]):
+    """
+    8-bit unsigned integer microscope image.
+    """
+
     def __new__(cls, image: NDArray[np.uint8], pixel_size: float) -> Self:
         return super().__new__(cls, image, pixel_size)
