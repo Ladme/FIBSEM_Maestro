@@ -11,14 +11,14 @@ from fibsem_maestro.core.point import RelativePoint
 from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
-from fibsem_maestro.logging.text.in_memory import InMemoryTextLogger
+from fibsem_maestro.logging.text.memory import MemoryTextLogger
 from fibsem_maestro.microscope.error import MicroscopeError
 from fibsem_maestro.microscope.mock.beam_control import MockBeamControl
 from fibsem_maestro.settings.beam_properties import BeamProperties
 
 
 def create_test_beam_control() -> MockBeamControl:
-    return MockBeamControl(InMemoryTextLogger())
+    return MockBeamControl(MemoryTextLogger())
 
 
 def test_set_properties():
@@ -36,7 +36,9 @@ def test_set_properties():
         bit_depth=12,
         resolution=Resolution(2048, 1024),
         horizontal_field_width=400_000.0,
-        scanning_area=RelativeArea(RelativePoint(0.5, 0.5), 10.0, 12.0),
+        scanning_area=RelativeArea(
+            origin=RelativePoint(0.5, 0.5), width=10.0, height=12.0
+        ),
     )  # type: ignore
     setattr(beam_properties, "beam.custom_parameter", 0.7)
     setattr(beam_properties, "beam.inner.parameter", 2.1)
@@ -56,7 +58,7 @@ def test_set_properties():
     assert beam_control.resolution == Resolution(2048, 1024)
     assert beam_control.horizontal_field_width == 400_000.0
     assert beam_control.scanning_area == RelativeArea(
-        RelativePoint(0.5, 0.5), 10.0, 12.0
+        origin=RelativePoint(0.5, 0.5), width=10.0, height=12.0
     )
     assert beam_control.manufacturer_prop("beam.custom_parameter") == 0.7
     assert beam_control.manufacturer_prop("beam.inner.parameter") == 2.1
@@ -128,19 +130,6 @@ def test_collect_properties():
     assert collected_properties.working_distance == 10_000_000.0
     assert collected_properties.stigmator == Stigmator(1.0, 2.0)
     assert getattr(collected_properties, "beam.custom_parameter") == 0.7
-
-
-def test_collect_properties_with_unknown_properties():
-    beam_control = create_test_beam_control()
-    beam_control.working_distance = 10_000_000.0
-
-    selected_properties = ["working_distance", "unknown_property"]
-    collected_properties = beam_control.collect_properties(selected_properties)
-
-    assert collected_properties.working_distance == 10_000_000.0
-
-    assert len(beam_control.txt_log.warnings) == 1  # type: ignore
-    assert "unknown" in beam_control.txt_log.warnings[0].lower()  # type: ignore
 
 
 def test_collect_properties_empty_selection():

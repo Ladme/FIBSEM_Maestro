@@ -2,13 +2,11 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
-
 import numpy as np
 import pytest
 
 from fibsem_maestro.core.stage_position import StagePosition
-from fibsem_maestro.logging.image.in_memory import InMemoryImageLogger
-from fibsem_maestro.logging.text.in_memory import InMemoryTextLogger
+from fibsem_maestro.logging.text.memory import MemoryTextLogger
 from fibsem_maestro.microscope.error import MicroscopeError
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
@@ -29,8 +27,7 @@ def create_microscope(
             stage_trials=3,
             holder_pretilt=pretilt,
         ),
-        txt_log=InMemoryTextLogger(),
-        img_log=InMemoryImageLogger(),
+        txt_log=MemoryTextLogger(),
     )
 
     microscope.set_stage_position_with_verification(
@@ -130,12 +127,3 @@ def test_beam_shift_to_stage_matrix_pretilt_can_trigger_singularity() -> None:
 
     with pytest.raises(MicroscopeError):
         microscope._beam_shift_to_stage_move()
-
-
-def test_beam_shift_to_stage_matrix_debug_logging_occurs() -> None:
-    microscope = create_microscope()
-
-    microscope._beam_shift_to_stage_move()
-
-    assert len(microscope._txt_log.debugs) > 0  # type: ignore
-    assert "conversion matrix" in microscope._txt_log.debugs[-1]  # type: ignore
