@@ -14,3 +14,12 @@ def test_stage_position_addition():
     assert result.z == 450.0
     assert result.rotation == 55.0
     assert result.tilt == 45.0
+
+
+def test_stage_position_to_xy():
+    pos = StagePosition(x=100.0, y=200.0, z=300.0, rotation=45.0, tilt=30.0)
+
+    x, y = pos.to_xy()
+
+    assert x == pos.x
+    assert y == pos.y
