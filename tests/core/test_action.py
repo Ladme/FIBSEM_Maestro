@@ -113,3 +113,110 @@ def test_read_and_set_properties_reads_from_given_store():
     action.read_and_set_properties(alternate_store)
 
     assert np.isclose(action.microscope.beam.working_distance, 8_000_000.0)
+
+
+def test_read_and_set_properties_applies_properties_to_microscope():
+    action = _make_action()
+    props = GlobalProperties(electron_beam=BeamProperties(working_distance=9_000_000.0))
+    action._props_store.write("props.yaml", props)
+
+    action.read_and_set_properties()
+
+    assert np.isclose(action.microscope.beam.working_distance, 9_000_000.0)
+
+
+def test_collect_and_write_properties_writes_to_own_store_by_default():
+    action = _make_action()
+
+    action.collect_and_write_properties()
+
+    assert action._props_store.exists("props.yaml")
+
+
+def test_collect_and_write_properties_writes_to_given_store():
+    action = _make_action()
+    ctx = SliceContext(root_dir=Path("/tmp"), current_slice=0)
+    alternate_store = MemoryPropsStore(ctx)
+
+    action.collect_and_write_properties(alternate_store)
+
+    assert alternate_store.exists("props.yaml")
+
+
+def test_read_properties_returns_stored_properties():
+    action = _make_action()
+    props = _make_global_properties()
+    action._props_store.write("props.yaml", props)
+
+    result = action.read_properties()
+
+    assert result.electron_beam is not None
+    assert result.electron_beam.working_distance is not None
+    assert props.electron_beam is not None
+    assert props.electron_beam.working_distance is not None
+
+    assert np.isclose(
+        result.electron_beam.working_distance,
+        props.electron_beam.working_distance,
+    )
+
+
+def test_read_properties_reads_from_given_store():
+    action = _make_action()
+    ctx = SliceContext(root_dir=Path("/tmp"), current_slice=0)
+    alternate_store = MemoryPropsStore(ctx)
+    props = _make_global_properties()
+    alternate_store.write("props.yaml", props)
+
+    result = action.read_properties(alternate_store)
+
+    assert result.electron_beam is not None
+    assert result.electron_beam.working_distance is not None
+    assert props.electron_beam is not None
+    assert props.electron_beam.working_distance is not None
+
+    assert np.isclose(
+        result.electron_beam.working_distance,
+        props.electron_beam.working_distance,
+    )
+
+
+def test_write_properties_writes_to_own_store_by_default():
+    action = _make_action()
+    props = _make_global_properties()
+
+    action.write_properties(props)
+
+    result = action._props_store.read("props.yaml")
+
+    assert result.electron_beam is not None
+    assert result.electron_beam.working_distance is not None
+    assert props.electron_beam is not None
+    assert props.electron_beam.working_distance is not None
+
+    assert np.isclose(
+        result.electron_beam.working_distance,
+        props.electron_beam.working_distance,
+    )
+
+
+def test_write_properties_writes_to_given_store():
+    action = _make_action()
+    ctx = SliceContext(root_dir=Path("/tmp"), current_slice=0)
+    alternate_store = MemoryPropsStore(ctx)
+    props = _make_global_properties()
+
+    action.write_properties(props, alternate_store)
+
+    assert alternate_store.exists("props.yaml")
+    result = alternate_store.read("props.yaml")
+
+    assert result.electron_beam is not None
+    assert result.electron_beam.working_distance is not None
+    assert props.electron_beam is not None
+    assert props.electron_beam.working_distance is not None
+
+    assert np.isclose(
+        result.electron_beam.working_distance,
+        props.electron_beam.working_distance,
+    )

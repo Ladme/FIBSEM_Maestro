@@ -21,8 +21,8 @@ from fibsem_maestro.logging.text.memory import MemoryTextLogger
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.properties.beam_properties import BeamProperties
-from fibsem_maestro.settings.criterion_settings import CriterionSettings
 from fibsem_maestro.properties.global_properties import GlobalProperties
+from fibsem_maestro.settings.criterion_settings import CriterionSettings
 from fibsem_maestro.settings.imaging_settings import (
     ExtendedResolution,
     ImagingSettings,

@@ -4,12 +4,12 @@
 import logging
 from pathlib import Path
 
-from nicegui import ui
-
-from fibsem_maestro.gui.properties_selector import PropertiesSelector
 from fibsem_maestro.logging.context import LogContext, SliceContext
 from fibsem_maestro.logging.image.slice_aware import SliceAwareImageLogger
 from fibsem_maestro.logging.text.central import CentralTextLogger
+from nicegui import ui
+
+from fibsem_maestro.gui.properties_selector import PropertiesSelector
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
 

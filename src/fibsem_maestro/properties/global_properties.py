@@ -6,9 +6,9 @@ from typing import Any
 from pydantic import Field
 
 from fibsem_maestro.core.beam_type import BeamType
-from fibsem_maestro.settings.base_settings import BaseSettings
 from fibsem_maestro.properties.beam_properties import BeamProperties
 from fibsem_maestro.properties.microscope_properties import MicroscopeProperties
+from fibsem_maestro.settings.base_settings import BaseSettings
 
 
 class GlobalProperties(BaseSettings):
