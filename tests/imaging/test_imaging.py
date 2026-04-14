@@ -110,6 +110,13 @@ def test_constructor_initialises_scanning_area_selected_to_false():
     assert imaging._scanning_area_selected is False
 
 
+def test_constructor_initialises_last_acquired_image_to_none():
+    txt_log = MemoryTextLogger()
+    imaging = _make_imaging(txt_log)
+
+    assert imaging._last_acquired_image is None
+
+
 def test_name_returns_configured_name():
     txt_log = MemoryTextLogger()
     imaging = _make_imaging(txt_log)
@@ -143,6 +150,16 @@ def test_txt_log_returns_configured_logger():
     imaging = _make_imaging(txt_log)
 
     assert imaging.txt_log is txt_log
+
+
+def test_last_acquired_image_returns_last_acquired_image():
+    txt_log = MemoryTextLogger()
+    imaging = _make_imaging(txt_log)
+    imaging._last_acquired_image = Image(
+        np.zeros((64, 64), dtype=np.int32), pixel_size=2.0
+    )
+
+    assert imaging.last_acquired_image is imaging._last_acquired_image
 
 
 def test_props_to_collect_returns_configured_properties():
@@ -708,3 +725,12 @@ def test_grab_frame_saved_frame_is_image_instance():
 
     saved = imaging._frame_store.frames[0]  # type: ignore
     assert isinstance(saved, Image)
+
+
+def test_grab_frame_sets_last_acquired_image():
+    txt_log = MemoryTextLogger()
+    imaging = _prepare_imaging_for_grab_frame(txt_log)
+
+    imaging.grab_frame()
+
+    assert imaging._last_acquired_image is not None

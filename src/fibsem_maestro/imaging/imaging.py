@@ -85,6 +85,9 @@ class Imaging(Action):
         self._image_sharpness: float | None = None
         self._sharpness_thread: threading.Thread | None = None
 
+        # save the last acquired image
+        self._last_acquired_image: Image | None = None
+
     @property
     def name(self) -> str:
         """Human-readable identifier for this imaging instance."""
@@ -120,6 +123,11 @@ class Imaging(Action):
         """Logger for diagnostic and status messages."""
         return self._txt_log
 
+    @property
+    def last_acquired_image(self) -> Image | None:
+        """Get the last image acquired by this imaging."""
+        return self._last_acquired_image
+
     def grab_frame(self) -> None:
         """
         Execute the full image acquisition pipeline for the current slice.
@@ -142,7 +150,7 @@ class Imaging(Action):
         self._frame_store.raise_if_exists(ImagingError)
 
         # grab the frame and save it
-        image = self._microscope.beam.grab_frame(self._frame_store)
+        self._last_acquired_image = self._microscope.beam.grab_frame(self._frame_store)
 
         # update the saved microscope properties for the next frame
         self.collect_and_write_properties(self._props_store.next)
@@ -152,7 +160,7 @@ class Imaging(Action):
         if self._criterion is not None:
             self._sharpness_thread = threading.Thread(
                 target=self._calculate_sharpness,
-                args=(image,),
+                args=(self._last_acquired_image,),
                 daemon=True,
             )
             self._sharpness_thread.start()
