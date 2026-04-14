@@ -572,8 +572,8 @@ def _make_global_properties() -> GlobalProperties:
             pixel_size=2.0,
             detector_brightness=0.5,
             detector_contrast=0.5,
-        )  # type: ignore
-    )  # type: ignore
+        )
+    )
 
 
 def _prepare_imaging_for_grab_frame(

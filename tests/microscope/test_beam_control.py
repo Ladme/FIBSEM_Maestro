@@ -39,7 +39,7 @@ def test_set_properties():
         scanning_area=RelativeArea(
             origin=RelativePoint(0.5, 0.5), width=10.0, height=12.0
         ),
-    )  # type: ignore
+    )
     setattr(beam_properties, "beam.custom_parameter", 0.7)
     setattr(beam_properties, "beam.inner.parameter", 2.1)
 
@@ -83,7 +83,7 @@ def test_set_properties_with_none_values():
         resolution=None,
         horizontal_field_width=None,
         scanning_area=None,
-    )  # type: ignore
+    )
     setattr(beam_properties, "beam.custom_parameter", None)
     setattr(beam_properties, "beam.inner.parameter", None)
 
@@ -111,7 +111,7 @@ def test_set_properties_with_invalid_internal_property():
     beam_control = create_test_beam_control()
     beam_properties = BeamProperties(
         working_distance=10_000_000.0,
-    )  # type: ignore
+    )
     setattr(beam_properties, "invalid_property", False)
 
     with pytest.raises(MicroscopeError):

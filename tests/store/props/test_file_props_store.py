@@ -13,8 +13,8 @@ from fibsem_maestro.store.props.file import FilePropsStore
 def _make_props() -> GlobalProperties:
     return GlobalProperties(
         microscope=None,
-        electron_beam=BeamProperties(working_distance=5000.0, pixel_size=2.0),  # type: ignore
-        ion_beam=BeamProperties(detector_contrast=0.4),  # type: ignore
+        electron_beam=BeamProperties(working_distance=5000.0, pixel_size=2.0),
+        ion_beam=BeamProperties(detector_contrast=0.4),
     )
 
 
