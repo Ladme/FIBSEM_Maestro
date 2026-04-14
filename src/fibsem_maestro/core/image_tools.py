@@ -11,19 +11,21 @@ from fibsem_maestro.core.image import Image, Image8Bit
 
 def center_padding(image: Image, target_shape: tuple[int, int]) -> Image:
     """
-    Pad an image to the given target shape, centering the original image.
+    Pad or crop an image to exactly match the given target shape, centering
+    the original image.
 
-    If the padded image exceeds the target shape due to uneven padding,
-    it is cropped to exactly match `target_shape`.
+    If the input image is smaller than `target_shape` in either dimension,
+    it is padded with zeros. If it is larger, it is cropped. Both operations
+    center the original image content within the output.
 
     Args:
-        image (Image): The input image to be padded.
+        image (Image): The 2D input image to be padded or cropped.
         target_shape (tuple[int, int]): The desired output spatial dimensions
             as `(target_height, target_width)`.
 
     Returns:
-        Image: A new Image object containing the padded (and possibly cropped)
-        image with pixel size preserved and shape exactly equal to `target_shape`.
+        Image: A new Image with shape exactly equal to `target_shape` and
+        the same pixel size as the input.
     """
     h, w = image.shape[:2]
     th, tw = target_shape
@@ -47,14 +49,18 @@ def center_cropping(image: Image, target_shape: tuple[int, int]) -> Image:
     """
     Centrally crop an image to the given target shape.
 
+    If the input image is larger than `target_shape` in either dimension,
+    it is cropped symmetrically around the centre. If it is smaller, it is
+    returned unchanged.
+
     Args:
-        image (Image): The input image to be cropped.
+        image (Image): The 2D input image to be cropped.
         target_shape (tuple[int, int]): The desired output spatial dimensions
             as `(target_height, target_width)`.
 
     Returns:
-        Image: A new Image object containing the centrally cropped image with
-        pixel size preserved and shape no larger than `target_shape`.
+        Image: A new Image with shape no larger than `target_shape` and
+        the same pixel size as the input.
     """
     h, w = image.shape[:2]
     th, tw = target_shape
@@ -70,24 +76,6 @@ def center_cropping(image: Image, target_shape: tuple[int, int]) -> Image:
     cropped = image[crop_top : h - crop_bottom, crop_left : w - crop_right]
 
     return cropped[:th, :tw]
-
-
-def resize_to_match(image: Image, target_shape: tuple[int, int]):
-    """
-    Resize an image to exactly match the given shape using centered
-    padding followed by centered cropping.
-
-    Args:
-        image (Image): The input image to be resized.
-        target_shape (tuple[int, int]): The desired output spatial dimensions
-            as `(target_height, target_width)`.
-
-    Returns:
-        Image: The resized image with shape exactly equal to `target_shape`.
-    """
-    # center pad + crop to match (H, W) exactly
-    padded = center_padding(image, target_shape)
-    return center_cropping(padded, target_shape)
 
 
 def get_stripes(

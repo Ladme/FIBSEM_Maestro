@@ -4,8 +4,151 @@
 
 import numpy as np
 
-from fibsem_maestro.core.image import Image8Bit
-from fibsem_maestro.core.image_tools import get_stripes
+from fibsem_maestro.core.image import Image, Image8Bit
+from fibsem_maestro.core.image_tools import center_cropping, center_padding, get_stripes
+
+
+def test_center_padding_output_shape_matches_target():
+    img = Image(np.ones((32, 32), dtype=np.int32), pixel_size=2.0)
+
+    result = center_padding(img, (64, 64))
+
+    assert result.shape == (64, 64)
+
+
+def test_center_padding_preserves_pixel_size():
+    img = Image(np.ones((32, 32), dtype=np.int32), pixel_size=2.0)
+
+    result = center_padding(img, (64, 64))
+
+    assert np.isclose(result.pixel_size, 2.0)
+
+
+def test_center_padding_pads_with_zeros():
+    img = Image(np.ones((32, 32), dtype=np.int32) * 255, pixel_size=2.0)
+
+    result = center_padding(img, (64, 64))
+
+    # corners of the output must be zero-padded
+    assert result[0, 0] == 0
+    assert result[0, -1] == 0
+    assert result[-1, 0] == 0
+    assert result[-1, -1] == 0
+
+
+def test_center_padding_centers_original_content():
+    # 4x4 image padded to 8x8 - padding is 2 on each side
+    img = Image(np.ones((4, 4), dtype=np.int32) * 100, pixel_size=2.0)
+
+    result = center_padding(img, (8, 8))
+
+    assert np.all(result[2:6, 2:6] == 100)
+    assert np.all(result[:2, :] == 0)
+    assert np.all(result[6:, :] == 0)
+    assert np.all(result[:, :2] == 0)
+    assert np.all(result[:, 6:] == 0)
+
+
+def test_center_padding_odd_padding_goes_to_bottom_right():
+    img = Image(np.ones((3, 3), dtype=np.int32) * 100, pixel_size=2.0)
+
+    result = center_padding(img, (6, 6))
+
+    assert np.all(result[1:4, 1:4] == 100)
+    assert np.all(result[:1, :] == 0)
+    assert np.all(result[4:, :] == 0)
+
+
+def test_center_padding_crops_when_image_is_larger_than_target():
+    img = Image(np.ones((64, 64), dtype=np.int32) * 100, pixel_size=2.0)
+
+    result = center_padding(img, (32, 32))
+
+    assert result.shape == (32, 32)
+    assert np.all(result == 100)
+
+
+def test_center_padding_equal_shape_returns_identical_content():
+    arr = np.arange(16, dtype=np.int32).reshape(4, 4)
+    img = Image(arr, pixel_size=2.0)
+
+    result = center_padding(img, (4, 4))
+
+    assert result.shape == (4, 4)
+    assert np.array_equal(result, arr)
+
+
+def test_center_padding_returns_image_instance():
+    img = Image(np.ones((32, 32), dtype=np.int32), pixel_size=2.0)
+
+    result = center_padding(img, (64, 64))
+
+    assert isinstance(result, Image)
+
+
+def test_center_cropping_output_shape_matches_target():
+    img = Image(np.ones((64, 64), dtype=np.int32), pixel_size=2.0)
+
+    result = center_cropping(img, (32, 32))
+
+    assert result.shape == (32, 32)
+
+
+def test_center_cropping_preserves_pixel_size():
+    img = Image(np.ones((64, 64), dtype=np.int32), pixel_size=2.0)
+
+    result = center_cropping(img, (32, 32))
+
+    assert np.isclose(result.pixel_size, 2.0)
+
+
+def test_center_cropping_returns_central_content():
+    # 8x8 image cropped to 4x4 - crop 2 from each side
+    arr = np.zeros((8, 8), dtype=np.int32)
+    arr[2:6, 2:6] = 100
+    img = Image(arr, pixel_size=2.0)
+
+    result = center_cropping(img, (4, 4))
+
+    assert np.all(result == 100)
+
+
+def test_center_cropping_odd_crop_removes_more_from_bottom_right():
+    arr = np.zeros((7, 7), dtype=np.int32)
+    arr[1:5, 1:5] = 100
+    img = Image(arr, pixel_size=2.0)
+
+    result = center_cropping(img, (4, 4))
+
+    assert np.all(result == 100)
+
+
+def test_center_cropping_returns_unchanged_when_smaller_than_target():
+    arr = np.ones((16, 16), dtype=np.int32) * 100
+    img = Image(arr, pixel_size=2.0)
+
+    result = center_cropping(img, (32, 32))
+
+    assert result.shape == (16, 16)
+    assert np.array_equal(result, arr)
+
+
+def test_center_cropping_equal_shape_returns_identical_content():
+    arr = np.arange(16, dtype=np.int32).reshape(4, 4)
+    img = Image(arr, pixel_size=2.0)
+
+    result = center_cropping(img, (4, 4))
+
+    assert result.shape == (4, 4)
+    assert np.array_equal(result, arr)
+
+
+def test_center_cropping_returns_image_instance():
+    img = Image(np.ones((64, 64), dtype=np.int32), pixel_size=2.0)
+
+    result = center_cropping(img, (32, 32))
+
+    assert isinstance(result, Image)
 
 
 def _make_striped_image(
