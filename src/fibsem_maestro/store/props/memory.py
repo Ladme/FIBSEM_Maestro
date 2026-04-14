@@ -6,7 +6,7 @@ from collections.abc import Callable
 from typing import Self
 
 from fibsem_maestro.core.slice import SliceContext
-from fibsem_maestro.settings.global_properties import GlobalProperties
+from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.store.props.props_store import PropsStore
 
 

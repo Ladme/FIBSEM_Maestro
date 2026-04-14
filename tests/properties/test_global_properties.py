@@ -6,9 +6,9 @@ import pytest
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.stage_position import StagePosition
-from fibsem_maestro.settings.beam_properties import BeamProperties
-from fibsem_maestro.settings.global_properties import GlobalProperties
-from fibsem_maestro.settings.microscope_properties import MicroscopeProperties
+from fibsem_maestro.properties.beam_properties import BeamProperties
+from fibsem_maestro.properties.global_properties import GlobalProperties
+from fibsem_maestro.properties.microscope_properties import MicroscopeProperties
 
 
 def test_accumulate_property_creates_electron_beam_from_none():

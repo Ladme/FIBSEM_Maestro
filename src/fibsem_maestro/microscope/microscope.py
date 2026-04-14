@@ -14,9 +14,9 @@ from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
 from fibsem_maestro.microscope.error import MicroscopeError
 from fibsem_maestro.microscope.microscope_registry import MicroscopeRegistry
-from fibsem_maestro.settings.global_properties import GlobalProperties
+from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.imaging_settings import ImagingSettings
-from fibsem_maestro.settings.microscope_properties import MicroscopeProperties
+from fibsem_maestro.properties.microscope_properties import MicroscopeProperties
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
 from fibsem_maestro.settings.property_names import PropertyNames
 

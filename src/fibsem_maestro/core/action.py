@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope import Microscope
-from fibsem_maestro.settings.global_properties import GlobalProperties
+from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.store.props.props_store import PropsStore
 

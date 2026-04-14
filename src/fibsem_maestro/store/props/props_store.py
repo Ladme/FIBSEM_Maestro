@@ -5,7 +5,7 @@
 from abc import ABC, abstractmethod
 from typing import Self
 
-from fibsem_maestro.settings.global_properties import GlobalProperties
+from fibsem_maestro.properties.global_properties import GlobalProperties
 
 
 class PropsStore(ABC):

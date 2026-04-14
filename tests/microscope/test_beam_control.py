@@ -14,7 +14,7 @@ from fibsem_maestro.core.stigmator import Stigmator
 from fibsem_maestro.logging.text.memory import MemoryTextLogger
 from fibsem_maestro.microscope.error import MicroscopeError
 from fibsem_maestro.microscope.mock.beam_control import MockBeamControl
-from fibsem_maestro.settings.beam_properties import BeamProperties
+from fibsem_maestro.properties.beam_properties import BeamProperties
 
 
 def create_test_beam_control() -> MockBeamControl:
