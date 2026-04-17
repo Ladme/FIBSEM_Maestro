@@ -28,97 +28,67 @@ class BeamControl(ABC):
     @property
     @abstractmethod
     def working_distance(self) -> float:
-        """
-        Get the working distance.
-
-        Returns:
-            float: Working distance in nanometers.
-        """
-        pass
+        """Working distance between the sample and the objective lens in nanometers."""
 
     @working_distance.setter
     @abstractmethod
     def working_distance(self, value: float) -> None:
         """
-        Set the working distance.
+        Set the working distance in nanometers.
 
         Args:
-            value (float): Working distance in nanometers.
+            value: Working distance in nanometers.
         """
-        pass
 
     @property
     @abstractmethod
     def stigmator(self) -> Stigmator:
-        """
-        Get the beam stigmator settings.
-
-        Returns:
-            Stigmator: Stigmator values (x, y).
-        """
-        pass
+        """Stigmator settings used for beam astigmatism correction."""
 
     @stigmator.setter
     @abstractmethod
     def stigmator(self, value: Stigmator) -> None:
         """
-        Set the beam stigmator settings.
+        Set the stigmator settings.
 
         Args:
-            value (Stigmator): New stigmator values.
+            value: New stigmator values.
         """
-        pass
 
     @property
     def stigmator_x(self) -> float:
-        """
-        Get the x-component of the stigmator.
-
-        Returns:
-            float: X stigmatism value.
-        """
+        """X-component of the stigmator."""
         return self.stigmator.x
 
     @stigmator_x.setter
     def stigmator_x(self, value: float) -> None:
         """
-        Set the x-component of the stigmator.
+        Set the x-component of the stigmator, preserving the y-component.
 
         Args:
-            value (float): X stigmatism value.
+            value: New x stigmatism value.
         """
         self.stigmator = Stigmator(value, self.stigmator_y)
 
     @property
     def stigmator_y(self) -> float:
-        """
-        Get the y-component of the stigmator.
-
-        Returns:
-            float: Y stigmatism value.
-        """
+        """Y-component of the stigmator."""
         return self.stigmator.y
 
     @stigmator_y.setter
     def stigmator_y(self, value: float) -> None:
         """
-        Set the y-component of the stigmator.
+        Set the y-component of the stigmator, preserving the x-component.
 
         Args:
-            value (float): Y stigmatism value.
+            value: New y stigmatism value.
         """
         self.stigmator = Stigmator(self.stigmator_x, value)
 
     @property
     @abstractmethod
     def lens_alignment(self) -> LensAlignment:
-        """
-        Get the lens alignment settings.
-
-        Returns:
-            LensAlignment: Lens alignment values (x, y).
-        """
-        pass
+        """Lens alignment settings in nanometers."""
 
     @lens_alignment.setter
     @abstractmethod
@@ -127,60 +97,43 @@ class BeamControl(ABC):
         Set the lens alignment settings.
 
         Args:
-            value (LensAlignment): New lens alignment values.
+            value: New lens alignment values in nanometers.
         """
-        pass
 
     @property
     def lens_alignment_x(self) -> float:
-        """
-        Get the x-component of the lens alignment.
-
-        Returns:
-            float: X alignment value.
-        """
+        """X-component of the lens alignment in nanometers."""
         return self.lens_alignment.x
 
     @lens_alignment_x.setter
     def lens_alignment_x(self, value: float) -> None:
         """
-        Set the x-component of the lens alignment.
+        Set the x-component of the lens alignment, preserving the y-component.
 
         Args:
-            value (float): X alignment value.
+            value: New x alignment value in nanometers.
         """
         self.lens_alignment = LensAlignment(value, self.lens_alignment_y)
 
     @property
     def lens_alignment_y(self) -> float:
-        """
-        Get the y-component of the lens alignment.
-
-        Returns:
-            float: Y alignment value.
-        """
+        """Y-component of the lens alignment in nanometers."""
         return self.lens_alignment.y
 
     @lens_alignment_y.setter
     def lens_alignment_y(self, value: float) -> None:
         """
-        Set the y-component of the lens alignment.
+        Set the y-component of the lens alignment, preserving the x-component.
 
         Args:
-            value (float): Y alignment value.
+            value: New y alignment value in nanometers.
         """
         self.lens_alignment = LensAlignment(self.lens_alignment_x, value)
 
     @property
     @abstractmethod
     def beam_shift(self) -> BeamShift:
-        """
-        Get the beam shift.
-
-        Returns:
-            BeamShift: Beam shift values (x, y).
-        """
-        pass
+        """Current beam shift in nanometers."""
 
     @beam_shift.setter
     @abstractmethod
@@ -189,100 +142,74 @@ class BeamControl(ABC):
         Set the beam shift.
 
         Args:
-            value (BeamShift): New beam shift value.
+            value: New beam shift in nanometers.
         """
-        pass
 
     @property
     @abstractmethod
     def detector_contrast(self) -> float:
-        """
-        Get the detector contrast.
-
-        Returns:
-            float: Detector contrast value.
-        """
-        pass
+        """Detector contrast level in the range [0, 1]."""
 
     @detector_contrast.setter
     @abstractmethod
     def detector_contrast(self, value: float) -> None:
         """
-        Set the detector contrast.
+        Set the detector contrast level.
 
         Args:
-            value (float): Detector contrast value.
+            value: Contrast value in the range [0, 1].
         """
-        pass
 
     @property
     @abstractmethod
     def detector_brightness(self) -> float:
-        """
-        Get the detector brightness.
-
-        Returns:
-            float: Detector brightness value.
-        """
-        pass
+        """Detector brightness level in the range [0, 1]."""
 
     @detector_brightness.setter
     @abstractmethod
     def detector_brightness(self, value: float) -> None:
         """
-        Set the detector brightness.
+        Set the detector brightness level.
 
         Args:
-            value (float): Detector brightness value.
+            value: Brightness value in the range [0, 1].
         """
-        pass
 
     @property
     @abstractmethod
     def source_tilt(self) -> SourceTilt:
-        """
-        Get the source tilt.
-
-        Returns:
-            SourceTilt: Source tilt values.
-        """
-        pass
+        """Electron source tilt settings in degrees."""
 
     @source_tilt.setter
     @abstractmethod
     def source_tilt(self, value: SourceTilt) -> None:
         """
-        Set the source tilt.
+        Set the electron source tilt.
 
         Args:
-            value (SourceTilt): New source tilt values.
+            value: New source tilt values in degrees.
         """
-        pass
 
     @abstractmethod
     def blank(self) -> None:
-        """Blank the beam."""
-        pass
+        """Blank the beam, stopping it from reaching the sample."""
 
     @abstractmethod
     def unblank(self) -> None:
-        """Unblank the beam."""
-        pass
+        """Unblank the beam, allowing it to reach the sample."""
 
     @abstractmethod
     def start_acquisition(self) -> None:
-        """Start image acquisition."""
-        pass
+        """Start continuous image acquisition."""
 
     @abstractmethod
     def stop_acquisition(self) -> None:
-        """Stop image acquisition."""
-        pass
+        """Stop continuous image acquisition."""
 
     @abstractmethod
     def grab_frame(self, frame_store: FrameStore | None = None) -> Image:
         """
-        Scan and retrieve an image from the microscope.
+        Perform a new scan and return the acquired image.
 
         Args:
             frame_store: Optional store controlling how the acquired frame is
@@ -291,24 +218,19 @@ class BeamControl(ABC):
         Returns:
             The acquired image.
         """
-        pass
 
     @abstractmethod
     def get_image(self, crop_to_scanning_area: bool = False) -> Image:
         """
-        Retrieve the current image displayed on the microscope without performing a new scan.
-
-        This method fetches the currently displayed image from the microscope. It does not initiate
-        a new scan. Optionally, the image can be cropped to the scanning area if specified.
+        Return the currently displayed image without performing a new scan.
 
         Args:
-            crop_to_scanning_area (bool): If True, crop the image to the scanning area.
-                                        If False, return the full image.
+            crop_to_scanning_area: If `True`, crop the returned image to the
+                active scanning area. If `False`, return the full image.
 
         Returns:
-            Image: The current image displayed on the microscope.
+            The current image displayed on the microscope.
         """
-        pass
 
     """
     @abstractmethod
@@ -321,145 +243,97 @@ class BeamControl(ABC):
     @property
     @abstractmethod
     def line_integration(self) -> int:
-        """
-        Get the number of integrations per scan line.
-
-        Returns:
-            int: Number of integrations per scan line.
-        """
-        pass
+        """Number of times each scan line is integrated before advancing."""
 
     @line_integration.setter
     @abstractmethod
     def line_integration(self, value: int) -> None:
         """
-        Set the number of integrations per scan line.
+        Set the number of line integrations per scan.
 
         Args:
-            value (int): Number of integrations per scan line.
+            value: Number of integrations per scan line.
         """
-        pass
 
     @property
     @abstractmethod
     def dwell_time(self) -> float:
-        """
-        Get the dwell time.
-
-        Returns:
-            float: Dwell time in seconds.
-        """
-        pass
+        """Time spent per pixel during a scan in seconds."""
 
     @dwell_time.setter
     @abstractmethod
     def dwell_time(self, value: float) -> None:
         """
-        Set the dwell time.
+        Set the dwell time per pixel.
 
         Args:
-            value (float): Dwell time in seconds.
+            value: Dwell time in seconds.
         """
-        pass
 
     @property
     @abstractmethod
     def bit_depth(self) -> int:
-        """
-        Get the image bit depth.
-
-        Returns:
-            int: Bit depth.
-        """
-        pass
+        """Bit depth of the detector output."""
 
     @bit_depth.setter
     @abstractmethod
     def bit_depth(self, value: int) -> None:
         """
-        Set the image bit depth.
+        Set the detector bit depth.
 
         Args:
-            value (int): Bit depth.
+            value: Bit depth.
         """
-        pass
 
     @property
     @abstractmethod
     def resolution(self) -> Resolution:
-        """
-        Get the image resolution.
-
-        Returns:
-            Resolution: Image resolution in pixels.
-        """
-        pass
+        """Scan resolution in pixels."""
 
     @resolution.setter
     @abstractmethod
     def resolution(self, value: Resolution) -> None:
         """
-        Set the image resolution.
+        Set the scan resolution.
 
         Args:
-            value (Resolution): Image resolution in pixels.
+            value: Scan resolution in pixels.
         """
-        pass
 
     @property
     @abstractmethod
     def horizontal_field_width(self) -> float:
-        """
-        Get the horizontal field width.
-
-        Returns:
-            float: Horizontal field width.
-        """
-        pass
+        """Horizontal field of view in nanometers."""
 
     @horizontal_field_width.setter
     @abstractmethod
     def horizontal_field_width(self, value: float) -> None:
         """
-        Set the horizontal field width.
+        Set the horizontal field of view.
 
         Args:
-            value (float): Horizontal field width.
+            value: Horizontal field width in nanometers.
         """
-        pass
 
     @property
     @abstractmethod
     def vertical_field_width(self) -> float:
-        """
-        Get the vertical field width.
-
-        Returns:
-            float: Vertical field width.
-        """
-        pass
+        """Vertical field of view in nanometers."""
 
     @vertical_field_width.setter
     @abstractmethod
     def vertical_field_width(self, value: float) -> None:
         """
-        Set the vertical field width.
+        Set the vertical field of view.
 
         Args:
-            value (float): Vertical field width.
+            value: Vertical field width in nanometers.
         """
-        pass
 
     @property
     @abstractmethod
     def pixel_size(self) -> float:
-        """
-        Get the pixel size.
-
-        Returns:
-            float: Pixel size.
-        """
-        pass
+        """Physical size of a single pixel in nanometers."""
 
     @pixel_size.setter
     @abstractmethod
@@ -468,20 +342,13 @@ class BeamControl(ABC):
         Set the pixel size.
 
         Args:
-            value (float): Pixel size.
+            value: Pixel size in nanometers.
         """
-        pass
 
     @property
     @abstractmethod
     def scanning_area(self) -> RelativeArea:
-        """
-        Get the active scanning area.
-
-        Returns:
-            RelativeArea: The current scanning area.
-        """
-        pass
+        """Active scanning area expressed in relative coordinates."""
 
     @scanning_area.setter
     @abstractmethod
@@ -490,99 +357,79 @@ class BeamControl(ABC):
         Set the active scanning area.
 
         Args:
-            value (RelativeArea): Scanning area definition.
+            value: Scanning area in relative coordinates.
         """
-        pass
 
     @abstractmethod
     def manufacturer_prop(self, name: str) -> Any:
         """
-        Get a manufacturer beam property.
+        Retrieve a manufacturer-specific beam property by name.
 
         Args:
-            name (str): Property name.
+            name: Property name as defined by the manufacturer.
 
         Returns:
-            Any: Property value.
+            The current value of the property.
         """
-        pass
 
     @abstractmethod
     def set_manufacturer_prop(self, name: str, value: Any) -> None:
         """
-        Set a manufacturer beam property.
+        Set a manufacturer-specific beam property by name.
 
         Args:
-            name (str): Property name.
-            value (Any): Property value.
+            name: Property name as defined by the manufacturer.
+            value: New property value.
         """
-        pass
 
     @property
     @abstractmethod
     def beam_shift_to_stage_move(self) -> tuple[float, float]:
-        """
-        Get conversion from beam shift to stage movement.
-
-        Returns:
-            tuple[float, float]: Conversion factors.
-        """
-        pass
+        """Per-axis scale factors for converting beam shift to stage movement."""
 
     @property
     @abstractmethod
     def image_to_beam_shift(self) -> tuple[float, float]:
-        """
-        Get conversion from image coordinates to beam shift.
-
-        Returns:
-            tuple[float, float]: Conversion factors.
-        """
-        pass
+        """Per-axis scale factors for converting image coordinates to beam shift."""
 
     @property
     @abstractmethod
     def minimal_dwell(self) -> float:
-        """
-        Get the minimal supported dwell time.
-
-        Returns:
-            float: Minimal dwell time.
-        """
-        pass
+        """Minimum supported dwell time in seconds."""
 
     @abstractmethod
     def limits(self, var: str) -> tuple[float, float]:
         """
-        Get hardware limits for a beam parameter.
+        Return the hardware limits for a beam parameter.
 
         Args:
-            var (str): Parameter name.
+            var: Parameter name.
 
         Returns:
-            tuple[float, float]: Minimum and maximum allowed values.
+            A `(min, max)` tuple of the allowed value range.
         """
-        pass
 
     @property
     @abstractmethod
     def manufacturer_prop_names(self) -> list[str]:
-        """
-        Get a list of all manufacturer properties of the beam.
+        """Names of all manufacturer-specific properties available on this beam."""
 
-        Returns:
-            list[str]: List of all manufacturer properties of the beam.
-        """
-        pass
+    @property
+    @abstractmethod
+    def txt_log(self) -> TextLogger:
+        """Logger for diagnostic and status messages."""
 
     @contextmanager
     def total_blanked(self) -> Iterator[None]:
         """
-        Context manager that blanks the beam with zero contrast and brightness.
+        Context manager that fully blanks the beam during the enclosed block.
 
         Saves the current detector contrast and brightness, sets both to zero,
         and blanks the beam on entry. Restores the original values and unblanks
-        the beam on exit, even if an exception occurs.
+        the beam on exit, even if an exception occurs inside the block.
+
+        Yields:
+            None: Control is yielded to the caller with the beam fully blanked.
         """
         contrast_backup = self.detector_contrast
         brightness_backup = self.detector_brightness
@@ -598,18 +445,13 @@ class BeamControl(ABC):
             self.detector_brightness = brightness_backup
             self.unblank()
 
-    @property
-    @abstractmethod
-    def txt_log(self) -> TextLogger:
-        pass
-
     @classmethod
     def get_property_names(cls) -> list[str]:
         """
-        Return the names of all properties defined on the class.
+        Return the names of all properties defined on this class.
 
         Returns:
-            list[str]: Names of property attributes on this class.
+            A list of property attribute names on this class.
         """
         props = []
         for name, obj in inspect.getmembers(cls):
@@ -620,10 +462,13 @@ class BeamControl(ABC):
     @property
     def prop_names(self) -> list[str]:
         """
-        Get a list of all properties of the beam, including the manufacturer properties.
+        All available property names, including manufacturer-specific ones.
 
-        Return:
-            MicroscopePropertyNames: Collection of all the properties of the microscope.
+        Combines the standard `BeamProperties` field names with any
+        manufacturer-specific property names exposed by the control.
+
+        Returns:
+            A list of all property names available on this beam.
         """
         properties = list(BeamProperties.model_fields.keys())
         properties.extend(self.manufacturer_prop_names)
@@ -632,16 +477,19 @@ class BeamControl(ABC):
 
     def set_properties(self, properties: BeamProperties) -> None:
         """
-        Apply beam-related microscope settings.
+        Apply a set of beam properties to this beam control.
 
-        Uses this beam control to set multiple beam-related properties of the
-        microscope to the values provided in the given container.
+        Iterates over the non-None fields of `properties` and applies each
+        one via the corresponding setter. Manufacturer-specific properties are
+        routed to `set_manufacturer_prop`. Fields without a setter raise a
+        `MicroscopeError`.
 
         Args:
-            properties (BeamProperties): Container of beam property values to apply.
+            properties: Container of beam property values to apply.
 
         Raises:
-            AttributeError: If a required property setter is missing or not callable.
+            MicroscopeError: If a manufacturer property cannot be set, or if a
+                field has no corresponding setter.
         """
         field_names = list(properties.model_dump(exclude_none=True).keys())
         manufacturer_properties = self.manufacturer_prop_names
@@ -670,6 +518,20 @@ class BeamControl(ABC):
             setattr(self, field_name, value)
 
     def collect_properties(self, selected: list[str]) -> BeamProperties:
+        """
+        Read selected beam properties and return them as a `BeamProperties` instance.
+
+        Collects only the properties whose names appear in `selected`.
+        Standard `BeamProperties` fields are read via their property accessors;
+        manufacturer-specific properties are retrieved via `manufacturer_prop`.
+        Unknown names are logged as warnings and excluded from the result.
+
+        Args:
+            selected: Names of the properties to collect.
+
+        Returns:
+            A `BeamProperties` instance containing the collected values.
+        """
         # get field names to write out
         field_names = list(
             filter(lambda x: x in selected, BeamProperties.model_fields.keys())
