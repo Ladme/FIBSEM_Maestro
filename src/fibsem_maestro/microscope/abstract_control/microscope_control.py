@@ -13,6 +13,10 @@ from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
 class MicroscopeControl(ABC):
     """
     Abstract interface for controlling a microscope and its major subsystems.
+
+    Args:
+        ip_address: Network address of the microscope server.
+        txt_log: Logger for diagnostic and status messages.
     """
 
     @abstractmethod
@@ -21,113 +25,84 @@ class MicroscopeControl(ABC):
         Initialize the microscope control interface.
 
         Args:
-            ip_address (str): Network address of the microscope.
-            txt_log (TextLogger): Logger for recording events.
+            ip_address: Network address of the microscope server.
+            txt_log: Logger for diagnostic and status messages.
         """
-        pass
 
     @property
     @abstractmethod
     def stage_position(self) -> StagePosition:
-        """
-        Get the current stage position.
-
-        Returns:
-            StagePosition: Current stage position.
-        """
-        pass
+        """Current stage position in nanometers and degrees."""
 
     @property
     @abstractmethod
     def electron_beam(self) -> BeamControl:
-        """
-        Get the electron beam control interface.
-
-        Returns:
-            BeamControl: Electron beam control.
-        """
-        pass
+        """Control interface for the electron beam."""
 
     @electron_beam.setter
     @abstractmethod
     def electron_beam(self, beam: BeamControl) -> None:
         """
-        Set the electron beam control interface.
+        Replace the electron beam control interface.
 
         Args:
-            beam (BeamControl): Electron beam control.
+            beam: New electron beam control implementation.
         """
-        pass
 
     @property
     @abstractmethod
     def ion_beam(self) -> BeamControl:
-        """
-        Get the ion beam control interface.
-
-        Returns:
-            BeamControl: Ion beam control.
-        """
-        pass
+        """Control interface for the ion beam."""
 
     @ion_beam.setter
     @abstractmethod
     def ion_beam(self, beam: BeamControl) -> None:
         """
-        Set the ion beam control interface.
+        Replace the ion beam control interface.
 
         Args:
-            beam (BeamControl): Ion beam control.
+            beam: New ion beam control implementation.
         """
-        pass
 
     @abstractmethod
     def manufacturer_prop(self, name: str) -> Any:
         """
-        Get a manufacturer microscope property.
+        Retrieve a manufacturer-specific microscope property by name.
 
         Args:
-            name (str): Property name.
+            name: Property name as defined by the manufacturer.
 
         Returns:
-            Any: Property value.
+            The current value of the property.
         """
-        pass
 
     @abstractmethod
     def set_manufacturer_prop(self, name: str, value: Any) -> None:
         """
-        Set a manufacturer microscope property.
+        Set a manufacturer-specific microscope property by name.
 
         Args:
-            name (str): Property name.
-            value (Any): Property value.
+            name: Property name as defined by the manufacturer.
+            value: New property value.
         """
-        pass
 
     @property
     @abstractmethod
     def manufacturer_prop_names(self) -> list[str]:
-        """
-        Get a list of all manufacturer properties of the microscope.
-
-        Returns:
-            list[str]: List of all manufacturer properties of the microscope.
-        """
-        pass
+        """Names of all manufacturer-specific properties available on this microscope."""
 
     @abstractmethod
     def try_set_stage_position(self, pos: StagePosition) -> StagePosition:
         """
-        Attempt to set the stage to an absolute position.
+        Attempt to move the stage to an absolute position.
 
         Args:
-            pos (StagePosition): Target stage position.
+            pos: Target stage position in nanometers and degrees.
 
         Returns:
-            StagePosition: Actual stage position after the operation.
+            The actual stage position after the operation, which may differ
+            from the requested position due to hardware limitations.
         """
-        pass
 
     @abstractmethod
     def try_move_stage_position(self, delta: StagePosition) -> StagePosition:
@@ -135,9 +110,9 @@ class MicroscopeControl(ABC):
         Attempt to move the stage by a relative offset.
 
         Args:
-            delta (StagePosition): Relative stage movement.
+            delta: Relative stage movement in nanometers and degrees.
 
         Returns:
-            StagePosition: Actual stage position after the operation.
+            The actual stage position after the operation, which may differ
+            from the expected position due to hardware limitations.
         """
-        pass
