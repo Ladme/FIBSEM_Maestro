@@ -1,7 +1,6 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
-from dataclasses import fields
 
 import numpy as np
 from numpy.typing import NDArray
@@ -16,12 +15,20 @@ from fibsem_maestro.microscope.error import MicroscopeError
 from fibsem_maestro.microscope.microscope_registry import MicroscopeRegistry
 from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.properties.microscope_properties import MicroscopeProperties
-from fibsem_maestro.settings.imaging_settings import ImagingSettings
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
 from fibsem_maestro.settings.property_names import PropertyNames
 
 
 class Microscope:
+    """
+    Central abstraction layer for controlling an electron microscope.
+
+    Args:
+        settings: Microscope configuration including the control type, IP address,
+            stage tolerances, and holder pretilt.
+        txt_log: Logger for diagnostic and status messages.
+    """
+
     def __init__(
         self,
         settings: MicroscopeSettings,
@@ -29,34 +36,52 @@ class Microscope:
     ):
         self._txt_log = txt_log
 
-        self._apply_settings(settings)
-        self._settings.on_change(self._update)
-
-    @property
-    def electron_beam(self) -> BeamControl:
-        return self._control.electron_beam
-
-    @property
-    def ion_beam(self) -> BeamControl:
-        return self._control.ion_beam
-
-    def _apply_settings(self, settings: MicroscopeSettings) -> None:
         self._settings = settings
         self._control = MicroscopeRegistry.get(settings.control)(
             self._settings.ip_address, self._txt_log
         )
         self.beam = self._control.electron_beam
 
-    def _update(self, settings: MicroscopeSettings) -> None:
-        self._apply_settings(settings)
+    @property
+    def electron_beam(self) -> BeamControl:
+        """The electron beam control interface."""
+        return self._control.electron_beam
 
-    def export_imaging_settings(self) -> ImagingSettings:
-        values = {f.name: getattr(self, f.name) for f in fields(ImagingSettings)}
-        return ImagingSettings(**values)
+    @property
+    def ion_beam(self) -> BeamControl:
+        """The ion beam control interface."""
+        return self._control.ion_beam
+
+    def set_beam(self, type: BeamType) -> None:
+        """Set the active beam to the electron or ion beam.
+
+        Updates `self.beam` to point to the selected beam control interface.
+        Subsequent operations that use `self.beam` will act on the selected beam.
+
+        Args:
+            type: The beam type to activate, either `BeamType.ELECTRON` or `BeamType.ION`.
+        """
+        match type:
+            case BeamType.ELECTRON:
+                self.beam = self._control.electron_beam
+            case BeamType.ION:
+                self.beam = self._control.ion_beam
 
     def set_stage_position_with_verification(
         self, new_stage_position: StagePosition
     ) -> None:
+        """
+        Move the stage to an absolute position and verify the result.
+
+        Attempts to set the stage position up to `stage_trials` times. After
+        each attempt the Euclidean distance between the actual and target XY
+        position is checked against `stage_tolerance`. If the distance is
+        within tolerance the method returns immediately. If all attempts fail,
+        a warning is logged for each failed attempt but no exception is raised.
+
+        Args:
+            new_stage_position: The target stage position in nanometers and degrees.
+        """
         for attempt in range(1, self._settings.stage_trials + 1):
             # set position
             actual_position = self._control.try_set_stage_position(new_stage_position)
@@ -76,13 +101,36 @@ class Microscope:
             )
 
     def move_stage_position_with_verification(self, delta: StagePosition) -> None:
+        """
+        Move the stage by a relative offset and verify the result.
+
+        Adds `delta` to the current stage position and delegates to
+        `set_stage_position_with_verification`.
+
+        Args:
+            delta: The relative stage movement in nanometers and degrees.
+        """
         self.set_stage_position_with_verification(self._control.stage_position + delta)
 
     def set_beam_shift_with_verification(
         self, new_beam_shift: BeamShift, beam: BeamControl | None = None
     ) -> bool:
         """
-        Returns `True` if the beam shift is in limit.
+        Apply a beam shift and verify that it is within tolerance.
+
+        Attempts to set the beam shift on the given beam.
+
+        If the Euclidean distance between the requested and actual shift exceeds
+        `beam_shift_tolerance` or if setting the beam shift fails internally,
+        falls back to an equivalent stage move and resets the beam shift to zero.
+
+        Args:
+            new_beam_shift: The desired beam shift in nanometers.
+            beam: The beam to shift. Defaults to the currently active beam.
+
+        Returns:
+            `True` if the beam shift was applied within tolerance, `False`
+            if the fallback stage move was used instead.
         """
         beam = beam or self.beam
         # try setting beam shift
@@ -117,7 +165,17 @@ class Microscope:
         self, delta: BeamShift, beam: BeamControl | None = None
     ) -> bool:
         """
-        Returns `True` if the beam shift is in limit.
+        Add a beam shift delta to the current shift and verify the result.
+
+        Adds `delta` to the current beam shift and delegates to `set_beam_shift_with_verification`.
+
+        Args:
+            delta: The beam shift increment in nanometers.
+            beam: The beam to shift. Defaults to the currently active beam.
+
+        Returns:
+            `True` if the resulting beam shift was applied within tolerance,
+            `False` if the fallback stage move was used instead.
         """
         beam = beam or self.beam
         return self.set_beam_shift_with_verification(beam.beam_shift + delta, beam)
@@ -125,11 +183,13 @@ class Microscope:
     @property
     def prop_names(self) -> PropertyNames:
         """
-        Get a collection of all properties of the microscope and its beams,
-        including the inner properties.
+        All available property names across the microscope and both beams.
 
-        Return:
-            MicroscopePropertyNames: Collection of all the properties of the microscope and its beams.
+        Includes standard `MicroscopeProperties` fields, manufacturer-specific
+        properties exposed by the control, and the property names of both beams.
+
+        Returns:
+            A `PropertyNames` instance listing all available property names.
         """
         properties = list(MicroscopeProperties.model_fields.keys())
         properties.extend(self._control.manufacturer_prop_names)
@@ -147,15 +207,22 @@ class Microscope:
         self, properties: GlobalProperties, beam: BeamType | None
     ) -> None:
         """
-        Load the provided properties to the microscope.
+        Apply a set of properties to the microscope and its beams.
 
-        If a beam type is specified, only the properties of the selected beam and the general
-        properties of the microscope are loaded.
+        Sets stage position, manufacturer properties, and beam properties for
+        the selected beam type. Beam shift is handled at this level rather than
+        delegating to the beam control, since it may require a stage move as a
+        fallback. After handling beam shift, the remaining beam properties are
+        delegated to the beam control.
 
         Args:
-            properties (GlobalProperties): The properties to be loaded to the microscope.
-            beam (BeamType | None): The type of beam for which properties should be loaded.
-                                If None, properties for all beams are loaded.
+            properties: The properties to apply to the microscope.
+            beam: If specified, only properties for the selected beam and the
+                microscope itself are applied. If `None`, properties for all
+                beams are applied.
+
+        Raises:
+            MicroscopeError: If a manufacturer property cannot be set.
         """
         if (microscope := properties.microscope) is not None:
             if (stage_position := microscope.stage_position) is not None:
@@ -202,13 +269,21 @@ class Microscope:
         self, properties_to_collect: PropertyNames
     ) -> GlobalProperties:
         """
-        Collect specified properties of the microscope.
+        Read the current microscope state into a `GlobalProperties` instance.
+
+        Collects only the properties listed in `properties_to_collect`.
+
+        Standard `MicroscopeProperties` fields are read from the control
+        directly; manufacturer-specific properties are retrieved via
+        `manufacturer_prop`. Unknown property names are logged as warnings
+        and excluded from the result.
 
         Args:
-            properties_to_collect (PropertyNames): The names of the properties to be collected.
+            properties_to_collect: The names of the properties to collect from
+                the microscope and each beam.
 
         Returns:
-            GlobalProperties: The collected properties of the microscope.
+            A `GlobalProperties` instance containing the collected values.
         """
         # get field names to write out
         field_names = list(
@@ -252,26 +327,21 @@ class Microscope:
             ion_beam=ion_beam_properties,
         )
 
-    def set_beam(self, type: BeamType) -> None:
-        """
-        Set the active beam to electron or ion beam.
-        """
-        match type:
-            case BeamType.ELECTRON:
-                self.beam = self._control.electron_beam
-            case BeamType.ION:
-                self.beam = self._control.ion_beam
-
     def _beam_shift_to_stage_move(self) -> NDArray[np.floating]:
         """
-        Return a 2x2 matrix converting beam shift to stage move.
-        Takes stage tilt and rotation and sample holder pretilt into consideration when calculating.
+        Compute the matrix that converts a beam shift vector to a stage move.
+
+        Accounts for stage tilt, holder pretilt, and per-axis beam-shift-to-stage-move
+        scaling factors. The resulting 2x2 matrix can be multiplied by a
+        `[beam_shift_x, beam_shift_y]` vector to obtain the equivalent stage
+        delta in nanometers.
 
         Returns:
-            A (2, 2) numpy array representing the linear transformation matrix.
+            A `(2, 2)` NumPy array representing the conversion matrix.
 
         Raises:
-            MicroscopeError: If effective tilt is too close to 90°.
+            MicroscopeError: If the effective tilt (stage tilt + holder pretilt)
+                is too close to 90°, making the conversion numerically unstable.
         """
         # get the tilt angle
         effective_tilt = (
