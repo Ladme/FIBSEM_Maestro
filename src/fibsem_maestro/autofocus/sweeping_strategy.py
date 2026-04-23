@@ -183,8 +183,9 @@ class InterleavedSweepingStrategy(SweepingStrategy):
 
             [base, s0, base, s1, base, s2, ...]
 
-        The repetition index is ignored. To ensure clean interleaving, the number
-        of sweep steps is forced to be even.
+        The repetition index is ignored. Any sweep point coinciding with the base
+        value is dropped to avoid redundant measurements, so the output may contain
+        fewer than `2 * steps` elements.
 
         Args:
             base (float):
@@ -192,8 +193,7 @@ class InterleavedSweepingStrategy(SweepingStrategy):
             range (tuple[float, float]):
                 Relative sweep range `(min_offset, max_offset)` applied to the base.
             steps (int):
-                Number of sweep points to generate. If odd, it is reduced by one
-                to allow clean interleaving.
+                Number of sweep points to generate before filtering.
             repetition (int):
                 Sweep repetition index (ignored by this strategy).
 
@@ -203,15 +203,13 @@ class InterleavedSweepingStrategy(SweepingStrategy):
         """
         _ = repetition
 
-        # force an even number of steps for clean base-value interleaving
-        if steps % 2 == 1:
-            steps -= 1
-
         sweep_space = np.linspace(base + range[0], base + range[1], steps)
+
+        # drop any sweep point coinciding with base to avoid redundant measurements
+        sweep_space = sweep_space[~np.isclose(sweep_space, base)]
 
         interleave = np.ones(len(sweep_space)) * base
 
-        # merge arrays in interleaved fashion
         return np.dstack((interleave, sweep_space)).reshape(-1)
 
     def evaluate(self, results: list[AutofocusResult]) -> float:

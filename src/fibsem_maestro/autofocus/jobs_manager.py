@@ -71,6 +71,12 @@ class JobsManager:
         with self._results_lock:
             return list(self._results)
 
+    def wait(self) -> None:
+        """
+        Block until all submitted jobs finish, but do not return their results.
+        """
+        self._drain()
+
     def clear(self) -> None:
         """Discard all accumulated results, preparing for a fresh sweep."""
         with self._results_lock:

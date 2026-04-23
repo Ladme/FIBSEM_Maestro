@@ -92,8 +92,7 @@ def test_basic_sweep_space_matches_registry_entry():
     assert obj is BasicSweepingStrategy
 
 
-def test_basic_interleaved_sweeping_strategy_generate_forces_even_steps():
-    # steps=5 -> forced to 4 -> output length should be 2*4 = 8
+def test_basic_interleaved_sweeping_strategy_generate_skips_base():
     out = InterleavedSweepingStrategy(
         InterleavedStrategySettings(min_diff=0.1)
     ).generate(10.0, (-1.0, 1.0), 5, 0)

@@ -56,10 +56,12 @@ class Sweeping:
         return self._sweep_attribute
 
     def sweep(self) -> Iterator[SweepStep]:
+        base = self.get_attribute_value()
+
         steps = (
             (rep, s)
             for rep in range(self._settings.cycles)
-            for s in self._sweep_inner(rep)
+            for s in self._sweep_inner(rep, base)
         )
 
         for index, (repetition, value) in enumerate(steps):
@@ -91,7 +93,7 @@ class Sweeping:
         """
         return self._sweeping_strategy.evaluate(results)
 
-    def _sweep_inner(self, repetition: int) -> Iterator[Any]:
+    def _sweep_inner(self, repetition: int, base: float) -> Iterator[Any]:
         """
         Generate valid sweep values for a single repetition.
 
@@ -102,13 +104,15 @@ class Sweeping:
         Args:
             repetition (int):
                 Index of the current sweep repetition, passed to the sweeping strategy.
+            base:
+                Base attribute value arround which the sweep values are generated.
 
         Yields:
             float:
                 Valid sweep values within the beam's allowed limits.
         """
         sweep_space = self._sweeping_strategy.generate(
-            self.get_attribute_value(),
+            base,
             self._settings.range,
             self._settings.steps,
             repetition,

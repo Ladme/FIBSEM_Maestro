@@ -120,28 +120,35 @@ class Autofunction(Action):
         Args:
             slice_number: The current slice index, used for frequency gating.
         """
+        # if we have a running autofocus, continue executing it
         if self._active_gen is not None:
             # mid-execution: keep going regardless of gating checks
             self._advance()
+            if self._active_gen is not None:  # type: ignore
+                self.write_properties(self.read_properties(), self._props_store.next)
             return
 
         # remove the results from previous slice
         self._jobs.clear()
 
+        # wait for the sharpness of the image from the previous slice
         image_sharpness = self._imaging.wait_for_sharpness()
         self._txt_log.debug(f"Last image sharpness: {image_sharpness}.")
+        # evaluate whether the autofocus should be performed based on the sharpness of the image from the previous slice
         if not self._should_execute(slice_number, image_sharpness):
-            # copy the props file to the next slice
+            # if the autofocus should not be run, we still need to copy the props file to the next slice
             self.write_properties(self.read_properties(), self._props_store.next)
             return
 
-        # read and set properties of the microscope from the YAML file
+        # read the microscope properties for autofocus from a file and set them
         self.read_and_set_properties()
 
         # execute the autofocus
         self._active_gen = self._mode.execute(self._ctx, self._jobs)
         self._advance()
 
+        # if we have started a long-running autofocus, we need to explicitly copy
+        # the microscope properties for the autofocus to the next slice
         # type checker may think that self._active_gen cannot be None, but we can set it to None inside self._advance()
         if self._active_gen is not None:  # type: ignore
             # mid-sweep - copy the props file to the next slice
@@ -179,6 +186,8 @@ class Autofunction(Action):
         assert self._active_gen is not None
         try:
             next(self._active_gen)
+            # we always need to wait for the current jobs to finish
+            self._jobs.wait()
         except StopIteration:
             results = self._jobs.wait_and_collect()
             best = self._sweeping.evaluate_best_sweep(results)
