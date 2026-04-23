@@ -11,6 +11,9 @@ from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
+from fibsem_maestro.microscope.abstract_control.microscope_control import (
+    MicroscopeControl,
+)
 from fibsem_maestro.microscope.error import MicroscopeError
 from fibsem_maestro.microscope.microscope_registry import MicroscopeRegistry
 from fibsem_maestro.properties.global_properties import GlobalProperties
@@ -51,6 +54,11 @@ class Microscope:
     def ion_beam(self) -> BeamControl:
         """The ion beam control interface."""
         return self._control.ion_beam
+
+    @property
+    def control(self) -> MicroscopeControl:
+        """The microscope control interface."""
+        return self._control
 
     def set_beam(self, type: BeamType) -> None:
         """Set the active beam to the electron or ion beam.

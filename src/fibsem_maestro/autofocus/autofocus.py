@@ -11,10 +11,17 @@ from typing import TYPE_CHECKING
 from fibsem_maestro.autofocus.autofocus_registry import AutofocusRegistry
 from fibsem_maestro.autofocus.error import AutofunctionError
 from fibsem_maestro.core.image_tools import get_stripes
+from fibsem_maestro.microscope.autoscript_control.microscope_control import (
+    AutoscriptMicroscopeControl,
+)
 from fibsem_maestro.settings.autofunction_settings import LineMode as LineModeSettings
 
 if TYPE_CHECKING:
     from collections.abc import Generator
+
+    from autoscript_sdb_microscope_client.sdb_microscope_client import (
+        SdbMicroscopeClient,
+    )
 
     from fibsem_maestro.autofocus.autofunction_context import AutofunctionContext
     from fibsem_maestro.autofocus.jobs_manager import JobsManager
@@ -313,13 +320,184 @@ class StepMode(AutofocusMode):
             jobs.submit(ctx.make_sharpness_job(image, previous_step))
 
 
-"""
-@AutofocusRegistry.register("manufacturer")
-class ManufacturerMode(AutofocusMode):
-    def __init__(self, autofunction: Autofunction, settings: ManufacturerModeSettings):
-        self._af = autofunction
-        _ = settings
+@AutofocusRegistry.register("autoscript")
+class AutoscriptMode(AutofocusMode):
+    """
+    Autofocus mode that delegates to the Autoscript manufacturer routines.
 
-    def execute(self) -> AutofocusStatus:
-        raise NotImplementedError("Not yet implemented.")
-"""
+    Executes the appropriate built-in autofunction (autofocus, autostigmator,
+    lens alignment, or source tilt correction) based on the configured sweep
+    attribute. The stage is temporarily displaced to a nearby focusing area
+    for the duration of the operation.
+
+    Raises:
+        AutofunctionError: If the microscope is not Autoscript-controlled, or
+            if the sweep attribute is not supported.
+    """
+
+    def execute(
+        self, ctx: AutofunctionContext, jobs: JobsManager
+    ) -> Generator[None, None, None]:
+        """
+        Execute the manufacturer autofunction for the configured sweep attribute.
+
+        Args:
+            ctx: Shared execution environment providing access to the
+                microscope, sweeping controller, and logger.
+            jobs: Unused in this mode - manufacturer autofunctions do not
+                submit sharpness jobs.
+
+        Raises:
+            AutofunctionError: If the microscope is not Autoscript-controlled,
+                or if the sweep attribute is not supported.
+        """
+
+        _ = jobs
+
+        if not isinstance(ctx.microscope.control, AutoscriptMicroscopeControl):
+            raise AutofunctionError(
+                "Microscope must be an Autoscript-controlled microscope."
+            )
+
+        autoscript_microscope: SdbMicroscopeClient = (
+            ctx.microscope.control.autoscript_microscope  # type: ignore
+        )
+
+        with ctx.temporary_stage_x_offset():
+            match ctx.sweeping.sweep_attribute:
+                case "working_distance":
+                    self._run_autofocus(ctx, autoscript_microscope)
+                case "stigmator":
+                    self._run_autostigmator(ctx, autoscript_microscope)
+                case "lens_alignment":
+                    self._run_auto_lens_alignment(ctx, autoscript_microscope)
+                case "source_tilt":
+                    self._run_auto_source_tilt(ctx, autoscript_microscope)
+                case _:
+                    raise AutofunctionError(
+                        f"Unsupported sweeping variable '{ctx.sweeping.sweep_attribute}' for AutoscriptMode."
+                    )
+
+        yield from ()
+
+    def _run_autofocus(
+        self,
+        ctx: AutofunctionContext,
+        autoscript_microscope: SdbMicroscopeClient,
+    ) -> None:
+        """
+        Run the manufacturer autofocus routine.
+
+        Args:
+            ctx: Shared execution environment.
+            autoscript_microscope: The Autoscript microscope client instance.
+        """
+        from autoscript_sdb_microscope_client.structures import RunAutoFocusSettings
+
+        beam = ctx.microscope.beam
+        if (scanning_area := beam.scanning_area).is_full_frame():
+            settings = RunAutoFocusSettings()
+        else:
+            settings = RunAutoFocusSettings(reduced_area=scanning_area.to_autoscript())
+
+        autoscript_microscope.auto_functions.run_auto_focus(settings)
+
+    def _run_autostigmator(
+        self,
+        ctx: AutofunctionContext,
+        autoscript_microscope: SdbMicroscopeClient,
+    ) -> None:
+        """
+        Run the manufacturer autostigmator routine.
+
+        Uses the OngEtAl method with the beam's current imaging parameters.
+
+        Args:
+            ctx: Shared execution environment.
+            autoscript_microscope: The Autoscript microscope client instance.
+        """
+        from autoscript_sdb_microscope_client.structures import RunAutoStigmatorSettings
+
+        beam = ctx.microscope.beam
+        settings = RunAutoStigmatorSettings(
+            method="OngEtAl",
+            dwell_time=beam.dwell_time,
+            resolution=str(beam.resolution),
+            horizontal_field_width=beam.horizontal_field_width * 1e-9,
+            reduced_area=beam.scanning_area.to_autoscript(),
+            line_integration=beam.line_integration,
+        )
+
+        autoscript_microscope.auto_functions.run_auto_stigmator(settings)
+
+    def _run_auto_lens_alignment(
+        self,
+        ctx: AutofunctionContext,
+        autoscript_microscope: SdbMicroscopeClient,
+    ) -> None:
+        """
+        Run the manufacturer lens alignment routine.
+
+        Args:
+            ctx: Shared execution environment.
+            autoscript_microscope: The Autoscript microscope client instance.
+        """
+        from autoscript_sdb_microscope_client.structures import (
+            RunAutoLensAlignmentSettings,
+        )
+
+        beam = ctx.microscope.beam
+        if (scanning_area := beam.scanning_area).is_full_frame():
+            settings = RunAutoLensAlignmentSettings(
+                dwell_time=beam.dwell_time,
+                resolution=str(beam.resolution),
+                line_integration=beam.line_integration,
+            )
+        else:
+            settings = RunAutoLensAlignmentSettings(
+                dwell_time=beam.dwell_time,
+                resolution=str(beam.resolution),
+                line_integration=beam.line_integration,
+                reduced_area=scanning_area.to_autoscript(),
+            )
+
+        autoscript_microscope.auto_functions.run_auto_lens_alignment(settings)
+
+    def _run_auto_source_tilt(
+        self,
+        ctx: AutofunctionContext,
+        autoscript_microscope: SdbMicroscopeClient,
+    ) -> None:
+        """
+        Run the manufacturer source tilt correction routine.
+
+        Temporarily switches the detector to TLD in secondary electron mode,
+        which is required by the Volumescope source tilt method. The original
+        detector settings are restored afterward, even if the routine raises.
+
+        Args:
+            ctx: Shared execution environment.
+            autoscript_microscope: The Autoscript microscope client instance.
+        """
+        from autoscript_sdb_microscope_client.enumerations import DetectorMode
+        from autoscript_sdb_microscope_client.structures import (
+            RunAutoSourceTiltSettings,
+        )
+
+        beam = ctx.microscope.beam
+        settings = RunAutoSourceTiltSettings(
+            method="Volumescope",
+            contrast=beam.detector_contrast,
+            brightness=beam.detector_brightness,
+            dwell_time=beam.dwell_time,
+        )
+
+        detector_type_backup = autoscript_microscope.detector.type.value
+        detector_mode_backup = autoscript_microscope.detector.mode.value
+        autoscript_microscope.detector.type.value = "TLD"
+        autoscript_microscope.detector.mode.value = DetectorMode.SECONDARY_ELECTRONS
+        try:
+            autoscript_microscope.auto_functions.run_auto_source_tilt(settings)
+        finally:
+            autoscript_microscope.detector.type.value = detector_type_backup
+            autoscript_microscope.detector.mode.value = detector_mode_backup

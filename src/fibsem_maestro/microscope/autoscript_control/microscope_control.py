@@ -55,6 +55,11 @@ class AutoscriptMicroscopeControl(MicroscopeControl):
         )
 
     @property
+    def autoscript_microscope(self) -> SdbMicroscopeClient:
+        """The actual Autoscript microscope instance."""
+        return self._microscope
+
+    @property
     def stage_position(self):
         self._microscope.specimen.stage.unlink()
 
