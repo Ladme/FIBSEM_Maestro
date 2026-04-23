@@ -17,10 +17,16 @@ class Sweeping:
     """
     Controller for parameter sweeping on a microscope beam.
 
-    This class manages sweeping a single configurable attribute of a selected
-    microscope beam over a range of values. It uses a registered sweeping strategy
-    to generate candidate values and yields only values that are within the hardware
-    limits of the beam.
+    Manages sweeping a single configurable attribute of a beam over a range
+    of values. A registered sweeping strategy generates candidate values for
+    each repetition cycle, and only values within the beam's hardware limits
+    are yielded. Out-of-range values are logged as warnings and skipped.
+
+    Args:
+        beam: The beam control whose attribute will be swept.
+        settings: Sweeping configuration including the target attribute, value
+            range, number of steps, number of cycles, and strategy.
+        txt_log: Logger for sweep-related status and warning messages.
     """
 
     def __init__(
@@ -29,17 +35,6 @@ class Sweeping:
         settings: SweepingSettings,
         txt_log: TextLogger,
     ):
-        """
-        Initialize a sweeping controller.
-
-        Args:
-            beam (BeamControl):
-                BeamControl object.
-            settings (SweepingSettings):
-                Initial sweeping configuration.
-            txt_log (TextLogger):
-                Logger for sweep-related messages.
-        """
         self._beam = beam
         self._txt_log = txt_log
 
@@ -53,9 +48,20 @@ class Sweeping:
 
     @property
     def sweep_attribute(self) -> str:
+        """Name of the beam attribute being swept."""
         return self._sweep_attribute
 
     def sweep(self) -> Iterator[SweepStep]:
+        """
+        Iterate over all sweep steps across all configured cycles.
+
+        Reads the current attribute value once before the sweep begins and
+        uses it as the base for all generated values. Each yielded step
+        carries its repetition index, value, and global step index.
+
+        Yields:
+            SweepStep: The next valid sweep step in sequence.
+        """
         base = self.get_attribute_value()
 
         steps = (
@@ -76,40 +82,51 @@ class Sweeping:
         configured attribute name.
 
         Returns:
-            Any:
-                Current value of the beam attribute being swept.
+            Current value of the beam attribute being swept.
         """
         return getattr(self._beam, self._sweep_attribute)
 
     def set_attribute_value(self, value: Any) -> None:
         """
-        Set the sweeping attribute of the beam to the specified value.
+        Set the sweep target attribute on the beam to the given value.
+
+        Args:
+            value: The value to assign to the beam attribute.
         """
         setattr(self._beam, self._sweep_attribute, value)
 
     def evaluate_best_sweep(self, results: list[AutofocusResult]) -> float:
         """
-        Evaluate the best sweep value based on the sweeping strategy and return it.
+        Determine the best sweep value from a list of autofocus results.
+
+        Delegates to the configured sweeping strategy's evaluation method.
+
+        Args:
+            results: Autofocus results collected during the sweep, one per submitted job.
+
+        Returns:
+            The beam attribute value corresponding to the best autofocus result,
+            as determined by the sweeping strategy.
         """
         return self._sweeping_strategy.evaluate(results)
 
     def _sweep_inner(self, repetition: int, base: float) -> Iterator[Any]:
         """
-        Generate valid sweep values for a single repetition.
+        Generate valid sweep values for a single repetition cycle.
 
-        This method generates candidate values using the configured sweeping
-        strategy and filters out values that fall outside the hardware limits
-        of the target beam.
+        Produces candidate values via the sweeping strategy and filters out
+        any that fall outside the beam's hardware limits. Out-of-range values
+        are logged as warnings and skipped.
 
         Args:
-            repetition (int):
-                Index of the current sweep repetition, passed to the sweeping strategy.
-            base:
-                Base attribute value arround which the sweep values are generated.
+            repetition: Index of the current sweep cycle, passed to the
+                sweeping strategy to allow direction-alternating strategies
+                such as zigzag.
+            base: The attribute value at the start of the sweep, used as the
+                centre point around which candidate values are generated.
 
         Yields:
-            float:
-                Valid sweep values within the beam's allowed limits.
+            Valid sweep values that lie within the beam's hardware limits.
         """
         sweep_space = self._sweeping_strategy.generate(
             base,
