@@ -67,7 +67,7 @@ AutofocusMode = Annotated[
 ]
 
 
-class AutofunctionSettings(BaseSettings):
+class AutofocusSettings(BaseSettings):
     properties_file: Path = Field(
         default=Path("autofunction_props.yaml"),
         description="Path to a file storing properties of the microscope used for autofocus.",

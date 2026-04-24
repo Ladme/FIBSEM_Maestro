@@ -2,9 +2,9 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
-class AutofunctionError(Exception):
+class AutofocusError(Exception):
     """
-    Exception raised for errors related to autofunction registration or usage.
+    Exception raised for errors related to autofocus usage.
     """
 
     pass

@@ -6,7 +6,7 @@ from contextlib import contextmanager
 
 import numpy as np
 
-from fibsem_maestro.autofocus.error import AutofunctionError
+from fibsem_maestro.autofocus.error import AutofocusError
 from fibsem_maestro.autofocus.result import AutofocusResult
 from fibsem_maestro.autofocus.sweep_step import SweepStep
 from fibsem_maestro.autofocus.sweeping import Sweeping
@@ -16,7 +16,7 @@ from fibsem_maestro.criterion.criterion import Criterion
 from fibsem_maestro.imaging.imaging import Imaging
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope import Microscope
-from fibsem_maestro.settings.autofunction_settings import AutofunctionSettings
+from fibsem_maestro.settings.autofocus_settings import AutofocusSettings
 
 
 class AutofunctionContext:
@@ -27,7 +27,7 @@ class AutofunctionContext:
         sweeping: Sweeping | None,
         criterion: Criterion | None,
         imaging: Imaging,
-        settings: AutofunctionSettings,
+        settings: AutofocusSettings,
         txt_log: TextLogger,
     ):
         """
@@ -109,12 +109,12 @@ class AutofunctionContext:
 
         def fn() -> AutofocusResult:
             if self._criterion is None:
-                raise AutofunctionError("Criterion for autofunction is undefined.")
+                raise AutofocusError("Criterion for autofunction is undefined.")
 
             try:
                 value = self._criterion.calculate_sharpness(image)
                 if np.isnan(value):
-                    raise AutofunctionError("Sharpness calculation returned NaN")
+                    raise AutofocusError("Sharpness calculation returned NaN")
                 self.txt_log.info(f"Sharpness calculation for sweep {sweep}: {value}")
                 return AutofocusResult(value, sweep)
             except Exception as exc:

@@ -8,7 +8,7 @@ from collections import defaultdict
 import numpy as np
 from numpy.typing import NDArray
 
-from fibsem_maestro.autofocus.error import AutofunctionError
+from fibsem_maestro.autofocus.error import AutofocusError
 from fibsem_maestro.autofocus.result import AutofocusResult
 from fibsem_maestro.autofocus.sweeping_registry import SweepingRegistry
 from fibsem_maestro.settings.sweeping_settings import (
@@ -139,7 +139,7 @@ class BasicSweepingStrategy(SweepingStrategy):
                 The sweep value with the highest mean resolution.
 
         Raises:
-            AutofunctionError:
+            AutofocusError:
                 If no autofocus results are provided.
         """
         resolution_sum: dict[float, float] = defaultdict(float)
@@ -151,7 +151,7 @@ class BasicSweepingStrategy(SweepingStrategy):
             resolution_count[r.sweep.value] += 1
 
         if not resolution_sum:
-            raise AutofunctionError("No autofocus results provided")
+            raise AutofocusError("No autofocus results provided")
 
         # calculate mean resolution for each sweep value
         mean_by_sweep = {
@@ -231,7 +231,7 @@ class InterleavedSweepingStrategy(SweepingStrategy):
                 baseline sweep value is returned.
 
         Raises:
-            AutofunctionError:
+            AutofocusError:
                 If fewer than two results are provided.
         """
         # sort results based on sweep index so that each result can
@@ -239,7 +239,7 @@ class InterleavedSweepingStrategy(SweepingStrategy):
         sorted_results = sorted(results, key=lambda r: r.sweep.index)
 
         if len(sorted_results) < 2:
-            raise AutofunctionError(
+            raise AutofocusError(
                 "Need at least two results to compute delta resolutions."
             )
 

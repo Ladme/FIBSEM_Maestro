@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from numpy.typing import NDArray
 
-from fibsem_maestro.autofocus.error import AutofunctionError
+from fibsem_maestro.autofocus.error import AutofocusError
 
 if TYPE_CHECKING:
     from fibsem_maestro.autofocus.sweeping_strategy import SweepingStrategy
@@ -44,10 +44,10 @@ class SweepingRegistry:
             type[SweepingStrategy]: The registered sweeping strategy class.
 
         Raises:
-            AutofunctionError: If the given name is not registered.
+            AutofocusError: If the given name is not registered.
         """
         if name not in cls._registry:
-            raise AutofunctionError(f"Sweeping strategy '{name}' is not registered.")
+            raise AutofocusError(f"Sweeping strategy '{name}' is not registered.")
 
         return cls._registry[name]
 
@@ -68,14 +68,14 @@ class SweepingRegistry:
                 and returns it unchanged.
 
         Raises:
-            AutofunctionError: If the given name is already registered.
+            AutofocusError: If the given name is already registered.
         """
 
         def decorator(
             control_cls: type["SweepingStrategy"],
         ) -> type["SweepingStrategy"]:
             if name in cls._registry:
-                raise AutofunctionError(
+                raise AutofocusError(
                     f"Sweeping strategy '{name}' is already registered."
                 )
 

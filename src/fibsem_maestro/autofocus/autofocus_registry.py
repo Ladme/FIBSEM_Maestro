@@ -5,8 +5,8 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from fibsem_maestro.autofocus.autofocus import AutofocusMode
-from fibsem_maestro.autofocus.error import AutofunctionError
+    from fibsem_maestro.autofocus.autofocus_mode import AutofocusMode
+from fibsem_maestro.autofocus.error import AutofocusError
 
 
 class AutofocusRegistry:
@@ -36,10 +36,10 @@ class AutofocusRegistry:
             type[AutofocusMode]: The registered autofocus class.
 
         Raises:
-            AutofunctionError: If the given name is not registered.
+            AutofocusError: If the given name is not registered.
         """
         if name not in cls._registry:
-            raise AutofunctionError(f"Autofocus mode '{name}' is not registered.")
+            raise AutofocusError(f"Autofocus mode '{name}' is not registered.")
 
         return cls._registry[name]
 
@@ -60,16 +60,14 @@ class AutofocusRegistry:
                 and returns it unchanged.
 
         Raises:
-            AutofunctionError: If the given name is already registered.
+            AutofocusError: If the given name is already registered.
         """
 
         def decorator(
             control_cls: type["AutofocusMode"],
         ) -> type["AutofocusMode"]:
             if name in cls._registry:
-                raise AutofunctionError(
-                    f"Autofocus mode '{name}' is already registered."
-                )
+                raise AutofocusError(f"Autofocus mode '{name}' is already registered.")
 
             cls._registry[name] = control_cls
             return control_cls
