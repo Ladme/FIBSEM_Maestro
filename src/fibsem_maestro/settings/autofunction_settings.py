@@ -6,9 +6,10 @@ from dataclasses import field
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from fibsem_maestro.core.beam_type import BeamType
+from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
 from fibsem_maestro.settings.base_settings import BaseSettings
 from fibsem_maestro.settings.criterion_settings import CriterionSettings
 from fibsem_maestro.settings.property_names import PropertyNames
@@ -17,10 +18,22 @@ from fibsem_maestro.settings.sweeping_settings import SweepingSettings
 
 class BasicMode(BaseSettings):
     type: Literal["basic"] = "basic"
+    sweeping: SweepingSettings = Field(
+        description="Settings for sweeping to be used.",
+    )
+    criterion: CriterionSettings = Field(
+        description="Setting for criterion to be used.",
+    )
 
 
 class LineMode(BaseSettings):
     type: Literal["line"] = "line"
+    sweeping: SweepingSettings = Field(
+        description="Settings for sweeping to be used.",
+    )
+    criterion: CriterionSettings = Field(
+        description="Setting for criterion to be used.",
+    )
     pre_imaging_delay: Annotated[
         float,
         Field(
@@ -37,14 +50,20 @@ class LineMode(BaseSettings):
 
 class StepMode(BaseSettings):
     type: Literal["step"] = "step"
+    sweeping: SweepingSettings = Field(
+        description="Settings for sweeping to be used.",
+    )
+    criterion: CriterionSettings = Field(
+        description="Setting for criterion to be used.",
+    )
 
 
-class ManufacturerMode(BaseSettings):
-    type: Literal["manufacturer"] = "manufacturer"
+class AutoscriptMode(BaseSettings):
+    type: Literal["autoscript"] = "autoscript"
 
 
 AutofocusMode = Annotated[
-    BasicMode | LineMode | StepMode | ManufacturerMode, Field(discriminator="type")
+    BasicMode | LineMode | StepMode | AutoscriptMode, Field(discriminator="type")
 ]
 
 
@@ -61,8 +80,10 @@ class AutofunctionSettings(BaseSettings):
         ),
     ]
     mode: AutofocusMode = Field(
-        default=BasicMode(),
         description="Autofocus mode to use.",
+    )
+    target_attribute: str = Field(
+        description="Attribute to optimize via the autofocus.",
     )
     beam_type: Annotated[
         BeamType,
@@ -84,9 +105,12 @@ class AutofunctionSettings(BaseSettings):
         default=1,
         description="Maximal number of threads used for calculation.",
     )
-    sweeping: SweepingSettings = Field(
-        description="Settings for sweeping to be used.",
-    )
-    criterion: CriterionSettings = Field(
-        description="Setting for criterion to be used.",
-    )
+
+    @field_validator("target_attribute")
+    def validate_target_attribute(cls, a: str):
+        beam_attributes = BeamControl.get_property_names()
+        if a not in beam_attributes:
+            raise ValueError(
+                f"Invalid target attribute '{a}'. Allowed: {beam_attributes}"
+            )
+        return a

@@ -16,7 +16,10 @@ from fibsem_maestro.imaging.imaging import Imaging
 from fibsem_maestro.logging.image.image_logger import ImageLogger
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope import Microscope
-from fibsem_maestro.settings.autofunction_settings import AutofunctionSettings
+from fibsem_maestro.settings.autofunction_settings import (
+    AutofunctionSettings,
+    AutoscriptMode,
+)
 from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.store.props.props_store import PropsStore
 
@@ -45,23 +48,32 @@ class Autofunction(Action):
 
         self._settings = settings
 
-        self._sweeping = Sweeping(
-            self._microscope.electron_beam
-            if self._settings.beam_type is BeamType.ELECTRON
-            else self._microscope.ion_beam,
-            self._settings.sweeping,
-            self._txt_log.derive("sweeping"),
-        )
+        self._mode = AutofocusRegistry.get(self._settings.mode.type)()
 
-        self._criterion = Criterion(
-            f"{self._name} criterion",
-            self._settings.criterion,
-            self._txt_log.derive("criterion"),
-            self._img_log,
-        )
+        if isinstance(self._settings.mode, AutoscriptMode):
+            # sweeping and criterion are not used in the Autoscript mode
+            self._sweeping = None
+            self._criterion = None
+        else:
+            self._sweeping = Sweeping(
+                self._microscope.electron_beam
+                if self._settings.beam_type is BeamType.ELECTRON
+                else self._microscope.ion_beam,
+                self._settings.mode.sweeping,
+                self._settings.target_attribute,
+                self._txt_log.derive("sweeping"),
+            )
+
+            self._criterion = Criterion(
+                f"{self._name} criterion",
+                self._settings.mode.criterion,
+                self._txt_log.derive("criterion"),
+                self._img_log,
+            )
 
         self._ctx = AutofunctionContext(
             self._microscope,
+            self._settings.target_attribute,
             self._sweeping,
             self._criterion,
             self._imaging,
@@ -72,8 +84,6 @@ class Autofunction(Action):
         self._jobs = JobsManager(
             executor=ThreadPoolExecutor(self._settings.max_workers),
         )
-
-        self._mode = AutofocusRegistry.get(self._settings.mode.type)()
 
         self._active_gen: Generator[None, None, None] | None = None
 
@@ -189,6 +199,9 @@ class Autofunction(Action):
             # we always need to wait for the current jobs to finish
             self._jobs.wait()
         except StopIteration:
+            if self._sweeping is None:
+                return
+
             results = self._jobs.wait_and_collect()
             best = self._sweeping.evaluate_best_sweep(results)
             self._txt_log.info(f"Best sweep attribute value: {best}.")

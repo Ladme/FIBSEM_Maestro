@@ -153,6 +153,7 @@ def main():
                 # drift_x=-10,
                 # drift_y=-10,
                 drift_z=1_000,
+                # drift_z=10_000,
             )
             print(control._sample.drift)  # pyright: ignore[reportAttributeAccessIssue]
         drift.correct_drift()

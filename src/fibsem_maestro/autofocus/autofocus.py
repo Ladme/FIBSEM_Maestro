@@ -71,13 +71,16 @@ class BasicMode(AutofocusMode):
     def execute(
         self, ctx: AutofunctionContext, jobs: JobsManager
     ) -> Generator[None, None, None]:
+        if (sweeping := ctx.sweeping) is None:
+            raise AutofunctionError("Sweeping for basic mode autofocus is not defined.")
+
         with ctx.temporary_stage_x_offset():
-            for sweep in ctx.sweeping.sweep():
+            for sweep in sweeping.sweep():
                 ctx.txt_log.info(
                     f"Autofunction step {sweep.index + 1} "
                     f"(repetition {sweep.repetition + 1}): value {sweep.value}"
                 )
-                ctx.sweeping.set_attribute_value(sweep.value)
+                sweeping.set_attribute_value(sweep.value)
                 image = ctx.microscope.beam.grab_frame()
                 jobs.submit(ctx.make_sharpness_job(image, sweep))
 
@@ -89,11 +92,14 @@ class LineMode(AutofocusMode):
     def execute(
         self, ctx: AutofunctionContext, jobs: JobsManager
     ) -> Generator[None, None, None]:
+        if (sweeping := ctx.sweeping) is None:
+            raise AutofunctionError("Sweeping for line mode autofocus is not defined.")
+
         with ctx.temporary_stage_x_offset():
             line_time = self._estimate_line_time(ctx)
 
             # generate sweep steps once so both acquisition and processing see the same steps
-            sweep_steps = list(ctx.sweeping.sweep())
+            sweep_steps = list(sweeping.sweep())
 
             self._variable_sweeping_during_scan(ctx, line_time, sweep_steps)
 
@@ -166,6 +172,7 @@ class LineMode(AutofocusMode):
         """
         mode = ctx.settings.mode
         assert isinstance(mode, LineModeSettings)
+        assert ctx.sweeping is not None
 
         pre_delay = mode.pre_imaging_delay
         hold = mode.lines_per_sweep * line_time
@@ -284,9 +291,11 @@ class StepMode(AutofocusMode):
     def execute(
         self, ctx: AutofunctionContext, jobs: JobsManager
     ) -> Generator[None, None, None]:
+        if (sweeping := ctx.sweeping) is None:
+            raise AutofunctionError("Sweeping for step mode autofocus is not defined.")
         previous_step: SweepStep | None = None
 
-        for sweep in ctx.sweeping.sweep():
+        for sweep in sweeping.sweep():
             ctx.txt_log.info(
                 f"Autofunction step {sweep.index + 1} "
                 f"(repetition {sweep.repetition + 1}): value {sweep.value}"
@@ -304,7 +313,7 @@ class StepMode(AutofocusMode):
                     jobs.submit(ctx.make_sharpness_job(image, previous_step))
 
             # set the value that the upcoming acquisition will use
-            ctx.sweeping.set_attribute_value(sweep.value)
+            sweeping.set_attribute_value(sweep.value)
 
             previous_step = sweep
             yield
@@ -364,7 +373,7 @@ class AutoscriptMode(AutofocusMode):
         )
 
         with ctx.temporary_stage_x_offset():
-            match ctx.sweeping.sweep_attribute:
+            match ctx.target_attribute:
                 case "working_distance":
                     self._run_autofocus(ctx, autoscript_microscope)
                 case "stigmator":
@@ -375,7 +384,7 @@ class AutoscriptMode(AutofocusMode):
                     self._run_auto_source_tilt(ctx, autoscript_microscope)
                 case _:
                     raise AutofunctionError(
-                        f"Unsupported sweeping variable '{ctx.sweeping.sweep_attribute}' for AutoscriptMode."
+                        f"Unsupported sweeping variable '{ctx.target_attribute}' for AutoscriptMode."
                     )
 
         yield from ()

@@ -23,8 +23,9 @@ class AutofunctionContext:
     def __init__(
         self,
         microscope: Microscope,
-        sweeping: Sweeping,
-        criterion: Criterion,
+        target_attribute: str,
+        sweeping: Sweeping | None,
+        criterion: Criterion | None,
         imaging: Imaging,
         settings: AutofunctionSettings,
         txt_log: TextLogger,
@@ -34,6 +35,7 @@ class AutofunctionContext:
 
         Args:
             microscope: The microscope instance.
+            target_attribute: Attribute which is optimized during autofocus.
             sweeping: Controller for sweeping the target beam attribute.
             criterion: Sharpness criterion used to evaluate acquired images.
             imaging: Instance controlling the image aquisition.
@@ -41,6 +43,7 @@ class AutofunctionContext:
             txt_log: Logger for diagnostic and status messages.
         """
         self.microscope = microscope
+        self.target_attribute = target_attribute
         self.sweeping = sweeping
         self.imaging = imaging
         self.txt_log = txt_log
@@ -100,10 +103,14 @@ class AutofunctionContext:
 
         Returns:
             A zero-argument callable that returns an `AutofocusResult` when
-            invoked, or raises an exception if sharpness calculation fails.
+            invoked, or raises an exception if sharpness calculation fails
+            or if the criterion is not defined.
         """
 
         def fn() -> AutofocusResult:
+            if self._criterion is None:
+                raise AutofunctionError("Criterion for autofunction is undefined.")
+
             try:
                 value = self._criterion.calculate_sharpness(image)
                 if np.isnan(value):

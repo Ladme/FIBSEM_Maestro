@@ -24,8 +24,9 @@ class Sweeping:
 
     Args:
         beam: The beam control whose attribute will be swept.
-        settings: Sweeping configuration including the target attribute, value
+        settings: Sweeping configuration including the value
             range, number of steps, number of cycles, and strategy.
+        sweep_attribute: Name of the microscope property that should be swept.
         txt_log: Logger for sweep-related status and warning messages.
     """
 
@@ -33,6 +34,7 @@ class Sweeping:
         self,
         beam: BeamControl,
         settings: SweepingSettings,
+        sweep_attribute: str,
         txt_log: TextLogger,
     ):
         self._beam = beam
@@ -40,7 +42,7 @@ class Sweeping:
 
         self._settings = settings
 
-        self._sweep_attribute = settings.target
+        self._sweep_attribute = sweep_attribute
 
         self._sweeping_strategy = SweepingRegistry.get(self._settings.strategy.type)(
             self._settings.strategy
