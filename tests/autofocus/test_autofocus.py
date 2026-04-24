@@ -375,6 +375,23 @@ def test_advance_does_not_evaluate_sweep_for_autoscript_mode():
     assert af._active_gen is None
 
 
+def test_advance_writes_props_file_for_autoscript_mode():
+    settings = AutofocusSettings(
+        mode=AutoscriptMode(),
+        target_attribute="working_distance",
+    )
+    af = _make_autofocus(settings=settings)
+
+    def single_step_gen() -> Generator[None, None, None]:
+        yield
+
+    af._active_gen = single_step_gen()
+    af._advance()
+    af._advance()
+
+    assert af._props_store.next.exists(af.props_file)
+
+
 def _make_autofocus_with_props(
     txt_log: MemoryTextLogger | None = None,
     settings: AutofocusSettings | None = None,

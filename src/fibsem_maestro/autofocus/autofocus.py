@@ -263,19 +263,15 @@ class Autofocus(Action):
             # we always need to wait for the current jobs to finish
             self._jobs.wait()
         except StopIteration:
-            if self._sweeping is None:
-                self._active_gen.close()
-                self._active_gen = None
-                return
+            if self._sweeping is not None:
+                results = self._jobs.wait_and_collect()
 
-            results = self._jobs.wait_and_collect()
-            best = self._sweeping.evaluate_best_sweep(results)
-            self._txt_log.info(f"Best sweep attribute value: {best}.")
+                # set the microscope to the best attribute value
+                best = self._sweeping.evaluate_best_sweep(results)
+                self._txt_log.info(f"Best sweep attribute value: {best}.")
+                self._sweeping.set_attribute_value(best)
 
-            # set the microscope to the best attribute value
-            self._sweeping.set_attribute_value(best)
             self._active_gen = None
-
             # sweep finished: record the new best value for the next slice
             self.collect_and_write_properties(self._props_store.next)
         except Exception:
