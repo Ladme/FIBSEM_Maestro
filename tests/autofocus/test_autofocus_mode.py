@@ -6,8 +6,8 @@ from pathlib import Path
 
 import numpy as np
 
-from fibsem_maestro.autofocus.autofocus import BasicMode
-from fibsem_maestro.autofocus.autofunction_context import AutofunctionContext
+from fibsem_maestro.autofocus.autofocus_context import AutofocusContext
+from fibsem_maestro.autofocus.autofocus_mode import BasicMode
 from fibsem_maestro.autofocus.jobs_manager import JobsManager
 from fibsem_maestro.autofocus.sweeping import Sweeping
 from fibsem_maestro.core.beam_type import BeamType
@@ -19,7 +19,8 @@ from fibsem_maestro.imaging.imaging import Imaging
 from fibsem_maestro.logging.image.memory import MemoryImageLogger
 from fibsem_maestro.logging.text.memory import MemoryTextLogger
 from fibsem_maestro.microscope.microscope import Microscope
-from fibsem_maestro.settings.autofunction_settings import AutofunctionSettings
+from fibsem_maestro.settings.autofocus_settings import AutofocusSettings
+from fibsem_maestro.settings.autofocus_settings import BasicMode as BasicModeSettings
 from fibsem_maestro.settings.criterion_settings import CriterionSettings
 from fibsem_maestro.settings.imaging_settings import ImagingSettings
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
@@ -33,20 +34,22 @@ from fibsem_maestro.store.frame.memory import MemoryFrameStore
 from fibsem_maestro.store.props.memory import MemoryPropsStore
 
 
-def _make_autofunction_settings(delta_x: float = 0.0) -> AutofunctionSettings:
-    return AutofunctionSettings(
+def _make_autofocus_settings(delta_x: float = 0.0) -> AutofocusSettings:
+    return AutofocusSettings(
         delta_x=delta_x,
-        sweeping=SweepingSettings(
-            strategy=BasicStrategySettings(),
-            range=(-1000.0, 1000.0),
-            steps=3,
-            cycles=1,
-            target="working_distance",
+        mode=BasicModeSettings(
+            sweeping=SweepingSettings(
+                strategy=BasicStrategySettings(),
+                range=(-1000.0, 1000.0),
+                steps=3,
+                cycles=1,
+            ),
+            criterion=CriterionSettings(
+                sharpness_metric_fn="bandpass",
+                detail=DetailBand(low=10.0, high=100.0),
+            ),
         ),
-        criterion=CriterionSettings(
-            sharpness_metric_fn="bandpass",
-            detail=DetailBand(low=10.0, high=100.0),
-        ),
+        target_attribute="working_distance",
         properties_to_collect=PropertyNames(),
         beam_type=BeamType.ELECTRON,
     )
@@ -57,7 +60,7 @@ def _make_ctx_for_basic_mode(
     steps: int = 3,
     cycles: int = 1,
     delta_x: float = 0.0,
-) -> AutofunctionContext:
+) -> AutofocusContext:
     microscope_settings = MicroscopeSettings(
         control="mock",
         ip_address="localhost",
@@ -76,9 +79,8 @@ def _make_ctx_for_basic_mode(
         range=(-1000.0, 1000.0),
         steps=steps,
         cycles=cycles,
-        target="working_distance",
     )
-    sweeping = Sweeping(beam, sweeping_settings, txt_log)
+    sweeping = Sweeping(beam, sweeping_settings, "working_distance", txt_log)
 
     criterion_settings = CriterionSettings(
         sharpness_metric_fn="bandpass",
@@ -98,10 +100,16 @@ def _make_ctx_for_basic_mode(
         img_log=MemoryImageLogger(),
     )
 
-    autofunction_settings = _make_autofunction_settings(delta_x=delta_x)
+    autofunction_settings = _make_autofocus_settings(delta_x=delta_x)
 
-    return AutofunctionContext(
-        microscope, sweeping, criterion, imaging, autofunction_settings, txt_log
+    return AutofocusContext(
+        microscope,
+        "working_distance",
+        sweeping,
+        criterion,
+        imaging,
+        autofunction_settings,
+        txt_log,
     )
 
 
@@ -132,6 +140,7 @@ def test_basic_mode_sets_beam_attribute_for_each_step():
     ctx = _make_ctx_for_basic_mode(txt_log, steps=3, cycles=1)
     visited_values: list[float] = []
 
+    assert ctx.sweeping is not None
     original_set = ctx.sweeping.set_attribute_value
 
     def tracking_set(value: float) -> None:

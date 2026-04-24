@@ -23,7 +23,7 @@ if TYPE_CHECKING:
         SdbMicroscopeClient,
     )
 
-    from fibsem_maestro.autofocus.autofunction_context import AutofunctionContext
+    from fibsem_maestro.autofocus.autofocus_context import AutofocusContext
     from fibsem_maestro.autofocus.jobs_manager import JobsManager
     from fibsem_maestro.autofocus.sweep_step import SweepStep
     from fibsem_maestro.core.image import Image
@@ -40,7 +40,7 @@ class AutofocusMode(ABC):
 
     @abstractmethod
     def execute(
-        self, ctx: AutofunctionContext, jobs: JobsManager
+        self, ctx: AutofocusContext, jobs: JobsManager
     ) -> Generator[None, None, None]:
         """
         Drive the autofocus sweep and submit sharpness evaluation jobs.
@@ -69,7 +69,7 @@ class BasicMode(AutofocusMode):
     """
 
     def execute(
-        self, ctx: AutofunctionContext, jobs: JobsManager
+        self, ctx: AutofocusContext, jobs: JobsManager
     ) -> Generator[None, None, None]:
         if (sweeping := ctx.sweeping) is None:
             raise AutofocusError("Sweeping for basic mode autofocus is not defined.")
@@ -90,7 +90,7 @@ class BasicMode(AutofocusMode):
 @AutofocusRegistry.register("line")
 class LineMode(AutofocusMode):
     def execute(
-        self, ctx: AutofunctionContext, jobs: JobsManager
+        self, ctx: AutofocusContext, jobs: JobsManager
     ) -> Generator[None, None, None]:
         if (sweeping := ctx.sweeping) is None:
             raise AutofocusError("Sweeping for line mode autofocus is not defined.")
@@ -108,7 +108,7 @@ class LineMode(AutofocusMode):
 
         yield from ()
 
-    def _estimate_line_time(self, ctx: AutofunctionContext) -> float:
+    def _estimate_line_time(self, ctx: AutofocusContext) -> float:
         """
         Estimate the time required to scan a single line.
 
@@ -128,7 +128,7 @@ class LineMode(AutofocusMode):
 
     def _variable_sweeping_during_scan(
         self,
-        ctx: AutofunctionContext,
+        ctx: AutofocusContext,
         line_time: float,
         sweep_steps: list[SweepStep],
     ) -> None:
@@ -199,7 +199,7 @@ class LineMode(AutofocusMode):
 
     def _process_image(
         self,
-        ctx: AutofunctionContext,
+        ctx: AutofocusContext,
         jobs: JobsManager,
         image: Image,
         sweep_steps: list[SweepStep],
@@ -289,7 +289,7 @@ class StepMode(AutofocusMode):
     """
 
     def execute(
-        self, ctx: AutofunctionContext, jobs: JobsManager
+        self, ctx: AutofocusContext, jobs: JobsManager
     ) -> Generator[None, None, None]:
         if (sweeping := ctx.sweeping) is None:
             raise AutofocusError("Sweeping for step mode autofocus is not defined.")
@@ -345,7 +345,7 @@ class AutoscriptMode(AutofocusMode):
     """
 
     def execute(
-        self, ctx: AutofunctionContext, jobs: JobsManager
+        self, ctx: AutofocusContext, jobs: JobsManager
     ) -> Generator[None, None, None]:
         """
         Execute the manufacturer autofunction for the configured sweep attribute.
@@ -391,7 +391,7 @@ class AutoscriptMode(AutofocusMode):
 
     def _run_autofocus(
         self,
-        ctx: AutofunctionContext,
+        ctx: AutofocusContext,
         autoscript_microscope: SdbMicroscopeClient,
     ) -> None:
         """
@@ -413,7 +413,7 @@ class AutoscriptMode(AutofocusMode):
 
     def _run_autostigmator(
         self,
-        ctx: AutofunctionContext,
+        ctx: AutofocusContext,
         autoscript_microscope: SdbMicroscopeClient,
     ) -> None:
         """
@@ -441,7 +441,7 @@ class AutoscriptMode(AutofocusMode):
 
     def _run_auto_lens_alignment(
         self,
-        ctx: AutofunctionContext,
+        ctx: AutofocusContext,
         autoscript_microscope: SdbMicroscopeClient,
     ) -> None:
         """
@@ -474,7 +474,7 @@ class AutoscriptMode(AutofocusMode):
 
     def _run_auto_source_tilt(
         self,
-        ctx: AutofunctionContext,
+        ctx: AutofocusContext,
         autoscript_microscope: SdbMicroscopeClient,
     ) -> None:
         """

@@ -3,10 +3,10 @@
 
 import pytest
 
-from fibsem_maestro.autofocus.autofocus import AutofocusMode
+from fibsem_maestro.autofocus.autofocus_context import AutofocusContext
+from fibsem_maestro.autofocus.autofocus_mode import AutofocusMode
 from fibsem_maestro.autofocus.autofocus_registry import AutofocusRegistry
-from fibsem_maestro.autofocus.autofunction_context import AutofunctionContext
-from fibsem_maestro.autofocus.error import AutofunctionError
+from fibsem_maestro.autofocus.error import AutofocusError
 from fibsem_maestro.autofocus.jobs_manager import JobsManager
 
 
@@ -25,7 +25,7 @@ def isolate_registry():
 def test_register_and_get_returns_same_class():
     @AutofocusRegistry.register("basic")
     class BasicAutofocus(AutofocusMode):
-        def execute(self, ctx: AutofunctionContext, jobs: JobsManager):
+        def execute(self, ctx: AutofocusContext, jobs: JobsManager):
             _ = ctx, jobs
             yield
 
@@ -33,29 +33,29 @@ def test_register_and_get_returns_same_class():
 
 
 def test_get_raises_for_unknown_name():
-    with pytest.raises(AutofunctionError, match="not registered"):
+    with pytest.raises(AutofocusError, match="not registered"):
         AutofocusRegistry.get("does-not-exist")
 
 
 def test_register_raises_on_duplicate_name():
     @AutofocusRegistry.register("dup")
     class Autofocus1(AutofocusMode):  # type: ignore
-        def execute(self, ctx: AutofunctionContext, jobs: JobsManager):
+        def execute(self, ctx: AutofocusContext, jobs: JobsManager):
             _ = ctx, jobs
             yield
 
-    with pytest.raises(AutofunctionError, match="already registered"):
+    with pytest.raises(AutofocusError, match="already registered"):
 
         @AutofocusRegistry.register("dup")
         class Autofocus2(AutofocusMode):  # type: ignore
-            def execute(self, ctx: AutofunctionContext, jobs: JobsManager):
+            def execute(self, ctx: AutofocusContext, jobs: JobsManager):
                 _ = ctx, jobs
                 yield
 
 
 def test_register_decorator_returns_class_unchanged():
     class MyAutofocus(AutofocusMode):
-        def execute(self, ctx: AutofunctionContext, jobs: JobsManager):
+        def execute(self, ctx: AutofocusContext, jobs: JobsManager):
             _ = ctx, jobs
             yield
 
@@ -72,7 +72,7 @@ def test_has_returns_false_before_registration():
 def test_has_returns_true_after_registration():
     @AutofocusRegistry.register("mode")
     class SomeAutofocus(AutofocusMode):  # type: ignore
-        def execute(self, ctx: AutofunctionContext, jobs: JobsManager):
+        def execute(self, ctx: AutofocusContext, jobs: JobsManager):
             _ = ctx, jobs
             yield
 
@@ -86,13 +86,13 @@ def test_allowed_returns_empty_list_when_registry_is_empty():
 def test_allowed_lists_all_registered_names():
     @AutofocusRegistry.register("a")
     class AutofocusA(AutofocusMode):  # type: ignore
-        def execute(self, ctx: AutofunctionContext, jobs: JobsManager):
+        def execute(self, ctx: AutofocusContext, jobs: JobsManager):
             _ = ctx, jobs
             yield
 
     @AutofocusRegistry.register("b")
     class AutofocusB(AutofocusMode):  # type: ignore
-        def execute(self, ctx: AutofunctionContext, jobs: JobsManager):
+        def execute(self, ctx: AutofocusContext, jobs: JobsManager):
             _ = ctx, jobs
             yield
 

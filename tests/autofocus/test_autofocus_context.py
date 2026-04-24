@@ -8,8 +8,8 @@ from unittest.mock import MagicMock
 import numpy as np
 import pytest
 
-from fibsem_maestro.autofocus.autofunction_context import AutofunctionContext
-from fibsem_maestro.autofocus.error import AutofunctionError
+from fibsem_maestro.autofocus.autofocus_context import AutofocusContext
+from fibsem_maestro.autofocus.error import AutofocusError
 from fibsem_maestro.autofocus.result import AutofocusResult
 from fibsem_maestro.autofocus.sweep_step import SweepStep
 from fibsem_maestro.autofocus.sweeping import Sweeping
@@ -53,9 +53,8 @@ def _make_sweeping(txt_log: MemoryTextLogger) -> Sweeping:
         range=(-1000.0, 1000.0),
         steps=3,
         cycles=1,
-        target="working_distance",
     )
-    return Sweeping(beam, settings, txt_log)
+    return Sweeping(beam, settings, "working_distance", txt_log)
 
 
 def _make_criterion(txt_log: MemoryTextLogger) -> Criterion:
@@ -90,15 +89,15 @@ def _make_imaging(txt_log: MemoryTextLogger) -> Imaging:
     )
 
 
-def _make_ctx(txt_log: MemoryTextLogger, delta_x: float = 0.0) -> AutofunctionContext:
+def _make_ctx(txt_log: MemoryTextLogger, delta_x: float = 0.0) -> AutofocusContext:
     microscope = _make_microscope(txt_log)
     sweeping = _make_sweeping(txt_log)
     criterion = _make_criterion(txt_log)
     imaging = _make_imaging(txt_log)
     settings = MagicMock()
     settings.delta_x = delta_x
-    return AutofunctionContext(
-        microscope, sweeping, criterion, imaging, settings, txt_log
+    return AutofocusContext(
+        microscope, "working_distance", sweeping, criterion, imaging, settings, txt_log
     )
 
 
@@ -179,9 +178,10 @@ def test_make_sharpness_job_raises_and_logs_warning_on_failure():
         _ = image, s, log
         raise RuntimeError("metric failure")
 
+    assert ctx._criterion is not None
     ctx._criterion._sharpness_metric_fn = failing_metric
 
-    with pytest.raises(AutofunctionError):
+    with pytest.raises(AutofocusError):
         ctx.make_sharpness_job(img, sweep)()
 
     assert any(r.level == "warning" for r in txt_log.records)

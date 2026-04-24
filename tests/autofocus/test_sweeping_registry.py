@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 from numpy.typing import NDArray
 
-from fibsem_maestro.autofocus.error import AutofunctionError
+from fibsem_maestro.autofocus.error import AutofocusError
 from fibsem_maestro.autofocus.result import AutofocusResult
 from fibsem_maestro.autofocus.sweeping_registry import SweepingRegistry
 from fibsem_maestro.autofocus.sweeping_strategy import SweepingStrategy
@@ -58,7 +58,7 @@ def test_register_and_get_returns_same_function_object():
 
 
 def test_get_raises_for_missing_name():
-    with pytest.raises(AutofunctionError, match=r"not registered"):
+    with pytest.raises(AutofocusError, match=r"not registered"):
         SweepingRegistry.get("does-not-exist")
 
 
@@ -81,7 +81,7 @@ def test_register_raises_on_duplicate_name():
         def evaluate(self, results: list[AutofocusResult]) -> float:
             return float(results[0].value)  # type: ignore[attr-defined]
 
-    with pytest.raises(AutofunctionError, match=r"already registered"):
+    with pytest.raises(AutofocusError, match=r"already registered"):
 
         @SweepingRegistry.register("dup")
         class Sweep2(SweepingStrategy):  # type: ignore

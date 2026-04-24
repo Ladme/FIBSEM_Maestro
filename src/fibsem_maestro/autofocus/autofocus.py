@@ -5,8 +5,8 @@
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING
 
+from fibsem_maestro.autofocus.autofocus_context import AutofocusContext
 from fibsem_maestro.autofocus.autofocus_registry import AutofocusRegistry
-from fibsem_maestro.autofocus.autofunction_context import AutofunctionContext
 from fibsem_maestro.autofocus.jobs_manager import JobsManager
 from fibsem_maestro.autofocus.sweeping import Sweeping
 from fibsem_maestro.core.action import Action
@@ -71,7 +71,7 @@ class Autofocus(Action):
                 self._img_log,
             )
 
-        self._ctx = AutofunctionContext(
+        self._ctx = AutofocusContext(
             self._microscope,
             self._settings.target_attribute,
             self._sweeping,

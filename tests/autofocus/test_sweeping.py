@@ -25,10 +25,9 @@ def test_construct_selects_attribute():
         range=(-1000.0, 1000.0),
         steps=3,
         cycles=1,
-        target="working_distance",
     )
 
-    sweeping = Sweeping(beam, settings, txt_log)
+    sweeping = Sweeping(beam, settings, "working_distance", txt_log)
 
     assert sweeping._sweep_attribute == "working_distance"
     assert sweeping.sweep_attribute == "working_distance"
@@ -45,9 +44,8 @@ def test_get_attribute_value_reads_current_beam_state():
         range=(0.0, 0.0),
         steps=1,
         cycles=1,
-        target="working_distance",
     )
-    sweeping = Sweeping(beam, settings, txt_log)
+    sweeping = Sweeping(beam, settings, "working_distance", txt_log)
 
     assert sweeping.get_attribute_value() == 5_000_000.0
 
@@ -63,9 +61,8 @@ def test_set_attribute_value_sets_beam_state():
         range=(0.0, 0.0),
         steps=1,
         cycles=1,
-        target="working_distance",
     )
-    sweeping = Sweeping(beam, settings, txt_log)
+    sweeping = Sweeping(beam, settings, "working_distance", txt_log)
     sweeping.set_attribute_value(1_000_000.0)
 
     assert beam.working_distance == 1_000_000.0
@@ -83,9 +80,8 @@ def test_sweep_yields_expected_zigzag_sequence_when_in_range():
         range=(-2000.0, 2000.0),
         steps=5,
         cycles=2,
-        target="working_distance",
     )
-    sweeping = Sweeping(beam, settings, txt_log)
+    sweeping = Sweeping(beam, settings, "working_distance", txt_log)
 
     steps = list(sweeping.sweep())
     assert len(steps) == settings.cycles * settings.steps
@@ -119,9 +115,8 @@ def test_sweep_filters_out_of_range_values_and_logs_warning():
         range=(-big, big),
         steps=9,
         cycles=1,
-        target="working_distance",
     )
-    sweeping = Sweeping(beam, settings, txt_log)
+    sweeping = Sweeping(beam, settings, "working_distance", txt_log)
 
     steps = list(sweeping.sweep())
     yielded = [x.value for x in steps]
@@ -140,9 +135,8 @@ def test_evaluate_best_sweep_delegates_to_strategy_and_returns_its_result():
         range=(-1000.0, 1000.0),
         steps=3,
         cycles=1,
-        target="working_distance",
     )
-    sweeping = Sweeping(beam, settings, txt_log)
+    sweeping = Sweeping(beam, settings, "working_distance", txt_log)
     results = [
         AutofocusResult(
             sharpness=0.8, sweep=SweepStep(repetition=0, value=1000.0, index=0)

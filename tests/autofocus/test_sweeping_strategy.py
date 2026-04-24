@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from numpy.typing import NDArray
 
-from fibsem_maestro.autofocus.error import AutofunctionError
+from fibsem_maestro.autofocus.error import AutofocusError
 from fibsem_maestro.autofocus.result import AutofocusResult
 from fibsem_maestro.autofocus.sweep_step import SweepStep
 from fibsem_maestro.autofocus.sweeping_registry import SweepingRegistry
@@ -83,7 +83,7 @@ def test_basic_sweeping_strategy_evaluate_groups_by_sweep_value():
 def test_basic_sweeping_strategy_evaluate_raises_on_empty_results():
     strategy = BasicSweepingStrategy(BasicStrategySettings())
 
-    with pytest.raises(AutofunctionError, match="No autofocus results provided"):
+    with pytest.raises(AutofocusError, match="No autofocus results provided"):
         strategy.evaluate([])
 
 
@@ -138,7 +138,7 @@ def test_interleaved_sweeping_strategy_evaluate_raises_on_too_few_results():
     strategy = InterleavedSweepingStrategy(InterleavedStrategySettings(min_diff=0.1))
 
     with pytest.raises(
-        AutofunctionError,
+        AutofocusError,
         match="Need at least two results to compute delta resolutions",
     ):
         strategy.evaluate(

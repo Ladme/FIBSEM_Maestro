@@ -19,7 +19,7 @@ from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.autofocus_settings import AutofocusSettings
 
 
-class AutofunctionContext:
+class AutofocusContext:
     def __init__(
         self,
         microscope: Microscope,
