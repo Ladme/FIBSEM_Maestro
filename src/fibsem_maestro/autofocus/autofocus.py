@@ -167,8 +167,8 @@ class Autofocus(Action):
                 self.write_properties(self.read_properties(), self._props_store.next)
             return
 
-        # remove the results from previous slice
-        self._jobs.clear()
+        # remove the jobs and results from previous slice
+        self._jobs.wait_and_clear()
 
         # wait for the sharpness of the image from the previous slice
         image_sharpness = self._imaging.wait_for_sharpness()
@@ -264,6 +264,8 @@ class Autofocus(Action):
             self._jobs.wait()
         except StopIteration:
             if self._sweeping is None:
+                self._active_gen.close()
+                self._active_gen = None
                 return
 
             results = self._jobs.wait_and_collect()

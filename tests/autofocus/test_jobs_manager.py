@@ -39,12 +39,27 @@ def test_wait_and_collect_excludes_failed_jobs():
     assert results[0].sharpness == 0.8
 
 
-def test_clear_discards_accumulated_results():
+def test_wait_and_clear_discards_accumulated_results():
     manager = JobsManager()
     manager.submit(lambda: _make_result(0.8, 0))
     manager.wait_and_collect()
 
-    manager.clear()
+    manager.wait_and_clear()
+
+    assert manager.wait_and_collect() == []
+
+
+def test_wait_and_clear_discards_pending_jobs():
+    import time
+
+    manager = JobsManager()
+
+    def slow_job() -> AutofocusResult:
+        time.sleep(0.2)
+        return _make_result(0.9, 0)
+
+    manager.submit(slow_job)
+    manager.wait_and_clear()
 
     assert manager.wait_and_collect() == []
 

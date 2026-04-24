@@ -77,8 +77,11 @@ class JobsManager:
         """
         self._drain()
 
-    def clear(self) -> None:
-        """Discard all accumulated results, preparing for a fresh sweep."""
+    def wait_and_clear(self) -> None:
+        """
+        Block until all pending jobs finish, then discard all results.
+        """
+        self._drain()
         with self._results_lock:
             self._results = []
 

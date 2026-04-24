@@ -72,23 +72,19 @@ class AutofocusSettings(BaseSettings):
         default=Path("autofunction_props.yaml"),
         description="Path to a file storing properties of the microscope used for autofocus.",
     )
-    properties_to_collect: Annotated[
-        PropertyNames,
-        Field(
-            default_factory=PropertyNames,
-            description="Properties of the microscope and the beam relevant for the autofocus.",
-        ),
-    ]
+    properties_to_collect: PropertyNames = Field(
+        default_factory=PropertyNames,
+        description="Properties of the microscope and the beam relevant for the autofocus.",
+    )
     mode: AutofocusMode = Field(
         description="Autofocus mode to use.",
     )
     target_attribute: str = Field(
         description="Attribute to optimize via the autofocus.",
     )
-    beam_type: Annotated[
-        BeamType,
-        Field(default=BeamType.ELECTRON, description="Beam used for autofocus."),
-    ]
+    beam_type: BeamType = Field(
+        default=BeamType.ELECTRON, description="Beam used for autofocus."
+    )
     delta_x: float = Field(
         default=0,
         description="Offset for out of sample focusing on the x-axis in nm.",
