@@ -28,6 +28,29 @@ if TYPE_CHECKING:
 
 
 class Autofocus(Action):
+    """Orchestrates the autofocus pipeline for a single configured mode.
+
+    Manages the full autofocus lifecycle: deciding when to execute based on
+    slice number and image sharpness, setting up the appropriate mode, advancing
+    the execution generator, collecting sharpness results, and writing the best sweep value
+    back to the microscope and property store.
+
+    For single-shot modes (basic, line, Autoscript) the sweep completes in a
+    single `perform_autofocus` call. For step mode, execution is resumed
+    across successive calls, one sweep step per slice, until the sweep is
+    exhausted.
+
+    Args:
+        name: Human-readable identifier for this autofocus instance.
+        microscope: Interface to the electron microscope.
+        settings: Autofocus configuration.
+        imaging: The imaging action whose sharpness result is used to decide
+            whether autofocus should run.
+        props_store: Store for reading and writing microscope properties.
+        txt_log: Logger for diagnostic and status messages.
+        img_log: Logger for criterion images.
+    """
+
     def __init__(
         self,
         name: str,
@@ -121,14 +144,20 @@ class Autofocus(Action):
 
     def perform_autofocus(self, slice_number: int) -> None:
         """
-        Advance the autofocus execution by one step.
+        Advance the autofocus execution by one step for the current slice.
 
-        For single-shot modes (basic, line) this runs to completion on the first
-        call. For step mode it advances one sweep step per slice, resuming across
-        calls until the sweep is exhausted.
+        If a multi-step autofocus is already in progress, resumes it by one
+        step regardless of gating conditions. Otherwise, evaluates whether
+        autofocus should run based on the slice number and the sharpness of
+        the previously acquired image, and starts a new execution if so.
+
+        In all cases, the microscope properties for autofocus are propagated
+        to the next slice's property store so that the next action always has
+        up-to-date properties to read.
 
         Args:
-            slice_number: The current slice index, used for frequency gating.
+            slice_number: The current slice index, used for frequency gating
+                and first-slice detection.
         """
         # if we have a running autofocus, continue executing it
         if self._active_gen is not None:
@@ -165,6 +194,27 @@ class Autofocus(Action):
             self.write_properties(self.read_properties(), self._props_store.next)
 
     def _should_execute(self, slice_number: int, image_sharpness: float | None) -> bool:
+        """
+        Decide whether autofocus should run for the current slice.
+
+        Autofocus runs if any of the following conditions are met:
+
+        - This is the first slice.
+        - The slice number is a multiple of the configured execution frequency.
+        - The sharpness of the previously acquired image is below the configured sharpness limit.
+
+        If none of the conditions are met, autofocus is skipped and a
+        corresponding message is logged.
+
+        Args:
+            slice_number: The current slice index.
+            image_sharpness: Sharpness of the image acquired on the previous
+                slice, or `None` if no criterion is configured or the
+                calculation failed.
+
+        Returns:
+            `True` if autofocus should run, `False` if it should be skipped.
+        """
         # always execute autofocus in the first slice
         if slice_number == 1:
             self._txt_log.info("Executing autofocus: this is the first slice.")
@@ -193,6 +243,20 @@ class Autofocus(Action):
         return False
 
     def _advance(self) -> None:
+        """
+        Advance the active autofocus generator by one step.
+
+        Calls `next` on the active generator to execute one sweep step.
+        Waits for any submitted jobs to complete before returning.
+
+        On `StopIteration` the sweep is considered complete: results are
+        collected, the best sweep value is determined and applied to the
+        microscope, the generator is cleared, and the new properties are
+        written to the next slice's store.
+
+        On any other exception the generator is closed, cleared, and the
+        exception is re-raised so the caller can handle it.
+        """
         assert self._active_gen is not None
         try:
             next(self._active_gen)
