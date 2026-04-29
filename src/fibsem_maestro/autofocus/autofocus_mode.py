@@ -51,7 +51,6 @@ class AutofocusMode(ABC):
             jobs: Job manager to which sharpness evaluation callables are
                 submitted for asynchronous execution.
         """
-        pass
 
 
 @AutofocusRegistry.register("basic")

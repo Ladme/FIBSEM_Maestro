@@ -17,50 +17,57 @@ class Action(ABC):
     @abstractmethod
     def name(self) -> str:
         """
-        Get the name of this action.
+        Name of the action.
         """
 
     @property
     @abstractmethod
     def props_file(self) -> str:
         """
-        Get name of the file where microscope properties are stored for this action.
+        Name of the file where microscope properties are stored for this action.
         """
 
     @property
     @abstractmethod
     def props_store(self) -> PropsStore:
         """
-        Get the props store for the action.
+        Props store for the action.
         """
 
     @property
     @abstractmethod
     def beam_type(self) -> BeamType:
         """
-        Get the type of beam this action works with.
+        Type of beam this action works with.
         """
 
     @property
     @abstractmethod
     def props_to_collect(self) -> PropertyNames:
         """
-        Get the names of properties that should be collected for this action.
+        Names of properties that should be collected for this action.
         """
 
     @property
     @abstractmethod
     def microscope(self) -> Microscope:
         """
-        Get the current microscope instance.
+        Current microscope instance.
         """
 
     @property
     @abstractmethod
     def txt_log(self) -> TextLogger:
         """
-        Get the text logger instance.
+        Text logger instance.
         """
+
+    @property
+    def name_with_underscores(self) -> str:
+        """
+        Name of the action with spaces replaced by underscores.
+        """
+        return self.name.replace(" ", "_")
 
     def read_and_set_properties(self, store: PropsStore | None = None) -> None:
         # default: current frame
