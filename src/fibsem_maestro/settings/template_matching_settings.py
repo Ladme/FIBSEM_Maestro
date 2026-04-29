@@ -1,9 +1,8 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
-from enum import Enum
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import Field
 
@@ -11,9 +10,18 @@ from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.settings.base_settings import BaseSettings
 
 
-class TemplateMatchingMode(str, Enum):
-    STANDARD = "standard"
-    SUBPIXEL = "subpixel"
+class StandardMode(BaseSettings):
+    type: Literal["standard"] = "standard"
+
+
+class SubpixelMode(BaseSettings):
+    type: Literal["subpixel"] = "subpixel"
+    upsampling_factor: float
+
+
+TemplateMatchingMode = Annotated[
+    StandardMode | SubpixelMode, Field(discriminator="type")
+]
 
 
 class TemplateMatchingSettings(BaseSettings):
@@ -22,7 +30,7 @@ class TemplateMatchingSettings(BaseSettings):
         description="Path to a directory where templates will be saved.",
     )
     matching_mode: TemplateMatchingMode = Field(
-        default=TemplateMatchingMode.STANDARD,
+        default_factory=StandardMode,
         description="Template matching mode.",
     )
     template_scans: Annotated[int, Field(gt=0)] = Field(

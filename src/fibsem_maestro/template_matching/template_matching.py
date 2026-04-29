@@ -2,12 +2,13 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
+from collections.abc import Callable
 from typing import Any
 
 import cv2
 import numpy as np
 from numpy.typing import NDArray
-from scipy import ndimage  # type: ignore
+from scipy.optimize import curve_fit  # type: ignore
 
 from fibsem_maestro.core.drift import Drift
 from fibsem_maestro.core.image import Image, Image8Bit
@@ -16,10 +17,17 @@ from fibsem_maestro.logging.image.image_logger import ImageLogger
 from fibsem_maestro.logging.image.overlay import RectangleOverlay
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope import Microscope
-from fibsem_maestro.settings.template_matching_settings import TemplateMatchingSettings
+from fibsem_maestro.settings.template_matching_settings import (
+    StandardMode,
+    SubpixelMode,
+    TemplateMatchingSettings,
+)
 from fibsem_maestro.store.image.image_store import ImageStore
 from fibsem_maestro.template_matching.error import TemplateMatchingError
-from fibsem_maestro.template_matching.result import TemplateMatchResult
+from fibsem_maestro.template_matching.result import (
+    ShiftPrecision,
+    TemplateMatchResult,
+)
 
 
 class TemplateMatching:
@@ -133,11 +141,18 @@ class TemplateMatching:
             matches fall below the confidence threshold, `x` and `y` are
             `None`.
         """
-        # convert image to 8bit
         img8bit = image.to_8bit()
 
         # perform template matching for each template
-        matches = self._calculate_template_matches(img8bit)
+        match self._settings.matching_mode:
+            case StandardMode():
+                matches = self._calculate_template_matches(
+                    img8bit, self._calculate_match
+                )
+            case SubpixelMode():
+                matches = self._calculate_template_matches(
+                    img8bit, self._calculate_subpixel_match
+                )
 
         # log the results of template matching
         self._log_heatmaps(matches)
@@ -154,10 +169,9 @@ class TemplateMatching:
 
         return Drift(x=shift[0], y=shift[1], confidence=confidence)
 
-    @staticmethod
-    def calculate_match(
-        template: Image8Bit, image: Image8Bit, blur: int
-    ) -> TemplateMatchResult:
+    def _calculate_match(
+        self, template: Image8Bit, image: Image8Bit
+    ) -> TemplateMatchResult[int]:
         """
         Compute the normalized cross-correlation between `template` and `image`.
 
@@ -170,8 +184,6 @@ class TemplateMatching:
             template: Reference patch to locate within `image`.
             image: Image region to search; must be larger than `template` by at
                 least the expected drift on each side.
-            blur: Standard deviation of the Gaussian kernel applied before
-                matching. Pass `0` to skip blurring.
 
         Returns:
             A `TemplateMatchResult` containing the pixel displacement
@@ -179,14 +191,8 @@ class TemplateMatching:
             together with the peak normalised cross-correlation score and the
             full heatmap array.
         """
-        # blur the images, if requested
-        if blur > 0:
-            image = Image8Bit(
-                ndimage.gaussian_filter(image, sigma=blur), image.pixel_size
-            )
-            template = Image8Bit(
-                ndimage.gaussian_filter(template, sigma=blur), template.pixel_size
-            )
+        image = image.blured(self._settings.blur)
+        template = template.blured(self._settings.blur)
 
         heatmap = cv2.matchTemplate(
             image,
@@ -208,6 +214,80 @@ class TemplateMatching:
         return TemplateMatchResult(
             dx=dx,
             dy=dy,
+            confidence=float(max_val),
+            heatmap=heatmap,
+        )
+
+    def _calculate_subpixel_match(
+        self, template: Image8Bit, image: Image8Bit
+    ) -> TemplateMatchResult[float]:
+        """
+        Compute the normalized cross-correlation between `template` and `image` with sub-pixel accuracy.
+
+        Extends `_calculate_match` with two additional steps to achieve sub-pixel
+        precision. First, both images are upsampled by the factor specified in
+        the settings, increasing the effective pixel grid resolution.
+        Second, independent 1D Gaussians are fitted to the correlation peak along
+        each axis, interpolating the true maximum between discrete samples. The
+        returned displacement is expressed in original (non-upsampled) pixel units.
+
+        Args:
+            template: Reference patch to locate within `image`.
+            image: Image region to search; must be larger than `template` by at
+                least the expected drift on each side.
+
+        Returns:
+            A `TemplateMatchResult` containing the sub-pixel displacement
+            `(dx, dy)` from the image centre to the best-match location,
+            together with the peak normalised cross-correlation score and the
+            full heatmap array. If the Gaussian fit fails along either axis,
+            that axis falls back to integer-pixel accuracy.
+        """
+        assert isinstance(self._settings.matching_mode, SubpixelMode)
+        upsampling_factor = self._settings.matching_mode.upsampling_factor
+
+        # blur the images, if requested
+        image = image.blured(self._settings.blur)
+        template = template.blured(self._settings.blur)
+
+        # upsample the images
+        image_upsampled = image.upsampled(upsampling_factor)
+        template_upsampled = template.upsampled(upsampling_factor)
+
+        # calculate match
+        heatmap = cv2.matchTemplate(
+            image_upsampled, template_upsampled, cv2.TM_CCOEFF_NORMED
+        )
+        _, max_val, _, max_loc = cv2.minMaxLoc(heatmap)
+        best_x_int, best_y_int = max_loc
+
+        # restrict the guassian fit to a local neighborhood around the integer peak
+        neighborhood = int(10 * upsampling_factor)
+
+        # extract a 1D profile along the x-axis at the best y position and fit a gaussian
+        # to find the sub-pixel x-coordinate of the peak
+        x_start = max(0, best_x_int - neighborhood)
+        x_end = min(heatmap.shape[1], best_x_int + neighborhood)
+        x_indices = np.arange(x_start, x_end)
+        x_profile = heatmap[best_y_int, x_start:x_end].squeeze()
+        best_x = self._fit_subpixel_peak(x_profile, x_indices, best_x_int, max_val, "x")
+
+        # extract a 1D profile along the y-axis at the best x position and fit a gaussian
+        # to find the sub-pixel y-coordinate of the peak
+        y_start = max(0, best_y_int - neighborhood)
+        y_end = min(heatmap.shape[0], best_y_int + neighborhood)
+        y_indices = np.arange(y_start, y_end)
+        y_profile = heatmap[y_start:y_end, best_x_int].squeeze()
+        best_y = self._fit_subpixel_peak(y_profile, y_indices, best_y_int, max_val, "y")
+
+        # convert upsampled coordinates to pixels of the original image
+        # and express them as an offset from the image center
+        best_x = best_x / upsampling_factor - heatmap.shape[1] / (2 * upsampling_factor)
+        best_y = best_y / upsampling_factor - heatmap.shape[0] / (2 * upsampling_factor)
+
+        return TemplateMatchResult(
+            dx=best_x,
+            dy=best_y,
             confidence=float(max_val),
             heatmap=heatmap,
         )
@@ -249,9 +329,8 @@ class TemplateMatching:
 
         for i in range(len(scans)):
             for j in range(i + 1, len(scans)):
-                result = TemplateMatching.calculate_match(
-                    scans[i], scans[j], self._settings.blur
-                )
+                # we intentionally always use pixel template match
+                result = self._calculate_match(scans[i], scans[j])
 
                 if (
                     min_conf := self._settings.min_confidence
@@ -296,17 +375,23 @@ class TemplateMatching:
         self._save_template(averaged, index=area_index, image_store=store)
 
     def _calculate_template_matches(
-        self, image: Image8Bit
-    ) -> list[TemplateMatchResult]:
+        self,
+        image: Image8Bit,
+        match_fn: Callable[[Image8Bit, Image8Bit], TemplateMatchResult[ShiftPrecision]],
+    ) -> list[TemplateMatchResult[ShiftPrecision]]:
         """
         Load each template and compute its match within the corresponding image region.
 
         Args:
             image: Full drift-correction frame to search within.
+            match_fn: Method used to compute each match. Determines whether
+                results carry integer or sub-pixel float precision, e.g.
+                `self._calculate_match` or `self._calculate_subpixel_match`.
 
         Returns:
             One `TemplateMatchResult` per configured template area, in the
-            same order as `settings.areas`.
+            same order as `settings.areas`. The numeric type of `dx` and `dy`
+            matches the return type of `match_fn`.
         """
         matches = []
         for i, area in enumerate(self._settings.areas):
@@ -317,14 +402,12 @@ class TemplateMatching:
             cropped = image.crop_with_padding(area, self._settings.correction_margin)
 
             # calculate the match between template and the cropped image
-            matches.append(
-                TemplateMatching.calculate_match(template, cropped, self._settings.blur)
-            )
+            matches.append(match_fn(template, cropped))
 
         return matches
 
     def _matches_to_image_shift(
-        self, matches: list[TemplateMatchResult], pixel_size: float
+        self, matches: list[TemplateMatchResult[ShiftPrecision]], pixel_size: float
     ) -> tuple[float, float] | None:
         """
         Convert template match results to a mean image shift in nanometers.
@@ -386,7 +469,9 @@ class TemplateMatching:
         # calculate average image shift
         return float(np.mean(shifts_x)), float(np.mean(shifts_y))
 
-    def _get_average_confidence(self, matches: list[TemplateMatchResult]) -> float:
+    def _get_average_confidence(
+        self, matches: list[TemplateMatchResult[ShiftPrecision]]
+    ) -> float:
         """
         Compute the mean confidence across all template match results.
 
@@ -397,6 +482,47 @@ class TemplateMatching:
             Mean normalised cross-correlation confidence across all matches.
         """
         return float(np.mean([match.confidence for match in matches]))
+
+    def _fit_subpixel_peak(
+        self,
+        profile: NDArray[Any],
+        indices: NDArray[Any],
+        peak_int: int,
+        max_val: float,
+        axis_name: str,
+    ) -> float:
+        """
+        Fit a 1-D Gaussian to an NCC profile and return the sub-pixel peak.
+
+        Extracts the peak location from a Gaussian fit to a 1-D slice of the
+        NCC correlation map. Falls back to the integer peak when the fit fails.
+
+        Args:
+            profile: 1-D NCC values extracted along the axis of interest.
+            indices: Array of integer coordinate values corresponding to
+                `profile`, in upsampled pixel units.
+            peak_int: Integer coordinate of the NCC maximum along this axis,
+                used as the initial guess and as the fallback value.
+            max_val: Global NCC maximum, used as the amplitude initial guess.
+            axis_name: Human-readable axis label (e.g. "x", "y").
+
+        Returns:
+            Sub-pixel peak coordinate in upsampled pixel units, or
+            `float(peak_int)` if the fit failed.
+        """
+        try:
+            popt, _ = curve_fit(
+                gauss,
+                indices,
+                profile,
+                p0=[max_val, peak_int, len(profile) / 4.0, profile.min()],
+            )
+            return float(popt[1])
+        except Exception:
+            self._txt_log.warning(
+                f"Sub-pixel Gaussian fit along {axis_name} axis failed - falling back to integer accuracy."
+            )
+            return float(peak_int)
 
     def _should_update_templates(self, slice_number: int, confidence: float) -> bool:
         """
@@ -499,7 +625,7 @@ class TemplateMatching:
         """
         return f"{self.name_with_underscores}_template_{index}.tif"
 
-    def _log_heatmaps(self, matches: list[TemplateMatchResult]) -> None:
+    def _log_heatmaps(self, matches: list[TemplateMatchResult[ShiftPrecision]]) -> None:
         """
         Save a heatmap image for each template match result to the image log.
 
@@ -510,7 +636,7 @@ class TemplateMatching:
             self._log_heatmap(match.heatmap, i)
 
     def _log_image_shifts(
-        self, image: Image8Bit, matches: list[TemplateMatchResult]
+        self, image: Image8Bit, matches: list[TemplateMatchResult[ShiftPrecision]]
     ) -> None:
         """
         Overlay the original and shifted template areas on the drift-correction frame and log it.
@@ -543,7 +669,9 @@ class TemplateMatching:
                 )
                 continue
 
-            shifted_area_px = area_px.shifted(PixelPoint(x=match.dx, y=match.dy))
+            shifted_area_px = area_px.shifted(
+                PixelPoint(x=int(match.dx), y=int(match.dy))
+            )
 
             overlays.append(
                 RectangleOverlay(
@@ -586,3 +714,28 @@ class TemplateMatching:
             self._txt_log.warning(
                 f"Could not log a template matching drift correction heatmap: {e}"
             )
+
+
+def gauss(x: NDArray[np.floating[Any]], *p: float) -> NDArray[np.floating[Any]]:
+    """
+    Evaluate a 1-D Gaussian with a vertical offset.
+
+    Args:
+        x: Input values at which the Gaussian is evaluated.
+        *p: Gaussian parameters in order:
+
+            - `a` - Amplitude (peak height above the baseline).
+            - `b` - Mean (centre position along the x axis).
+            - `c` - Standard deviation (controls the width).
+            - `d` - Baseline offset (vertical shift).
+
+    Returns:
+        Array of the same shape as `x` containing the evaluated Gaussian values.
+
+    Raises:
+        ValueError: If fewer than four values are supplied in `*p`.
+    """
+    if len(p) < 4:
+        raise ValueError(f"Expected 4 Gaussian parameters (a, b, c, d), got {len(p)}.")
+    a, b, c, d = p
+    return a * np.exp(-np.power((x - b), 2.0) / (2.0 * c**2)) + d

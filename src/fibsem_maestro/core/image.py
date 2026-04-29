@@ -3,9 +3,12 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Generic, Self, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, Self, TypeVar, cast
 
+import cv2
 import numpy as np
+from cv2.typing import MatLike
+from scipy import ndimage  # type: ignore
 
 from fibsem_maestro.core.errors import AutoscriptNotAvailableError
 from fibsem_maestro.core.format import ImageFormat
@@ -209,6 +212,42 @@ class _ImageBase(np.ndarray[Any, np.dtype[TDType]], Generic[TDType]):
             + pixel_area.width
             + 2 * padding_px,
         ]
+
+    def blured(self, sigma: int) -> Self:
+        """
+        Return a copy of the image with Gaussian blur applied to it.
+
+        Args:
+            sigma: Standard deviation for the Gaussian kernel. Blurring is
+                skipped when `sigma` is zero.
+
+        Returns:
+            Blurred copy of the image with the same pixel size as the input.
+        """
+        if sigma == 0:
+            return self.copy()
+        return type(self)(ndimage.gaussian_filter(self, sigma=sigma), self.pixel_size)
+
+    def upsampled(self, factor: float) -> Self:
+        """
+        Return a copy of the image upsampled by a given factor using bilinear interpolation.
+
+        Args:
+            factor: Scale factor applied to both axes.
+
+        Returns:
+            Upsampled copy of the image with adjusted pixel size.
+        """
+
+        upsampled = cv2.resize(
+            cast("MatLike", self),
+            None,
+            fx=factor,
+            fy=factor,
+            interpolation=cv2.INTER_LINEAR,
+        )
+
+        return type(self)(cast("NDArray[Any]", upsampled), self.pixel_size / factor)
 
     def save(self, file_name: Path, format: ImageFormat) -> None:
         """
