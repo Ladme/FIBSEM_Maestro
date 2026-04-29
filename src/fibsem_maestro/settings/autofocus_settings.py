@@ -40,12 +40,27 @@ class LineMode(BaseSettings):
             description="Delay before acquisition of the first section in scanning sweep."
         ),
     ]
+    line_time_correction_factor: Annotated[
+        float,
+        Field(
+            default=1.0, description="Correction factor applied to estimated line time."
+        ),
+    ]
     lines_per_sweep: Annotated[
         int, Field(description="Number of lines scanned per one sweep value.")
     ]
-    forbidden_stripe_indices: list[int] = field(default_factory=list)
-    stripe_separator_threshold: int = 10
-    minimal_stripe_width: int = 5
+    forbidden_stripe_indices: list[int] = Field(
+        default_factory=list,
+        description="Indices of stripes which should be excluded from the analysis.",
+    )
+    stripe_separator_threshold: int = Field(
+        default=10,
+        description="Maximal average intensity of separator rows.",
+    )
+    minimal_stripe_width: Annotated[int, Field(gt=0)] = Field(
+        default=5,
+        description="Minimum distance (in rows) between two separator rows required to consider the region a valid stripe.",
+    )
 
 
 class StepMode(BaseSettings):

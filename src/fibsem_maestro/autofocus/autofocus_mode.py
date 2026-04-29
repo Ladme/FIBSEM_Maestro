@@ -116,14 +116,28 @@ class LineMode(AutofocusMode):
                 and beam parameters.
 
         Returns:
-            Estimated line scan time in seconds.
+            Estimated line scan time in seconds with line time correction factor applied.
         """
+        mode = ctx.settings.mode
+        assert isinstance(mode, LineModeSettings)
         dwell_time = ctx.microscope.beam.dwell_time
         line_integration = ctx.microscope.beam.line_integration
         resolution = ctx.microscope.beam.resolution
         scanning_area = ctx.microscope.beam.scanning_area
+        correction_factor = mode.line_time_correction_factor
 
-        return dwell_time * line_integration * resolution.width * scanning_area.width
+        return (
+            # time spent per pixel
+            dwell_time
+            # length of the full row in pixels
+            * resolution.width
+            # portion of the line actually scanned
+            * scanning_area.width
+            # number of times each row is scanned
+            * line_integration
+            # user-defined factor accounting for microscope delays
+            * correction_factor
+        )
 
     def _variable_sweeping_during_scan(
         self,
