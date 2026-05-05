@@ -8,8 +8,8 @@ from typing import Any
 
 from numpy.typing import NDArray
 
-from fibsem_maestro.logging.image.curve import Curve
 from fibsem_maestro.logging.image.overlay import Overlay
+from fibsem_maestro.logging.image.plot_element import PlotElement
 
 
 class ImageLogger(ABC):
@@ -44,7 +44,7 @@ class ImageLogger(ABC):
     def save_plot(
         self,
         filename: str,
-        curves: Sequence[Curve],
+        elements: Sequence[PlotElement],
         title: str | None = None,
         xlabel: str | None = None,
         ylabel: str | None = None,
@@ -54,7 +54,7 @@ class ImageLogger(ABC):
 
         Args:
             filename: Output filename, relative to the logger's output directory.
-            curves: A sequence of Curve objects defining the data to plot.
+            elements: A sequence of PlotElement objects defining the data to plot.
             title: Optional plot title.
             xlabel: Optional label for the x-axis.
             ylabel: Optional label for the y-axis.

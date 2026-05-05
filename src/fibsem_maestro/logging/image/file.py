@@ -8,6 +8,8 @@ from pathlib import Path
 import matplotlib as mpl
 import numpy as np
 
+from fibsem_maestro.logging.image.plot_element import Curve, PlotElement, VerticalLine
+
 mpl.use("Agg")
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
@@ -15,7 +17,6 @@ from matplotlib.patches import Rectangle
 from numpy.typing import NDArray
 
 from fibsem_maestro.core.slice import SliceContext
-from fibsem_maestro.logging.image.curve import Curve
 from fibsem_maestro.logging.image.image_logger import ImageLogger
 from fibsem_maestro.logging.image.overlay import (
     HeatmapOverlay,
@@ -120,7 +121,7 @@ class FileImageLogger(ImageLogger):
     def save_plot(
         self,
         filename: str,
-        curves: Sequence[Curve],
+        elements: Sequence[PlotElement],
         title: str | None = None,
         xlabel: str | None = None,
         ylabel: str | None = None,
@@ -131,18 +132,31 @@ class FileImageLogger(ImageLogger):
         Args:
             filename: Output filename with extension, relative to the current
                 slice's image directory.
-            curves: Sequence of `Curve` objects to plot.
+            elements: A sequence of PlotElement objects defining the data to plot.
             title: Optional title rendered above the plot.
             xlabel: Optional x-axis label.
             ylabel: Optional y-axis label.
         """
         fig, ax = plt.subplots()
 
-        for curve in curves:
-            if curve.x is None:
-                ax.plot(curve.y, color=curve.color, linewidth=curve.linewidth)
-            else:
-                ax.plot(curve.x, curve.y, color=curve.color, linewidth=curve.linewidth)
+        for element in elements:
+            match element:
+                case Curve():
+                    if element.x is None:
+                        ax.plot(
+                            element.y, color=element.color, linewidth=element.linewidth
+                        )
+                    else:
+                        ax.plot(
+                            element.x,
+                            element.y,
+                            color=element.color,
+                            linewidth=element.linewidth,
+                        )
+                case VerticalLine():
+                    ax.axvline(
+                        x=element.x, color=element.color, linewidth=element.linewidth
+                    )
 
         if title:
             ax.set_title(title)

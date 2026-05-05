@@ -8,9 +8,9 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
-from fibsem_maestro.logging.image.curve import Curve
 from fibsem_maestro.logging.image.image_logger import ImageLogger
 from fibsem_maestro.logging.image.overlay import Overlay
+from fibsem_maestro.logging.image.plot_element import PlotElement
 
 
 class MemoryImageLogger(ImageLogger):
@@ -39,7 +39,7 @@ class MemoryImageLogger(ImageLogger):
     def save_plot(
         self,
         filename: str,
-        curves: Sequence[Curve],
+        elements: Sequence[PlotElement],
         title: str | None = None,
         xlabel: str | None = None,
         ylabel: str | None = None,
@@ -47,7 +47,7 @@ class MemoryImageLogger(ImageLogger):
         self.saved_plots.append(
             {
                 "filename": filename,
-                "curves": list(curves),
+                "elements": list(elements),
                 "title": title,
                 "xlabel": xlabel,
                 "ylabel": ylabel,

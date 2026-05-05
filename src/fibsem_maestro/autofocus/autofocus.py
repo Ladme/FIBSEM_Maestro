@@ -3,17 +3,19 @@
 
 
 from concurrent.futures import ThreadPoolExecutor
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from fibsem_maestro.autofocus.autofocus_context import AutofocusContext
 from fibsem_maestro.autofocus.autofocus_registry import AutofocusRegistry
 from fibsem_maestro.autofocus.jobs_manager import JobsManager
+from fibsem_maestro.autofocus.result import AutofocusResult
 from fibsem_maestro.autofocus.sweeping import Sweeping
 from fibsem_maestro.core.action import Action
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.criterion.criterion import Criterion
 from fibsem_maestro.imaging.imaging import Imaging
 from fibsem_maestro.logging.image.image_logger import ImageLogger
+from fibsem_maestro.logging.image.plot_element import Curve, PlotElement, VerticalLine
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.autofocus_settings import (
@@ -110,6 +112,8 @@ class Autofocus(Action):
 
         self._active_gen: Generator[None, None, None] | None = None
 
+        self._sweep_base_value: Any | None = None
+
     @property
     def name(self) -> str:
         return self._name
@@ -182,6 +186,10 @@ class Autofocus(Action):
         # read the microscope properties for autofocus from a file and set them
         self.read_and_set_properties()
 
+        # get the base value for the current sweep
+        self._sweep_base_value: float | None = (
+            self._sweeping.get_attribute_value() if self._sweeping is not None else None
+        )
         # execute the autofocus
         self._active_gen = self._mode.execute(self._ctx, self._jobs)
         self._advance()
@@ -270,6 +278,8 @@ class Autofocus(Action):
                 self._txt_log.info(f"Best sweep attribute value: {best}.")
                 self._sweeping.set_attribute_value(best)
 
+                self._log_af_curve(results, best, self._sweep_base_value)
+
             self._active_gen = None
             # sweep finished: record the new best value for the next slice
             self.collect_and_write_properties(self._props_store.next)
@@ -277,3 +287,39 @@ class Autofocus(Action):
             self._active_gen.close()
             self._active_gen = None
             raise
+
+    def _log_af_curve(
+        self, results: list[AutofocusResult], best: float, base: Any | None
+    ) -> None:
+        """
+        Log the autofocus criterion curve with markers for the sweep center and best value.
+
+        Args:
+            results: Autofocus results collected during the sweep.
+            best: The sweep value selected as optimal.
+        """
+        if not results:
+            return
+
+        swept_values = [r.sweep.value for r in results]
+        criterion_values = [r.sharpness for r in results]
+
+        # plot the criterion values
+        elements: list[PlotElement] = [
+            Curve(x=swept_values, y=criterion_values, color="red", linewidth=1.0)
+        ]
+        # mark the base value
+        if base is not None:
+            elements.append(
+                VerticalLine(x=float(base), color="lightblue", linewidth=1.0)
+            )
+        # mark the best value
+        elements.append(VerticalLine(x=best, color="blue", linewidth=1.0))
+
+        self._img_log.save_plot(
+            filename=f"{self.name_with_underscores}_af_curve",
+            elements=elements,
+            title="Focus criterion",
+            xlabel=self._settings.target_attribute,
+            ylabel="Sharpness",
+        )
