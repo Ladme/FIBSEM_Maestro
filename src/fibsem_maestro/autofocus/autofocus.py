@@ -5,6 +5,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any
 
+from fibsem_maestro.autofocus import LineMode
 from fibsem_maestro.autofocus.autofocus_context import AutofocusContext
 from fibsem_maestro.autofocus.autofocus_registry import AutofocusRegistry
 from fibsem_maestro.autofocus.jobs_manager import JobsManager
@@ -12,9 +13,11 @@ from fibsem_maestro.autofocus.result import AutofocusResult
 from fibsem_maestro.autofocus.sweeping import Sweeping
 from fibsem_maestro.core.action import Action
 from fibsem_maestro.core.beam_type import BeamType
+from fibsem_maestro.core.point import PixelPoint
 from fibsem_maestro.criterion.criterion import Criterion
 from fibsem_maestro.imaging.imaging import Imaging
 from fibsem_maestro.logging.image.image_logger import ImageLogger
+from fibsem_maestro.logging.image.overlay import PolylineOverlay
 from fibsem_maestro.logging.image.plot_element import Curve, PlotElement, VerticalLine
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope import Microscope
@@ -278,7 +281,10 @@ class Autofocus(Action):
                 self._txt_log.info(f"Best sweep attribute value: {best}.")
                 self._sweeping.set_attribute_value(best)
 
+                # log images
                 self._log_af_curve(results, best, self._sweep_base_value)
+                if isinstance(self._mode, LineMode):
+                    self._log_line_focus_image(results)
 
             self._active_gen = None
             # sweep finished: record the new best value for the next slice
@@ -301,8 +307,10 @@ class Autofocus(Action):
         if not results:
             return
 
-        swept_values = [r.sweep.value for r in results]
-        criterion_values = [r.sharpness for r in results]
+        # the sharpness evaluation jobs can be completed in any order
+        sorted_results = sorted(results, key=lambda r: r.sweep.index)
+        swept_values = [r.sweep.value for r in sorted_results]
+        criterion_values = [r.sharpness for r in sorted_results]
 
         # plot the criterion values
         elements: list[PlotElement] = [
@@ -322,4 +330,52 @@ class Autofocus(Action):
             title="Focus criterion",
             xlabel=self._settings.target_attribute,
             ylabel="Sharpness",
+        )
+
+    def _log_line_focus_image(self, results: list[AutofocusResult]) -> None:
+        """
+        Log the line focus image with per-line sharpness overlaid as a polyline.
+
+        Args:
+            results: Autofocus results collected during the sweep, one per line.
+        """
+        if not results:
+            return
+
+        try:
+            # assuming the image used for line autofocus is still the current microscope image
+            image = self._ctx.microscope.beam.get_image(crop_to_scanning_area=True)
+        except Exception as e:
+            self._txt_log.warning(
+                f"Could not retrieve line focus image for logging: {e}"
+            )
+            return
+
+        # the sharpness evaluation jobs can be completed in any order
+        sorted_results = sorted(results, key=lambda r: r.sweep.index)
+        sharpness_values = [r.sharpness for r in sorted_results]
+        line_indices = [r.sweep.index for r in sorted_results]
+
+        if max(sharpness_values) == 0:
+            self._txt_log.warning(
+                "Max sharpness value is 0. Unable to normalize the sharpness, skipping logging."
+            )
+            return
+
+        # scale for normalizing sharpness to fit the image
+        scale = image.shape[1] / max(sharpness_values)
+
+        self._img_log.save_image(
+            filename=f"{self.name_with_underscores}_line_focus.png",
+            img=image,
+            overlays=[
+                PolylineOverlay(
+                    points=[
+                        PixelPoint(x=int(v * scale), y=line_idx)
+                        for v, line_idx in zip(sharpness_values, line_indices)
+                    ],
+                    color="red",
+                )
+            ],
+            title="Line focus plot",
         )
