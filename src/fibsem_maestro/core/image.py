@@ -63,7 +63,7 @@ class _ImageBase(np.ndarray[Any, np.dtype[TDType]], Generic[TDType]):
             A new instance of this class wrapping the given array.
         """
 
-        obj = cast("Self", np.asarray(image))
+        obj = cast("Self", np.asarray(image).view(cls))
         obj.pixel_size = pixel_size
         return obj
 

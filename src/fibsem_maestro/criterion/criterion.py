@@ -304,7 +304,7 @@ class Criterion:
         """
         sharpness_map = cast(
             "SharpnessMap",
-            np.zeros_like(full_image, dtype=np.float64),
+            np.zeros_like(full_image, dtype=np.float64).view(SharpnessMap),
         )
 
         for sharpness, tile in zip(sharpnesses, tiles):
