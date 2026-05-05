@@ -44,7 +44,7 @@ class BeamShift:
         """
         try:
             from autoscript_sdb_microscope_client.structures import (
-                Point,  # noqa: F401 # type: ignore
+                Point,  # noqa: F401
             )
         except ImportError as e:
             raise AutoscriptNotAvailableError() from e

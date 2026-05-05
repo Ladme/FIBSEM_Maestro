@@ -8,6 +8,7 @@ from typing import Any
 
 import yaml
 from yaml import CSafeDumper, CSafeLoader, MappingNode
+from yaml.representer import RepresenterError
 
 from .serializer import Serializer
 
@@ -108,7 +109,7 @@ def generic_object_representer(
     props = public_property_dict(data)
 
     if not props:
-        raise yaml.representer.RepresenterError("cannot represent an object", data)
+        raise RepresenterError("cannot represent an object", data)
 
     cls = type(data)
     tag = f"!{cls.__module__}.{cls.__qualname__}"
@@ -145,7 +146,7 @@ def generic_object_constructor(
     module = __import__(module_name, fromlist=[class_name])
     cls = getattr(module, class_name)
 
-    values: dict[str, Any] = loader.construct_mapping(node, deep=True)  # type: ignore
+    values: dict[str, Any] = loader.construct_mapping(node, deep=True)
 
     if hasattr(cls, "create_from"):
         return cls.create_from(list(values.values()))

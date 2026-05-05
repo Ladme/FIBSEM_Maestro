@@ -7,8 +7,7 @@ from typing import TYPE_CHECKING, Any, Generic, Self, TypeVar, cast
 
 import cv2
 import numpy as np
-from cv2.typing import MatLike
-from scipy import ndimage  # type: ignore
+from scipy import ndimage
 
 from fibsem_maestro.core.errors import AutoscriptNotAvailableError
 from fibsem_maestro.core.format import ImageFormat
@@ -20,6 +19,7 @@ if TYPE_CHECKING:
     from autoscript_sdb_microscope_client.structures import (
         AdornedImage as AdornedImageAs,
     )
+    from cv2.typing import MatLike
     from numpy.typing import NDArray
     from tifffile import TiffFile
 
@@ -63,7 +63,7 @@ class _ImageBase(np.ndarray[Any, np.dtype[TDType]], Generic[TDType]):
             A new instance of this class wrapping the given array.
         """
 
-        obj = np.asarray(image).view(cls)
+        obj = cast("Self", np.asarray(image))
         obj.pixel_size = pixel_size
         return obj
 
@@ -110,7 +110,7 @@ class _ImageBase(np.ndarray[Any, np.dtype[TDType]], Generic[TDType]):
         """
         try:
             from autoscript_sdb_microscope_client.structures import (
-                AdornedImage,  # noqa: F401 # type: ignore
+                AdornedImage,  # noqa: F401
             )
         except ImportError as e:
             raise AutoscriptNotAvailableError() from e

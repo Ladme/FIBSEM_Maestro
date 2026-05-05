@@ -8,7 +8,7 @@ from typing import Any
 import cv2
 import numpy as np
 from numpy.typing import NDArray
-from scipy.optimize import curve_fit  # type: ignore
+from scipy.optimize import curve_fit
 
 from fibsem_maestro.core.drift import Drift
 from fibsem_maestro.core.image import Image, Image8Bit

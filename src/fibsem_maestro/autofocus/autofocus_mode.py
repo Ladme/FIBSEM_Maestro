@@ -382,7 +382,7 @@ class AutoscriptMode(AutofocusMode):
             )
 
         autoscript_microscope: SdbMicroscopeClient = (
-            ctx.microscope.control.autoscript_microscope  # type: ignore
+            ctx.microscope.control.autoscript_microscope
         )
 
         with ctx.temporary_stage_x_offset():

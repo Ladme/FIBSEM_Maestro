@@ -52,7 +52,7 @@ class PolylineOverlay(Overlay):
     """
 
     # TODO: change point to a non-generic structure
-    points: Sequence[Point]  # type: ignore
+    points: Sequence[Point]
     color: str = "black"
     linewidth: float = 1.0
 

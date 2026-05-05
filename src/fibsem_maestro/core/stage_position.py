@@ -61,7 +61,7 @@ class StagePosition:
         """
         try:
             from autoscript_sdb_microscope_client.structures import (
-                StagePosition,  # noqa: F401 # type: ignore
+                StagePosition,  # noqa: F401
             )
         except ImportError as e:
             raise AutoscriptNotAvailableError() from e

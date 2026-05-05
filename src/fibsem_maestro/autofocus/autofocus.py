@@ -163,7 +163,7 @@ class Autofocus(Action):
         if self._active_gen is not None:
             # mid-execution: keep going regardless of gating checks
             self._advance()
-            if self._active_gen is not None:  # type: ignore
+            if self._active_gen is not None:
                 self.write_properties(self.read_properties(), self._props_store.next)
             return
 
@@ -188,8 +188,7 @@ class Autofocus(Action):
 
         # if we have started a long-running autofocus, we need to explicitly copy
         # the microscope properties for the autofocus to the next slice
-        # type checker may think that self._active_gen cannot be None, but we can set it to None inside self._advance()
-        if self._active_gen is not None:  # type: ignore
+        if self._active_gen is not None:
             # mid-sweep - copy the props file to the next slice
             self.write_properties(self.read_properties(), self._props_store.next)
 

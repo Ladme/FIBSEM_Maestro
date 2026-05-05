@@ -6,11 +6,11 @@ from typing import cast
 
 import numpy as np
 from numpy.typing import NDArray
-from scipy.ndimage import gaussian_filter  # type: ignore
+from scipy.ndimage import gaussian_filter
 
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.criterion.criterion_registry import CriterionRegistry
-from fibsem_maestro.frc.frc import frc  # type: ignore
+from fibsem_maestro.frc.frc import frc
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.settings.criterion_settings import CriterionSettings
 

@@ -98,8 +98,8 @@ class ReductorsRegistry:
         """
         for name in dir(np):
             attr = getattr(np, name)
-            if callable(attr) and has_numpy_reduction_signature(attr):  # type: ignore
-                cls._registry[name] = attr  # type: ignore
+            if callable(attr) and has_numpy_reduction_signature(attr):
+                cls._registry[name] = attr
 
     @classmethod
     def allowed(cls) -> list[str]:

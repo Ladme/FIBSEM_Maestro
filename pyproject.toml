@@ -22,10 +22,10 @@ dependencies = [
 [dependency-groups]
 dev = [
     "codecov>=2.1.13",
-    "pyright>=1.1.407",
     "pytest>=9.0.1",
     "pytest-cov>=7.1.0",
     "ruff>=0.14.6",
+    "ty>=0.0.34",
 ]
 
 [tool.ruff]
@@ -52,59 +52,5 @@ extend-select = [
 ]
 ignore = ["E501"]
 
-[tool.pyright]
-
-pythonVersion = "3.11"
-
-include = ["src/fibsem_maestro"]
-
-executionEnvironments = [{ root = "src", pythonVersion = "3.11" }]
-
-# Strictness toggles
-reportMissingTypeStubs = true
-reportMissingImports = true
-reportMissingModuleSource = "error"
-reportMissingParameterType = "error"
-reportMissingTypeArgument = "error"
-reportUnknownArgumentType = false
-reportUnknownParameterType = false
-reportUnknownLambdaType = false
-reportUnknownMemberType = false
-reportUnknownVariableType = false
-reportUninitializedInstanceVariable = false
-
-# Usage strictness
-reportUnusedImport = "warning"
-reportUnusedVariable = "warning"
-reportUnusedFunction = "warning"
-reportUnusedClass = "warning"
-
-# Safety & correctness
-reportIncompatibleMethodOverride = "error"
-reportIncompatibleVariableOverride = "error"
-reportInconsistentConstructor = "error"
-reportOverlappingOverload = "error"
-reportInvalidTypeVarUse = "error"
-reportInvalidTypeForm = "error"
-
-# Optional / None strictness
-reportOptionalMemberAccess = "error"
-reportOptionalOperand = "error"
-reportOptionalCall = "error"
-reportOptionalIterable = "error"
-reportOptionalSubscript = "error"
-
-# Narrowing strictness
-reportUnreachable = "warning"
-reportUnnecessaryIsInstance = "warning"
-reportUnnecessaryComparison = "warning"
-
-# Coroutine / async strictness
-reportUnusedCoroutine = "error"
-
-# API correctness warnings
-reportPrivateImportUsage = "error"
-reportUnsupportedDunderAll = "warning"
-
-# Enforce explicit function signatures
-reportUntypedFunctionDecorator = "error"
+[tool.ty.src]
+exclude = ["src/fibsem_maestro_original", "src/criterion_playground.py"]

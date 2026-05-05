@@ -46,7 +46,9 @@ class _SliceAwareFileHandler(logging.Handler):
             self._active_handler = logging.FileHandler(path)
             self._active_handler.setFormatter(self.formatter)
             self._active_path = path
-        return self._active_handler  # type: ignore[return-value]
+
+        assert self._active_handler is not None
+        return self._active_handler
 
     def emit(self, record: logging.LogRecord) -> None:
         """

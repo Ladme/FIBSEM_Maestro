@@ -6,7 +6,7 @@ from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
-from scipy.ndimage import gaussian_filter1d  # type: ignore
+from scipy.ndimage import gaussian_filter1d
 
 
 class SimulatedSample:

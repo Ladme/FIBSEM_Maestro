@@ -163,7 +163,7 @@ class RelativeArea(_Area[RelativePoint, float]):
         """
         try:
             from autoscript_sdb_microscope_client.structures import (
-                Rectangle,  # noqa: F401 # type: ignore
+                Rectangle,  # noqa: F401
             )
         except ImportError as e:
             raise AutoscriptNotAvailableError() from e
