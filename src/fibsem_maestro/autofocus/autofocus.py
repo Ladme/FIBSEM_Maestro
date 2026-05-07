@@ -352,7 +352,7 @@ class Autofocus(Action):
             return
 
         # the sharpness evaluation jobs can be completed in any order
-        sorted_results = sorted(results, key=lambda r: r.sweep.index)
+        sorted_results = sorted(results, key=_get_line_index)
         sharpness_values = [r.sharpness for r in sorted_results]
         line_indices = [r.sweep.index for r in sorted_results]
 
@@ -379,3 +379,11 @@ class Autofocus(Action):
             ],
             title="Line focus plot",
         )
+
+
+@staticmethod
+def _get_line_index(result: AutofocusResult) -> int:
+    """Extract global index of the line in the image that this result corresponds to."""
+    assert result.sweep.line_index is not None
+
+    return result.sweep.line_index

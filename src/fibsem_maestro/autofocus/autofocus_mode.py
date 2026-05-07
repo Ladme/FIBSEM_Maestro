@@ -8,8 +8,11 @@ from abc import ABC, abstractmethod
 from itertools import groupby
 from typing import TYPE_CHECKING
 
+import numpy as np
+
 from fibsem_maestro.autofocus.autofocus_registry import AutofocusRegistry
 from fibsem_maestro.autofocus.error import AutofocusError
+from fibsem_maestro.autofocus.sweep_step import SweepStep
 from fibsem_maestro.core.image_tools import get_stripes
 from fibsem_maestro.microscope.autoscript_control.microscope_control import (
     AutoscriptMicroscopeControl,
@@ -25,7 +28,6 @@ if TYPE_CHECKING:
 
     from fibsem_maestro.autofocus.autofocus_context import AutofocusContext
     from fibsem_maestro.autofocus.jobs_manager import JobsManager
-    from fibsem_maestro.autofocus.sweep_step import SweepStep
     from fibsem_maestro.core.image import Image
 
 
@@ -207,6 +209,11 @@ class LineMode(AutofocusMode):
                 for sweep in steps:
                     ctx.sweeping.set_attribute_value(sweep.value)
                     time.sleep(hold)
+
+            # create a final dark separator band
+            with ctx.microscope.beam.total_blanked():
+                time.sleep(hold)
+
         finally:
             ctx.microscope.beam.stop_acquisition()
 
@@ -222,15 +229,12 @@ class LineMode(AutofocusMode):
 
         Identifies horizontal stripes in the image using dark separator rows
         produced by blanking during acquisition. Each stripe corresponds to one
-        sweep cycle (repetition). Within each stripe, individual rows are matched
-        to their corresponding sweep steps by index, and a sharpness evaluation
-        job is submitted for each row.
+        sweep cycle (repetition). Within each stripe, the rows are split into
+        equal sub-groups - one per sweep step in that repetition. Each line
+        within a sub-group is evaluated independently, producing multiple
+        sharpness measurements per sweep step value.
 
         Stripes listed in `forbidden_stripe_indices` are skipped entirely.
-
-        An `AutofocusError` is raised if the number of rows in a stripe does not
-        match the number of sweep steps for that repetition, indicating a
-        mismatch between acquisition and the sweep configuration.
 
         Args:
             ctx: Shared execution environment providing access to settings
@@ -241,10 +245,6 @@ class LineMode(AutofocusMode):
                 horizontal stripes separated by dark bands.
             sweep_steps: Pre-generated list of sweep steps, shared with
                 `_variable_sweeping_during_scan` to ensure consistency.
-
-        Raises:
-            AutofocusError: If the number of rows in a stripe does not match
-                the number of sweep steps for that repetition.
         """
         mode = ctx.settings.mode
         assert isinstance(mode, LineModeSettings)
@@ -269,18 +269,26 @@ class LineMode(AutofocusMode):
 
             steps = list(steps_iter)
 
-            # sanity check: stripe must have exactly the same number of rows
-            # as sweep steps for this repetition
-            if len(stripe) != len(steps):
-                raise AutofocusError(
-                    f"Stripe length ({len(stripe)}) does not match sweep count ({len(steps)}) for repetition {rep}."
-                )
+            # split lines of one stripe into equal sub-groups
+            # each group then corresponds to one value of the sweep variable
+            sub_bins = np.array_split(stripe, len(steps))
 
-            # submit a sharpness evaluation job for each row of the stripe,
-            # matched to its corresponding sweep step by index
-            for line_index, step in zip(stripe, steps):
-                image_line = image[line_index, :]
-                jobs.submit(ctx.make_sharpness_job(image_line, step))
+            # submit a sharpness job for each line within each sub-bin
+            # associating all lines in the sub-bin with their corresponding sweep step
+            for step, sub_bin in zip(steps, sub_bins):
+                for line_index in sub_bin:
+                    image_line = image[line_index, :]
+
+                    # create a new SweepStep containing row index
+                    step_with_line_index = SweepStep(
+                        repetition=step.repetition,
+                        value=step.value,
+                        index=step.index,
+                        line_index=int(line_index),
+                    )
+                    jobs.submit(
+                        ctx.make_sharpness_job(image_line, step_with_line_index)
+                    )
 
 
 @AutofocusRegistry.register("step")

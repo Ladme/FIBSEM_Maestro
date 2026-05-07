@@ -146,10 +146,14 @@ class TemplateMatching:
         # perform template matching for each template
         match self._settings.matching_mode:
             case StandardMode():
+                self._txt_log.debug("Calculating template match in pixel resolution.")
                 matches = self._calculate_template_matches(
                     img8bit, self._calculate_match
                 )
             case SubpixelMode():
+                self._txt_log.debug(
+                    "Calculating template match in sub-pixel resolution."
+                )
                 matches = self._calculate_template_matches(
                     img8bit, self._calculate_subpixel_match
                 )
