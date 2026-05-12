@@ -6,8 +6,8 @@ from typing import Annotated, Literal
 
 from pydantic import Field
 
-from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.beam_type import BeamType
+from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.base_settings import BaseSettings
 from fibsem_maestro.settings.criterion_settings import CriterionSettings
 from fibsem_maestro.settings.property_names import PropertyNames
@@ -50,15 +50,11 @@ class ImagingSettings(BaseSettings):
         default=BeamType.ELECTRON,
         description="Beam used for imaging.",
     )
-    bit_depth: int | None = Field(
-        default=None,
-        description="Imaging bit depth.",
-    )
-    scanning_area: RelativeArea | None = Field(
-        default=None,
-        description="Scanning area to use for imaging.",
-    )
     criterion: CriterionSettings | None = Field(
         default=None,
         description="Settings for the criterion to use to calculate image sharpness.",
+    )
+    external_props: GlobalProperties = Field(
+        default=GlobalProperties(),
+        description="External properties of the microscope to use for imaging. These properties will overwrite any current microscope properties.",
     )

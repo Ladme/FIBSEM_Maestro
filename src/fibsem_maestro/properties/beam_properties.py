@@ -110,3 +110,14 @@ class BeamProperties(BaseSettings):
     working_distance: Annotated[float, Field(gt=0)] | None = Field(
         default=None,
     )
+
+    def get_property_names(self) -> list[str]:
+        """
+        Return a list of all property names that are not None.
+
+        Returns:
+            list[str]: List of property names.
+        """
+        return [
+            name for name in type(self).model_fields if getattr(self, name) is not None
+        ]

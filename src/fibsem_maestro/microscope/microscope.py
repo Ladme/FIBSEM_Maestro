@@ -2,6 +2,9 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
+from collections.abc import Iterator
+from contextlib import contextmanager
+
 import numpy as np
 from numpy.typing import NDArray
 from scipy.spatial import distance  # pyright: ignore[reportMissingTypeStubs]
@@ -334,6 +337,18 @@ class Microscope:
             electron_beam=electron_beam_properties,
             ion_beam=ion_beam_properties,
         )
+
+    @contextmanager
+    def set_temporary_properties(self, props: GlobalProperties) -> Iterator[None]:
+        """
+        Temporarily set the microscope properties to the given values, and restore them when done.
+        """
+        backup = self.collect_properties(props.get_property_names())
+        self.set_properties(props, None)
+        try:
+            yield
+        finally:
+            self.set_properties(backup, None)
 
     def _beam_shift_to_stage_move(self) -> NDArray[np.floating]:
         """

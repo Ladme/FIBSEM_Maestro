@@ -9,6 +9,7 @@ from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.properties.beam_properties import BeamProperties
 from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.properties.microscope_properties import MicroscopeProperties
+from fibsem_maestro.settings.property_names import PropertyNames
 
 
 def test_accumulate_property_creates_electron_beam_from_none():
@@ -203,3 +204,46 @@ def test_set_property_raises_on_nonexistent_property():
     assert "fake_property" not in str(exc_info.value) or "does not exist" in str(
         exc_info.value
     )
+
+
+def test_global_properties_get_property_names_returns_empty_when_all_none():
+    props = GlobalProperties()
+
+    result = props.get_property_names()
+
+    assert result.microscope == []
+    assert result.electron_beam == []
+    assert result.ion_beam == []
+
+
+def test_global_properties_get_property_names_returns_correct_microscope_names():
+    props = GlobalProperties(
+        microscope=MicroscopeProperties(stage_position=StagePosition(x=0.0, y=0.0))
+    )
+
+    result = props.get_property_names()
+
+    assert "stage_position" in result.microscope
+    assert result.electron_beam == []
+    assert result.ion_beam == []
+
+
+def test_global_properties_get_property_names_returns_correct_beam_names():
+    props = GlobalProperties(
+        electron_beam=BeamProperties(working_distance=5_000_000.0),
+        ion_beam=BeamProperties(pixel_size=2.0),
+    )
+
+    result = props.get_property_names()
+
+    assert "working_distance" in result.electron_beam
+    assert "pixel_size" in result.ion_beam
+    assert result.microscope == []
+
+
+def test_global_properties_get_property_names_returns_property_names_instance():
+    props = GlobalProperties()
+
+    result = props.get_property_names()
+
+    assert isinstance(result, PropertyNames)

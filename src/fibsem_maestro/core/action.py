@@ -3,7 +3,11 @@
 
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
+from contextlib import contextmanager, nullcontext
+from typing import Any
 
+from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope import Microscope
@@ -85,7 +89,11 @@ class Action(ABC):
         # set properties to the microscope
         self.microscope.set_properties(props, beam=self.beam_type)
 
-    def collect_and_write_properties(self, store: PropsStore | None = None) -> None:
+    def collect_and_write_properties(
+        self,
+        store: PropsStore | None = None,
+        external_props: GlobalProperties | None = None,
+    ) -> None:
         """
         Collect and write the properties of the microscope.
         """
@@ -97,7 +105,12 @@ class Action(ABC):
         )
 
         # collect the properties from the microscope
-        props = self.microscope.collect_properties(self.props_to_collect)
+        with (
+            self.microscope.set_temporary_properties(external_props)
+            if external_props is not None
+            else nullcontext()
+        ):
+            props = self.microscope.collect_properties(self.props_to_collect)
 
         # write the properties
         store.write(self.props_file, props)

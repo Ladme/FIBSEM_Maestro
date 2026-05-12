@@ -14,6 +14,7 @@ from fibsem_maestro.imaging.error import ImagingError
 from fibsem_maestro.logging.image.image_logger import ImageLogger
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope import Microscope
+from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.imaging_settings import (
     ExtendedResolution,
     ImagingSettings,
@@ -153,7 +154,9 @@ class Imaging(Action):
         self._last_acquired_image = self._microscope.beam.grab_frame(self._frame_store)
 
         # update the saved microscope properties for the next frame
-        self.collect_and_write_properties(self._props_store.next)
+        self.collect_and_write_properties(
+            self._props_store.next, self._settings.external_props
+        )
 
         # calculate image sharpness in a separate thread
         self._image_sharpness = None
@@ -169,46 +172,41 @@ class Imaging(Action):
                 f"Criterion is not configured for {self._name}. Image sharpness will not be calculated."
             )
 
-    def collect_and_write_properties(self, store: PropsStore | None = None) -> None:
+    def collect_and_write_properties(
+        self,
+        store: PropsStore | None = None,
+        external_props: GlobalProperties | None = None,
+    ) -> None:
         """
         Collect and save the relevant properties of the microscope.
 
         Args:
             store: Store to write properties to. If `None`, the current slice's store is used.
         """
+        external_props = external_props or self._settings.external_props
+
         store = store or self._props_store
         self._txt_log.debug("Saving microscope properties for imaging.")
 
         self._microscope.set_beam(self._settings.beam_type)
 
-        # store the current scanning area
-        backup_scanning_area = self._microscope.beam.scanning_area
+        # set external microscope properties such as scanning area or bit depth
+        with self._microscope.set_temporary_properties(external_props):
+            match self._settings.resolution_mode:
+                case StandardResolution():
+                    pass
+                case ExtendedResolution() as mode:
+                    self._set_extended_resolution_props(
+                        mode.pixel_size,
+                    )
 
-        # set bit depth, if specified in the settings
-        if (bd := self._settings.bit_depth) is not None:
-            self._microscope.beam.bit_depth = bd
+            # collect the microscope properties
+            props = self._microscope.collect_properties(
+                self._settings.properties_to_collect
+            )
 
-        match self._settings.resolution_mode:
-            case StandardResolution():
-                # set the scanning area, if specified in the settings
-                if (area := self._settings.scanning_area) is not None:
-                    self._microscope.beam.scanning_area = area
-                # otherwise set the scanning area to full frame to override any external set up
-                else:
-                    self._microscope.beam.scanning_area = RelativeArea.full()
-            case ExtendedResolution() as mode:
-                self._set_extended_resolution_props(mode.pixel_size)
-
-        # collect the microscope properties
-        props = self._microscope.collect_properties(
-            self._settings.properties_to_collect
-        )
-
-        # save the properties to a file
-        store.write(str(self._settings.properties_file), props)
-
-        # set the original scanning area
-        self._microscope.beam.scanning_area = backup_scanning_area
+            # save the properties to a file
+            store.write(str(self._settings.properties_file), props)
 
     def wait_for_sharpness(self) -> float | None:
         """
@@ -237,9 +235,17 @@ class Imaging(Action):
         Args:
             new_pixel_size: The target pixel size in nanometers.
         """
+        # get external properties for the relevant beam
+        props = (
+            self._settings.external_props.electron_beam
+            if self._settings.beam_type == BeamType.ELECTRON
+            else self._settings.external_props.ion_beam
+        )
+
         # image only the scanning area
         if (
-            (area := self._settings.scanning_area) is not None
+            props is not None
+            and (area := props.scanning_area) is not None
             and not area.is_full_frame()
             and not self._scanning_area_selected
         ):

@@ -9,6 +9,7 @@ from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.properties.beam_properties import BeamProperties
 from fibsem_maestro.properties.microscope_properties import MicroscopeProperties
 from fibsem_maestro.settings.base_settings import BaseSettings
+from fibsem_maestro.settings.property_names import PropertyNames
 
 
 class GlobalProperties(BaseSettings):
@@ -24,6 +25,21 @@ class GlobalProperties(BaseSettings):
         default=None,
         description="Properties of the ion beam.",
     )
+
+    def get_property_names(self) -> PropertyNames:
+        """
+        Return a list of all property names that are not None.
+
+        Returns:
+            PropertyNames: Collection of property names.
+        """
+        return PropertyNames(
+            microscope=self.microscope.get_property_names() if self.microscope else [],
+            electron_beam=self.electron_beam.get_property_names()
+            if self.electron_beam
+            else [],
+            ion_beam=self.ion_beam.get_property_names() if self.ion_beam else [],
+        )
 
     def accumulate_property(
         self, property_name: str, value_to_add: Any, beam_type: BeamType | None = None
