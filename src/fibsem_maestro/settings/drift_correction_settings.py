@@ -42,6 +42,14 @@ class DriftCorrectionSettings(BaseSettings):
         default=True,
         description="If `True` and drift correction fails, the execution is stopped. If `False`, warning is printed but execution continues.",
     )
+    dummy_image_scans: int = Field(
+        default=0,
+        description="Number of dummy frames to acquire before the actual scan for drift correction. Image acquisition is performed with the parameters set up for drift correction.",
+    )
+    dummy_full_image_scans: int = Field(
+        default=0,
+        description="Number of dummy full image frames to acquire before the actual scan for drift correction. Full scanning area is always used for these scans.",
+    )
     external_props: GlobalProperties = Field(
         default=GlobalProperties(),
         description="External properties of the microscope to use for drift correction. These properties will overwrite any current microscope properties.",

@@ -4,6 +4,7 @@
 from typing import TYPE_CHECKING
 
 from fibsem_maestro.core.action import Action
+from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.drift import Drift
@@ -141,6 +142,9 @@ class DriftCorrection(Action):
         # prepare drift calculation
         self._drift_calc.before_calculate_drift(slice_number)
 
+        # grab dummy frames (if requested)
+        self._grab_dummy_frames()
+
         # grab image for drift correction
         self._txt_log.info("Acquiring image for drift correction.")
         image = self._microscope.beam.grab_frame()
@@ -167,6 +171,24 @@ class DriftCorrection(Action):
 
         # collect and save the microscope properties for the next slice
         self.collect_and_write_properties(self._props_store.next)
+
+    def _grab_dummy_frames(self) -> None:
+        """Grab dummy frames to increase robustness of drift correction."""
+        # temporarily set the scanning area to full frame
+        with self._microscope.set_temporary_beam_property(
+            "scanning_area", RelativeArea.full()
+        ):
+            for i in range(self._settings.dummy_full_image_scans):
+                self._txt_log.info(
+                    f"Performing dummy full image scan {i + 1}/{self._settings.dummy_full_image_scans}."
+                )
+                self._microscope.beam.grab_frame()
+
+        for i in range(self._settings.dummy_image_scans):
+            self._txt_log.info(
+                f"Performing dummy scan {i + 1}/{self._settings.dummy_image_scans}."
+            )
+            self._microscope.beam.grab_frame()
 
     def _calculate_correcting_beam_shift(
         self, image: Image, slice_number: int

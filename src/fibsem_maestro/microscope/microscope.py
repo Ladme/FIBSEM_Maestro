@@ -4,6 +4,7 @@
 
 from collections.abc import Iterator
 from contextlib import contextmanager
+from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
@@ -349,6 +350,41 @@ class Microscope:
             yield
         finally:
             self.set_properties(backup, None)
+
+    @contextmanager
+    def set_temporary_beam_property(
+        self, property: str, value: Any, beam: BeamType | None = None
+    ) -> Iterator[None]:
+        """
+        Temporarily set a single property of the given beam to the given value, and restore it when done.
+
+        Args:
+            property: The name of the property to set.
+            value: The value to set the property to.
+            beam: The beam to set the property on, or `None` to use the current beam.
+        """
+        match beam:
+            case BeamType.ELECTRON:
+                beam_control = self.control.electron_beam
+            case BeamType.ION:
+                beam_control = self.control.ion_beam
+            case _:
+                beam_control = self.beam
+
+        _unused = object()
+        backup = _unused
+        try:
+            backup = getattr(beam_control, property, value)
+            setattr(beam_control, property, value)
+            yield
+        except Exception as e:
+            self._txt_log.warning(f"Could not set property {property}: {e}")
+        finally:
+            if backup is not _unused:
+                try:
+                    setattr(beam_control, property, backup)
+                except Exception as e:
+                    self._txt_log.warning(f"Could not restore property {property}: {e}")
 
     def _beam_shift_to_stage_move(self) -> NDArray[np.floating]:
         """
