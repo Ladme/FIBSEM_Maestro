@@ -15,6 +15,7 @@ from fibsem_maestro.drift_correction.error import DriftCorrectionError
 from fibsem_maestro.logging.image.image_logger import ImageLogger
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope import Microscope
+from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.drift_correction_settings import DriftCorrectionSettings
 from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.store.image.image_store import ImageStore
@@ -98,6 +99,10 @@ class DriftCorrection(Action):
     @property
     def txt_log(self) -> TextLogger:
         return self._txt_log
+
+    @property
+    def external_props(self) -> GlobalProperties:
+        return self._settings.external_props
 
     def setup(self) -> None:
         """

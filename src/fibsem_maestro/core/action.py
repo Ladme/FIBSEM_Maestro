@@ -3,11 +3,7 @@
 
 
 from abc import ABC, abstractmethod
-from collections.abc import Iterator
-from contextlib import contextmanager, nullcontext
-from typing import Any
 
-from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope import Microscope
@@ -67,6 +63,13 @@ class Action(ABC):
         """
 
     @property
+    @abstractmethod
+    def external_props(self) -> GlobalProperties:
+        """
+        External properties of the microscope to use for this action.
+        """
+
+    @property
     def name_with_underscores(self) -> str:
         """
         Name of the action with spaces replaced by underscores.
@@ -92,7 +95,6 @@ class Action(ABC):
     def collect_and_write_properties(
         self,
         store: PropsStore | None = None,
-        external_props: GlobalProperties | None = None,
     ) -> None:
         """
         Collect and write the properties of the microscope.
@@ -104,12 +106,8 @@ class Action(ABC):
             f"Collecting and saving microscope properties for {self.name}."
         )
 
-        # collect the properties from the microscope
-        with (
-            self.microscope.set_temporary_properties(external_props)
-            if external_props is not None
-            else nullcontext()
-        ):
+        # collect the properties from the microscope while respecting external props
+        with self.microscope.set_temporary_properties(self.external_props):
             props = self.microscope.collect_properties(self.props_to_collect)
 
         # write the properties

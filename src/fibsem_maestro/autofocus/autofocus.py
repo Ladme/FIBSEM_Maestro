@@ -21,6 +21,7 @@ from fibsem_maestro.logging.image.overlay import PolylineOverlay
 from fibsem_maestro.logging.image.plot_element import Curve, PlotElement, VerticalLine
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope import Microscope
+from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.autofocus_settings import (
     AutofocusSettings,
     AutoscriptMode,
@@ -148,6 +149,10 @@ class Autofocus(Action):
     @property
     def txt_log(self) -> TextLogger:
         return self._txt_log
+
+    @property
+    def external_props(self) -> GlobalProperties:
+        return self._settings.external_props
 
     def perform_autofocus(self, slice_number: int) -> None:
         """
@@ -344,7 +349,7 @@ class Autofocus(Action):
 
         try:
             # assuming the image used for line autofocus is still the current microscope image
-            image = self._ctx.microscope.beam.get_image(crop_to_scanning_area=True)
+            image = self._ctx.microscope.beam.get_image()
         except Exception as e:
             self._txt_log.warning(
                 f"Could not retrieve line focus image for logging: {e}"

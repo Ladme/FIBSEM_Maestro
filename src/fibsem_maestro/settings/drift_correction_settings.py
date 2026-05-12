@@ -7,6 +7,7 @@ from typing import Annotated, Literal
 from pydantic import Field
 
 from fibsem_maestro.core.beam_type import BeamType
+from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.base_settings import BaseSettings
 from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.settings.template_matching_settings import TemplateMatchingSettings
@@ -40,4 +41,8 @@ class DriftCorrectionSettings(BaseSettings):
     stop_at_failure: bool = Field(
         default=True,
         description="If `True` and drift correction fails, the execution is stopped. If `False`, warning is printed but execution continues.",
+    )
+    external_props: GlobalProperties = Field(
+        default=GlobalProperties(),
+        description="External properties of the microscope to use for drift correction. These properties will overwrite any current microscope properties.",
     )

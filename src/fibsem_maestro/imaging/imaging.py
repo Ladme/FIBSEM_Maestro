@@ -125,6 +125,11 @@ class Imaging(Action):
         return self._txt_log
 
     @property
+    def external_props(self) -> GlobalProperties:
+        """External properties to use for this imaging action."""
+        return self._settings.external_props
+
+    @property
     def last_acquired_image(self) -> Image | None:
         """Get the last image acquired by this imaging."""
         return self._last_acquired_image
@@ -154,9 +159,7 @@ class Imaging(Action):
         self._last_acquired_image = self._microscope.beam.grab_frame(self._frame_store)
 
         # update the saved microscope properties for the next frame
-        self.collect_and_write_properties(
-            self._props_store.next, self._settings.external_props
-        )
+        self.collect_and_write_properties(self._props_store.next)
 
         # calculate image sharpness in a separate thread
         self._image_sharpness = None
@@ -175,7 +178,6 @@ class Imaging(Action):
     def collect_and_write_properties(
         self,
         store: PropsStore | None = None,
-        external_props: GlobalProperties | None = None,
     ) -> None:
         """
         Collect and save the relevant properties of the microscope.
@@ -183,15 +185,13 @@ class Imaging(Action):
         Args:
             store: Store to write properties to. If `None`, the current slice's store is used.
         """
-        external_props = external_props or self._settings.external_props
-
         store = store or self._props_store
         self._txt_log.debug("Saving microscope properties for imaging.")
 
         self._microscope.set_beam(self._settings.beam_type)
 
         # set external microscope properties such as scanning area or bit depth
-        with self._microscope.set_temporary_properties(external_props):
+        with self._microscope.set_temporary_properties(self.external_props):
             match self._settings.resolution_mode:
                 case StandardResolution():
                     pass

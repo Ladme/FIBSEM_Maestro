@@ -9,6 +9,7 @@ from pydantic import Field, field_validator
 
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
+from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.base_settings import BaseSettings
 from fibsem_maestro.settings.criterion_settings import CriterionSettings
 from fibsem_maestro.settings.property_names import PropertyNames
@@ -114,6 +115,10 @@ class AutofocusSettings(BaseSettings):
     max_workers: int = Field(
         default=1,
         description="Maximal number of threads used for calculation.",
+    )
+    external_props: GlobalProperties = Field(
+        default=GlobalProperties(),
+        description="External properties of the microscope to use for autofocus. These properties will overwrite any current microscope properties.",
     )
 
     @field_validator("target_attribute")
