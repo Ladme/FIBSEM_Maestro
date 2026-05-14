@@ -62,7 +62,7 @@ def main():
     imaging_settings = ImagingSettings.from_file(args.imaging)
 
     # initialize the loggers and stores
-    slice = SliceContext(Path("logs"), 1)
+    slice = SliceContext(Path("logs"), 0)
     txt_log = FileTextLogger(
         slice, "microscope", logging.DEBUG if args.verbose else logging.INFO
     )
@@ -97,6 +97,7 @@ def main():
     # )
 
     # save microscope properties
+    slice.increment()
     imaging.collect_and_write_properties()
 
     # optionally change microscope properties to test that the previously saved properties are reloaded before imaging

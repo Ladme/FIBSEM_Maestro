@@ -84,7 +84,7 @@ def main():
     autofocus_settings = AutofocusSettings.from_file(args.autofunction)
     drift_settings = DriftCorrectionSettings.from_file(args.drift)
 
-    slice = SliceContext(Path("logs"), 1)
+    slice = SliceContext(Path("logs"), 0)
     txt_log = FileTextLogger(
         slice, "microscope", logging.DEBUG if args.verbose else logging.INFO
     )
@@ -136,6 +136,10 @@ def main():
     microscope.beam.horizontal_field_width = 2000
     microscope.beam.working_distance = 5_000_000.0
 
+    autofocus.test_autofocus()
+    return
+
+    slice.increment()
     drift.collect_and_write_properties()
     autofocus.collect_and_write_properties()
     imaging.collect_and_write_properties()

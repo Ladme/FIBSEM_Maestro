@@ -76,7 +76,7 @@ def main():
     drift_corr_settings = DriftCorrectionSettings.from_file(args.drift)
 
     # initialize the loggers and stores
-    slice = SliceContext(Path("logs"), 1)
+    slice = SliceContext(Path("logs"), 0)
     txt_log = FileTextLogger(
         slice, "microscope", logging.DEBUG if args.verbose else logging.INFO
     )
@@ -119,6 +119,7 @@ def main():
     microscope.beam.resolution = Resolution(1024, 768)
     microscope.beam.horizontal_field_width = 2000
 
+    slice.increment()
     drift_correction.collect_and_write_properties()
 
     # save microscope properties

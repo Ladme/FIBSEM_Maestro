@@ -5,7 +5,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any
 
-from fibsem_maestro.autofocus import AUTOFOCUS_MODES, LineMode
+from fibsem_maestro.autofocus import AUTOFOCUS_MODES, LineMode, StepMode
 from fibsem_maestro.autofocus.autofocus_context import AutofocusContext
 from fibsem_maestro.autofocus.jobs_manager import JobsManager
 from fibsem_maestro.autofocus.result import AutofocusResult
@@ -206,6 +206,38 @@ class Autofocus(Action):
         if self._active_gen is not None:
             # mid-sweep - copy the props file to the next slice
             self.write_properties(self.read_properties(), self._props_store.next)
+
+    def test_autofocus(self) -> None:
+        """
+        Run the autofocus pipeline once and apply the best sweep value.
+
+        Intended for manual testing and diagnostics outside the normal acquisition
+        loop. Unlike `perform_autofocus`, this method bypasses all gating
+        conditions and does not interact with the props store.
+
+        Step mode is not supported since it spreads execution across multiple
+        slices and cannot be run in a single call.
+        """
+        # clear any existing jobs
+        self._jobs.wait_and_clear()
+
+        if isinstance(self._mode, StepMode):
+            self._txt_log.warning("Autofocus test is not supported for step mode.")
+            return
+
+        for _ in self._mode.execute(self._ctx, self._jobs):
+            self._jobs.wait()
+
+        results = self._jobs.wait_and_collect()
+        if self._sweeping is not None:
+            best = self._sweeping.evaluate_best_sweep(results)
+            self._txt_log.info(f"Best sweep attribute value: {best}.")
+            self._sweeping.set_attribute_value(best)
+
+            # log images
+            self._log_af_curve(results, best, self._sweep_base_value)
+            if isinstance(self._mode, LineMode):
+                self._log_line_focus_image(results)
 
     def _should_execute(self, slice_number: int, image_sharpness: float | None) -> bool:
         """
