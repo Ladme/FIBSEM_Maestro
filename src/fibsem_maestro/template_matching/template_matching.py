@@ -11,18 +11,18 @@ from numpy.typing import NDArray
 from scipy.optimize import curve_fit
 
 from fibsem_maestro.core.drift import Drift
-from fibsem_maestro.core.image import Image, Image8Bit
+from fibsem_maestro.core.image import Image8Bit
 from fibsem_maestro.core.point import PixelPoint
 from fibsem_maestro.logging.image.image_logger import ImageLogger
 from fibsem_maestro.logging.image.overlay import RectangleOverlay
 from fibsem_maestro.logging.text.text_logger import TextLogger
-from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.template_matching_settings import (
     StandardMode,
     SubpixelMode,
     TemplateMatchingSettings,
 )
 from fibsem_maestro.store.image.image_store import ImageStore
+from fibsem_maestro.template_matching.area_provider import AreaProvider
 from fibsem_maestro.template_matching.error import TemplateMatchingError
 from fibsem_maestro.template_matching.result import (
     ShiftPrecision,
@@ -47,7 +47,7 @@ class TemplateMatching:
     Args:
         name: Human-readable identifier for this instance, used in log
             messages and template filenames.
-        microscope: Interface to the electron microscope.
+        area_provider: Provider for the image regions for template matching.
         settings: Template matching configuration.
         image_store: Store for persisting and retrieving template images.
         txt_log: Logger for diagnostic and status messages.
@@ -57,14 +57,14 @@ class TemplateMatching:
     def __init__(
         self,
         name: str,
-        microscope: Microscope,
+        area_provider: AreaProvider,
         settings: TemplateMatchingSettings,
         image_store: ImageStore[Image8Bit],
         txt_log: TextLogger,
         img_log: ImageLogger,
     ):
         self._name = name
-        self._microscope = microscope
+        self._area_provider = area_provider
         self._settings = settings
         self._image_store = image_store
         self._txt_log = txt_log
@@ -79,9 +79,9 @@ class TemplateMatching:
         """
         Acquire reference images and save an averaged template for each area.
 
-        Acquires `settings.template_scans` frames, crops each configured area
-        from every frame, validates that the crops are consistent across scans,
-        and saves the per-area average as the reference template.
+        Acquires `settings.template_scans` sets of template regions, validates
+        that the crops are consistent across scans, and saves the per-area
+        average as the reference template.
 
         Args:
             store: Store to write templates to. If `None`, the current
@@ -98,10 +98,17 @@ class TemplateMatching:
                 "Cannot create templates: no template matching areas are configured."
             )
 
-        frames = self._acquire_template_frames()
+        # acquire template regions for each scan
+        all_scans: list[list[Image8Bit]] = []
+        for i in range(self._settings.template_scans):
+            self._txt_log.info(
+                f"Acquiring template image {i + 1}/{self._settings.template_scans}."
+            )
+            all_scans.append(self._area_provider.acquire_template_regions())
 
-        for area_index, area in enumerate(self._settings.areas):
-            template_scans = [frame.crop(area).to_8bit() for frame in frames]
+        # transpose from per-scan to per-area, validate, and save
+        for area_index in range(len(self._settings.areas)):
+            template_scans = [scan[area_index] for scan in all_scans]
             self._validate_template_scan_consistency(template_scans, area_index)
             self._save_averaged_template(template_scans, area_index, store)
 
@@ -128,12 +135,9 @@ class TemplateMatching:
             for i in range(len(self._settings.areas)):
                 self._copy_template(i, self._image_store, self._image_store.next)
 
-    def calculate_drift(self, image: Image) -> Drift:
+    def calculate_drift(self) -> Drift:
         """
         Calculate the image drift relative to the stored templates.
-
-        Args:
-            image: The current frame to compare against the stored templates.
 
         Returns:
             A `Drift` instance containing the x and y shift in nanometers
@@ -141,29 +145,34 @@ class TemplateMatching:
             matches fall below the confidence threshold, `x` and `y` are
             `None`.
         """
-        img8bit = image.to_8bit()
+        self._txt_log.info("Obtaining search regions for template matching.")
+        search_regions = self._area_provider.acquire_search_regions()
 
         # perform template matching for each template
         match self._settings.matching_mode:
             case StandardMode():
                 self._txt_log.debug("Calculating template match in pixel resolution.")
                 matches = self._calculate_template_matches(
-                    img8bit, self._calculate_match
+                    search_regions, self._calculate_match
                 )
             case SubpixelMode():
                 self._txt_log.debug(
                     "Calculating template match in sub-pixel resolution."
                 )
                 matches = self._calculate_template_matches(
-                    img8bit, self._calculate_subpixel_match
+                    search_regions, self._calculate_subpixel_match
                 )
 
         # log the results of template matching
         self._log_heatmaps(matches)
-        self._log_image_shifts(img8bit, matches)
+
+        # log shifts in the image only if full frame has been acquired
+        if (frame := self._area_provider.last_full_frame) is not None:
+            self._log_image_shifts(frame, matches)
 
         # get image shift from template matching results
-        shift = self._matches_to_image_shift(matches, image.pixel_size)
+        pixel_size = search_regions[0].pixel_size
+        shift = self._matches_to_image_shift(matches, pixel_size)
 
         # average confidence of the individual template matches
         confidence = self._get_average_confidence(matches)
@@ -296,21 +305,6 @@ class TemplateMatching:
             heatmap=heatmap,
         )
 
-    def _acquire_template_frames(self) -> list[Image]:
-        """
-        Acquire the configured number of frames for template creation.
-
-        Returns:
-            A list of acquired frames, one per configured scan.
-        """
-        frames: list[Image] = []
-        for i in range(self._settings.template_scans):
-            self._txt_log.info(
-                f"Acquiring template image {i + 1}/{self._settings.template_scans}."
-            )
-            frames.append(self._microscope.beam.grab_frame())
-        return frames
-
     def _validate_template_scan_consistency(
         self, scans: list[Image8Bit], area_index: int
     ) -> None:
@@ -380,14 +374,14 @@ class TemplateMatching:
 
     def _calculate_template_matches(
         self,
-        image: Image8Bit,
+        search_regions: list[Image8Bit],
         match_fn: Callable[[Image8Bit, Image8Bit], TemplateMatchResult[ShiftPrecision]],
     ) -> list[TemplateMatchResult[ShiftPrecision]]:
         """
-        Load each template and compute its match within the corresponding image region.
+        Load each template and compute its match within the corresponding search region.
 
         Args:
-            image: Full drift-correction frame to search within.
+            search_regions: Pre-acquired search regions, one per configured template area.
             match_fn: Method used to compute each match. Determines whether
                 results carry integer or sub-pixel float precision, e.g.
                 `self._calculate_match` or `self._calculate_subpixel_match`.
@@ -398,16 +392,9 @@ class TemplateMatching:
             matches the return type of `match_fn`.
         """
         matches = []
-        for i, area in enumerate(self._settings.areas):
-            # load the template from file
+        for i, region in enumerate(search_regions):
             template = self._load_template(i)
-
-            # select the area for template matching from the provided image
-            cropped = image.crop_with_padding(area, self._settings.correction_margin)
-
-            # calculate the match between template and the cropped image
-            matches.append(match_fn(template, cropped))
-
+            matches.append(match_fn(template, region))
         return matches
 
     def _matches_to_image_shift(

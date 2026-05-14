@@ -24,6 +24,31 @@ TemplateMatchingMode = Annotated[
 ]
 
 
+class FullFrameMode(BaseSettings):
+    type: Literal["full_frame"] = "full_frame"
+    dummy_scans: int = Field(
+        default=0,
+        description="The number of dummy scans to perform before starting the main scan for template matching.",
+    )
+
+
+class ReducedAreaMode(BaseSettings):
+    type: Literal["reduced_area"] = "reduced_area"
+    full_frame_dummy_scans: int = Field(
+        default=0,
+        description="The number of full frame dummy scans to perform before starting the main scan for template matching.",
+    )
+    reduced_area_dummy_scans: int = Field(
+        default=0,
+        description="The number of reduced area dummy scans to perform before starting the main scan for template matching. This number of dummy scans will be performed for each area of interest.",
+    )
+
+
+FrameGrabbingMode = Annotated[
+    FullFrameMode | ReducedAreaMode, Field(discriminator="type")
+]
+
+
 class TemplateMatchingSettings(BaseSettings):
     templates_directory: Path = Field(
         default=Path("templates"),
@@ -32,6 +57,10 @@ class TemplateMatchingSettings(BaseSettings):
     matching_mode: TemplateMatchingMode = Field(
         default_factory=StandardMode,
         description="Template matching mode.",
+    )
+    frame_grabbing_mode: FrameGrabbingMode = Field(
+        default_factory=FullFrameMode,
+        description="Should the areas for template matching be obtained by scanning the full frame and cropping or by using reduced scanning area.",
     )
     template_scans: Annotated[int, Field(gt=0)] = Field(
         default=1, description="The number of scans to perform for each template."

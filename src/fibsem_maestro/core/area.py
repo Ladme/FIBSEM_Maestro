@@ -26,9 +26,9 @@ class _Area(BaseModel, Generic[T, U]):
     Attributes:
         origin (T):
             Coordinates of the top left corner of the area.
-        width (float):
+        width (U):
             The width of the area.
-        height (float):
+        height (U):
             The height of the area.
     """
 
@@ -50,9 +50,39 @@ class _Area(BaseModel, Generic[T, U]):
     def shifted(self, delta: T) -> Self:
         """
         Get an area of the same type and dimensions with origin shifted by `delta`.
+
+        Args:
+            delta: The amount to shift the origin by.
+
+        Returns:
+            An area of the same type with the shifted origin.
         """
         return type(self)(
             origin=self.origin + delta, width=self.width, height=self.height
+        )
+
+    def expanded(self, amount: U) -> Self:
+        """
+        Get an area expanded by `amount` on all four sides.
+
+        Note:
+            The returned area may extend beyond valid image bounds.
+            Clamping or padding is the caller's responsibility.
+
+        Args:
+            amount: The distance to expand on each side, in the same
+                units as `width` and `height`.
+
+        Returns:
+            A new area of the same type with the expanded geometry.
+        """
+        return type(self)(
+            origin=type(self.origin)(
+                x=self.origin.x - amount,  # ty: ignore[invalid-argument-type]
+                y=self.origin.y - amount,  # ty: ignore[invalid-argument-type]
+            ),
+            width=self.width + 2 * amount,
+            height=self.height + 2 * amount,
         )
 
 

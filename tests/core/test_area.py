@@ -2,6 +2,7 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 import numpy as np
+import pytest
 
 from fibsem_maestro.core.area import MArea, NMArea, PixelArea, RelativeArea
 from fibsem_maestro.core.point import MPoint, NMPoint, PixelPoint, RelativePoint
@@ -218,3 +219,63 @@ def test_nm_area_to_meters_and_back_is_identity():
     assert np.isclose(result.origin.y, area.origin.y)
     assert np.isclose(result.width, area.width)
     assert np.isclose(result.height, area.height)
+
+
+def test_relative_area_expanded() -> None:
+    area = RelativeArea(
+        origin=RelativePoint(x=0.3, y=0.4),
+        width=0.2,
+        height=0.1,
+    )
+
+    result = area.expanded(0.05)
+
+    assert result.origin.x == pytest.approx(0.25)
+    assert result.origin.y == pytest.approx(0.35)
+    assert result.width == pytest.approx(0.3)
+    assert result.height == pytest.approx(0.2)
+
+
+def test_pixel_area_expanded() -> None:
+    area = PixelArea(
+        origin=PixelPoint(x=100, y=200),
+        width=50,
+        height=30,
+    )
+
+    result = area.expanded(10)
+
+    assert result.origin.x == 90
+    assert result.origin.y == 190
+    assert result.width == 70
+    assert result.height == 50
+
+
+def test_nm_area_expanded() -> None:
+    area = NMArea(
+        origin=NMPoint(x=500.0, y=1000.0),
+        width=200.0,
+        height=100.0,
+    )
+
+    result = area.expanded(50.0)
+
+    assert result.origin.x == pytest.approx(450.0)
+    assert result.origin.y == pytest.approx(950.0)
+    assert result.width == pytest.approx(300.0)
+    assert result.height == pytest.approx(200.0)
+
+
+def test_m_area_expanded() -> None:
+    area = MArea(
+        origin=MPoint(x=1e-6, y=2e-6),
+        width=5e-7,
+        height=3e-7,
+    )
+
+    result = area.expanded(1e-7)
+
+    assert result.origin.x == pytest.approx(9e-7)
+    assert result.origin.y == pytest.approx(1.9e-6)
+    assert result.width == pytest.approx(7e-7)
+    assert result.height == pytest.approx(5e-7)

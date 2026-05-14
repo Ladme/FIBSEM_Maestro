@@ -4,7 +4,7 @@
 from abc import ABC, abstractmethod
 
 from fibsem_maestro.core.drift import Drift
-from fibsem_maestro.core.image import Image, Image8Bit
+from fibsem_maestro.core.image import Image8Bit
 from fibsem_maestro.drift_correction.drift_calculation_registry import (
     DriftCalculationRegistry,
 )
@@ -14,6 +14,7 @@ from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.drift_correction_settings import DriftCorrectionMode
 from fibsem_maestro.settings.template_matching_settings import TemplateMatchingSettings
 from fibsem_maestro.store.image.image_store import ImageStore
+from fibsem_maestro.template_matching.area_provider import FullFrameAreaProvider
 from fibsem_maestro.template_matching.template_matching import TemplateMatching
 
 
@@ -53,13 +54,9 @@ class DriftCalculationMode(ABC):
         pass
 
     @abstractmethod
-    def calculate_drift(self, image: Image, slice_number: int) -> Drift:
+    def calculate_drift(self) -> Drift:
         """
         Calculate the drift of the current image relative to a reference.
-
-        Args:
-            image: The current frame to compare against a reference.
-            slice_number: The current slice index.
 
         Returns:
             A `Drift` instance containing the measured x and y shift in
@@ -128,7 +125,12 @@ class TemplateMatchingDrift(DriftCalculationMode):
         img_log: ImageLogger,
     ):
         self._template_matching = TemplateMatching(
-            name, microscope, settings, image_store, txt_log, img_log
+            name,
+            FullFrameAreaProvider(microscope, settings, txt_log),
+            settings,
+            image_store,
+            txt_log,
+            img_log,
         )
 
         self._last_confidence: float | None = None
@@ -136,10 +138,8 @@ class TemplateMatchingDrift(DriftCalculationMode):
     def setup(self) -> None:
         self._template_matching.create_templates()
 
-    def calculate_drift(self, image: Image, slice_number: int) -> Drift:
-        _ = slice_number
-
-        drift = self._template_matching.calculate_drift(image)
+    def calculate_drift(self) -> Drift:
+        drift = self._template_matching.calculate_drift()
         self._last_confidence = drift.confidence
 
         return drift
