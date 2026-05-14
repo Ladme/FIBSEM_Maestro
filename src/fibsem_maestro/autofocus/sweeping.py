@@ -5,9 +5,9 @@
 from collections.abc import Iterator
 from typing import Any
 
+from fibsem_maestro.autofocus import SWEEPING_STRATEGIES
 from fibsem_maestro.autofocus.result import AutofocusResult
 from fibsem_maestro.autofocus.sweep_step import SweepStep
-from fibsem_maestro.autofocus.sweeping_registry import SweepingRegistry
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
 from fibsem_maestro.settings.sweeping_settings import SweepingSettings
@@ -44,7 +44,7 @@ class Sweeping:
 
         self._sweep_attribute = sweep_attribute
 
-        self._sweeping_strategy = SweepingRegistry.get(self._settings.strategy.type)(
+        self._sweeping_strategy = SWEEPING_STRATEGIES.get(self._settings.strategy.type)(
             self._settings.strategy
         )
 

@@ -12,12 +12,12 @@ from fibsem_maestro.microscope.abstract_control.microscope_control import (
     MicroscopeControl,
 )
 from fibsem_maestro.microscope.error import MicroscopeError
-from fibsem_maestro.microscope.microscope_registry import MicroscopeRegistry
+from fibsem_maestro.microscope.registry import MICROSCOPE_CONTROLS
 from fibsem_maestro.microscope.simulated.beam_control import SimulatedBeamControl
 from fibsem_maestro.microscope.simulated.sample import SimulatedSample
 
 
-@MicroscopeRegistry.register("simulated")
+@MICROSCOPE_CONTROLS.register("simulated")
 class SimulatedMicroscopeControl(MicroscopeControl):
     """
     Simulated microscope controller.

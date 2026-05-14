@@ -14,12 +14,9 @@ class BasicStrategySettings(BaseSettings):
 
 class InterleavedStrategySettings(BaseSettings):
     type: Literal["interleaved"] = "interleaved"
-    min_diff: Annotated[
-        float,
-        Field(
-            description="Minimal change in resolution relative to base resolution to consider it relevant."
-        ),
-    ]
+    min_diff: float = Field(
+        description="Minimal change in resolution relative to base resolution to consider it relevant."
+    )
 
 
 SweepingStrategySettings = Annotated[

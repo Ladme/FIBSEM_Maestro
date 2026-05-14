@@ -10,11 +10,11 @@ from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
 from fibsem_maestro.microscope.abstract_control.microscope_control import (
     MicroscopeControl,
 )
-from fibsem_maestro.microscope.microscope_registry import MicroscopeRegistry
 from fibsem_maestro.microscope.mock.beam_control import MockBeamControl
+from fibsem_maestro.microscope.registry import MICROSCOPE_CONTROLS
 
 
-@MicroscopeRegistry.register("mock")
+@MICROSCOPE_CONTROLS.register("mock")
 class MockMicroscopeControl(MicroscopeControl):
     """Minimal mock implementation of MicroscopeControl for testing."""
 

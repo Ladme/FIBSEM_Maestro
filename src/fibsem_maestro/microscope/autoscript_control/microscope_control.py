@@ -19,10 +19,10 @@ from fibsem_maestro.microscope.autoscript_control.manufacturer_props import (
     AutoscriptManufacturerPropertiesRegistry,
 )
 from fibsem_maestro.microscope.error import MicroscopeError
-from fibsem_maestro.microscope.microscope_registry import MicroscopeRegistry
+from fibsem_maestro.microscope.registry import MICROSCOPE_CONTROLS
 
 
-@MicroscopeRegistry.register("autoscript")
+@MICROSCOPE_CONTROLS.register("autoscript")
 class AutoscriptMicroscopeControl(MicroscopeControl):
     def __init__(self, ip_address: str, txt_log: TextLogger):
         self._txt_log = txt_log

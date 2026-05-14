@@ -10,10 +10,10 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from fibsem_maestro.autofocus.autofocus_registry import AutofocusRegistry
 from fibsem_maestro.autofocus.error import AutofocusError
 from fibsem_maestro.autofocus.sweep_step import SweepStep
 from fibsem_maestro.core.image_tools import get_stripes
+from fibsem_maestro.core.registry import Registry
 from fibsem_maestro.microscope.autoscript_control.microscope_control import (
     AutoscriptMicroscopeControl,
 )
@@ -29,6 +29,9 @@ if TYPE_CHECKING:
     from fibsem_maestro.autofocus.autofocus_context import AutofocusContext
     from fibsem_maestro.autofocus.jobs_manager import JobsManager
     from fibsem_maestro.core.image import Image
+
+# registry of autofocus modes
+AUTOFOCUS_MODES = Registry[type["AutofocusMode"]]("autofocus mode")
 
 
 class AutofocusMode(ABC):
@@ -55,7 +58,7 @@ class AutofocusMode(ABC):
         """
 
 
-@AutofocusRegistry.register("basic")
+@AUTOFOCUS_MODES.register("basic")
 class BasicMode(AutofocusMode):
     """
     Autofocus mode that acquires one image per swept attribute value.
@@ -88,7 +91,7 @@ class BasicMode(AutofocusMode):
         yield from ()
 
 
-@AutofocusRegistry.register("line")
+@AUTOFOCUS_MODES.register("line")
 class LineMode(AutofocusMode):
     def execute(
         self, ctx: AutofocusContext, jobs: JobsManager
@@ -291,7 +294,7 @@ class LineMode(AutofocusMode):
                     )
 
 
-@AutofocusRegistry.register("step")
+@AUTOFOCUS_MODES.register("step")
 class StepMode(AutofocusMode):
     """
     Autofocus mode that spreads a parameter sweep across consecutive slices.
@@ -350,7 +353,7 @@ class StepMode(AutofocusMode):
             jobs.submit(ctx.make_sharpness_job(image, previous_step))
 
 
-@AutofocusRegistry.register("autoscript")
+@AUTOFOCUS_MODES.register("autoscript")
 class AutoscriptMode(AutofocusMode):
     """
     Autofocus mode that delegates to the Autoscript manufacturer routines.

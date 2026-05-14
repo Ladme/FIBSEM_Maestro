@@ -4,13 +4,16 @@
 
 from typing import Annotated, Literal
 
-from pydantic import Field, field_validator
+from pydantic import AfterValidator, Field
 
 from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.detail_band import DetailBand
-from fibsem_maestro.criterion.criterion_registry import CriterionRegistry
-from fibsem_maestro.criterion.reductors_registry import ReductorsRegistry
+from fibsem_maestro.criterion.functions import CRITERION_FUNCTIONS
+from fibsem_maestro.criterion.reductors import REDUCTORS
 from fibsem_maestro.settings.base_settings import BaseSettings
+
+ReductionName = Annotated[str, AfterValidator(REDUCTORS.validate)]
+CriterionName = Annotated[str, AfterValidator(CRITERION_FUNCTIONS.validate)]
 
 
 class BasicMode(BaseSettings):
@@ -19,22 +22,10 @@ class BasicMode(BaseSettings):
 
 class MaskMode(BaseSettings):
     type: Literal["mask"] = "mask"
-    mask_name: Annotated[str, Field(description="Name of the mask to use.")]
-    region_reduction_fn: Annotated[
-        str,
-        Field(
-            description="Method for calculating final criterion from all masked regions. Accepts numpy functions (min, mean).",
-        ),
-    ]
-
-    @field_validator("region_reduction_fn")
-    def validate_reduction(cls, v: str):
-        if not ReductorsRegistry.has(v):
-            raise ValueError(
-                f"Invalid numpy function '{v}'. Allowed: {ReductorsRegistry.allowed()}"
-            )
-
-        return v
+    mask_name: str = Field(description="Name of the mask to use.")
+    region_reduction_fn: ReductionName = Field(
+        description="Method for calculating final criterion from all masked regions. Accepts numpy functions (min, mean)."
+    )
 
 
 CriterionCalculationMode = Annotated[BasicMode | MaskMode, Field(discriminator="type")]
@@ -46,27 +37,15 @@ class SingleTileMode(BaseSettings):
 
 class MultiTileMode(BaseSettings):
     type: Literal["multi"] = "multi"
-    tile_reduction_fn: Annotated[
-        str,
-        Field(
-            description="Method for calculating final criterion from all tiles. Accepts numpy functions (min, mean).",
-        ),
-    ]
-    tile_size: Annotated[
-        float, Field(gt=0.0, description="Tile size for criterion calculation (in nm).")
-    ]
-    relative_overlap: Annotated[
-        float, Field(ge=0, le=1, description="Relative overlap between the tiles.")
-    ]
-
-    @field_validator("tile_reduction_fn")
-    def validate_reduction(cls, v: str):
-        if not ReductorsRegistry.has(v):
-            raise ValueError(
-                f"Invalid numpy function '{v}'. Allowed: {ReductorsRegistry.allowed()}"
-            )
-
-        return v
+    tile_reduction_fn: ReductionName = Field(
+        description="Method for calculating final criterion from all tiles. Accepts numpy functions (min, mean).",
+    )
+    tile_size: float = Field(
+        gt=0.0, description="Tile size for criterion calculation (in nm)."
+    )
+    relative_overlap: float = Field(
+        ge=0, le=1, description="Relative overlap between the tiles."
+    )
 
 
 CriterionTilingMode = Annotated[
@@ -75,7 +54,7 @@ CriterionTilingMode = Annotated[
 
 
 class CriterionSettings(BaseSettings):
-    sharpness_metric_fn: str = Field(
+    sharpness_metric_fn: CriterionName = Field(
         description="Criterion calculation function.",
     )
     detail: DetailBand = Field(
@@ -101,11 +80,3 @@ class CriterionSettings(BaseSettings):
         default=SingleTileMode(),
         description="Mode of tiling.",
     )
-
-    @field_validator("sharpness_metric_fn")
-    def validate_function(cls, v: str):
-        if not CriterionRegistry.has(v):
-            raise ValueError(
-                f"Invalid sharpness_metric_fn '{v}'. Allowed: {CriterionRegistry.allowed()}"
-            )
-        return v

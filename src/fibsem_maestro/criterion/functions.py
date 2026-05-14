@@ -1,21 +1,31 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
+from __future__ import annotations
 
-from typing import cast
+from collections.abc import Callable
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
-from numpy.typing import NDArray
 from scipy.ndimage import gaussian_filter
 
-from fibsem_maestro.core.image import Image
-from fibsem_maestro.criterion.criterion_registry import CriterionRegistry
+from fibsem_maestro.core.registry import Registry
 from fibsem_maestro.frc.frc import frc
-from fibsem_maestro.logging.text.text_logger import TextLogger
-from fibsem_maestro.settings.criterion_settings import CriterionSettings
+
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
+
+    from fibsem_maestro.core.image import Image
+    from fibsem_maestro.logging.text.text_logger import TextLogger
+    from fibsem_maestro.settings.criterion_settings import CriterionSettings
+
+CriterionFunction = Callable[["Image", "CriterionSettings", "TextLogger"], np.floating]
+
+# registry of criterion functions
+CRITERION_FUNCTIONS = Registry[CriterionFunction]("criterion function")
 
 
-@CriterionRegistry.register("bandpass")
+@CRITERION_FUNCTIONS.register("bandpass")
 def bandpass_criterion(
     img: Image, settings: CriterionSettings, _logger: TextLogger
 ) -> np.floating:
@@ -36,7 +46,7 @@ def bandpass_criterion(
     return np.mean(abs(img_high - img_low))
 
 
-@CriterionRegistry.register("bandpass_var")
+@CRITERION_FUNCTIONS.register("bandpass_var")
 def bandpass_var_criterion(
     img: Image, settings: CriterionSettings, _logger: TextLogger
 ) -> np.floating:
@@ -57,7 +67,7 @@ def bandpass_var_criterion(
     return np.var(img_high - img_low)
 
 
-@CriterionRegistry.register("fft_1d")
+@CRITERION_FUNCTIONS.register("fft_1d")
 def fft_1d_criterion(
     img: Image, settings: CriterionSettings, _logger: TextLogger
 ) -> np.floating:
@@ -95,7 +105,7 @@ def fft_1d_criterion(
     return np.sum(abs(fft_line[band_i]))
 
 
-@CriterionRegistry.register("fft_2d")
+@CRITERION_FUNCTIONS.register("fft_2d")
 def fft_2d_criterion(
     img: Image, settings: CriterionSettings, _logger: TextLogger
 ) -> np.floating:
@@ -136,7 +146,7 @@ def fft_2d_criterion(
     return np.sum(np.abs(fft_img) * band_mask)
 
 
-@CriterionRegistry.register("fft")
+@CRITERION_FUNCTIONS.register("fft")
 def fft_criterion(
     img: Image, settings: CriterionSettings, logger: TextLogger
 ) -> np.floating:
@@ -168,7 +178,7 @@ def fft_criterion(
     )
 
 
-@CriterionRegistry.register("frc")
+@CRITERION_FUNCTIONS.register("frc")
 def frc_criterion(
     img: Image, settings: CriterionSettings, logger: TextLogger
 ) -> np.floating:

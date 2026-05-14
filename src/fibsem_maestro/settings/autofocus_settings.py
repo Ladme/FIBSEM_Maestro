@@ -34,21 +34,16 @@ class LineMode(BaseSettings):
     criterion: CriterionSettings = Field(
         description="Setting for criterion to be used.",
     )
-    pre_imaging_delay: Annotated[
-        float,
-        Field(
-            description="Delay before acquisition of the first section in scanning sweep."
-        ),
-    ]
-    line_time_correction_factor: Annotated[
-        float,
-        Field(
-            default=1.0, description="Correction factor applied to estimated line time."
-        ),
-    ]
-    lines_per_sweep: Annotated[
-        int, Field(description="Number of lines scanned per one sweep value.")
-    ]
+    lines_per_sweep: Annotated[int, Field(gt=0)] = Field(
+        description="Number of lines scanned per one sweep value."
+    )
+    pre_imaging_delay: float = Field(
+        default=0.0,
+        description="Delay before acquisition of the first section in scanning sweep.",
+    )
+    line_time_correction_factor: float = Field(
+        default=1.0, description="Correction factor applied to estimated line time."
+    )
     forbidden_stripe_indices: list[int] = Field(
         default_factory=list,
         description="Indices of stripes which should be excluded from the analysis.",

@@ -1,21 +1,29 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
+from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections import defaultdict
+from typing import TYPE_CHECKING
 
 import numpy as np
-from numpy.typing import NDArray
 
 from fibsem_maestro.autofocus.error import AutofocusError
-from fibsem_maestro.autofocus.result import AutofocusResult
-from fibsem_maestro.autofocus.sweeping_registry import SweepingRegistry
-from fibsem_maestro.settings.sweeping_settings import (
-    BasicStrategySettings,
-    InterleavedStrategySettings,
-    SweepingStrategySettings,
-)
+from fibsem_maestro.core.registry import Registry
+
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
+
+    from fibsem_maestro.autofocus.result import AutofocusResult
+    from fibsem_maestro.settings.sweeping_settings import (
+        BasicStrategySettings,
+        InterleavedStrategySettings,
+        SweepingStrategySettings,
+    )
+
+# registry of sweeping strategies
+SWEEPING_STRATEGIES = Registry[type["SweepingStrategy"]]("sweeping strategy")
 
 
 class SweepingStrategy(ABC):
@@ -79,7 +87,7 @@ class SweepingStrategy(ABC):
         pass
 
 
-@SweepingRegistry.register("basic")
+@SWEEPING_STRATEGIES.register("basic")
 class BasicSweepingStrategy(SweepingStrategy):
     """
     Basic linear sweeping strategy.
@@ -163,7 +171,7 @@ class BasicSweepingStrategy(SweepingStrategy):
         return max(mean_by_sweep, key=lambda k: mean_by_sweep[k])
 
 
-@SweepingRegistry.register("interleaved")
+@SWEEPING_STRATEGIES.register("interleaved")
 class InterleavedSweepingStrategy(SweepingStrategy):
     """
     Interleaved sweeping strategy with baseline values.

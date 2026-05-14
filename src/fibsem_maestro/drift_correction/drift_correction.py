@@ -8,9 +8,7 @@ from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.drift import Drift
 from fibsem_maestro.core.image import Image8Bit
-from fibsem_maestro.drift_correction.drift_calculation_registry import (
-    DriftCalculationRegistry,
-)
+from fibsem_maestro.drift_correction import DRIFT_CALCULATION_MODES
 from fibsem_maestro.drift_correction.error import DriftCorrectionError
 from fibsem_maestro.logging.image.image_logger import ImageLogger
 from fibsem_maestro.logging.text.text_logger import TextLogger
@@ -61,7 +59,7 @@ class DriftCorrection(Action):
 
         # set up the drift calculation method
         self._drift_calc_name = self._settings.drift_calculation_mode.type
-        self._drift_calc: DriftCalculationMode = DriftCalculationRegistry.get(
+        self._drift_calc: DriftCalculationMode = DRIFT_CALCULATION_MODES.get(
             self._drift_calc_name
         )(
             f"{self._name} {self._drift_calc_name}",

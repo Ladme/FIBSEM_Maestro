@@ -19,7 +19,7 @@ from fibsem_maestro.microscope.abstract_control.microscope_control import (
     MicroscopeControl,
 )
 from fibsem_maestro.microscope.error import MicroscopeError
-from fibsem_maestro.microscope.microscope_registry import MicroscopeRegistry
+from fibsem_maestro.microscope.registry import MICROSCOPE_CONTROLS
 from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.properties.microscope_properties import MicroscopeProperties
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
@@ -44,7 +44,7 @@ class Microscope:
         self._txt_log = txt_log
 
         self._settings = settings
-        self._control = MicroscopeRegistry.get(settings.control)(
+        self._control = MICROSCOPE_CONTROLS.get(settings.control)(
             self._settings.ip_address, self._txt_log
         )
         self.beam = self._control.electron_beam

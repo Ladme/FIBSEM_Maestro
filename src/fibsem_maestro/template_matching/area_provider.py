@@ -1,16 +1,24 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
-from abc import ABC, abstractmethod
+from __future__ import annotations
 
-from fibsem_maestro.core.image import Image8Bit
-from fibsem_maestro.logging.text.text_logger import TextLogger
-from fibsem_maestro.microscope.microscope import Microscope
+from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
+
+from fibsem_maestro.core.registry import Registry
 from fibsem_maestro.settings.template_matching_settings import (
     FullFrameMode,
     ReducedAreaMode,
     TemplateMatchingSettings,
 )
+
+if TYPE_CHECKING:
+    from fibsem_maestro.core.image import Image8Bit
+    from fibsem_maestro.logging.text.text_logger import TextLogger
+    from fibsem_maestro.microscope.microscope import Microscope
+
+AREA_PROVIDERS = Registry[type["AreaProvider"]]("area provider")
 
 
 class AreaProvider(ABC):
@@ -75,6 +83,7 @@ class AreaProvider(ABC):
         """
 
 
+@AREA_PROVIDERS.register("full_frame")
 class FullFrameAreaProvider(AreaProvider):
     """
     Acquires a full frame and crops each configured area from it.
@@ -118,6 +127,7 @@ class FullFrameAreaProvider(AreaProvider):
         return [self._last_full_frame.crop(area) for area in self._settings.areas]
 
 
+@AREA_PROVIDERS.register("reduced_area")
 class ReducedAreaProvider(AreaProvider):
     """
     Commands the microscope to scan only the configured areas.

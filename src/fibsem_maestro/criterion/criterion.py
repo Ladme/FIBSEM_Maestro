@@ -11,9 +11,9 @@ from fibsem_maestro.core.area import PixelArea, RelativeArea
 from fibsem_maestro.core.point import PixelPoint
 from fibsem_maestro.criterion.error import CriterionError
 from fibsem_maestro.criterion.functions import (
-    CriterionRegistry,
+    CRITERION_FUNCTIONS,
 )
-from fibsem_maestro.criterion.reductors_registry import ReductorsRegistry
+from fibsem_maestro.criterion.reductors import REDUCTORS
 from fibsem_maestro.criterion.result import (
     CriterionResult,
     SharpnessMap,
@@ -70,12 +70,12 @@ class Criterion:
         self._settings = settings
         self._calculation_mode = settings.calculation_mode
         self._tiling_mode = settings.tiling_mode
-        self._sharpness_metric_fn = CriterionRegistry.get(settings.sharpness_metric_fn)
+        self._sharpness_metric_fn = CRITERION_FUNCTIONS.get(
+            settings.sharpness_metric_fn
+        )
 
         if isinstance(self._tiling_mode, MultiTileMode):
-            self._tile_reduction_fn = ReductorsRegistry.get(
-                self._tiling_mode.tile_reduction_fn
-            )
+            self._tile_reduction_fn = REDUCTORS.get(self._tiling_mode.tile_reduction_fn)
             self._tile_size = self._tiling_mode.tile_size
             self._tile_relative_overlap = self._tiling_mode.relative_overlap
 

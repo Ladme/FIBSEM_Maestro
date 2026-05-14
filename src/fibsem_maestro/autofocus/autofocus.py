@@ -5,9 +5,8 @@
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any
 
-from fibsem_maestro.autofocus import LineMode
+from fibsem_maestro.autofocus import AUTOFOCUS_MODES, LineMode
 from fibsem_maestro.autofocus.autofocus_context import AutofocusContext
-from fibsem_maestro.autofocus.autofocus_registry import AutofocusRegistry
 from fibsem_maestro.autofocus.jobs_manager import JobsManager
 from fibsem_maestro.autofocus.result import AutofocusResult
 from fibsem_maestro.autofocus.sweeping import Sweeping
@@ -77,7 +76,7 @@ class Autofocus(Action):
 
         self._settings = settings
 
-        self._mode = AutofocusRegistry.get(self._settings.mode.type)()
+        self._mode = AUTOFOCUS_MODES.get(self._settings.mode.type)()
 
         if isinstance(self._settings.mode, AutoscriptMode):
             # sweeping and criterion are not used in the Autoscript mode

@@ -1,21 +1,32 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
-from abc import ABC, abstractmethod
+from __future__ import annotations
 
-from fibsem_maestro.core.drift import Drift
-from fibsem_maestro.core.image import Image8Bit
-from fibsem_maestro.drift_correction.drift_calculation_registry import (
-    DriftCalculationRegistry,
+from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
+
+from fibsem_maestro.core.registry import Registry
+from fibsem_maestro.template_matching.area_provider import (
+    AREA_PROVIDERS,
 )
-from fibsem_maestro.logging.image.image_logger import ImageLogger
-from fibsem_maestro.logging.text.text_logger import TextLogger
-from fibsem_maestro.microscope.microscope import Microscope
-from fibsem_maestro.settings.drift_correction_settings import DriftCorrectionMode
-from fibsem_maestro.settings.template_matching_settings import TemplateMatchingSettings
-from fibsem_maestro.store.image.image_store import ImageStore
-from fibsem_maestro.template_matching.area_provider import FullFrameAreaProvider
 from fibsem_maestro.template_matching.template_matching import TemplateMatching
+
+if TYPE_CHECKING:
+    from fibsem_maestro.core.drift import Drift
+    from fibsem_maestro.core.image import Image8Bit
+    from fibsem_maestro.logging.image.image_logger import ImageLogger
+    from fibsem_maestro.logging.text.text_logger import TextLogger
+    from fibsem_maestro.microscope.microscope import Microscope
+    from fibsem_maestro.settings.drift_correction_settings import DriftCorrectionMode
+    from fibsem_maestro.settings.template_matching_settings import (
+        TemplateMatchingSettings,
+    )
+    from fibsem_maestro.store.image.image_store import ImageStore
+
+DRIFT_CALCULATION_MODES = Registry[type["DriftCalculationMode"]](
+    "drift calculation mode"
+)
 
 
 class DriftCalculationMode(ABC):
@@ -99,7 +110,7 @@ class DriftCalculationMode(ABC):
         pass
 
 
-@DriftCalculationRegistry.register("template_matching")
+@DRIFT_CALCULATION_MODES.register("template_matching")
 class TemplateMatchingDrift(DriftCalculationMode):
     """
     Drift calculation mode based on normalized cross-correlation template matching.
@@ -126,7 +137,9 @@ class TemplateMatchingDrift(DriftCalculationMode):
     ):
         self._template_matching = TemplateMatching(
             name,
-            FullFrameAreaProvider(microscope, settings, txt_log),
+            AREA_PROVIDERS.get(settings.frame_grabbing_mode.type)(
+                microscope, settings, txt_log
+            ),
             settings,
             image_store,
             txt_log,
