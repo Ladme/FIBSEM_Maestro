@@ -371,20 +371,16 @@ class Microscope:
             case _:
                 beam_control = self.beam
 
-        _unused = object()
-        backup = _unused
+        backup = getattr(beam_control, property)
+        setattr(beam_control, property, value)
+
         try:
-            backup = getattr(beam_control, property, value)
-            setattr(beam_control, property, value)
             yield
-        except Exception as e:
-            self._txt_log.warning(f"Could not set property {property}: {e}")
         finally:
-            if backup is not _unused:
-                try:
-                    setattr(beam_control, property, backup)
-                except Exception as e:
-                    self._txt_log.warning(f"Could not restore property {property}: {e}")
+            try:
+                setattr(beam_control, property, backup)
+            except Exception as e:
+                self._txt_log.warning(f"Could not restore property {property}: {e}")
 
     def _beam_shift_to_stage_move(self) -> NDArray[np.floating]:
         """

@@ -152,8 +152,13 @@ class ReducedAreaProvider(AreaProvider):
             self._microscope.beam.grab_frame()
 
         regions = []
+        resolution = self._microscope.beam.resolution
+        pixel_size = self._microscope.beam.pixel_size
         for area in self._settings.areas:
-            search_area = area.expanded(self._settings.correction_margin)
+            # include the correction margin in the area to scan
+            area_nm = area.to_nanometers(resolution, pixel_size)
+            search_area_nm = area_nm.expanded(self._settings.correction_margin)
+            search_area = search_area_nm.to_relative(resolution, pixel_size)
             with self._microscope.set_temporary_beam_property(
                 "scanning_area", search_area
             ):

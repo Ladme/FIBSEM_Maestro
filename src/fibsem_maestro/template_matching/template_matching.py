@@ -325,10 +325,14 @@ class TemplateMatching:
         if len(scans) <= 1:
             return
 
+        self._txt_log.debug("Validating consistency of template scans.")
         for i in range(len(scans)):
             for j in range(i + 1, len(scans)):
                 # we intentionally always use pixel template match
                 result = self._calculate_match(scans[i], scans[j])
+                self._txt_log.debug(
+                    f"Scans {i} x {j}: confidence={result.confidence:.3f}"
+                )
 
                 if (
                     min_conf := self._settings.min_confidence

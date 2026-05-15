@@ -2,8 +2,11 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
+from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any
+
+import numpy as np
 
 from fibsem_maestro.autofocus import AUTOFOCUS_MODES, LineMode, StepMode
 from fibsem_maestro.autofocus.autofocus_context import AutofocusContext
@@ -225,6 +228,11 @@ class Autofocus(Action):
             self._txt_log.warning("Autofocus test is not supported for step mode.")
             return
 
+        # get the current sweep base value
+        self._sweep_base_value: float | None = (
+            self._sweeping.get_attribute_value() if self._sweeping is not None else None
+        )
+
         for _ in self._mode.execute(self._ctx, self._jobs):
             self._jobs.wait()
 
@@ -343,22 +351,43 @@ class Autofocus(Action):
         if not results:
             return
 
-        # the sharpness evaluation jobs can be completed in any order
         sorted_results = sorted(results, key=lambda r: r.sweep.index)
-        swept_values = [r.sweep.value for r in sorted_results]
-        criterion_values = [r.sharpness for r in sorted_results]
+
+        # average sharpness per (repetition, sweep value) to handle line mode
+        # where multiple results share the same sweep value
+        averaged: dict[tuple[int, float], list[float]] = defaultdict(list)
+        for r in sorted_results:
+            averaged[(r.sweep.repetition, r.sweep.value)].append(r.sharpness)
+
+        repetitions: dict[int, list[tuple[float, float]]] = defaultdict(list)
+        for (rep, value), sharpnesses in averaged.items():
+            repetitions[rep].append((value, float(np.mean(sharpnesses))))
+
+        _CURVE_COLORS = [
+            "#0000FF",
+            "#3355DD",
+            "#6699BB",
+            "#BB6699",
+            "#DD5533",
+            "#FF0000",
+        ]
 
         # plot the criterion values
         elements: list[PlotElement] = [
-            Curve(x=swept_values, y=criterion_values, color="red", linewidth=1.0)
+            Curve(
+                x=[v for v, _ in sorted(rep_points, key=lambda p: p[0])],
+                y=[s for _, s in sorted(rep_points, key=lambda p: p[0])],
+                color=_CURVE_COLORS[rep % len(_CURVE_COLORS)],
+                linewidth=1.0,
+            )
+            for rep, rep_points in repetitions.items()
         ]
+
         # mark the base value
         if base is not None:
-            elements.append(
-                VerticalLine(x=float(base), color="lightblue", linewidth=1.0)
-            )
+            elements.append(VerticalLine(x=float(base), color="orange", linewidth=1.0))
         # mark the best value
-        elements.append(VerticalLine(x=best, color="blue", linewidth=1.0))
+        elements.append(VerticalLine(x=best, color="green", linewidth=1.0))
 
         self._img_log.save_plot(
             filename=f"{self.name_with_underscores}_af_curve",
@@ -390,7 +419,9 @@ class Autofocus(Action):
         # the sharpness evaluation jobs can be completed in any order
         sorted_results = sorted(results, key=_get_line_index)
         sharpness_values = [r.sharpness for r in sorted_results]
-        line_indices = [r.sweep.index for r in sorted_results]
+        line_indices = [
+            r.sweep.line_index for r in sorted_results if r.sweep.line_index is not None
+        ]
 
         if max(sharpness_values) == 0:
             self._txt_log.warning(
