@@ -334,7 +334,7 @@ class Autofocus(Action):
         self, results: list[AutofocusResult], best: float, base: Any | None
     ) -> None:
         """
-        Log the autofocus criterion curve with markers for the sweep center and best value.
+        Log the autofocus criterion curve with markers for the base sweep and best value.
 
         Args:
             results: Autofocus results collected during the sweep.
