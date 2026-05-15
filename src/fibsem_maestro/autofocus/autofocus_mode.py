@@ -107,7 +107,7 @@ class LineMode(AutofocusMode):
 
             self._variable_sweeping_during_scan(ctx, line_time, sweep_steps)
 
-            line_focus_image = ctx.microscope.beam.get_image(crop_to_scanning_area=True)
+            line_focus_image = ctx.microscope.beam.get_image()
             self._process_image(ctx, jobs, line_focus_image, sweep_steps)
 
         yield from ()
