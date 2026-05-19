@@ -5,10 +5,12 @@ import inspect
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Any
 
-from fibsem_maestro.core.area import RelativeArea
+from fibsem_maestro.core.area import NMArea, RelativeArea
 from fibsem_maestro.core.beam_shift import BeamShift
+from fibsem_maestro.core.direction import Direction
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
 from fibsem_maestro.core.resolution import Resolution
@@ -232,13 +234,15 @@ class BeamControl(ABC):
             The current image displayed on the microscope.
         """
 
-    """
     @abstractmethod
     def rectangle_milling(
-        self, app_file: str, leftop, size, depth: float, direction: str
-    ):
-        pass
-    """
+        self,
+        milling_area: NMArea,
+        milling_depth: float,
+        direction: Direction,
+        pattern_file: Path | str,
+    ) -> None:
+        """Perform milling in a rectangular area."""
 
     @property
     @abstractmethod

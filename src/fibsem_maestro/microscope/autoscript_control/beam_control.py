@@ -1,6 +1,7 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
+import time
 from abc import abstractmethod
 from pathlib import Path
 from typing import Any, Generic, TypeVar
@@ -8,6 +9,7 @@ from typing import Any, Generic, TypeVar
 from autoscript_sdb_microscope_client.enumerations import (
     ImageFileFormat,
     ImagingDevice,
+    PatternScanDirection,
     ScanningMode,
 )
 from autoscript_sdb_microscope_client.sdb_microscope.beams._electron_beam import (
@@ -19,9 +21,10 @@ from autoscript_sdb_microscope_client.sdb_microscope.beams._ion_beam import (
 from autoscript_sdb_microscope_client.sdb_microscope_client import SdbMicroscopeClient
 from autoscript_sdb_microscope_client.structures import AdornedImage, GrabFrameSettings
 
-from fibsem_maestro.core.area import RelativeArea
+from fibsem_maestro.core.area import NMArea, RelativeArea
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
+from fibsem_maestro.core.direction import Direction
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
 from fibsem_maestro.core.resolution import Resolution
@@ -229,6 +232,61 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
 
         self._txt_log.info("Image grabbed.")
         return image
+
+    def rectangle_milling(
+        self,
+        milling_area: NMArea,
+        milling_depth: float,
+        direction: Direction,
+        pattern_file: Path | str,
+    ) -> None:
+        milling_area_m = milling_area.to_meters()
+        milling_depth_m = milling_depth * 1e-9
+
+        # get the center of the milling area in image coordinates
+        image_center_x = milling_area.origin.x + milling_area.width / 2.0
+        image_center_y = milling_area.origin.y + milling_area.height / 2.0
+
+        # convert to pattern coordinates
+        center_x = image_center_x - self.horizontal_field_width / 2.0
+        center_y = -image_center_y + self.vertical_field_width / 2.0
+
+        if "css" in str(pattern_file):
+            pattern_fn = self._microscope.patterning.create_cleaning_cross_section
+        elif "rcs" in str(pattern_file):
+            pattern_fn = self._microscope.patterning.create_regular_cross_section
+
+        self.select_modality()
+        self._microscope.patterning.clear_patterns()
+        self._microscope.patterning.set_default_beam_type(int(self._beam_type))
+        self._microscope.patterning.set_default_application_file(str(pattern_file))
+
+        time.sleep(1)
+
+        pattern = pattern_fn(
+            center_x=center_x,
+            center_y=center_y,
+            width=milling_area_m.width,
+            height=milling_area_m.height,
+            depth=milling_depth_m,
+        )
+
+        match direction:
+            case Direction.UP:
+                pattern.scan_direction = PatternScanDirection.BOTTOM_TO_TOP
+            case Direction.DOWN:
+                pattern.scan_direction = PatternScanDirection.TOP_TO_BOTTOM
+            case Direction.LEFT | Direction.RIGHT:
+                raise MicroscopeError(f"Invalid milling direction: {direction}")
+
+        self._txt_log.info(
+            f"Milling in progress [x = {pattern.center_x}, "
+            f"y = {pattern.center_y}, width = {pattern.width}, "
+            f"height = {pattern.height}, direction = {pattern.scan_direction}]."
+        )
+        self._microscope.patterning.run()
+        self._microscope.patterning.clear_patterns()
+        self._txt_log.info("Milling step completed.")
 
     @property
     def line_integration(self) -> int:

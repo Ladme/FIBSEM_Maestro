@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Generic, Self, TypeVar
 
 from pydantic import BaseModel
 
+from fibsem_maestro.core.direction import Direction
 from fibsem_maestro.core.errors import AutoscriptNotAvailableError
 from fibsem_maestro.core.point import MPoint, NMPoint, PixelPoint, RelativePoint
 
@@ -76,6 +77,7 @@ class _Area(BaseModel, Generic[T, U]):
         Returns:
             A new area of the same type with the expanded geometry.
         """
+        # type-checker ignores - type checker does not see that U must have the same type as the inner fields of self.origin
         return type(self)(
             origin=type(self.origin)(
                 x=self.origin.x - amount,  # ty: ignore[invalid-argument-type]
@@ -84,6 +86,33 @@ class _Area(BaseModel, Generic[T, U]):
             width=self.width + 2 * amount,
             height=self.height + 2 * amount,
         )
+
+    def shifted_in_direction(self, direction: Direction, delta: U) -> Self:
+        """
+        Get an area of the same type and dimensions with origin shifted by `delta` in the given direction.
+
+        `UP` corresponds to decreasing y-axis coordinates, `DOWN` corresponds to increasing y-axis coordinates.
+        `LEFT` corresponds to decreasing x-axis coordinates, `RIGHT` corresponds to increasing x-axis coordinates.
+
+        Args:
+            direction (Direction): The direction to shift in.
+            delta (U): The distance to shift by in units of the area's origin.
+
+        Returns:
+            A new area of the same type with the shifted origin.
+        """
+        # type-checker ignores - type checker does not see that U must have the same type as the inner fields of self.origin
+        match direction:
+            case Direction.UP:
+                shift = type(self.origin)(x=0.0, y=-delta)  # ty: ignore[invalid-argument-type]
+            case Direction.DOWN:
+                shift = type(self.origin)(x=0.0, y=delta)  # ty: ignore[invalid-argument-type]
+            case Direction.LEFT:
+                shift = type(self.origin)(x=-delta, y=0.0)  # ty: ignore[invalid-argument-type]
+            case Direction.RIGHT:
+                shift = type(self.origin)(x=delta, y=0.0)  # ty: ignore[invalid-argument-type]
+
+        return self.shifted(shift)
 
 
 class RelativeArea(_Area[RelativePoint, float]):

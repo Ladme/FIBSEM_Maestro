@@ -2,12 +2,14 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 
-from fibsem_maestro.core.area import RelativeArea
+from fibsem_maestro.core.area import NMArea, RelativeArea
 from fibsem_maestro.core.beam_shift import BeamShift
+from fibsem_maestro.core.direction import Direction
 from fibsem_maestro.core.format import ImageFormat
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
@@ -214,6 +216,15 @@ class MockBeamControl(BeamControl):
         if self._current_image is None:
             raise MicroscopeError("No mock image set.")
         return self._current_image
+
+    def rectangle_milling(
+        self,
+        milling_area: NMArea,
+        milling_depth: float,
+        direction: Direction,
+        pattern_file: Path | str,
+    ) -> None:
+        raise NotImplementedError()
 
     def set_mock_image(self, image: Image) -> None:
         """Set the image returned by grab_frame and get_image."""

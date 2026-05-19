@@ -6,5 +6,12 @@ from enum import Enum
 
 
 class BeamType(str, Enum):
-    ION = "ion"
     ELECTRON = "electron"
+    ION = "ion"
+
+    def __int__(self) -> int:
+        match self:
+            case BeamType.ELECTRON:
+                return 1
+            case BeamType.ION:
+                return 2
