@@ -84,16 +84,24 @@ class Milling(Action):
             self._current_milling_area = self._settings.milling_area.to_nanometers(
                 self._microscope.beam.resolution, self._microscope.beam.pixel_size
             )
+            self._txt_log.debug(
+                f"First frame: setting milling area to: {self._current_milling_area}."
+            )
 
         # perform the milling step
+        self._txt_log.info("Starting milling.")
         self._microscope.beam.rectangle_milling(
             self._current_milling_area,
             self._settings.milling_depth,
             self._settings.milling_direction,
             self._settings.pattern_file,
         )
+        self._txt_log.info("Milling step completed.")
 
         # update the current milling area for the next slice
         self._current_milling_area = self._current_milling_area.shifted_in_direction(
             self._settings.milling_direction, self._settings.slice_distance
+        )
+        self._txt_log.debug(
+            f"Updating milling area for the next slice: {self._current_milling_area}."
         )

@@ -252,9 +252,14 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         center_y = -image_center_y + self.vertical_field_width / 2.0
 
         if "css" in str(pattern_file):
+            self._txt_log.debug("Using cleaning cross section pattern.")
             pattern_fn = self._microscope.patterning.create_cleaning_cross_section
         elif "rcs" in str(pattern_file):
+            self._txt_log.debug("Using regular cross section pattern.")
             pattern_fn = self._microscope.patterning.create_regular_cross_section
+        else:
+            self._txt_log.debug("Using rectangle pattern.")
+            pattern_fn = self._microscope.patterning.create_rectangle
 
         self.select_modality()
         self._microscope.patterning.clear_patterns()
@@ -286,7 +291,6 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         )
         self._microscope.patterning.run()
         self._microscope.patterning.clear_patterns()
-        self._txt_log.info("Milling step completed.")
 
     @property
     def line_integration(self) -> int:
