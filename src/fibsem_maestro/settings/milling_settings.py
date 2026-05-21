@@ -23,10 +23,6 @@ class MillingSettings(BaseSettings):
         default=BeamType.ION,
         description="Beam used for milling.",
     )
-    properties_to_collect: PropertyNames = Field(
-        default_factory=PropertyNames,
-        description="Properties of the microscope and the beam relevant for milling.",
-    )
     milling_area: RelativeArea = Field(
         description="Area in which milling will be performed, defined in relative units."
     )
@@ -43,6 +39,10 @@ class MillingSettings(BaseSettings):
     )
     milling_direction: Direction = Field(
         description="Direction in which the slicing progresses. Either `up` or `down`."
+    )
+    properties_to_collect: PropertyNames = Field(
+        default_factory=PropertyNames,
+        description="Properties of the microscope and the beam relevant for milling.",
     )
     external_props: GlobalProperties = Field(
         default=GlobalProperties(),

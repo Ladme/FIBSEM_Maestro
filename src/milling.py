@@ -6,28 +6,22 @@ import argparse
 import logging
 from pathlib import Path
 
-from fibsem_maestro.core.image import Image8Bit
-from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.slice import SliceContext
-from fibsem_maestro.core.stage_position import StagePosition
-from fibsem_maestro.drift_correction.drift_correction import DriftCorrection
 from fibsem_maestro.imaging.imaging import Imaging
 from fibsem_maestro.logging.image.file import FileImageLogger
 from fibsem_maestro.logging.text.file import FileTextLogger
+from fibsem_maestro.microscope import SimulatedMicroscopeControl
 from fibsem_maestro.microscope.microscope import Microscope
-from fibsem_maestro.microscope.simulated.microscope_control import (
-    SimulatedMicroscopeControl,
-)
-from fibsem_maestro.settings.drift_correction_settings import DriftCorrectionSettings
+from fibsem_maestro.milling.milling import Milling
 from fibsem_maestro.settings.imaging_settings import ImagingSettings
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
+from fibsem_maestro.settings.milling_settings import MillingSettings
 from fibsem_maestro.store.frame.file import FileFrameStore
-from fibsem_maestro.store.image.file import FileImageStore
 from fibsem_maestro.store.props.file import FilePropsStore
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Control the imaging.")
+    parser = argparse.ArgumentParser(description="Control the milling.")
 
     # define arguments
     parser.add_argument(
@@ -43,10 +37,10 @@ def main():
         help="Path to the YAML file containing imaging settings.",
     )
     parser.add_argument(
-        "--drift",
+        "--milling",
         type=Path,
         required=True,
-        help="Path to the YAML file containing drift correction settings.",
+        help="Path to the YAML file containing milling settings.",
     )
     parser.add_argument(
         "--log-dir",
@@ -73,7 +67,8 @@ def main():
     # load settings
     microscope_settings = MicroscopeSettings.from_file(args.microscope)
     imaging_settings = ImagingSettings.from_file(args.imaging)
-    drift_corr_settings = DriftCorrectionSettings.from_file(args.drift)
+    # drift_corr_settings = DriftCorrectionSettings.from_file(args.drift)
+    milling_settings = MillingSettings.from_file(args.milling)
 
     # initialize the loggers and stores
     slice = SliceContext(Path("logs"), 0)
@@ -83,7 +78,7 @@ def main():
     img_log = FileImageLogger(slice)
     props_store = FilePropsStore(slice)
     frame_store = FileFrameStore(slice, imaging_settings.images_directory)
-    image_store = FileImageStore(slice, Image8Bit, Path("templates"))
+    # image_store = FileImageStore(slice, Image8Bit, Path("templates"))
 
     # initialize the microscope
     microscope = Microscope(microscope_settings, txt_log)
@@ -99,41 +94,35 @@ def main():
         img_log,
     )
 
-    # initialize the drift correction
-    drift_correction = DriftCorrection(
-        "drift correction",
-        microscope,
-        drift_corr_settings,
-        props_store,
-        image_store,
-        txt_log.derive("drift_correction"),
-        img_log,
-    )
+    # initialize the milling
+    milling = Milling("milling", microscope, milling_settings, props_store, txt_log)
 
     # set microscope properties manually
-    input("Set microscope properties interactively and then press ENTER.")
+    input("Set microscope properties for imaging interactively and then press ENTER.")
 
-    microscope._control.try_set_stage_position(
-        StagePosition(x=0.0, y=0.0, z=5_000_000.0, rotation=0, tilt=0)
-    )
-    microscope.beam.resolution = Resolution(1024, 768)
-    microscope.beam.horizontal_field_width = 2000
+    # microscope._control.try_set_stage_position(
+    #    StagePosition(x=0.0, y=0.0, z=5_000_000.0, rotation=0, tilt=0)
+    # )
+    # microscope.beam.resolution = Resolution(1024, 768)
+    # microscope.beam.horizontal_field_width = 2000
 
     slice.increment()
-    drift_correction.collect_and_write_properties()
+    imaging.collect_and_write_properties()
+
+    input("Set microscope properties for milling interactively and then press ENTER.")
+    milling.collect_and_write_properties()
 
     # save microscope properties
-    imaging.collect_and_write_properties()
+
     # create templates for drift correction
-    drift_correction.setup()
+    # drift_correction.setup()
 
     # optionally change microscope properties to test that the previously saved properties are reloaded before imaging
     # input("Microscope properties saved. Press ENTER.")
 
     # run imaging
     for _ in range(args.slices):
-        control = microscope.control
-        # control.try_move_stage_position(StagePosition(x=5000.0, y=-5000.0))
+        control = microscope._control
         if isinstance(control, SimulatedMicroscopeControl):
             control._sample.apply_drift(  # pyright: ignore[reportAttributeAccessIssue]
                 # drift_x=random.randrange(-40, 41),
@@ -142,7 +131,8 @@ def main():
                 drift_y=-10,
             )
             print(control._sample.drift)  # pyright: ignore[reportAttributeAccessIssue]
-        drift_correction.correct_drift(slice.current_slice or 0)
+        # drift_correction.correct_drift(slice.current_slice or 0)
+        milling.mill(slice.current_slice or 0)
         imaging.grab_frame(slice.current_slice or 0)
         slice.increment()
 

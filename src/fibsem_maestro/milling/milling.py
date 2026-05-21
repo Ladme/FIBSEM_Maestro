@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 
 from fibsem_maestro.core.action import Action
 from fibsem_maestro.core.beam_type import BeamType
-from fibsem_maestro.logging.image.image_logger import ImageLogger
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.properties.global_properties import GlobalProperties
@@ -26,14 +25,12 @@ class Milling(Action):
         settings: MillingSettings,
         props_store: PropsStore,
         txt_log: TextLogger,
-        img_log: ImageLogger,
     ):
         self._name = name
         self._microscope = microscope
         self._settings = settings
         self._props_store = props_store
         self._txt_log = txt_log
-        self._img_log = img_log
 
         self._current_milling_area: None | NMArea = None
 

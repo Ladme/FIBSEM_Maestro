@@ -244,14 +244,18 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         milling_depth_m = milling_depth * 1e-9
 
         # get the center of the milling area in image coordinates
-        image_center_x = milling_area.origin.x + milling_area.width / 2.0
-        image_center_y = milling_area.origin.y + milling_area.height / 2.0
+        image_center_x = milling_area_m.origin.x + milling_area_m.width / 2.0
+        image_center_y = milling_area_m.origin.y + milling_area_m.height / 2.0
 
         # convert to pattern coordinates
-        center_x = image_center_x - self.horizontal_field_width / 2.0
-        center_y = -image_center_y + self.vertical_field_width / 2.0
+        center_x = image_center_x - self.horizontal_field_width * 1e-9 / 2.0
+        center_y = -image_center_y + self.vertical_field_width * 1e-9 / 2.0
 
-        if "css" in str(pattern_file):
+        self.txt_log.debug(
+            f"Milling area in patterning coordinates: center = [{center_x}, {center_y}], width = {milling_area_m.width}, height = {milling_area_m.height}"
+        )
+
+        if "ccs" in str(pattern_file):
             self._txt_log.debug("Using cleaning cross section pattern.")
             pattern_fn = self._microscope.patterning.create_cleaning_cross_section
         elif "rcs" in str(pattern_file):
