@@ -125,14 +125,22 @@ class DriftCorrection(Action):
         the next slice's store.
 
         Args:
-            slice_number: The current slice index, passed to the drift
-                calculation mode for frequency-based gating and template
-                update decisions.
+            slice_number: The current slice index.
 
         Raises:
             DriftCorrectionError: If drift calculation fails and
                 `settings.stop_at_failure` is `True`.
         """
+        if (
+            self._settings.execution_frequency is None
+            # the first slice is 1, so we use slice_number - 1 to get the 0-indexed slice number
+            or (slice_number - 1) % self._settings.execution_frequency != 0
+        ):
+            self._txt_log.info(f"Skipping drift correction for slice {slice_number}.")
+            # even if drift correction is skipped, we need to write properties for the next slice
+            self.write_properties(self.read_properties(), self._props_store.next)
+            return
+
         # set properties of the microscope
         self.read_and_set_properties()
 
@@ -151,6 +159,8 @@ class DriftCorrection(Action):
             beam_shift = self._calculate_correcting_beam_shift()
 
             # we assume that beam shift will always be in limit here
+            # since the beam shift was reset in `add_beam_shift_with_verification`,
+            # this is a reasonable assumption
             self._microscope.add_beam_shift_with_verification(beam_shift)
 
         # finalize drift calculation

@@ -50,6 +50,10 @@ class ImagingSettings(BaseSettings):
         default=BeamType.ELECTRON,
         description="Beam used for imaging.",
     )
+    execution_frequency: Annotated[int, Field(gt=0)] | None = Field(
+        default=1,
+        description="Imaging runs every N-th slice. If None, imaging will never run.",
+    )
     criterion: CriterionSettings | None = Field(
         default=None,
         description="Settings for the criterion to use to calculate image sharpness.",

@@ -71,9 +71,13 @@ class Milling(Action):
 
     def mill(self, slice_number: int) -> None:
         if (
-            freq := self._settings.execution_frequency
-        ) is None or slice_number % freq != 0:
+            self._settings.execution_frequency is None
+            # the first slice is 1, so we use slice_number - 1 to get the 0-indexed slice number
+            or (slice_number - 1) % self._settings.execution_frequency != 0
+        ):
             self._txt_log.info(f"Skipping milling for slice {slice_number}.")
+            # even if milling is skipped, we need to write properties for the next slice
+            self.write_properties(self.read_properties(), self._props_store.next)
             return
 
         # set the properties of the microscope
@@ -105,3 +109,5 @@ class Milling(Action):
         self._txt_log.debug(
             f"Updating milling area for the next slice: {self._current_milling_area}."
         )
+
+        self.collect_and_write_properties(self._props_store.next)

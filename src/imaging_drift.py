@@ -142,7 +142,7 @@ def main():
             )
             print(control._sample.drift)  # pyright: ignore[reportAttributeAccessIssue]
         drift_correction.correct_drift(slice.current_slice or 0)
-        imaging.grab_frame()
+        imaging.grab_frame(slice.current_slice or 0)
         slice.increment()
 
 

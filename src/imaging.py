@@ -105,7 +105,7 @@ def main():
 
     # run imaging
     for _ in range(args.slices):
-        imaging.grab_frame()
+        imaging.grab_frame(slice.current_slice or 0)
         slice.increment()
 
 

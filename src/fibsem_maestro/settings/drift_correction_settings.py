@@ -42,6 +42,10 @@ class DriftCorrectionSettings(BaseSettings):
         default=True,
         description="If `True` and drift correction fails, the execution is stopped. If `False`, warning is printed but execution continues.",
     )
+    execution_frequency: Annotated[int, Field(gt=0)] | None = Field(
+        default=1,
+        description="Drift correction runs every N-th slice. If None, drift correction will never run.",
+    )
     external_props: GlobalProperties = Field(
         default=GlobalProperties(),
         description="External properties of the microscope to use for drift correction. These properties will overwrite any current microscope properties.",

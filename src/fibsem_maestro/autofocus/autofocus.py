@@ -253,8 +253,7 @@ class Autofocus(Action):
 
         Autofocus runs if any of the following conditions are met:
 
-        - This is the first slice.
-        - The slice number is a multiple of the configured execution frequency.
+        - The slice number - 1 is a multiple of the configured execution frequency.
         - The sharpness of the previously acquired image is below the configured sharpness limit.
 
         If none of the conditions are met, autofocus is skipped and a
@@ -269,14 +268,10 @@ class Autofocus(Action):
         Returns:
             `True` if autofocus should run, `False` if it should be skipped.
         """
-        # always execute autofocus in the first slice
-        if slice_number == 1:
-            self._txt_log.info("Executing autofocus: this is the first slice.")
-            return True
-
         if (
             self._settings.execution_frequency is not None
-            and slice_number % self._settings.execution_frequency == 0
+            # the first slice is 1, so we use slice_number - 1 to get the 0-indexed slice number
+            and (slice_number - 1) % self._settings.execution_frequency == 0
         ):
             self._txt_log.info(
                 f"Executing autofocus: slice {slice_number} matches execution frequency ({self._settings.execution_frequency})."

@@ -134,7 +134,7 @@ class Imaging(Action):
         """Get the last image acquired by this imaging."""
         return self._last_acquired_image
 
-    def grab_frame(self) -> None:
+    def grab_frame(self, slice_number: int) -> None:
         """
         Execute the full image acquisition pipeline for the current slice.
 
@@ -146,9 +146,22 @@ class Imaging(Action):
         Call `wait_for_sharpness` after this method to block until the
         sharpness result is available.
 
+        Args:
+            slice_number: The current slice index.
+
         Raises:
             ImagingError: If a frame for the current slice already exists in the frame store.
         """
+        if (
+            self._settings.execution_frequency is None
+            # the first slice is 1, so we use slice_number - 1 to get the 0-indexed slice number
+            or (slice_number - 1) % self._settings.execution_frequency != 0
+        ):
+            self._txt_log.info(f"Skipping imaging for slice {slice_number}.")
+            # even if imaging is skipped, we need to write properties for the next slice
+            self.write_properties(self.read_properties(), self._props_store.next)
+            return
+
         # set the properties of the microscope
         self.read_and_set_properties()
 

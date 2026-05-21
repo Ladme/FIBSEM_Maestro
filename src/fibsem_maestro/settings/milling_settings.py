@@ -32,7 +32,7 @@ class MillingSettings(BaseSettings):
     )
     execution_frequency: Annotated[int, Field(gt=0)] | None = Field(
         default=1,
-        description="Milling runs every N-th slice. If `None`, milling will never run.",
+        description="Milling runs every N-th slice. If None, milling will never run.",
     )
     milling_depth: float = Field(description="Depth of the milling [in nm].")
     slice_distance: float = Field(
