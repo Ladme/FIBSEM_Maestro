@@ -18,6 +18,21 @@ if TYPE_CHECKING:
 
 
 class Milling(Action):
+    """
+    Performs focused ion beam milling one slice at a time.
+
+    Executes a rectangular milling pattern at a configurable depth and
+    direction, advancing the milling area by the configured slice distance
+    after each step.
+
+    Args:
+        name: Human-readable identifier for this milling instance.
+        microscope: Interface to the electron microscope.
+        settings: Milling configuration.
+        props_store: Store for reading and writing microscope properties.
+        txt_log: Logger for diagnostic and status messages.
+    """
+
     def __init__(
         self,
         name: str,
@@ -67,6 +82,12 @@ class Milling(Action):
         return self._settings.external_props
 
     def mill(self, slice_number: int) -> None:
+        """
+        Perform one milling step for the current slice if conditions are met.
+
+        Args:
+            slice_number: The current slice index.
+        """
         if (
             self._settings.execution_frequency is None
             # the first slice is 1, so we use slice_number - 1 to get the 0-indexed slice number

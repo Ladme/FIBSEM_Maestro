@@ -49,18 +49,6 @@ class Imaging(Action):
         txt_log: TextLogger,
         img_log: ImageLogger,
     ):
-        """
-        Initialize the Imaging instance.
-
-        Args:
-            name (str): Identifier of this Imaging object.
-            microscope (Microscope): The microscope instance used for imaging.
-            settings (ImagingSettings): Settings for image acquisition.
-            props_store (PropsStore): Handler for storing microscope properties.
-            frame_store (FrameStore): Handler for storing acquired frames.
-            txt_log (TextLogger): A textual logger.
-            img_log (ImageLogger): An image logger.
-        """
         self._name = name
         self._microscope = microscope
         self._settings = settings
