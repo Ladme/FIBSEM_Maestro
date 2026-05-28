@@ -69,4 +69,4 @@ class FileImageStore(ImageStore[T]):
 
     @property
     def slice(self) -> int | None:
-        return self._ctx.current_slice
+        return self._view.slice_index

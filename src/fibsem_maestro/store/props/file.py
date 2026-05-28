@@ -53,4 +53,4 @@ class FilePropsStore(PropsStore):
 
     @property
     def slice(self) -> int | None:
-        return self._ctx.current_slice
+        return self._view.slice_index

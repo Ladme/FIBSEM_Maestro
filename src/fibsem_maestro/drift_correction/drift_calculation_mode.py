@@ -112,6 +112,19 @@ class DriftCalculationMode(ABC):
         """
         pass
 
+    def if_skipped(self, slice_number: int) -> None:
+        """
+        Perform actions when drift calculation is skipped for a slice.
+
+        Called once per slice if drift calculation was skipped.
+        Does nothing by default - override to perform slice-level
+        post-processing such as updating reference templates.
+
+        Args:
+            slice_number: The current slice index.
+        """
+        pass
+
 
 @DRIFT_CALCULATION_MODES.register("template_matching")
 class TemplateMatchingDrift(DriftCalculationMode):
@@ -161,8 +174,9 @@ class TemplateMatchingDrift(DriftCalculationMode):
         return drift
 
     def after_calculate_drift(self, slice_number: int) -> None:
-        assert self._last_confidence is not None
-
         self._template_matching.update_templates(slice_number, self._last_confidence)
 
         self._last_confidence = None
+
+    def if_skipped(self, slice_number: int) -> None:
+        self.after_calculate_drift(slice_number)

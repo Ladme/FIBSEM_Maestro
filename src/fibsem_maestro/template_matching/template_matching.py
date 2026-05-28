@@ -112,7 +112,7 @@ class TemplateMatching:
             self._validate_template_scan_consistency(template_scans, area_index)
             self._save_averaged_template(template_scans, area_index, store)
 
-    def update_templates(self, slice_number: int, confidence: float) -> None:
+    def update_templates(self, slice_number: int, confidence: float | None) -> None:
         """
         Refresh templates for the next slice, subject to the update policy.
 
@@ -124,7 +124,7 @@ class TemplateMatching:
         Args:
             slice_number: The current slice index.
             confidence: Average template matching confidence from
-                the most recent drift calculation.
+                the most recent drift calculation. `None` if no confidence is available.
         """
         if self._should_update_templates(slice_number, confidence):
             # acquire new templates for the next slice
@@ -519,13 +519,17 @@ class TemplateMatching:
             )
             return float(peak_int)
 
-    def _should_update_templates(self, slice_number: int, confidence: float) -> bool:
+    def _should_update_templates(
+        self, slice_number: int, confidence: float | None
+    ) -> bool:
         """
         Decide whether templates should be refreshed for the next slice.
 
         Templates are updated if the slice number matches the configured update
         frequency or if the average confidence falls below the update confidence
         limit.
+
+        If no confidence is provided, the update policy is based on the slice number alone.
 
         Args:
             slice_number: The current slice index.
@@ -536,16 +540,22 @@ class TemplateMatching:
             `True` if templates should be refreshed, `False` otherwise.
         """
         if (
-            freq := self._settings.update_frequency
-        ) is not None and slice_number % freq == 0:
+            (freq := self._settings.update_frequency) is not None
+            # do not update on the first slice
+            and slice_number != 1
+            # slices are numbered from 1
+            and (slice_number - 1) % freq == 0
+        ):
             self._txt_log.info(
                 f"Updating templates: slice {slice_number} matches update frequency ({freq})."
             )
             return True
 
         if (
-            conf_lim := self._settings.update_confidence_limit
-        ) is not None and confidence < conf_lim:
+            (conf_lim := self._settings.update_confidence_limit) is not None
+            and confidence is not None
+            and confidence < conf_lim
+        ):
             self._txt_log.info(
                 f"Updating templates: template matching confidence ({confidence:.4f}) is below the limit ({conf_lim:.4f})."
             )

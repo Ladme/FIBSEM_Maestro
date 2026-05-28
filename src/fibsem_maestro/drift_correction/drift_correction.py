@@ -147,6 +147,8 @@ class DriftCorrection(Action):
             self._txt_log.info(f"Skipping {self.name} for slice {slice_number}.")
             # even if drift correction is skipped, we need to write properties for the next slice
             self.write_properties(self.read_properties(), self._props_store.next)
+            # and potentially perform some other operations
+            self._drift_calc.if_skipped(slice_number)
             return
 
         # set properties of the microscope
