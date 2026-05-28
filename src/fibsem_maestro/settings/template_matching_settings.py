@@ -63,7 +63,8 @@ class TemplateMatchingSettings(BaseSettings):
         description="Should the areas for template matching be obtained by scanning the full frame and cropping or by using reduced scanning area.",
     )
     template_scans: Annotated[int, Field(gt=0)] = Field(
-        default=1, description="The number of scans to perform for each template."
+        default=1,
+        description="The number of scans to perform when obtaining or updating templates. The final template will be the average of all scans.",
     )
     areas: list[RelativeArea] = Field(
         default_factory=list,

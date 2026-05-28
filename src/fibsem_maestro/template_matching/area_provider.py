@@ -50,6 +50,7 @@ class AreaProvider(ABC):
     def last_full_frame(self) -> Image8Bit | None:
         """
         The full-frame image from the most recent acquisition, if available.
+
         Returns:
             The full-frame 8-bit image if the provider acquires full frames
             (e.g. `FullFrameAreaProvider`), or `None` if the provider
