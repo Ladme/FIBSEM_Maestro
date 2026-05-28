@@ -26,7 +26,7 @@ from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.store.frame.file import FileFrameStore
 from fibsem_maestro.store.image.file import FileImageStore
 from fibsem_maestro.store.props.file import FilePropsStore
-from fibsem_maestro.workflow.synchronizations import Synchronizations
+from fibsem_maestro.workflow.propagations import Propagations
 from fibsem_maestro.workflow.workflow import Workflow
 
 if TYPE_CHECKING:
@@ -140,8 +140,8 @@ def main():
     # input("Microscope properties saved. Press ENTER.")
 
     actions: list[Action] = [drift_correction, imaging]
-    synchronizations = Synchronizations(actions, txt_log.derive("synchronizations"))
-    synchronizations.add_synchronization(
+    propagations = Propagations(actions, txt_log.derive("propagations"))
+    propagations.register_propagation(
         drift_correction,
         [imaging],
         PropertyNames(microscope=["stage_position"], electron_beam=["beam_shift"]),
@@ -150,7 +150,7 @@ def main():
     workflow = Workflow(
         slice,
         actions,
-        synchronizations,
+        propagations,
         txt_log.derive("workflow"),
     )
 

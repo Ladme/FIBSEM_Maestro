@@ -11,9 +11,9 @@ from fibsem_maestro.workflow.error import WorkflowError
 
 
 @dataclass
-class Synchronization:
+class Propagation:
     """
-    A single synchronization rule linking a parent action to its dependents.
+    A single propagation rule linking a parent action to its dependents.
 
     When the parent action finishes execution, the specified microscope
     properties are read from the parent's microscope state and propagated
@@ -22,19 +22,19 @@ class Synchronization:
     Attributes:
         parent: The action whose post-execution state is the source of truth.
         dependents: Actions whose stored properties should be updated.
-        props_to_synchronize: Names of the microscope properties to propagate.
+        props_to_propagate: Names of the microscope properties to propagate.
     """
 
     parent: Action
     dependents: list[Action]
-    props_to_synchronize: PropertyNames
+    props_to_propagate: PropertyNames
 
 
-class Synchronizations:
+class Propagations:
     """
-    Manages property synchronization between actions in a workflow.
+    Manages property propagation between actions in a workflow.
 
-    After an action executes, its synchronization rules determine which
+    After an action executes, its propagation rules determine which
     microscope properties are propagated to which other actions. The timing
     of the update depends on workflow ordering: dependents that have already
     run in the current slice receive the update for the next slice, while
@@ -48,43 +48,43 @@ class Synchronizations:
     def __init__(self, all_actions: list[Action], txt_log: TextLogger):
         self._actions = all_actions
         self._txt_log = txt_log
-        self._synchronizations = []
+        self._propagations: list[Propagation] = []
 
-    def add_synchronization(
+    def register_propagation(
         self,
-        action: Action,
-        dependents: list[Action],
-        props_to_synchronize: PropertyNames,
+        from_action: Action,
+        to_actions: list[Action],
+        props_to_propagate: PropertyNames,
     ) -> None:
         """
-        Registers a synchronization rule for the given action.
+        Registers a propagation rule for the given action.
 
         Args:
             action: The parent action that produces the property updates.
             dependents: Actions that should receive the updated properties.
-            props_to_synchronize: Names of the properties to propagate.
+            props_to_propagate: Names of the properties to propagate.
 
         Raises:
             WorkflowError: If the action or any dependent is not part of the workflow.
         """
-        if action not in self._actions:
-            raise WorkflowError(f"Action '{action.name}' is not defined.")
+        if from_action not in self._actions:
+            raise WorkflowError(f"Action '{from_action.name}' is not defined.")
 
-        for dependent in dependents:
+        for dependent in to_actions:
             if dependent not in self._actions:
                 raise WorkflowError(f"Action '{dependent.name}' is not defined.")
 
-        self._synchronizations.append(
-            Synchronization(
-                parent=action,
-                dependents=dependents,
-                props_to_synchronize=props_to_synchronize,
+        self._propagations.append(
+            Propagation(
+                parent=from_action,
+                dependents=to_actions,
+                props_to_propagate=props_to_propagate,
             )
         )
 
-    def synchronize(self, action: Action) -> None:
+    def propagate(self, action: Action) -> None:
         """
-        Executes all synchronization rules for the given action.
+        Executes all propagation rules for the given action.
 
         Collects the specified microscope properties from the action's
         current state and propagates them to each dependent action's
@@ -101,15 +101,17 @@ class Synchronizations:
         except ValueError:
             raise WorkflowError(f"Action '{action.name}' is not defined.")
 
-        for sync in self._synchronizations:
-            if sync.parent == action:
+        for propagation in self._propagations:
+            if propagation.parent == action:
                 self._txt_log.debug(
-                    f"Propagating properties '{sync.props_to_synchronize}' from '{action.name}' to its dependents."
+                    f"Propagating properties '{propagation.props_to_propagate}' from '{action.name}' to its dependents."
                 )
-                props = action.microscope.collect_properties(sync.props_to_synchronize)
-                self._synchronize_dependents(index, sync.dependents, props)
+                props = action.microscope.collect_properties(
+                    propagation.props_to_propagate
+                )
+                self._propagate_to_dependents(index, propagation.dependents, props)
 
-    def _synchronize_dependents(
+    def _propagate_to_dependents(
         self, index: int, dependents: list[Action], props: GlobalProperties
     ) -> None:
         """
@@ -130,7 +132,7 @@ class Synchronizations:
         for dependent in self._actions[:index]:
             if dependent in dependents:
                 self._txt_log.debug(
-                    f"Synchronizing properties for dependent action '{dependent.name}' for slice {(dependent.props_store.slice or 0) + 1}."
+                    f"Propagating properties to dependent action '{dependent.name}' for slice {(dependent.props_store.slice or 0) + 1}."
                 )
                 original_props = dependent.read_properties(dependent.props_store.next)
                 original_props.patch(props)
@@ -141,7 +143,7 @@ class Synchronizations:
         for dependent in self._actions[index + 1 :]:
             if dependent in dependents:
                 self._txt_log.debug(
-                    f"Synchronizing properties for dependent action '{dependent.name}' for slice {dependent.props_store.slice}."
+                    f"Propagating properties to dependent action '{dependent.name}' for slice {dependent.props_store.slice}."
                 )
                 original_props = dependent.read_properties(dependent.props_store)
                 original_props.patch(props)

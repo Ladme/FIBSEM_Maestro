@@ -28,7 +28,7 @@ from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.store.frame.file import FileFrameStore
 from fibsem_maestro.store.image.file import FileImageStore
 from fibsem_maestro.store.props.file import FilePropsStore
-from fibsem_maestro.workflow.synchronizations import Synchronizations
+from fibsem_maestro.workflow.propagations import Propagations
 from fibsem_maestro.workflow.workflow import Workflow
 
 if TYPE_CHECKING:
@@ -169,13 +169,13 @@ def main():
     drift.setup(drift.image_store.next)
 
     actions: list[Action] = [drift, autofocus, imaging]
-    synchronizations = Synchronizations(actions, txt_log.derive("synchronizations"))
-    synchronizations.add_synchronization(
+    propagations = Propagations(actions, txt_log.derive("propagations"))
+    propagations.register_propagation(
         drift,
         [autofocus, imaging],
         PropertyNames(microscope=["stage_position"], electron_beam=["beam_shift"]),
     )
-    synchronizations.add_synchronization(
+    propagations.register_propagation(
         autofocus,
         [drift, imaging],
         PropertyNames(electron_beam=["working_distance"]),
@@ -192,7 +192,7 @@ def main():
         ),
     )
     """
-    workflow = Workflow(slice, actions, synchronizations, txt_log.derive("workflow"))
+    workflow = Workflow(slice, actions, propagations, txt_log.derive("workflow"))
 
     for _ in range(args.slices):
         control = microscope._control

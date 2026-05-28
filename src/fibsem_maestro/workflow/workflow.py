@@ -4,7 +4,7 @@
 from fibsem_maestro.core.action import Action
 from fibsem_maestro.core.slice import SliceContext
 from fibsem_maestro.logging.text.text_logger import TextLogger
-from fibsem_maestro.workflow.synchronizations import Synchronizations
+from fibsem_maestro.workflow.propagations import Propagations
 
 
 class Workflow:
@@ -12,7 +12,7 @@ class Workflow:
         self,
         slice_context: SliceContext,
         actions: list[Action],
-        synchronizations: Synchronizations,
+        propagations: Propagations,
         txt_log: TextLogger,
     ):
         """
@@ -31,7 +31,7 @@ class Workflow:
 
         self._slice_context = slice_context
         self._actions = actions
-        self._synchronizations = synchronizations
+        self._propagations = propagations
         self._txt_log = txt_log
 
     def run(self, n_slices: int) -> None:
@@ -50,4 +50,4 @@ class Workflow:
         self._txt_log.info(f"Starting slice {self._slice_context.current_slice}.")
         for action in self._actions:
             action.execute(self._slice_context.current_slice or 0)
-            self._synchronizations.synchronize(action)
+            self._propagations.propagate(action)

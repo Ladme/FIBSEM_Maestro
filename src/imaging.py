@@ -18,7 +18,7 @@ from fibsem_maestro.settings.imaging_settings import ImagingSettings
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
 from fibsem_maestro.store.frame.file import FileFrameStore
 from fibsem_maestro.store.props.file import FilePropsStore
-from fibsem_maestro.workflow.synchronizations import Synchronizations
+from fibsem_maestro.workflow.propagations import Propagations
 from fibsem_maestro.workflow.workflow import Workflow
 
 if TYPE_CHECKING:
@@ -113,7 +113,7 @@ def main():
     workflow = Workflow(
         slice,
         actions,
-        Synchronizations(actions, txt_log.derive("synchronizations")),
+        Propagations(actions, txt_log.derive("propagations")),
         txt_log.derive("workflow"),
     )
 
