@@ -3,8 +3,8 @@
 
 from pydantic import Field
 
+from fibsem_maestro.core.base_settings import BaseSettings
 from fibsem_maestro.core.stage_position import StagePosition
-from fibsem_maestro.settings.base_settings import BaseSettings
 
 
 class MicroscopeProperties(BaseSettings):

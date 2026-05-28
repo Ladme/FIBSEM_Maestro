@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 from fibsem_maestro.core.registry import Registry
-from fibsem_maestro.settings.template_matching_settings import (
+from fibsem_maestro.settings.template_matching import (
     FullFrameMode,
     ReducedAreaMode,
     TemplateMatchingSettings,

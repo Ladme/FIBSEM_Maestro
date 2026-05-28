@@ -6,8 +6,8 @@ from typing import Annotated
 
 from pydantic import AfterValidator, Field
 
+from fibsem_maestro.core.base_settings import BaseSettings
 from fibsem_maestro.microscope.microscope import MICROSCOPE_CONTROLS
-from fibsem_maestro.settings.base_settings import BaseSettings
 
 MicroscopeControlName = Annotated[str, AfterValidator(MICROSCOPE_CONTROLS.validate)]
 

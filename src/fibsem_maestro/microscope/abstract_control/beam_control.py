@@ -18,7 +18,7 @@ from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.error import MicroscopeError
-from fibsem_maestro.properties.beam_properties import BeamProperties
+from fibsem_maestro.properties.beam_props import BeamProperties
 from fibsem_maestro.store.frame.frame_store import FrameStore
 
 

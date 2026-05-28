@@ -16,7 +16,7 @@ from fibsem_maestro.core.point import PixelPoint
 from fibsem_maestro.logging.image.image_logger import ImageLogger
 from fibsem_maestro.logging.image.overlay import RectangleOverlay
 from fibsem_maestro.logging.text.text_logger import TextLogger
-from fibsem_maestro.settings.template_matching_settings import (
+from fibsem_maestro.settings.template_matching import (
     StandardMode,
     SubpixelMode,
     TemplateMatchingSettings,

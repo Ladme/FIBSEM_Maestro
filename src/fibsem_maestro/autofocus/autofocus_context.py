@@ -16,7 +16,7 @@ from fibsem_maestro.criterion.criterion import Criterion
 from fibsem_maestro.imaging.imaging import Imaging
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope import Microscope
-from fibsem_maestro.settings.autofocus_settings import AutofocusSettings
+from fibsem_maestro.settings.autofocus import AutofocusSettings
 
 
 class AutofocusContext:

@@ -5,12 +5,9 @@
 from typing import TYPE_CHECKING
 
 from fibsem_maestro.core.action import Action
-from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope import Microscope
-from fibsem_maestro.properties.global_properties import GlobalProperties
-from fibsem_maestro.settings.milling_settings import MillingSettings
-from fibsem_maestro.settings.property_names import PropertyNames
+from fibsem_maestro.settings.milling import MillingSettings
 from fibsem_maestro.store.props.props_store import PropsStore
 
 if TYPE_CHECKING:
@@ -53,34 +50,6 @@ class Milling(Action):
     def name(self) -> str:
         return self._name
 
-    @property
-    def props_file(self) -> str:
-        return str(self._settings.properties_file)
-
-    @property
-    def props_store(self) -> PropsStore:
-        return self._props_store
-
-    @property
-    def beam_type(self) -> BeamType:
-        return self._settings.beam_type
-
-    @property
-    def props_to_collect(self) -> PropertyNames:
-        return self._settings.properties_to_collect
-
-    @property
-    def microscope(self) -> Microscope:
-        return self._microscope
-
-    @property
-    def txt_log(self) -> TextLogger:
-        return self._txt_log
-
-    @property
-    def external_props(self) -> GlobalProperties:
-        return self._settings.external_props
-
     def mill(self, slice_number: int) -> None:
         """
         Perform one milling step for the current slice if conditions are met.
@@ -94,12 +63,7 @@ class Milling(Action):
             or (slice_number - 1) % self._settings.execution_frequency != 0
         ):
             self._txt_log.info(f"Skipping milling for slice {slice_number}.")
-            # even if milling is skipped, we need to write properties for the next slice
-            self.write_properties(self.read_properties(), self._props_store.next)
             return
-
-        # set the properties of the microscope
-        self.read_and_set_properties()
 
         # set the current milling area for the first slice
         if self._current_milling_area is None:
@@ -127,5 +91,3 @@ class Milling(Action):
         self._txt_log.debug(
             f"Updating milling area for the next slice: {self._current_milling_area}."
         )
-
-        self.collect_and_write_properties(self._props_store.next)

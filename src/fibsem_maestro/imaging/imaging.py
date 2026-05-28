@@ -9,18 +9,18 @@ from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.image import Image
+from fibsem_maestro.core.property_names import PropertyNames
 from fibsem_maestro.criterion.criterion import Criterion
 from fibsem_maestro.imaging.error import ImagingError
 from fibsem_maestro.logging.image.image_logger import ImageLogger
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope import Microscope
-from fibsem_maestro.properties.global_properties import GlobalProperties
-from fibsem_maestro.settings.imaging_settings import (
+from fibsem_maestro.properties.global_props import GlobalProperties
+from fibsem_maestro.settings.imaging import (
     ExtendedResolution,
     ImagingSettings,
     StandardResolution,
 )
-from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.store.frame.frame_store import FrameStore
 from fibsem_maestro.store.props.props_store import PropsStore
 
@@ -83,41 +83,6 @@ class Imaging(Action):
         return self._name
 
     @property
-    def props_file(self) -> str:
-        """Filename used to read and write microscope properties."""
-        return str(self._settings.properties_file)
-
-    @property
-    def props_store(self) -> PropsStore:
-        """Store used for reading and writing microscope properties."""
-        return self._props_store
-
-    @property
-    def beam_type(self) -> BeamType:
-        """Beam type used for acquisition, either electron or ion."""
-        return self._settings.beam_type
-
-    @property
-    def props_to_collect(self) -> PropertyNames:
-        """Names of microscope properties relevant for the image acquisition."""
-        return self._settings.properties_to_collect
-
-    @property
-    def microscope(self) -> Microscope:
-        """The microscope instance used for the imaging."""
-        return self._microscope
-
-    @property
-    def txt_log(self) -> TextLogger:
-        """Logger for diagnostic and status messages."""
-        return self._txt_log
-
-    @property
-    def external_props(self) -> GlobalProperties:
-        """External properties to use for this imaging action."""
-        return self._settings.external_props
-
-    @property
     def last_acquired_image(self) -> Image | None:
         """Get the last image acquired by this imaging."""
         return self._last_acquired_image
@@ -146,21 +111,13 @@ class Imaging(Action):
             or (slice_number - 1) % self._settings.execution_frequency != 0
         ):
             self._txt_log.info(f"Skipping imaging for slice {slice_number}.")
-            # even if imaging is skipped, we need to write properties for the next slice
-            self.write_properties(self.read_properties(), self._props_store.next)
             return
-
-        # set the properties of the microscope
-        self.read_and_set_properties()
 
         # make sure that the image for the current slice does not exist
         self._frame_store.raise_if_exists(ImagingError)
 
         # grab the frame and save it
         self._last_acquired_image = self._microscope.beam.grab_frame(self._frame_store)
-
-        # update the saved microscope properties for the next frame
-        self.collect_and_write_properties(self._props_store.next)
 
         # calculate image sharpness in a separate thread
         self._image_sharpness = None

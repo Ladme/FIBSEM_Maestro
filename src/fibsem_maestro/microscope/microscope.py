@@ -12,6 +12,7 @@ from scipy.spatial import distance  # pyright: ignore[reportMissingTypeStubs]
 
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
+from fibsem_maestro.core.property_names import PropertyNames
 from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
@@ -20,10 +21,9 @@ from fibsem_maestro.microscope.abstract_control.microscope_control import (
 )
 from fibsem_maestro.microscope.error import MicroscopeError
 from fibsem_maestro.microscope.registry import MICROSCOPE_CONTROLS
-from fibsem_maestro.properties.global_properties import GlobalProperties
-from fibsem_maestro.properties.microscope_properties import MicroscopeProperties
-from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
-from fibsem_maestro.settings.property_names import PropertyNames
+from fibsem_maestro.properties.global_props import GlobalProperties
+from fibsem_maestro.properties.microscope_props import MicroscopeProperties
+from fibsem_maestro.settings.microscope import MicroscopeSettings
 
 
 class Microscope:

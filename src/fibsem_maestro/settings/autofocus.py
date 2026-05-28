@@ -2,18 +2,16 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
-from pathlib import Path
 from typing import Annotated, Literal
 
 from pydantic import Field, field_validator
 
+from fibsem_maestro.core.area import RelativeArea
+from fibsem_maestro.core.base_settings import BaseSettings
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
-from fibsem_maestro.properties.global_properties import GlobalProperties
-from fibsem_maestro.settings.base_settings import BaseSettings
-from fibsem_maestro.settings.criterion_settings import CriterionSettings
-from fibsem_maestro.settings.property_names import PropertyNames
-from fibsem_maestro.settings.sweeping_settings import SweepingSettings
+from fibsem_maestro.settings.criterion import CriterionSettings
+from fibsem_maestro.settings.sweeping import SweepingSettings
 
 
 class BasicMode(BaseSettings):
@@ -78,13 +76,9 @@ AutofocusMode = Annotated[
 
 
 class AutofocusSettings(BaseSettings):
-    properties_file: Path = Field(
-        default=Path("autofocus_props.yaml"),
-        description="Path to a file storing properties of the microscope used for autofocus.",
-    )
-    properties_to_collect: PropertyNames = Field(
-        default_factory=PropertyNames,
-        description="Properties of the microscope and the beam relevant for the autofocus.",
+    scanning_area: RelativeArea = Field(
+        default=RelativeArea.full(),
+        description="Area in which the autofocus scanning will be performed, defined in relative units.",
     )
     mode: AutofocusMode = Field(
         description="Autofocus mode to use.",
@@ -110,10 +104,6 @@ class AutofocusSettings(BaseSettings):
     max_workers: int = Field(
         default=1,
         description="Maximal number of threads used for calculation.",
-    )
-    external_props: GlobalProperties = Field(
-        default=GlobalProperties(),
-        description="External properties of the microscope to use for autofocus. These properties will overwrite any current microscope properties.",
     )
 
     @field_validator("target_attribute")

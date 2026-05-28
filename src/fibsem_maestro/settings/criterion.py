@@ -7,10 +7,10 @@ from typing import Annotated, Literal
 from pydantic import AfterValidator, Field
 
 from fibsem_maestro.core.area import RelativeArea
+from fibsem_maestro.core.base_settings import BaseSettings
 from fibsem_maestro.core.detail_band import DetailBand
 from fibsem_maestro.criterion.functions import CRITERION_FUNCTIONS
 from fibsem_maestro.criterion.reductors import REDUCTORS
-from fibsem_maestro.settings.base_settings import BaseSettings
 
 ReductionName = Annotated[str, AfterValidator(REDUCTORS.validate)]
 CriterionName = Annotated[str, AfterValidator(CRITERION_FUNCTIONS.validate)]

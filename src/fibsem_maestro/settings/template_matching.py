@@ -7,7 +7,7 @@ from typing import Annotated, Literal
 from pydantic import Field
 
 from fibsem_maestro.core.area import RelativeArea
-from fibsem_maestro.settings.base_settings import BaseSettings
+from fibsem_maestro.core.base_settings import BaseSettings
 
 
 class StandardMode(BaseSettings):

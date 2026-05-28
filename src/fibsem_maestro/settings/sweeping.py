@@ -5,7 +5,7 @@ from typing import Annotated, Literal
 
 from pydantic import ConfigDict, Field, field_validator
 
-from fibsem_maestro.settings.base_settings import BaseSettings
+from fibsem_maestro.core.base_settings import BaseSettings
 
 
 class BasicStrategySettings(BaseSettings):

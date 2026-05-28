@@ -23,25 +23,19 @@ from fibsem_maestro.logging.image.overlay import PolylineOverlay
 from fibsem_maestro.logging.image.plot_element import Curve, PlotElement, VerticalLine
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope import Microscope
-from fibsem_maestro.properties.global_properties import GlobalProperties
-from fibsem_maestro.settings.autofocus_settings import (
-    AutofocusSettings,
-    AutoscriptMode,
-)
-from fibsem_maestro.settings.property_names import PropertyNames
-from fibsem_maestro.store.props.props_store import PropsStore
+from fibsem_maestro.settings.autofocus import AutofocusSettings, AutoscriptMode
 
 if TYPE_CHECKING:
     from collections.abc import Generator
 
 
 class Autofocus(Action):
-    """Orchestrates the autofocus pipeline for a single configured mode.
+    """
+    Orchestrates the autofocus pipeline for a single configured mode.
 
     Manages the full autofocus lifecycle: deciding when to execute based on
     slice number and image sharpness, setting up the appropriate mode, advancing
-    the execution generator, collecting sharpness results, and writing the best sweep value
-    back to the microscope and property store.
+    the execution generator, collecting sharpness results, and setting the best sweep value.
 
     For single-shot modes (basic, line, Autoscript) the sweep completes in a
     single `perform_autofocus` call. For step mode, execution is resumed
@@ -65,12 +59,10 @@ class Autofocus(Action):
         microscope: Microscope,
         settings: AutofocusSettings,
         imaging: Imaging,
-        props_store: PropsStore,
         txt_log: TextLogger,
         img_log: ImageLogger,
     ):
         self._name = name
-        self._props_store = props_store
         self._txt_log = txt_log
         self._img_log = img_log
 
@@ -128,34 +120,6 @@ class Autofocus(Action):
     def name_with_underscores(self) -> str:
         return self._name.replace(" ", "_")
 
-    @property
-    def props_file(self) -> str:
-        return str(self._settings.properties_file)
-
-    @property
-    def props_store(self) -> PropsStore:
-        return self._props_store
-
-    @property
-    def beam_type(self) -> BeamType:
-        return self._settings.beam_type
-
-    @property
-    def props_to_collect(self) -> PropertyNames:
-        return self._settings.properties_to_collect
-
-    @property
-    def microscope(self) -> Microscope:
-        return self._microscope
-
-    @property
-    def txt_log(self) -> TextLogger:
-        return self._txt_log
-
-    @property
-    def external_props(self) -> GlobalProperties:
-        return self._settings.external_props
-
     def perform_autofocus(self, slice_number: int) -> None:
         """
         Advance the autofocus execution by one step for the current slice.
@@ -177,8 +141,6 @@ class Autofocus(Action):
         if self._active_gen is not None:
             # mid-execution: keep going regardless of gating checks
             self._advance()
-            if self._active_gen is not None:
-                self.write_properties(self.read_properties(), self._props_store.next)
             return
 
         # remove the jobs and results from previous slice
@@ -189,12 +151,7 @@ class Autofocus(Action):
         self._txt_log.debug(f"Last image sharpness: {image_sharpness}.")
         # evaluate whether the autofocus should be performed based on the sharpness of the image from the previous slice
         if not self._should_execute(slice_number, image_sharpness):
-            # if the autofocus should not be run, we still need to copy the props file to the next slice
-            self.write_properties(self.read_properties(), self._props_store.next)
             return
-
-        # read the microscope properties for autofocus from a file and set them
-        self.read_and_set_properties()
 
         # get the base value for the current sweep
         self._sweep_base_value: float | None = (
@@ -203,12 +160,6 @@ class Autofocus(Action):
         # execute the autofocus
         self._active_gen = self._mode.execute(self._ctx, self._jobs)
         self._advance()
-
-        # if we have started a long-running autofocus, we need to explicitly copy
-        # the microscope properties for the autofocus to the next slice
-        if self._active_gen is not None:
-            # mid-sweep - copy the props file to the next slice
-            self.write_properties(self.read_properties(), self._props_store.next)
 
     def test_autofocus(self) -> None:
         """
@@ -326,8 +277,6 @@ class Autofocus(Action):
                     self._log_line_focus_image(results)
 
             self._active_gen = None
-            # sweep finished: record the new best value for the next slice
-            self.collect_and_write_properties(self._props_store.next)
         except Exception:
             self._active_gen.close()
             self._active_gen = None

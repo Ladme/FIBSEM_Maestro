@@ -5,17 +5,17 @@ from typing import Any
 
 from pydantic import Field
 
+from fibsem_maestro.core.base_settings import BaseSettings
 from fibsem_maestro.core.beam_type import BeamType
-from fibsem_maestro.properties.beam_properties import BeamProperties
-from fibsem_maestro.properties.microscope_properties import MicroscopeProperties
-from fibsem_maestro.settings.base_settings import BaseSettings
-from fibsem_maestro.settings.property_names import PropertyNames
+from fibsem_maestro.core.property_names import PropertyNames
+from fibsem_maestro.properties.beam_props import BeamProperties
+from fibsem_maestro.properties.microscope_props import MicroscopeProperties
 
 
 class GlobalProperties(BaseSettings):
     microscope: MicroscopeProperties | None = Field(
         default=None,
-        description="General properties of the microscope.",
+        description="Properties of the microscope.",
     )
     electron_beam: BeamProperties | None = Field(
         default=None,
@@ -189,7 +189,7 @@ class GlobalProperties(BaseSettings):
             )
 
         # perform addition and update
-        new_value = value_to_add + current_value
+        new_value = current_value + value_to_add
         setattr(inner_props, property_name, new_value)
 
     def _set_property_value(

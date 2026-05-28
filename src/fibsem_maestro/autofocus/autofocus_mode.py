@@ -17,7 +17,7 @@ from fibsem_maestro.core.registry import Registry
 from fibsem_maestro.microscope.autoscript_control.microscope_control import (
     AutoscriptMicroscopeControl,
 )
-from fibsem_maestro.settings.autofocus_settings import LineMode as LineModeSettings
+from fibsem_maestro.settings.autofocus import LineMode as LineModeSettings
 
 if TYPE_CHECKING:
     from collections.abc import Generator
