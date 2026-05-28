@@ -71,6 +71,15 @@ class SliceView:
         """
         return self._subdir("props")
 
+    def text(self) -> Path:
+        """
+        Return the directory for text data, creating it first.
+
+        Returns:
+            Path to the `text` subdirectory of this slice.
+        """
+        return self._subdir("text")
+
     def custom(self, directory: str) -> Path:
         """
         Return a custom-named subdirectory for this slice, creating it first.

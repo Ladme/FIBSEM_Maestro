@@ -19,6 +19,10 @@ class MillingSettings(BaseSettings):
         default=Path("milling_props.yaml"),
         description="Path to a file storing properties of the microscope used for milling.",
     )
+    state_file: Path = Field(
+        default=Path("milling_state.yaml"),
+        description="Path to a file where the state of the milling process is stored.",
+    )
     beam_type: BeamType = Field(
         default=BeamType.ION,
         description="Beam used for milling.",

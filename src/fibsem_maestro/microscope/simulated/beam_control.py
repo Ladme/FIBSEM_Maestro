@@ -313,7 +313,12 @@ class SimulatedBeamControl(BeamControl):
         direction: Direction,
         pattern_file: Path | str,
     ) -> None:
-        raise NotImplementedError()
+        self._txt_log.info(
+            f"Fake milling in area {milling_area} with depth of {milling_depth} nm."
+        )
+        self._txt_log.info(
+            f"Fake milling has direction {direction} and uses pattern {pattern_file}."
+        )
 
     @property
     def line_integration(self) -> int:

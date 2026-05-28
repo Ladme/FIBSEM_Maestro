@@ -5,12 +5,14 @@
 import argparse
 import logging
 from pathlib import Path
+from typing import TYPE_CHECKING
 
+from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.slice import SliceContext
+from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.imaging.imaging import Imaging
 from fibsem_maestro.logging.image.file import FileImageLogger
 from fibsem_maestro.logging.text.file import FileTextLogger
-from fibsem_maestro.microscope import SimulatedMicroscopeControl
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.milling.milling import Milling
 from fibsem_maestro.settings.imaging_settings import ImagingSettings
@@ -18,6 +20,12 @@ from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
 from fibsem_maestro.settings.milling_settings import MillingSettings
 from fibsem_maestro.store.frame.file import FileFrameStore
 from fibsem_maestro.store.props.file import FilePropsStore
+from fibsem_maestro.store.text.file import FileTextStore
+from fibsem_maestro.workflow.propagations import Propagations
+from fibsem_maestro.workflow.workflow import Workflow
+
+if TYPE_CHECKING:
+    from fibsem_maestro.core.action import Action
 
 
 def main():
@@ -78,6 +86,7 @@ def main():
     img_log = FileImageLogger(slice)
     props_store = FilePropsStore(slice)
     frame_store = FileFrameStore(slice, imaging_settings.images_directory)
+    txt_store = FileTextStore(slice)
     # image_store = FileImageStore(slice, Image8Bit, Path("templates"))
 
     # initialize the microscope
@@ -95,22 +104,23 @@ def main():
     )
 
     # initialize the milling
-    milling = Milling("milling", microscope, milling_settings, props_store, txt_log)
+    milling = Milling(
+        "milling", microscope, milling_settings, props_store, txt_store, txt_log
+    )
 
     # set microscope properties manually
-    input("Set microscope properties for imaging interactively and then press ENTER.")
+    # input("Set microscope properties for imaging interactively and then press ENTER.")
 
-    # microscope._control.try_set_stage_position(
-    #    StagePosition(x=0.0, y=0.0, z=5_000_000.0, rotation=0, tilt=0)
-    # )
-    # microscope.beam.resolution = Resolution(1024, 768)
-    # microscope.beam.horizontal_field_width = 2000
+    microscope._control.try_set_stage_position(
+        StagePosition(x=0.0, y=0.0, z=5_000_000.0, rotation=0, tilt=0)
+    )
+    microscope.beam.resolution = Resolution(1024, 768)
+    microscope.beam.horizontal_field_width = 2000
 
-    slice.increment()
-    imaging.collect_and_write_properties()
+    imaging.collect_and_write_properties(imaging.props_store.next)
 
-    input("Set microscope properties for milling interactively and then press ENTER.")
-    milling.collect_and_write_properties()
+    # input("Set microscope properties for milling interactively and then press ENTER.")
+    milling.collect_and_write_properties(milling.props_store.next)
 
     # save microscope properties
 
@@ -120,21 +130,15 @@ def main():
     # optionally change microscope properties to test that the previously saved properties are reloaded before imaging
     # input("Microscope properties saved. Press ENTER.")
 
-    # run imaging
-    for _ in range(args.slices):
-        control = microscope._control
-        if isinstance(control, SimulatedMicroscopeControl):
-            control._sample.apply_drift(  # pyright: ignore[reportAttributeAccessIssue]
-                # drift_x=random.randrange(-40, 41),
-                # drift_y=random.randrange(-40, 41),
-                drift_x=-10,
-                drift_y=-10,
-            )
-            print(control._sample.drift)  # pyright: ignore[reportAttributeAccessIssue]
-        # drift_correction.correct_drift(slice.current_slice or 0)
-        milling.mill(slice.current_slice or 0)
-        imaging.grab_frame(slice.current_slice or 0)
-        slice.increment()
+    actions: list[Action] = [milling, imaging]
+    workflow = Workflow(
+        slice,
+        actions,
+        Propagations(actions, txt_log.derive("propagations")),
+        txt_log.derive("workflow"),
+    )
+
+    workflow.run(args.slices)
 
 
 if __name__ == "__main__":

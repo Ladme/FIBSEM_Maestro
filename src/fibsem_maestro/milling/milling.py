@@ -4,6 +4,8 @@
 
 from typing import TYPE_CHECKING
 
+import yaml
+
 from fibsem_maestro.core.action import Action
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.logging.text.text_logger import TextLogger
@@ -12,6 +14,7 @@ from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.milling_settings import MillingSettings
 from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.store.props.props_store import PropsStore
+from fibsem_maestro.store.text.text_store import TextStore
 
 if TYPE_CHECKING:
     from fibsem_maestro.core.area import NMArea
@@ -30,6 +33,7 @@ class Milling(Action):
         microscope: Interface to the electron microscope.
         settings: Milling configuration.
         props_store: Store for reading and writing microscope properties.
+        text_store: Store for reading and writing text data.
         txt_log: Logger for diagnostic and status messages.
     """
 
@@ -39,12 +43,14 @@ class Milling(Action):
         microscope: Microscope,
         settings: MillingSettings,
         props_store: PropsStore,
+        txt_store: TextStore,
         txt_log: TextLogger,
     ):
         self._name = name
         self._microscope = microscope
         self._settings = settings
         self._props_store = props_store
+        self._txt_store = txt_store
         self._txt_log = txt_log
 
         self._current_milling_area: None | NMArea = None
@@ -127,5 +133,13 @@ class Milling(Action):
         self._txt_log.debug(
             f"Updating milling area for the next slice: {self._current_milling_area}."
         )
+
+        # store the milling area for the next slice
+        # this is needed only for restoring the milling in case the workflow is interrupted
+        if (area := self._current_milling_area) is not None:
+            self._txt_store.next.write(
+                str(self._settings.state_file),
+                data=yaml.dump({"milling_area": area.model_dump()}),
+            )
 
         self.collect_and_write_properties(self._props_store.next)
