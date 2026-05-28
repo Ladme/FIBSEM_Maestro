@@ -5,6 +5,7 @@ import argparse
 import logging
 import random
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from fibsem_maestro.autofocus.autofocus import Autofocus
 from fibsem_maestro.core.image import Image8Bit
@@ -23,9 +24,15 @@ from fibsem_maestro.settings.autofocus_settings import AutofocusSettings
 from fibsem_maestro.settings.drift_correction_settings import DriftCorrectionSettings
 from fibsem_maestro.settings.imaging_settings import ImagingSettings
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
+from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.store.frame.file import FileFrameStore
 from fibsem_maestro.store.image.file import FileImageStore
 from fibsem_maestro.store.props.file import FilePropsStore
+from fibsem_maestro.workflow.synchronizations import Synchronizations
+from fibsem_maestro.workflow.workflow import Workflow
+
+if TYPE_CHECKING:
+    from fibsem_maestro.core.action import Action
 
 
 def main():
@@ -132,18 +139,32 @@ def main():
     microscope._control.try_set_stage_position(
         StagePosition(x=0.0, y=0.0, z=5_000_000.0, rotation=0, tilt=0)
     )
-    microscope.beam.resolution = Resolution(1000, 1000)
+    microscope.beam.resolution = Resolution(2048, 1536)
     microscope.beam.horizontal_field_width = 2000
-    microscope.beam.working_distance = 5_000_000.0
 
-    autofocus.test_autofocus()
-    return
+    drift.collect_and_write_properties(drift.props_store.next)
 
-    slice.increment()
-    drift.collect_and_write_properties()
-    autofocus.collect_and_write_properties()
-    imaging.collect_and_write_properties()
-    drift.setup()
+    microscope.beam.line_integration = 5
+    autofocus.collect_and_write_properties(drift.props_store.next)
+
+    microscope.beam.resolution = Resolution(1024, 768)
+    microscope.beam.line_integration = 1
+
+    imaging.collect_and_write_properties(imaging.props_store.next)
+
+    drift.setup(drift.image_store.next)
+
+    actions: list[Action] = [drift, autofocus, imaging]
+    synchronizations = Synchronizations(actions, txt_log.derive("synchronizations"))
+    synchronizations.add_synchronization(
+        drift,
+        [autofocus, imaging],
+        PropertyNames(microscope=["stage_position"], electron_beam=["beam_shift"]),
+    )
+    synchronizations.add_synchronization(
+        autofocus, [drift, imaging], PropertyNames(electron_beam=["working_distance"])
+    )
+    workflow = Workflow(slice, actions, synchronizations, txt_log.derive("workflow"))
 
     for _ in range(args.slices):
         control = microscope._control
@@ -158,10 +179,7 @@ def main():
                 drift_z=10_000,
             )
             print(control._sample.drift)  # pyright: ignore[reportAttributeAccessIssue]
-        drift.correct_drift(slice.current_slice or 0)
-        autofocus.perform_autofocus(slice.current_slice or 0)
-        imaging.grab_frame(slice.current_slice or 0)
-        slice.increment()
+        workflow._run_slice()
 
 
 if __name__ == "__main__":

@@ -98,6 +98,28 @@ class ReactiveModel(BaseModel, ReactiveNode):
 
         self._call_hooks()
 
+    def patch(self, other: Self):
+        """
+        Partially update this instance from another, skipping None fields.
+
+        Only fields that are not None in `other` are applied to `self`.
+        Fields that are None in `other` retain their current value.
+
+        Args:
+            other: Another instance whose non-None values replace this one's.
+        """
+        for field in type(self).model_fields:
+            value = getattr(other, field)
+            if value is None:
+                continue
+            if isinstance(value, ReactiveModel):
+                getattr(self, field).patch(value)
+            else:
+                object.__setattr__(self, field, value)
+
+        propagate_parent(self, self)
+        self._call_hooks()
+
     def __setattr__(self, name: str, value: Any):
         """
         Assign a model field, re-parent children if needed, trigger hooks.

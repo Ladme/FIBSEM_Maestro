@@ -102,17 +102,25 @@ class DriftCorrection(Action):
     def external_props(self) -> GlobalProperties:
         return self._settings.external_props
 
-    def setup(self) -> None:
+    @property
+    def image_store(self) -> ImageStore[Image8Bit]:
+        return self._image_store
+
+    def setup(self, store: ImageStore[Image8Bit] | None = None) -> None:
         """
         Initialize the drift calculation mode before acquisition begins.
 
         Delegates to the configured `DriftCalculationMode.setup`, which
         performs any one-time preparation required before the first slice -
         for example, acquiring reference templates.
-        """
-        self._drift_calc.setup()
 
-    def correct_drift(self, slice_number: int) -> None:
+        Args:
+            store: Optional image store to use for template loading/saving.
+                If not provided, the image store for the current slice is used.
+        """
+        self._drift_calc.setup(store)
+
+    def execute(self, slice_number: int) -> None:
         """
         Acquire a frame, measure drift, and apply a compensating beam shift.
 

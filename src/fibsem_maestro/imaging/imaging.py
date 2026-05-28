@@ -122,7 +122,7 @@ class Imaging(Action):
         """Get the last image acquired by this imaging."""
         return self._last_acquired_image
 
-    def grab_frame(self, slice_number: int) -> None:
+    def execute(self, slice_number: int) -> None:
         """
         Execute the full image acquisition pipeline for the current slice.
 

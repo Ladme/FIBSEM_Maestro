@@ -5,6 +5,7 @@
 import argparse
 import logging
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from fibsem_maestro.core.image import Image8Bit
 from fibsem_maestro.core.resolution import Resolution
@@ -21,9 +22,15 @@ from fibsem_maestro.microscope.simulated.microscope_control import (
 from fibsem_maestro.settings.drift_correction_settings import DriftCorrectionSettings
 from fibsem_maestro.settings.imaging_settings import ImagingSettings
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
+from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.store.frame.file import FileFrameStore
 from fibsem_maestro.store.image.file import FileImageStore
 from fibsem_maestro.store.props.file import FilePropsStore
+from fibsem_maestro.workflow.synchronizations import Synchronizations
+from fibsem_maestro.workflow.workflow import Workflow
+
+if TYPE_CHECKING:
+    from fibsem_maestro.core.action import Action
 
 
 def main():
@@ -116,19 +123,36 @@ def main():
     microscope._control.try_set_stage_position(
         StagePosition(x=0.0, y=0.0, z=5_000_000.0, rotation=0, tilt=0)
     )
-    microscope.beam.resolution = Resolution(1024, 768)
+    microscope.beam.resolution = Resolution(2048, 1536)
     microscope.beam.horizontal_field_width = 2000
 
-    slice.increment()
-    drift_correction.collect_and_write_properties()
+    drift_correction.collect_and_write_properties(drift_correction.props_store.next)
+
+    microscope.beam.resolution = Resolution(1024, 768)
+    microscope.beam.line_integration = 4
 
     # save microscope properties
-    imaging.collect_and_write_properties()
+    imaging.collect_and_write_properties(imaging.props_store.next)
     # create templates for drift correction
-    drift_correction.setup()
+    drift_correction.setup(drift_correction.image_store.next)
 
     # optionally change microscope properties to test that the previously saved properties are reloaded before imaging
     # input("Microscope properties saved. Press ENTER.")
+
+    actions: list[Action] = [drift_correction, imaging]
+    synchronizations = Synchronizations(actions, txt_log.derive("synchronizations"))
+    synchronizations.add_synchronization(
+        drift_correction,
+        [imaging],
+        PropertyNames(microscope=["stage_position"], electron_beam=["beam_shift"]),
+    )
+
+    workflow = Workflow(
+        slice,
+        actions,
+        synchronizations,
+        txt_log.derive("workflow"),
+    )
 
     # run imaging
     for _ in range(args.slices):
@@ -142,9 +166,7 @@ def main():
                 drift_y=-10,
             )
             print(control._sample.drift)  # pyright: ignore[reportAttributeAccessIssue]
-        drift_correction.correct_drift(slice.current_slice or 0)
-        imaging.grab_frame(slice.current_slice or 0)
-        slice.increment()
+        workflow._run_slice()
 
 
 if __name__ == "__main__":

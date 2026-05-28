@@ -81,7 +81,7 @@ class Milling(Action):
     def external_props(self) -> GlobalProperties:
         return self._settings.external_props
 
-    def mill(self, slice_number: int) -> None:
+    def execute(self, slice_number: int) -> None:
         """
         Perform one milling step for the current slice if conditions are met.
 

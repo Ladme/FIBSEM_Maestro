@@ -156,7 +156,7 @@ class Autofocus(Action):
     def external_props(self) -> GlobalProperties:
         return self._settings.external_props
 
-    def perform_autofocus(self, slice_number: int) -> None:
+    def execute(self, slice_number: int) -> None:
         """
         Advance the autofocus execution by one step for the current slice.
 

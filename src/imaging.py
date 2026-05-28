@@ -5,6 +5,7 @@
 import argparse
 import logging
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.slice import SliceContext
@@ -17,6 +18,11 @@ from fibsem_maestro.settings.imaging_settings import ImagingSettings
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
 from fibsem_maestro.store.frame.file import FileFrameStore
 from fibsem_maestro.store.props.file import FilePropsStore
+from fibsem_maestro.workflow.synchronizations import Synchronizations
+from fibsem_maestro.workflow.workflow import Workflow
+
+if TYPE_CHECKING:
+    from fibsem_maestro.core.action import Action
 
 
 def main():
@@ -80,7 +86,7 @@ def main():
         imaging_settings,
         props_store,
         frame_store,
-        txt_log,
+        txt_log.derive("imaging"),
         img_log,
     )
 
@@ -97,16 +103,21 @@ def main():
     # )
 
     # save microscope properties
-    slice.increment()
-    imaging.collect_and_write_properties()
+    imaging.collect_and_write_properties(imaging.props_store.next)
 
     # optionally change microscope properties to test that the previously saved properties are reloaded before imaging
     input("Microscope properties saved. Press ENTER.")
 
-    # run imaging
-    for _ in range(args.slices):
-        imaging.grab_frame(slice.current_slice or 0)
-        slice.increment()
+    # prepare the workflow
+    actions: list[Action] = [imaging]
+    workflow = Workflow(
+        slice,
+        actions,
+        Synchronizations(actions, txt_log.derive("synchronizations")),
+        txt_log.derive("workflow"),
+    )
+
+    workflow.run(args.slices)
 
 
 if __name__ == "__main__":

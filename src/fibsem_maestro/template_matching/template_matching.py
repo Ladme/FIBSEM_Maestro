@@ -604,6 +604,9 @@ class TemplateMatching:
             src: Store to read the template from.
             dest: Store to write the template to.
         """
+        self._txt_log.debug(
+            f"Copying template {index} from slice {src.slice} to slice {dest.slice}."
+        )
         image = src.read(self._construct_template_name(index))
         dest.write(self._construct_template_name(index), image)
 

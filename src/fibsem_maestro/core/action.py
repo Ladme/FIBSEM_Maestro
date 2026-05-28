@@ -13,6 +13,12 @@ from fibsem_maestro.store.props.props_store import PropsStore
 
 
 class Action(ABC):
+    @abstractmethod
+    def execute(self, slice_number: int) -> None:
+        """
+        Execute the action on the given slice.
+        """
+
     @property
     @abstractmethod
     def name(self) -> str:
