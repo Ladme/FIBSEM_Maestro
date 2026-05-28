@@ -137,7 +137,7 @@ class Autofocus(Action):
         return self._props_store
 
     @property
-    def beam_type(self) -> BeamType:
+    def beam_type(self) -> BeamType | None:
         return self._settings.beam_type
 
     @property
@@ -274,7 +274,7 @@ class Autofocus(Action):
             and (slice_number - 1) % self._settings.execution_frequency == 0
         ):
             self._txt_log.info(
-                f"Executing autofocus: slice {slice_number} matches execution frequency ({self._settings.execution_frequency})."
+                f"Executing {self.name}: slice {slice_number} matches execution frequency ({self._settings.execution_frequency})."
             )
             return True
 
@@ -284,11 +284,11 @@ class Autofocus(Action):
             and image_sharpness < self._settings.sharpness_limit
         ):
             self._txt_log.info(
-                f"Executing autofocus: image sharpness ({image_sharpness:.4f}) is below the limit ({self._settings.sharpness_limit:.4f})."
+                f"Executing {self.name}: image sharpness ({image_sharpness:.4f}) is below the limit ({self._settings.sharpness_limit:.4f})."
             )
             return True
 
-        self._txt_log.info("Skipping autofocus.")
+        self._txt_log.info(f"Skipping {self.name}.")
         return False
 
     def _advance(self) -> None:

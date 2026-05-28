@@ -42,9 +42,10 @@ class Action(ABC):
 
     @property
     @abstractmethod
-    def beam_type(self) -> BeamType:
+    def beam_type(self) -> BeamType | None:
         """
         Type of beam this action works with.
+        None if the action works with both beams or neither of them.
         """
 
     @property
@@ -93,7 +94,8 @@ class Action(ABC):
         props = store.read(self.props_file)
 
         # select the beam used for this action
-        self.microscope.set_beam(self.beam_type)
+        if self.beam_type is not None:
+            self.microscope.set_beam(self.beam_type)
 
         # set properties to the microscope
         self.microscope.set_properties(props, beam=self.beam_type)

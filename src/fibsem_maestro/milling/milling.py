@@ -62,7 +62,7 @@ class Milling(Action):
         return self._props_store
 
     @property
-    def beam_type(self) -> BeamType:
+    def beam_type(self) -> BeamType | None:
         return self._settings.beam_type
 
     @property
@@ -93,7 +93,7 @@ class Milling(Action):
             # the first slice is 1, so we use slice_number - 1 to get the 0-indexed slice number
             or (slice_number - 1) % self._settings.execution_frequency != 0
         ):
-            self._txt_log.info(f"Skipping milling for slice {slice_number}.")
+            self._txt_log.info(f"Skipping {self.name} for slice {slice_number}.")
             # even if milling is skipped, we need to write properties for the next slice
             self.write_properties(self.read_properties(), self._props_store.next)
             return

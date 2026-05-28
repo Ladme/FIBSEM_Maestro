@@ -152,6 +152,20 @@ def main():
 
     imaging.collect_and_write_properties(imaging.props_store.next)
 
+    """
+    adjust_settings = AdjustPropsSettings.from_file(
+        Path("../fibsem_playground/adjust_simulated.yaml")
+    )
+    adjust_props = AdjustProps(
+        "adjust props",
+        microscope,
+        adjust_settings,
+        props_store,
+        txt_log.derive("adjust_props"),
+    )
+    adjust_props.collect_and_write_properties(adjust_props.props_store.next)
+    """
+
     drift.setup(drift.image_store.next)
 
     actions: list[Action] = [drift, autofocus, imaging]
@@ -162,8 +176,22 @@ def main():
         PropertyNames(microscope=["stage_position"], electron_beam=["beam_shift"]),
     )
     synchronizations.add_synchronization(
-        autofocus, [drift, imaging], PropertyNames(electron_beam=["working_distance"])
+        autofocus,
+        [drift, imaging],
+        PropertyNames(electron_beam=["working_distance"]),
     )
+
+    """
+    synchronizations.add_synchronization(
+        adjust_props,
+        [drift, autofocus, imaging],
+        PropertyNames(
+            electron_beam=["line_integration", "beam_shift"],
+            microscope=["stage_position"],
+            ion_beam=["beam_shift"],
+        ),
+    )
+    """
     workflow = Workflow(slice, actions, synchronizations, txt_log.derive("workflow"))
 
     for _ in range(args.slices):

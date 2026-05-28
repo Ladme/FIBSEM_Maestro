@@ -93,7 +93,7 @@ class Imaging(Action):
         return self._props_store
 
     @property
-    def beam_type(self) -> BeamType:
+    def beam_type(self) -> BeamType | None:
         """Beam type used for acquisition, either electron or ion."""
         return self._settings.beam_type
 
@@ -145,7 +145,7 @@ class Imaging(Action):
             # the first slice is 1, so we use slice_number - 1 to get the 0-indexed slice number
             or (slice_number - 1) % self._settings.execution_frequency != 0
         ):
-            self._txt_log.info(f"Skipping imaging for slice {slice_number}.")
+            self._txt_log.info(f"Skipping {self.name} for slice {slice_number}.")
             # even if imaging is skipped, we need to write properties for the next slice
             self.write_properties(self.read_properties(), self._props_store.next)
             return
@@ -173,7 +173,7 @@ class Imaging(Action):
             self._sharpness_thread.start()
         else:
             self._txt_log.debug(
-                f"Criterion is not configured for {self._name}. Image sharpness will not be calculated."
+                f"Criterion is not configured for {self.name}. Image sharpness will not be calculated."
             )
 
     def collect_and_write_properties(

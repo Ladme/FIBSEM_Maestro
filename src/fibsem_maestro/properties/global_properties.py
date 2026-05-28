@@ -60,7 +60,7 @@ class GlobalProperties(BaseSettings):
             ValueError: If the property does not exist or does not support addition.
         """
         # determine which properties object to update
-        props_attr_name = self._get_properties_attr_name(beam_type)
+        props_attr_name = self.get_properties_attr_name(beam_type)
         inner_props: BeamProperties | MicroscopeProperties | None = getattr(
             self, props_attr_name
         )
@@ -91,7 +91,7 @@ class GlobalProperties(BaseSettings):
         Raises:
             ValueError: If the property does not exist on an existing properties object.
         """
-        props_attr_name = self._get_properties_attr_name(beam_type)
+        props_attr_name = self.get_properties_attr_name(beam_type)
         inner_props: BeamProperties | MicroscopeProperties | None = getattr(
             self, props_attr_name
         )
@@ -103,7 +103,7 @@ class GlobalProperties(BaseSettings):
             # Set the property on existing object
             self._set_property_value(inner_props, property_name, props_attr_name, value)
 
-    def _get_properties_attr_name(self, beam_type: BeamType | None) -> str:
+    def get_properties_attr_name(self, beam_type: BeamType | None) -> str:
         """
         Map BeamType to the corresponding properties attribute name.
 

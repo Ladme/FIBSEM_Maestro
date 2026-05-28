@@ -103,6 +103,9 @@ class Synchronizations:
 
         for sync in self._synchronizations:
             if sync.parent == action:
+                self._txt_log.debug(
+                    f"Propagating properties '{sync.props_to_synchronize}' from '{action.name}' to its dependents."
+                )
                 props = action.microscope.collect_properties(sync.props_to_synchronize)
                 self._synchronize_dependents(index, sync.dependents, props)
 
