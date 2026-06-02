@@ -23,12 +23,12 @@ DriftCorrectionMode = Annotated[
 
 
 class DriftCorrectionSettings(BaseSettings):
-    drift_calculation_mode: DriftCorrectionMode = Field(
-        description="Drift correction mode."
-    )
     properties_file: Path = Field(
         default=Path("drift_corr_props.yaml"),
         description="Path to a file storing properties of the microscope used for drift correction imaging.",
+    )
+    drift_calculation_mode: DriftCorrectionMode = Field(
+        description="Drift correction mode."
     )
     properties_to_collect: PropertyNames = Field(
         default_factory=PropertyNames,
