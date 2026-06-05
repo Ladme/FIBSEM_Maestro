@@ -56,6 +56,14 @@ class FormBuilder:
         scroll = QScrollArea()
         scroll.setWidget(inner)
         scroll.setWidgetResizable(True)
+
+        scroll.setStyleSheet("""
+            GroupBoxWidget[highlighted="true"] {
+                border: 1px solid #36678f;
+                border-radius: 3px;
+            }
+        """)
+
         return scroll
 
     def collect_values(self, form: QScrollArea) -> dict:

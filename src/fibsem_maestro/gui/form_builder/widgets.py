@@ -42,6 +42,35 @@ GROUP_BOX_COLORS = [
 ]
 
 
+class FieldLabel(QLabel):
+    """A label that highlights its paired input widget on hover."""
+
+    def __init__(
+        self,
+        text: str,
+        paired_widget: QWidget,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(text, parent)
+        self._paired = paired_widget
+
+    def enterEvent(self, event) -> None:
+        self._paired.setProperty("highlighted", True)
+        self._refresh_style(self._paired)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event) -> None:
+        self._paired.setProperty("highlighted", False)
+        self._refresh_style(self._paired)
+        super().leaveEvent(event)
+
+    @staticmethod
+    def _refresh_style(widget: QWidget) -> None:
+        widget.style().unpolish(widget)
+        widget.style().polish(widget)
+        widget.update()
+
+
 class WidgetWrapper:
     """
     Base interface for field widgets.
@@ -226,7 +255,7 @@ class ObjectWidget(QWidget, WidgetWrapper):
     def add_field(
         self, name: str, label: str, widget: WidgetWrapper, description: str = ""
     ) -> None:
-        label_widget = QLabel(label)
+        label_widget = FieldLabel(label, cast("QWidget", widget))
         label_widget.setWordWrap(True)
         label_widget.setAlignment(
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
