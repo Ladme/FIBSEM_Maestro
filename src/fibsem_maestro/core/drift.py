@@ -3,6 +3,9 @@
 
 
 from dataclasses import dataclass
+from typing import Annotated
+
+from fibsem_maestro.settings.form_utils import FieldUnit
 
 
 @dataclass(frozen=True)
@@ -17,8 +20,8 @@ class Drift:
             None if the estimator does not provide a confidence value.
     """
 
-    x: float | None
-    y: float | None
+    x: Annotated[float | None, FieldUnit(suffix="nm")]
+    y: Annotated[float | None, FieldUnit(suffix="nm")]
     confidence: float | None = None
 
     def is_valid(self) -> bool:

@@ -1,7 +1,6 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
-import inspect
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -448,20 +447,6 @@ class BeamControl(ABC):
             self.detector_contrast = contrast_backup
             self.detector_brightness = brightness_backup
             self.unblank()
-
-    @classmethod
-    def get_property_names(cls) -> list[str]:
-        """
-        Return the names of all properties defined on this class.
-
-        Returns:
-            A list of property attribute names on this class.
-        """
-        props = []
-        for name, obj in inspect.getmembers(cls):
-            if isinstance(obj, property):
-                props.append(name)
-        return props
 
     @property
     def prop_names(self) -> list[str]:

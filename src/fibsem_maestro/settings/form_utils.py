@@ -8,18 +8,19 @@ from enum import Enum
 
 class WidgetType(Enum):
     DROPDOWN = "dropdown"
-    CHIPS = "chips"
-    YAML_EDITOR = "yaml_editor"
-    FILE_PATH = "file_path"
-    DIRECTORY_PATH = "directory_path"
+    MULTI_SELECT = "multi_select"
+    PROPERTY_SELECTOR = "property_selector"
+    MULTI_PROPERTY_SELECTOR = "multi_property_selector"
+    AREA_SELECT = "area_select"
     RANGE_PAIR = "range_pair"
 
 
 @dataclass
 class FormHint:
     widget: WidgetType
-    choices: Callable[[], list] | None = None
+    choices: Callable[[], list[str]] | None = None
     file_filter: str | None = None
+    max_areas: int | None = None
 
 
 @dataclass

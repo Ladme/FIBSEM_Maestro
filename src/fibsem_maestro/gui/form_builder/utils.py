@@ -52,7 +52,9 @@ class FieldInfo:
     unit: FieldUnit | None  # from Annotated[], if present
     # pydantic / annotated_types numeric constraints (None = no constraint)
     minimum: float | None
+    minimum_exclusive: bool
     maximum: float | None
+    maximum_exclusive: bool
     # for LITERAL kind: the allowed values
     literal_choices: list | None
     # for DISCRIMINATED_UNION kind: list of (discriminator_value, inner_type) pairs
@@ -149,29 +151,30 @@ def _get_discriminator_key(variant_types: list[type]) -> str | None:
     return None
 
 
-def _extract_constraints(annotated_args: tuple) -> tuple[float | None, float | None]:
+def _extract_constraints(
+    annotated_args: tuple,
+) -> tuple[float | None, float | None, bool, bool]:
     """
     Pull gt/ge/lt/le constraints out of Annotated[] metadata.
     """
     minimum = maximum = None
+    min_exclusive = max_exclusive = False
     for arg in annotated_args:
-        # annotated_types uses .gt / .ge / .lt / .le attributes
         if hasattr(arg, "gt") and arg.gt is not None:
-            minimum = arg.gt + 1 if isinstance(arg.gt, int) else arg.gt
+            minimum, min_exclusive = float(arg.gt), True
         if hasattr(arg, "ge") and arg.ge is not None:
-            minimum = arg.ge
+            minimum, min_exclusive = float(arg.ge), False
         if hasattr(arg, "lt") and arg.lt is not None:
-            maximum = arg.lt - 1 if isinstance(arg.lt, int) else arg.lt
+            maximum, max_exclusive = float(arg.lt), True
         if hasattr(arg, "le") and arg.le is not None:
-            maximum = arg.le
-        # pydantic FieldInfo stores them under metadata list
+            maximum, max_exclusive = float(arg.le), False
         if hasattr(arg, "metadata"):
-            lo, hi = _extract_constraints(tuple(arg.metadata))
+            lo, hi, lo_excl, hi_excl = _extract_constraints(tuple(arg.metadata))
             if lo is not None:
-                minimum = lo
+                minimum, min_exclusive = lo, lo_excl
             if hi is not None:
-                maximum = hi
-    return minimum, maximum
+                maximum, max_exclusive = hi, hi_excl
+    return minimum, maximum, min_exclusive, max_exclusive
 
 
 def _extract_annotated_extras(
@@ -221,7 +224,7 @@ def classify_type(t: Any) -> TypeKind:
     if t is float:
         return TypeKind.FLOAT
 
-    if t in (str, Path):
+    if t in (str, Path, Path | str):
         return TypeKind.STR
 
     if get_origin(t) is Literal:
@@ -296,7 +299,9 @@ def get_field_infos(cls: type) -> list[FieldInfo]:
                 default = dataclasses.MISSING
 
         # get numerical constraints
-        minimum, maximum = _extract_constraints(all_extras)
+        minimum, maximum, min_exclusive, max_exclusive = _extract_constraints(
+            all_extras
+        )
 
         # classify the inner type
         kind = classify_type(inner_hint)
@@ -351,7 +356,9 @@ def get_field_infos(cls: type) -> list[FieldInfo]:
                 hint=form_hint,
                 unit=field_unit,
                 minimum=minimum,
+                minimum_exclusive=min_exclusive,
                 maximum=maximum,
+                maximum_exclusive=max_exclusive,
                 literal_choices=literal_choices,
                 union_variants=union_variants,
             )

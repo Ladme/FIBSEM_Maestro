@@ -3,6 +3,11 @@
 
 
 from dataclasses import dataclass
+from typing import Annotated
+
+from pydantic import Field
+
+from fibsem_maestro.settings.form_utils import FieldUnit
 
 
 @dataclass(frozen=True)
@@ -18,9 +23,9 @@ class DetailBand:
     """
 
     # low-detail cutoff, in nanometers
-    low: float
+    low: Annotated[float, FieldUnit(suffix="nm"), Field(gt=0)]
     # high-detail cutoff, in nanometers
-    high: float
+    high: Annotated[float, FieldUnit(suffix="nm"), Field(gt=0)]
 
     def to_frequency_range(self) -> tuple[float, float]:
         """Return the equivalent spatial frequency range in 1/nm."""

@@ -4,9 +4,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, Annotated, Self
 
 from fibsem_maestro.core.errors import AutoscriptNotAvailableError
+from fibsem_maestro.settings.form_utils import FieldUnit
 
 if TYPE_CHECKING:
     from autoscript_sdb_microscope_client.structures import Point as PointAs
@@ -16,8 +17,8 @@ if TYPE_CHECKING:
 class BeamShift:
     """Represents a beam shift in a microscope, with coordinates in nanometers."""
 
-    x: float
-    y: float
+    x: Annotated[float, FieldUnit(suffix="nm")]
+    y: Annotated[float, FieldUnit(suffix="nm")]
 
     def to_tuple(self) -> tuple[float, float]:
         """

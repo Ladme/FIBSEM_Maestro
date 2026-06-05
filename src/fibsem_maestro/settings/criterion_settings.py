@@ -11,9 +11,18 @@ from fibsem_maestro.core.detail_band import DetailBand
 from fibsem_maestro.criterion.functions import CRITERION_FUNCTIONS
 from fibsem_maestro.criterion.reductors import REDUCTORS
 from fibsem_maestro.settings.base_settings import BaseSettings
+from fibsem_maestro.settings.form_utils import FieldUnit, FormHint, WidgetType
 
-ReductionName = Annotated[str, AfterValidator(REDUCTORS.validate)]
-CriterionName = Annotated[str, AfterValidator(CRITERION_FUNCTIONS.validate)]
+ReductionName = Annotated[
+    str,
+    AfterValidator(REDUCTORS.validate),
+    FormHint(widget=WidgetType.DROPDOWN, choices=lambda: list(REDUCTORS)),
+]
+CriterionName = Annotated[
+    str,
+    AfterValidator(CRITERION_FUNCTIONS.validate),
+    FormHint(widget=WidgetType.DROPDOWN, choices=lambda: list(CRITERION_FUNCTIONS)),
+]
 
 
 class BasicMode(BaseSettings):
@@ -40,8 +49,8 @@ class MultiTileMode(BaseSettings):
     tile_reduction_fn: ReductionName = Field(
         description="Method for calculating final criterion from all tiles. Accepts numpy functions (min, mean).",
     )
-    tile_size: float = Field(
-        gt=0.0, description="Tile size for criterion calculation (in nm)."
+    tile_size: Annotated[float, FieldUnit(suffix="nm")] = Field(
+        gt=0.0, description="Tile size for criterion calculation."
     )
     relative_overlap: float = Field(
         ge=0, le=1, description="Relative overlap between the tiles."
@@ -58,7 +67,7 @@ class CriterionSettings(BaseSettings):
         description="Criterion calculation function.",
     )
     detail: DetailBand = Field(
-        description="Bandpass parameters: low and high details to filter out (in nm).",
+        description="Bandpass parameters: low and high details to filter out.",
     )
     area: RelativeArea = Field(
         default=RelativeArea.full(),

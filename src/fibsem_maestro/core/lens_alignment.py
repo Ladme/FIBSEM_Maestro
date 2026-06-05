@@ -4,9 +4,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, Annotated, Self
 
 from fibsem_maestro.core.errors import AutoscriptNotAvailableError
+from fibsem_maestro.settings.form_utils import FieldUnit
 
 if TYPE_CHECKING:
     from autoscript_sdb_microscope_client.structures import Point as PointAs
@@ -16,9 +17,8 @@ if TYPE_CHECKING:
 class LensAlignment:
     """Represents the alignment of a lens in a microscope, with coordinates in nanometers."""
 
-    # units are in nanometers
-    x: float
-    y: float
+    x: Annotated[float, FieldUnit(suffix="nm")]
+    y: Annotated[float, FieldUnit(suffix="nm")]
 
     @classmethod
     def from_point_autoscript(cls, point_autoscript: PointAs) -> Self:

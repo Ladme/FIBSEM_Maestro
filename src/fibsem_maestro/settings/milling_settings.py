@@ -11,38 +11,46 @@ from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.direction import Direction
 from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.base_settings import BaseSettings
+from fibsem_maestro.settings.form_utils import FieldUnit, FormHint, WidgetType
 from fibsem_maestro.settings.property_names import PropertyNames
 
 
 class MillingSettings(BaseSettings):
-    properties_file: Path = Field(
-        default=Path("milling_props.yaml"),
-        description="Path to a file storing properties of the microscope used for milling.",
-    )
-    state_file: Path = Field(
-        default=Path("milling_state.yaml"),
-        description="Path to a file where the state of the milling process is stored.",
+    milling_area: Annotated[
+        RelativeArea, FormHint(widget=WidgetType.AREA_SELECT, max_areas=1)
+    ] = Field(
+        description="Area in which milling will be performed, defined in relative units."
     )
     beam_type: BeamType = Field(
         default=BeamType.ION,
         description="Beam used for milling.",
     )
-    milling_area: RelativeArea = Field(
-        description="Area in which milling will be performed, defined in relative units."
-    )
     execution_frequency: Annotated[int, Field(gt=0)] | None = Field(
         default=1,
-        description="Milling runs every N-th slice. If None, milling will never run.",
-    )
-    milling_depth: float = Field(description="Depth of the milling [in nm].")
-    slice_distance: float = Field(
-        description="Thickness of each slice, i.e., distance to shift the pattern by after each milling step [in nm]."
+        description="Run the action every N-th slice. If not specified, the action will never run.",
     )
     pattern_file: Path | str = Field(
         description="Configuration file containing definition of the pattern to use for milling."
     )
-    milling_direction: Direction = Field(
-        description="Direction in which the slicing progresses. Either `up` or `down`."
+    milling_depth: Annotated[float, FieldUnit(suffix="nm")] = Field(
+        description="Depth of the milling."
+    )
+    slice_distance: Annotated[float, FieldUnit(suffix="nm")] = Field(
+        description="Thickness of each slice, i.e., distance to shift the pattern by after each milling step."
+    )
+    milling_direction: Annotated[
+        Direction,
+        FormHint(
+            widget=WidgetType.DROPDOWN, choices=lambda: [Direction.UP, Direction.DOWN]
+        ),
+    ] = Field(description="Direction in which the slicing progresses.")
+    state_file: Path = Field(
+        default=Path("milling_state.yaml"),
+        description="Name of a file where the state of the milling process is stored.",
+    )
+    properties_file: Path = Field(
+        default=Path("milling_props.yaml"),
+        description="Path to a file storing properties of the microscope used for milling.",
     )
     properties_to_collect: PropertyNames = Field(
         default_factory=PropertyNames,

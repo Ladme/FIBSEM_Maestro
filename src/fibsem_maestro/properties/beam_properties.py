@@ -12,6 +12,7 @@ from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
 from fibsem_maestro.settings.base_settings import BaseSettings
+from fibsem_maestro.settings.form_utils import FieldUnit, FormHint, WidgetType
 
 
 class BeamProperties(BaseSettings):
@@ -34,22 +35,22 @@ class BeamProperties(BaseSettings):
 
     lens_alignment: LensAlignment | None = Field(
         default=None,
-        description="Alignment of lens in the microscope (in nanometers).",
+        description="Alignment of lens in the microscope.",
     )
 
-    lens_alignment_x: float | None = Field(
+    lens_alignment_x: Annotated[float | None, FieldUnit(suffix="nm")] = Field(
         default=None,
-        description="Alignment of lens in the microscope along the x-dimension (in nanometers).",
+        description="Alignment of lens in the microscope along the x-dimension.",
     )
 
-    lens_alignment_y: float | None = Field(
+    lens_alignment_y: Annotated[float | None, FieldUnit(suffix="nm")] = Field(
         default=None,
-        description="Alignment of lens in the microscope along the y-dimension (in nanometers).",
+        description="Alignment of lens in the microscope along the y-dimension.",
     )
 
     beam_shift: BeamShift | None = Field(
         default=None,
-        description="Beam shift settings (in nanometers).",
+        description="Beam shift.",
     )
 
     detector_contrast: float | None = Field(
@@ -64,7 +65,7 @@ class BeamProperties(BaseSettings):
 
     source_tilt: SourceTilt | None = Field(
         default=None,
-        description="Tilt settings for the electron source (in degrees).",
+        description="Tilt settings for the electron source.",
     )
 
     line_integration: Annotated[int, Field(gt=0)] | None = Field(
@@ -72,9 +73,9 @@ class BeamProperties(BaseSettings):
         description="Number of line integrations per scan.",
     )
 
-    dwell_time: Annotated[float, Field(gt=0)] | None = Field(
+    dwell_time: Annotated[float, Field(gt=0), FieldUnit(suffix="s")] | None = Field(
         default=None,
-        description="Dwell time per pixel in seconds.",
+        description="Dwell time per pixel.",
     )
 
     bit_depth: Annotated[int, Field(gt=0)] | None = Field(
@@ -87,28 +88,34 @@ class BeamProperties(BaseSettings):
         description="Resolution of the scan in pixels.",
     )
 
-    horizontal_field_width: Annotated[float, Field(gt=0)] | None = Field(
+    horizontal_field_width: (
+        Annotated[float, Field(gt=0), FieldUnit(suffix="nm")] | None
+    ) = Field(
         default=None,
-        description="Horizontal field of view in nanometers.",
+        description="Horizontal field of view.",
     )
 
-    vertical_field_width: Annotated[float, Field(gt=0)] | None = Field(
+    vertical_field_width: (
+        Annotated[float, Field(gt=0), FieldUnit(suffix="nm")] | None
+    ) = Field(
         default=None,
-        description="Vertical field of view in nanometers.",
+        description="Vertical field of view.",
     )
 
-    pixel_size: Annotated[float, Field(gt=0)] | None = Field(
+    pixel_size: Annotated[float, Field(gt=0), FieldUnit(suffix="nm")] | None = Field(
         default=None,
-        description="Physical size of a pixel in nanometers.",
+        description="Physical size of a pixel.",
     )
 
-    scanning_area: RelativeArea | None = Field(
+    scanning_area: Annotated[
+        RelativeArea | None, FormHint(widget=WidgetType.AREA_SELECT, max_areas=1)
+    ] = Field(
         default=None,
         description="Area to be scanned.",
     )
 
-    working_distance: Annotated[float, Field(gt=0)] | None = Field(
-        default=None,
+    working_distance: Annotated[float, Field(gt=0), FieldUnit(suffix="nm")] | None = (
+        Field(default=None, description="Distance from the final lens to the specimen.")
     )
 
     def get_property_names(self) -> list[str]:

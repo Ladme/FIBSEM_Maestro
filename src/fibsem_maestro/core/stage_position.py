@@ -5,9 +5,10 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, Annotated, Self
 
 from fibsem_maestro.core.errors import AutoscriptNotAvailableError
+from fibsem_maestro.settings.form_utils import FieldUnit
 
 if TYPE_CHECKING:
     from autoscript_sdb_microscope_client.structures import (
@@ -23,11 +24,11 @@ class StagePosition:
     Positional attributes (x, y, z) are in nanometers, while rotational attributes (rotation, tilt) are in degrees.
     """
 
-    x: float = 0.0
-    y: float = 0.0
-    z: float = 0.0
-    rotation: float = 0.0
-    tilt: float = 0.0
+    x: Annotated[float, FieldUnit(suffix="nm")] = 0.0
+    y: Annotated[float, FieldUnit(suffix="nm")] = 0.0
+    z: Annotated[float, FieldUnit(suffix="nm")] = 0.0
+    rotation: Annotated[float, FieldUnit(suffix="°")] = 0.0
+    tilt: Annotated[float, FieldUnit(suffix="°")] = 0.0
 
     def to_xy(self) -> tuple[float, float]:
         """

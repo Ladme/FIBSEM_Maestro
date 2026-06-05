@@ -5,13 +5,14 @@
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field
 
 from fibsem_maestro.core.beam_type import BeamType
-from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
+from fibsem_maestro.properties.beam_properties import BeamProperties
 from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.base_settings import BaseSettings
 from fibsem_maestro.settings.criterion_settings import CriterionSettings
+from fibsem_maestro.settings.form_utils import FieldUnit, FormHint, WidgetType
 from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.settings.sweeping_settings import SweepingSettings
 
@@ -37,18 +38,18 @@ class LineMode(BaseSettings):
     lines_per_sweep: Annotated[int, Field(gt=0)] = Field(
         description="Number of lines scanned per one sweep value."
     )
-    pre_imaging_delay: float = Field(
+    pre_imaging_delay: Annotated[float, Field(ge=0.0), FieldUnit(suffix="s")] = Field(
         default=0.0,
         description="Delay before acquisition of the first section in scanning sweep.",
     )
-    line_time_correction_factor: float = Field(
+    line_time_correction_factor: Annotated[float, Field(gt=0.0)] = Field(
         default=1.0, description="Correction factor applied to estimated line time."
     )
     forbidden_stripe_indices: list[int] = Field(
         default_factory=list,
         description="Indices of stripes which should be excluded from the analysis.",
     )
-    stripe_separator_threshold: int = Field(
+    stripe_separator_threshold: Annotated[int, Field(gt=0)] = Field(
         default=10,
         description="Maximal average intensity of separator rows.",
     )
@@ -78,49 +79,48 @@ AutofocusMode = Annotated[
 
 
 class AutofocusSettings(BaseSettings):
-    properties_file: Path = Field(
-        default=Path("autofocus_props.yaml"),
-        description="Path to a file storing properties of the microscope used for autofocus.",
-    )
-    properties_to_collect: PropertyNames = Field(
-        default_factory=PropertyNames,
-        description="Properties of the microscope and the beam relevant for the autofocus.",
+    target_attribute: Annotated[
+        str,
+        FormHint(
+            widget=WidgetType.PROPERTY_SELECTOR,
+            # manufacturer properties are added dynamically
+            choices=lambda: list(BeamProperties.model_fields.keys()),
+        ),
+    ] = Field(
+        description="Attribute to optimize.",
     )
     mode: AutofocusMode = Field(
         description="Autofocus mode to use.",
     )
-    target_attribute: str = Field(
-        description="Attribute to optimize via the autofocus.",
-    )
     beam_type: BeamType = Field(
-        default=BeamType.ELECTRON, description="Beam used for autofocus."
-    )
-    delta_x: float = Field(
-        default=0,
-        description="Offset for out of sample focusing on the x-axis in nm.",
-    )
-    sharpness_limit: Annotated[float, Field(gt=0)] | None = Field(
-        default=None,
-        description="Autofunction runs if image sharpness is below this limit. None disables this condition.",
+        default=BeamType.ELECTRON,
+        description="Beam on which the autofocus should be performed.",
     )
     execution_frequency: Annotated[int, Field(gt=0)] | None = Field(
         default=None,
-        description="Autofunction runs every N-th slice. None disables this condition.",
+        description="Autofunction runs every N-th slice. If not selected, this condition is not applied.",
     )
-    max_workers: int = Field(
+    delta_x: Annotated[float, FieldUnit(suffix="nm")] = Field(
+        default=0,
+        description="Offset for out of sample focusing on the x-axis.",
+    )
+    sharpness_limit: Annotated[float, Field(gt=0)] | None = Field(
+        default=None,
+        description="Autofunction runs if image sharpness is below this limit. If not selected, this condition is not applied.",
+    )
+    max_workers: Annotated[int, Field(gt=0)] = Field(
         default=1,
-        description="Maximal number of threads used for calculation.",
+        description="Maximal number of threads used for the calculations in this action.",
+    )
+    properties_file: Path = Field(
+        default=Path("autofocus_props.yaml"),
+        description="Name of the file where properties of the microscope used for this action will be stored.",
+    )
+    properties_to_collect: PropertyNames = Field(
+        default_factory=PropertyNames,
+        description="Selection of microscope and beam properties relevant for this action.",
     )
     external_props: GlobalProperties = Field(
         default=GlobalProperties(),
-        description="External properties of the microscope to use for autofocus. These properties will overwrite any current microscope properties.",
+        description="External properties of the microscope to use for this action. These properties will overwrite any current microscope properties.",
     )
-
-    @field_validator("target_attribute")
-    def validate_target_attribute(cls, a: str):
-        beam_attributes = BeamControl.get_property_names()
-        if a not in beam_attributes:
-            raise ValueError(
-                f"Invalid target attribute '{a}'. Allowed: {beam_attributes}"
-            )
-        return a

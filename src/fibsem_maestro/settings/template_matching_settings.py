@@ -8,6 +8,7 @@ from pydantic import Field
 
 from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.settings.base_settings import BaseSettings
+from fibsem_maestro.settings.form_utils import FieldUnit, FormHint, WidgetType
 
 
 class StandardMode(BaseSettings):
@@ -16,7 +17,9 @@ class StandardMode(BaseSettings):
 
 class SubpixelMode(BaseSettings):
     type: Literal["subpixel"] = "subpixel"
-    upsampling_factor: float
+    upsampling_factor: Annotated[float, Field(gt=1.0)] = Field(
+        default=1.0, description="How many times should the image be upsampled?"
+    )
 
 
 TemplateMatchingMode = Annotated[
@@ -52,7 +55,7 @@ FrameGrabbingMode = Annotated[
 class TemplateMatchingSettings(BaseSettings):
     templates_directory: Path = Field(
         default=Path("templates"),
-        description="Path to a directory where templates will be saved.",
+        description="Name of a directory where templates will be saved.",
     )
     matching_mode: TemplateMatchingMode = Field(
         default_factory=StandardMode,
@@ -66,31 +69,34 @@ class TemplateMatchingSettings(BaseSettings):
         default=1,
         description="The number of scans to perform when obtaining or updating templates. The final template will be the average of all scans.",
     )
-    areas: list[RelativeArea] = Field(
+    areas: Annotated[
+        list[RelativeArea], FormHint(widget=WidgetType.AREA_SELECT, max_areas=None)
+    ] = Field(
         default_factory=list,
         description="Areas of the image used for template matching defined in relative units.",
     )
-    min_confidence: float | None = Field(
+    min_confidence: Annotated[float | None, Field(gt=0.0)] = Field(
         default=None,
         description="Minimal cross-correlation value required for a template match to be accepted as a valid drift measurement.",
     )
-    maximal_drift: float | None = Field(
+    maximal_drift: Annotated[float | None, FieldUnit(suffix="nm"), Field(gt=0.0)] = (
+        Field(
+            default=None,
+            description="Maximal accepted drift obtained from template matching.",
+        )
+    )
+    update_frequency: Annotated[int | None, Field(gt=0)] = Field(
         default=None,
-        description="Maximal accepted drift obtained from template matching (in nm).",
+        description="Templates are updated every Nth slice. If not specified, this condition is not applied.",
     )
-    update_frequency: int | None = Field(
+    update_confidence_limit: Annotated[float | None, Field(gt=0.0)] = Field(
         default=None,
-        description="Templates are updated every Nth slice. None disables this condition.",
+        description="Templates are updated if the match confidence is below this limit. If not specified, this condition is not applied.",
     )
-    update_confidence_limit: float | None = Field(
+    blur: Annotated[int | None, FieldUnit(suffix="px"), Field(gt=0)] = Field(
         default=None,
-        description="Templates are updated if the match confidence is below this limit. None disables this condition.",
+        description="Standard deviation of a Gaussian filter applied to the image before template matching.",
     )
-    blur: int = Field(
-        default=3,
-        description="Standard deviation (in pixels) of a Gaussian filter applied to the image before template matching.",
-    )
-    correction_margin: float = Field(
-        default=20000,
-        description="The maximum expected drift in nanometers defining how far the template is allowed to search for a match.",
+    correction_margin: Annotated[float, FieldUnit(suffix="nm")] = Field(
+        description="The maximum expected drift defining how far the template is allowed to search for a match.",
     )

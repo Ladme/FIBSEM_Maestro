@@ -5,9 +5,10 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, Annotated, Self
 
 from fibsem_maestro.core.errors import AutoscriptNotAvailableError
+from fibsem_maestro.settings.form_utils import FieldUnit
 
 if TYPE_CHECKING:
     from autoscript_sdb_microscope_client.structures import Point as PointAs
@@ -19,8 +20,8 @@ class SourceTilt:
     Represents the tilt of a source in an electron microscope, with coordinates in degrees.
     """
 
-    x: float
-    y: float
+    x: Annotated[float, FieldUnit(suffix="°")]
+    y: Annotated[float, FieldUnit(suffix="°")]
 
     @classmethod
     def from_point_autoscript(cls, point_autoscript: PointAs) -> Self:

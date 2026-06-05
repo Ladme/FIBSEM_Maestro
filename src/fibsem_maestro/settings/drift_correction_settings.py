@@ -23,28 +23,28 @@ DriftCorrectionMode = Annotated[
 
 
 class DriftCorrectionSettings(BaseSettings):
-    properties_file: Path = Field(
-        default=Path("drift_corr_props.yaml"),
-        description="Path to a file storing properties of the microscope used for drift correction imaging.",
-    )
     drift_calculation_mode: DriftCorrectionMode = Field(
         description="Drift correction mode."
-    )
-    properties_to_collect: PropertyNames = Field(
-        default_factory=PropertyNames,
-        description="Properties of the microscope and the beam relevant for drift correction.",
     )
     beam_type: BeamType = Field(
         default=BeamType.ELECTRON,
         description="Beam used for drift correction imaging.",
     )
+    execution_frequency: Annotated[int, Field(gt=0)] | None = Field(
+        default=1,
+        description="Drift correction runs every N-th slice. If None, drift correction will never run.",
+    )
     stop_at_failure: bool = Field(
         default=True,
         description="If `True` and drift correction fails, the execution is stopped. If `False`, warning is printed but execution continues.",
     )
-    execution_frequency: Annotated[int, Field(gt=0)] | None = Field(
-        default=1,
-        description="Drift correction runs every N-th slice. If None, drift correction will never run.",
+    properties_file: Path = Field(
+        default=Path("drift_corr_props.yaml"),
+        description="Path to a file storing properties of the microscope used for drift correction imaging.",
+    )
+    properties_to_collect: PropertyNames = Field(
+        default_factory=PropertyNames,
+        description="Properties of the microscope and the beam relevant for drift correction.",
     )
     external_props: GlobalProperties = Field(
         default=GlobalProperties(),

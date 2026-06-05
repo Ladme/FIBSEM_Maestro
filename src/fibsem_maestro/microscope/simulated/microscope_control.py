@@ -31,8 +31,8 @@ class SimulatedMicroscopeControl(MicroscopeControl):
         ip_address: str,
         txt_log: TextLogger,
         *,
-        sample_width: int = 2000,
-        sample_height: int = 2000,
+        sample_width: int = 200,
+        sample_height: int = 200,
         seed: int = 0,
     ):
         """Initialize the simulated microscope.

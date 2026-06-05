@@ -6,6 +6,7 @@ from typing import Annotated, Literal
 from pydantic import ConfigDict, Field, field_validator
 
 from fibsem_maestro.settings.base_settings import BaseSettings
+from fibsem_maestro.settings.form_utils import FormHint, WidgetType
 
 
 class BasicStrategySettings(BaseSettings):
@@ -31,8 +32,10 @@ class SweepingSettings(BaseSettings):
         default=BasicStrategySettings(),
         description="Sweeping strategy to use.",
     )
-    range: tuple[float, float] = Field(
-        description="Range of variable sweep.",
+    range: Annotated[tuple[float, float], FormHint(widget=WidgetType.RANGE_PAIR)] = (
+        Field(
+            description="Range of variable sweep in units of the sweep variable.",
+        )
     )
     steps: Annotated[int, Field(gt=0)] = Field(
         description="Number of steps in sweeping range.",

@@ -213,18 +213,18 @@ class _ImageBase(np.ndarray[Any, np.dtype[TDType]], Generic[TDType]):
             + 2 * padding_px,
         ]
 
-    def blured(self, sigma: int) -> Self:
+    def blured(self, sigma: int | None) -> Self:
         """
         Return a copy of the image with Gaussian blur applied to it.
 
         Args:
             sigma: Standard deviation for the Gaussian kernel. Blurring is
-                skipped when `sigma` is zero.
+                skipped when `sigma` is `None` or `zero`.
 
         Returns:
             Blurred copy of the image with the same pixel size as the input.
         """
-        if sigma == 0:
+        if sigma is None or sigma == 0:
             return self.copy()
         return type(self)(ndimage.gaussian_filter(self, sigma=sigma), self.pixel_size)
 
