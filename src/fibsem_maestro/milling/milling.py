@@ -6,7 +6,8 @@ from typing import TYPE_CHECKING
 
 import yaml
 
-from fibsem_maestro.core.action import Action
+from fibsem_maestro.action.action import Action, ActionConfig
+from fibsem_maestro.action.registry import ACTION_REGISTRY
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope import Microscope
@@ -20,7 +21,8 @@ if TYPE_CHECKING:
     from fibsem_maestro.core.area import NMArea
 
 
-class Milling(Action):
+@ACTION_REGISTRY.register("milling")
+class Milling(Action[MillingSettings, None]):
     """
     Performs focused ion beam milling one slice at a time.
 
@@ -39,25 +41,28 @@ class Milling(Action):
 
     def __init__(
         self,
-        name: str,
-        microscope: Microscope,
-        settings: MillingSettings,
-        props_store: PropsStore,
-        txt_store: TextStore,
-        txt_log: TextLogger,
+        config: ActionConfig[MillingSettings],
     ):
-        self._name = name
-        self._microscope = microscope
-        self._settings = settings
-        self._props_store = props_store
-        self._txt_store = txt_store
-        self._txt_log = txt_log
+        self._name = config.name
+        self._microscope = config.microscope
+        self._settings = config.settings
+        self._props_store = config.props_store
+        self._txt_store = config.txt_store
+        self._txt_log = config.txt_log
 
         self._current_milling_area: None | NMArea = None
+
+    @classmethod
+    def settings_cls(cls) -> type[MillingSettings]:
+        return MillingSettings
 
     @property
     def name(self) -> str:
         return self._name
+
+    @name.setter
+    def name(self, value: str) -> None:
+        self._name = value
 
     @property
     def props_file(self) -> str:
@@ -84,16 +89,22 @@ class Milling(Action):
         return self._txt_log
 
     @property
+    def settings(self) -> MillingSettings:
+        return self._settings
+
+    @property
     def external_props(self) -> GlobalProperties:
         return self._settings.external_props
 
-    def execute(self, slice_number: int) -> None:
+    def execute(self, slice_number: int, links: None = None) -> None:
         """
         Perform one milling step for the current slice if conditions are met.
 
         Args:
             slice_number: The current slice index.
         """
+        _ = links
+
         if (
             self._settings.execution_frequency is None
             # the first slice is 1, so we use slice_number - 1 to get the 0-indexed slice number

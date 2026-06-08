@@ -20,9 +20,11 @@ from fibsem_maestro.settings.sweeping_settings import SweepingSettings
 class BasicMode(BaseSettings):
     type: Literal["basic"] = "basic"
     sweeping: SweepingSettings = Field(
+        default_factory=SweepingSettings,
         description="Settings for sweeping to be used.",
     )
     criterion: CriterionSettings = Field(
+        default_factory=CriterionSettings,
         description="Setting for criterion to be used.",
     )
 
@@ -30,13 +32,15 @@ class BasicMode(BaseSettings):
 class LineMode(BaseSettings):
     type: Literal["line"] = "line"
     sweeping: SweepingSettings = Field(
+        default_factory=SweepingSettings,
         description="Settings for sweeping to be used.",
     )
     criterion: CriterionSettings = Field(
+        default_factory=CriterionSettings,
         description="Setting for criterion to be used.",
     )
     lines_per_sweep: Annotated[int, Field(gt=0)] = Field(
-        description="Number of lines scanned per one sweep value."
+        default=5, description="Number of lines scanned per one sweep value."
     )
     pre_imaging_delay: Annotated[float, Field(ge=0.0), FieldUnit(suffix="s")] = Field(
         default=0.0,
@@ -62,9 +66,11 @@ class LineMode(BaseSettings):
 class StepMode(BaseSettings):
     type: Literal["step"] = "step"
     sweeping: SweepingSettings = Field(
+        default_factory=SweepingSettings,
         description="Settings for sweeping to be used.",
     )
     criterion: CriterionSettings = Field(
+        default_factory=CriterionSettings,
         description="Setting for criterion to be used.",
     )
 
@@ -87,9 +93,11 @@ class AutofocusSettings(BaseSettings):
             choices=lambda: list(BeamProperties.model_fields.keys()),
         ),
     ] = Field(
+        default="working_distance",
         description="Attribute to optimize.",
     )
     mode: AutofocusMode = Field(
+        default_factory=BasicMode,
         description="Autofocus mode to use.",
     )
     beam_type: BeamType = Field(

@@ -32,7 +32,7 @@ class DetailBand:
         return (1.0 / self.high, 1.0 / self.low)
 
     def __post_init__(self):
-        if self.low <= 0 or self.high <= 0:
-            raise ValueError("Detail scales must be positive.")
-        if self.low >= self.high:
-            raise ValueError("DetailBand.low must be < DetailBand.high.")
+        if self.low < 0 or self.high < 0:
+            raise ValueError("Detail scales must be non-negative.")
+        if self.low > self.high:
+            raise ValueError("DetailBand.low cannot be greater than DetailBand.high.")

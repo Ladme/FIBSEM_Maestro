@@ -1,22 +1,70 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
+from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Generic, TypeVar
 
-from fibsem_maestro.core.beam_type import BeamType
-from fibsem_maestro.logging.text.text_logger import TextLogger
-from fibsem_maestro.microscope.microscope import Microscope
-from fibsem_maestro.properties.global_properties import GlobalProperties
-from fibsem_maestro.settings.property_names import PropertyNames
-from fibsem_maestro.store.props.props_store import PropsStore
+from fibsem_maestro.settings.base_settings import BaseSettings
+
+if TYPE_CHECKING:
+    from fibsem_maestro.core.beam_type import BeamType
+    from fibsem_maestro.logging.image.image_logger import ImageLogger
+    from fibsem_maestro.logging.text.text_logger import TextLogger
+    from fibsem_maestro.microscope.microscope import Microscope
+    from fibsem_maestro.properties.global_properties import GlobalProperties
+    from fibsem_maestro.settings.property_names import PropertyNames
+    from fibsem_maestro.store.frame.frame_store import FrameStore
+    from fibsem_maestro.store.image.image_store import ImageStore
+    from fibsem_maestro.store.props.props_store import PropsStore
+    from fibsem_maestro.store.text.text_store import TextStore
 
 
-class Action(ABC):
-    @abstractmethod
-    def execute(self, slice_number: int) -> None:
+@abstractmethod
+class LinkedActions:
+    """Base class for action links."""
+
+
+TSettings = TypeVar("TSettings", bound=BaseSettings)
+TLinkedActions = TypeVar("TLinkedActions", bound=LinkedActions | None)
+
+
+@dataclass
+class ActionConfig(Generic[TSettings]):
+    name: str
+    microscope: Microscope
+    settings: TSettings
+    props_store: PropsStore
+    txt_store: TextStore
+    image_store: ImageStore
+    frame_store: FrameStore
+    txt_log: TextLogger
+    img_log: ImageLogger
+
+
+class Action(ABC, Generic[TSettings, TLinkedActions]):
+    @classmethod
+    def settings_cls(cls) -> type[BaseSettings]:
         """
-        Execute the action on the given slice.
+        Class of the class used for the action's settings.
+        """
+        raise NotImplementedError(f"settings_type not implemented for {cls.__name__}")
+
+    @abstractmethod
+    def __init__(
+        self,
+        config: ActionConfig,
+    ):
+        """
+        Initialize the action.
+        """
+
+    @abstractmethod
+    def execute(self, slice_number: int, links: TLinkedActions | None = None) -> None:
+        """
+        Execute the action on the given slice while providing references to other actions.
         """
 
     @property
@@ -24,6 +72,13 @@ class Action(ABC):
     def name(self) -> str:
         """
         Name of the action.
+        """
+
+    @name.setter
+    @abstractmethod
+    def name(self, value: str) -> None:
+        """
+        Set the name of the action.
         """
 
     @property
@@ -74,6 +129,13 @@ class Action(ABC):
     def external_props(self) -> GlobalProperties:
         """
         External properties of the microscope to use for this action.
+        """
+
+    @property
+    @abstractmethod
+    def settings(self) -> BaseSettings:
+        """
+        Settings for the action.
         """
 
     @property

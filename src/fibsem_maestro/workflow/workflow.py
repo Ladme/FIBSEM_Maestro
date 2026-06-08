@@ -1,9 +1,10 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
-from fibsem_maestro.core.action import Action
+from fibsem_maestro.action.action import Action
 from fibsem_maestro.core.slice import SliceContext
 from fibsem_maestro.logging.text.text_logger import TextLogger
+from fibsem_maestro.workflow.links import ActionLinks
 from fibsem_maestro.workflow.propagations import Propagations
 
 
@@ -13,6 +14,7 @@ class Workflow:
         slice_context: SliceContext,
         actions: list[Action],
         propagations: Propagations,
+        links: ActionLinks,
         txt_log: TextLogger,
     ):
         """
@@ -29,9 +31,10 @@ class Workflow:
             txt_log: Logger for debug and info messages.
         """
 
+        self.actions = actions
         self._slice_context = slice_context
-        self._actions = actions
-        self._propagations = propagations
+        self.propagations = propagations
+        self._links = links
         self._txt_log = txt_log
 
     def run(self, n_slices: int) -> None:
@@ -48,6 +51,7 @@ class Workflow:
         """Executes all actions for a single slice and performs synchronization."""
         self._slice_context.increment()
         self._txt_log.info(f"Starting slice {self._slice_context.current_slice}.")
-        for action in self._actions:
-            action.execute(self._slice_context.current_slice or 0)
-            self._propagations.propagate(action)
+        for action in self.actions:
+            links = self._links.resolve(action)
+            action.execute(self._slice_context.current_slice or 0, links)
+            self.propagations.propagate(action, self.actions)

@@ -4,21 +4,23 @@
 
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from fibsem_maestro.action.action import Action, ActionConfig, LinkedActions
+from fibsem_maestro.action.registry import ACTION_REGISTRY
 from fibsem_maestro.autofocus import AUTOFOCUS_MODES, LineMode, StepMode
 from fibsem_maestro.autofocus.autofocus_context import AutofocusContext
+from fibsem_maestro.autofocus.error import AutofocusError
 from fibsem_maestro.autofocus.jobs_manager import JobsManager
 from fibsem_maestro.autofocus.result import AutofocusResult
 from fibsem_maestro.autofocus.sweeping import Sweeping
-from fibsem_maestro.core.action import Action
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.point import PixelPoint
 from fibsem_maestro.criterion.criterion import Criterion
 from fibsem_maestro.imaging.imaging import Imaging
-from fibsem_maestro.logging.image.image_logger import ImageLogger
 from fibsem_maestro.logging.image.overlay import PolylineOverlay
 from fibsem_maestro.logging.image.plot_element import Curve, PlotElement, VerticalLine
 from fibsem_maestro.logging.text.text_logger import TextLogger
@@ -35,7 +37,13 @@ if TYPE_CHECKING:
     from collections.abc import Generator
 
 
-class Autofocus(Action):
+@dataclass
+class LinkedToAutofocus(LinkedActions):
+    imaging: Imaging
+
+
+@ACTION_REGISTRY.register("autofocus")
+class Autofocus(Action[AutofocusSettings, LinkedToAutofocus]):
     """Orchestrates the autofocus pipeline for a single configured mode.
 
     Manages the full autofocus lifecycle: deciding when to execute based on
@@ -47,37 +55,20 @@ class Autofocus(Action):
     single `perform_autofocus` call. For step mode, execution is resumed
     across successive calls, one sweep step per slice, until the sweep is
     exhausted.
-
-    Args:
-        name: Human-readable identifier for this autofocus instance.
-        microscope: Interface to the electron microscope.
-        settings: Autofocus configuration.
-        imaging: The imaging action whose sharpness result is used to decide
-            whether autofocus should run.
-        props_store: Store for reading and writing microscope properties.
-        txt_log: Logger for diagnostic and status messages.
-        img_log: Logger for criterion images.
     """
 
     def __init__(
         self,
-        name: str,
-        microscope: Microscope,
-        settings: AutofocusSettings,
-        imaging: Imaging,
-        props_store: PropsStore,
-        txt_log: TextLogger,
-        img_log: ImageLogger,
+        config: ActionConfig[AutofocusSettings],
     ):
-        self._name = name
-        self._props_store = props_store
-        self._txt_log = txt_log
-        self._img_log = img_log
+        self._name = config.name
+        self._props_store = config.props_store
+        self._txt_log = config.txt_log
+        self._img_log = config.img_log
 
-        self._microscope = microscope
-        self._imaging = imaging
+        self._microscope = config.microscope
 
-        self._settings = settings
+        self._settings = config.settings
 
         self._mode = AUTOFOCUS_MODES.get(self._settings.mode.type)()
 
@@ -107,7 +98,6 @@ class Autofocus(Action):
             self._settings.target_attribute,
             self._sweeping,
             self._criterion,
-            self._imaging,
             self._settings,
             self._txt_log,
         )
@@ -120,9 +110,17 @@ class Autofocus(Action):
 
         self._sweep_base_value: Any | None = None
 
+    @classmethod
+    def settings_cls(cls) -> type[AutofocusSettings]:
+        return AutofocusSettings
+
     @property
     def name(self) -> str:
         return self._name
+
+    @name.setter
+    def name(self, value: str) -> None:
+        self._name = value
 
     @property
     def name_with_underscores(self) -> str:
@@ -153,10 +151,16 @@ class Autofocus(Action):
         return self._txt_log
 
     @property
+    def settings(self) -> AutofocusSettings:
+        return self._settings
+
+    @property
     def external_props(self) -> GlobalProperties:
         return self._settings.external_props
 
-    def execute(self, slice_number: int) -> None:
+    def execute(
+        self, slice_number: int, links: LinkedToAutofocus | None = None
+    ) -> None:
         """
         Advance the autofocus execution by one step for the current slice.
 
@@ -172,7 +176,11 @@ class Autofocus(Action):
         Args:
             slice_number: The current slice index, used for frequency gating
                 and first-slice detection.
+            links: The autofocus links, used to access the imaging job.
         """
+        if links is None:
+            raise AutofocusError("Link to Imaging not specified.")
+
         # if we have a running autofocus, continue executing it
         if self._active_gen is not None:
             # mid-execution: keep going regardless of gating checks
@@ -185,7 +193,7 @@ class Autofocus(Action):
         self._jobs.wait_and_clear()
 
         # wait for the sharpness of the image from the previous slice
-        image_sharpness = self._imaging.wait_for_sharpness()
+        image_sharpness = links.imaging.wait_for_sharpness()
         self._txt_log.debug(f"Last image sharpness: {image_sharpness}.")
         # evaluate whether the autofocus should be performed based on the sharpness of the image from the previous slice
         if not self._should_execute(slice_number, image_sharpness):
@@ -201,7 +209,7 @@ class Autofocus(Action):
             self._sweeping.get_attribute_value() if self._sweeping is not None else None
         )
         # execute the autofocus
-        self._active_gen = self._mode.execute(self._ctx, self._jobs)
+        self._active_gen = self._mode.execute(self._ctx, self._jobs, links.imaging)
         self._advance()
 
         # if we have started a long-running autofocus, we need to explicitly copy
@@ -225,6 +233,7 @@ class Autofocus(Action):
         self._jobs.wait_and_clear()
 
         if isinstance(self._mode, StepMode):
+            # TODO: make this into an exception
             self._txt_log.warning("Autofocus test is not supported for step mode.")
             return
 
@@ -233,7 +242,8 @@ class Autofocus(Action):
             self._sweeping.get_attribute_value() if self._sweeping is not None else None
         )
 
-        for _ in self._mode.execute(self._ctx, self._jobs):
+        # we provide `None` instead of imaging; imaging is only needed for step mode which is not testable
+        for _ in self._mode.execute(self._ctx, self._jobs, None):
             self._jobs.wait()
 
         results = self._jobs.wait_and_collect()

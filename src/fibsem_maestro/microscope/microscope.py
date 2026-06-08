@@ -64,6 +64,11 @@ class Microscope:
         """The microscope control interface."""
         return self._control
 
+    @property
+    def settings(self) -> MicroscopeSettings:
+        """The microscope settings."""
+        return self._settings
+
     def set_beam(self, type: BeamType) -> None:
         """Set the active beam to the electron or ion beam.
 

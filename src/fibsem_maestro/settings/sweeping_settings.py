@@ -16,7 +16,8 @@ class BasicStrategySettings(BaseSettings):
 class InterleavedStrategySettings(BaseSettings):
     type: Literal["interleaved"] = "interleaved"
     min_diff: float = Field(
-        description="Minimal change in resolution relative to base resolution to consider it relevant."
+        default=0.005,
+        description="Minimal change in resolution relative to base resolution to consider it relevant.",
     )
 
 
@@ -34,13 +35,16 @@ class SweepingSettings(BaseSettings):
     )
     range: Annotated[tuple[float, float], FormHint(widget=WidgetType.RANGE_PAIR)] = (
         Field(
+            default=(0.0, 0.0),
             description="Range of variable sweep in units of the sweep variable.",
         )
     )
     steps: Annotated[int, Field(gt=0)] = Field(
+        default=3,
         description="Number of steps in sweeping range.",
     )
     cycles: Annotated[int, Field(gt=0)] = Field(
+        default=1,
         description="Number of sweeping repeats.",
     )
 

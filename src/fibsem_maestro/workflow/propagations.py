@@ -3,7 +3,7 @@
 
 from dataclasses import dataclass
 
-from fibsem_maestro.core.action import Action
+from fibsem_maestro.action.action import Action
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.property_names import PropertyNames
@@ -11,22 +11,18 @@ from fibsem_maestro.workflow.error import WorkflowError
 
 
 @dataclass
-class Propagation:
+class PropagationRule:
     """
     A single propagation rule linking a parent action to its dependents.
 
-    When the parent action finishes execution, the specified microscope
-    properties are read from the parent's microscope state and propagated
-    to each dependent action's stored properties.
-
     Attributes:
-        parent: The action whose post-execution state is the source of truth.
-        dependents: Actions whose stored properties should be updated.
+        parent_name: Name of the action that is the source of truth.
+        dependent_names: Names of actions that should receive the updated properties.
         props_to_propagate: Names of the microscope properties to propagate.
     """
 
-    parent: Action
-    dependents: list[Action]
+    parent_name: str
+    dependent_names: list[str]
     props_to_propagate: PropertyNames
 
 
@@ -41,19 +37,17 @@ class Propagations:
     dependents that haven't run yet receive it for the current slice.
 
     Args:
-        all_actions: The ordered list of all actions in the workflow.
         txt_log: Logger for debug and info messages.
     """
 
-    def __init__(self, all_actions: list[Action], txt_log: TextLogger):
-        self._actions = all_actions
+    def __init__(self, txt_log: TextLogger) -> None:
         self._txt_log = txt_log
-        self._propagations: list[Propagation] = []
+        self.rules: list[PropagationRule] = []
 
-    def register_propagation(
+    def register_rule(
         self,
-        from_action: Action,
-        to_actions: list[Action],
+        parent_name: str,
+        dependent_names: list[str],
         props_to_propagate: PropertyNames,
     ) -> None:
         """
@@ -67,84 +61,79 @@ class Propagations:
         Raises:
             WorkflowError: If the action or any dependent is not part of the workflow.
         """
-        if from_action not in self._actions:
-            raise WorkflowError(f"Action '{from_action.name}' is not defined.")
-
-        for dependent in to_actions:
-            if dependent not in self._actions:
-                raise WorkflowError(f"Action '{dependent.name}' is not defined.")
-
-        self._propagations.append(
-            Propagation(
-                parent=from_action,
-                dependents=to_actions,
+        self.rules.append(
+            PropagationRule(
+                parent_name=parent_name,
+                dependent_names=dependent_names,
                 props_to_propagate=props_to_propagate,
             )
         )
 
-    def propagate(self, action: Action) -> None:
+    def propagate(self, action: Action, all_actions: list[Action]) -> None:
         """
-        Executes all propagation rules for the given action.
-
-        Collects the specified microscope properties from the action's
-        current state and propagates them to each dependent action's
-        stored properties.
+        Execute all propagation rules for the given action.
 
         Args:
             action: The action that has just finished executing.
-
-        Raises:
-            WorkflowError: If the action is not part of the workflow.
+            all_actions: The ordered list of all actions in the workflow.
         """
         try:
-            index = self._actions.index(action)
+            index = all_actions.index(action)
         except ValueError:
             raise WorkflowError(f"Action '{action.name}' is not defined.")
 
-        for propagation in self._propagations:
-            if propagation.parent == action:
-                self._txt_log.debug(
-                    f"Propagating properties '{propagation.props_to_propagate}' from '{action.name}' to its dependents."
-                )
-                props = action.microscope.collect_properties(
-                    propagation.props_to_propagate
-                )
-                self._propagate_to_dependents(index, propagation.dependents, props)
+        actions_by_name = {a.name: a for a in all_actions}
+
+        for rule in self.rules:
+            if rule.parent_name != action.name:
+                continue
+
+            self._txt_log.debug(
+                f"Propagating properties '{rule.props_to_propagate}' "
+                f"from '{action.name}' to its dependents."
+            )
+
+            props = action.microscope.collect_properties(rule.props_to_propagate)
+
+            dependents: list[Action] = []
+            for name in rule.dependent_names:
+                if name not in actions_by_name:
+                    raise WorkflowError(f"Dependent action '{name}' is not defined.")
+                dependents.append(actions_by_name[name])
+
+            self._propagate_to_dependents(index, all_actions, dependents, props)
 
     def _propagate_to_dependents(
-        self, index: int, dependents: list[Action], props: GlobalProperties
+        self,
+        index: int,
+        all_actions: list[Action],
+        dependents: list[Action],
+        props: GlobalProperties,
     ) -> None:
-        """
-        Propagates properties to dependent actions with correct slice timing.
+        dependent_set = set(dependents)
 
-        Dependents appearing before the parent in the workflow have already
-        run this slice, so they receive the update for the next slice.
-        Dependents appearing after the parent haven't run yet, so they
-        receive the update for the current slice.
-
-        Args:
-            index: The position of the parent action in the workflow.
-            dependents: The dependent actions to update.
-            props: The microscope properties to propagate.
-        """
         # update dependents that were run BEFORE the target action
         # properties need to be written for the following slice
-        for dependent in self._actions[:index]:
-            if dependent in dependents:
-                self._txt_log.debug(
-                    f"Propagating properties to dependent action '{dependent.name}' for slice {(dependent.props_store.slice or 0) + 1}."
-                )
-                original_props = dependent.read_properties(dependent.props_store.next)
-                original_props.patch(props)
-                dependent.write_properties(original_props, dependent.props_store.next)
+        for dependent in all_actions[:index]:
+            if dependent not in dependent_set:
+                continue
+            self._txt_log.debug(
+                f"Propagating to '{dependent.name}' for slice "
+                f"{(dependent.props_store.slice or 0) + 1}."
+            )
+            original_props = dependent.read_properties(dependent.props_store.next)
+            original_props.patch(props)
+            dependent.write_properties(original_props, dependent.props_store.next)
 
         # update dependents that were run AFTER the target action
         # properties need to be written for the current slice
-        for dependent in self._actions[index + 1 :]:
-            if dependent in dependents:
-                self._txt_log.debug(
-                    f"Propagating properties to dependent action '{dependent.name}' for slice {dependent.props_store.slice}."
-                )
-                original_props = dependent.read_properties(dependent.props_store)
-                original_props.patch(props)
-                dependent.write_properties(original_props, dependent.props_store)
+        for dependent in all_actions[index + 1 :]:
+            if dependent not in dependent_set:
+                continue
+            self._txt_log.debug(
+                f"Propagating to '{dependent.name}' for slice "
+                f"{dependent.props_store.slice}."
+            )
+            original_props = dependent.read_properties(dependent.props_store)
+            original_props.patch(props)
+            dependent.write_properties(original_props, dependent.props_store)

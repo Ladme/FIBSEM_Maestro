@@ -8,20 +8,28 @@ from pydantic import AfterValidator, Field
 
 from fibsem_maestro.microscope.microscope import MICROSCOPE_CONTROLS
 from fibsem_maestro.settings.base_settings import BaseSettings
+from fibsem_maestro.settings.form_utils import FieldUnit, FormHint, WidgetType
 
-MicroscopeControlName = Annotated[str, AfterValidator(MICROSCOPE_CONTROLS.validate)]
+MicroscopeControlName = Annotated[
+    str,
+    AfterValidator(MICROSCOPE_CONTROLS.validate),
+    FormHint(widget=WidgetType.DROPDOWN, choices=lambda: list(MICROSCOPE_CONTROLS)),
+]
 
 
 class MicroscopeSettings(BaseSettings):
     control: MicroscopeControlName = Field(description="Type of microscope control.")
-    beam_shift_tolerance: float = Field(
-        description="Relative move between beam shift and stage move."
-    )
     ip_address: str = Field(description="Microscope server address.")
     holder_pretilt: float = Field(
         default=0.0, description="Tilt of the sample holder in degrees."
     )
-    stage_tolerance: float = Field(description="Maximal allowed stage error.")
+    beam_shift_tolerance: Annotated[float, FieldUnit(suffix="nm")] = Field(
+        default=50, description="Maximal allowed beam shift error."
+    )
+    stage_tolerance: Annotated[float, FieldUnit(suffix="nm")] = Field(
+        default=100, description="Maximal allowed stage error."
+    )
     stage_trials: int = Field(
-        description="Number of trials to reach the goal position before raising an error."
+        default=3,
+        description="Number of trials to reach the goal position before raising an error.",
     )

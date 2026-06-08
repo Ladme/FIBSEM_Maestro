@@ -31,9 +31,10 @@ class BasicMode(BaseSettings):
 
 class MaskMode(BaseSettings):
     type: Literal["mask"] = "mask"
-    mask_name: str = Field(description="Name of the mask to use.")
+    mask_name: str = Field(default="mask", description="Name of the mask to use.")
     region_reduction_fn: ReductionName = Field(
-        description="Method for calculating final criterion from all masked regions. Accepts numpy functions (min, mean)."
+        default="mean",
+        description="Method for calculating final criterion from all masked regions. Accepts numpy functions (min, mean).",
     )
 
 
@@ -47,13 +48,14 @@ class SingleTileMode(BaseSettings):
 class MultiTileMode(BaseSettings):
     type: Literal["multi"] = "multi"
     tile_reduction_fn: ReductionName = Field(
+        default="mean",
         description="Method for calculating final criterion from all tiles. Accepts numpy functions (min, mean).",
     )
-    tile_size: Annotated[float, FieldUnit(suffix="nm")] = Field(
-        gt=0.0, description="Tile size for criterion calculation."
+    tile_size: Annotated[float, Field(gt=0), FieldUnit(suffix="nm")] = Field(
+        default=0.0, description="Tile size for criterion calculation."
     )
-    relative_overlap: float = Field(
-        ge=0, le=1, description="Relative overlap between the tiles."
+    relative_overlap: Annotated[float, Field(ge=0, le=1)] = Field(
+        default=0.0, description="Relative overlap between the tiles."
     )
 
 
@@ -64,9 +66,11 @@ CriterionTilingMode = Annotated[
 
 class CriterionSettings(BaseSettings):
     sharpness_metric_fn: CriterionName = Field(
+        default="bandpass",
         description="Criterion calculation function.",
     )
     detail: DetailBand = Field(
+        default=DetailBand(low=0.0, high=0.0),
         description="Bandpass parameters: low and high details to filter out.",
     )
     area: RelativeArea = Field(

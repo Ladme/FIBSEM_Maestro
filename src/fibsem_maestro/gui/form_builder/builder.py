@@ -31,6 +31,7 @@ from fibsem_maestro.gui.form_builder.widgets.text_area import TextAreaWidget
 from fibsem_maestro.gui.form_builder.widgets.union import DiscriminatedUnionWidget
 from fibsem_maestro.gui.form_builder.widgets.wrapper import WidgetWrapper
 from fibsem_maestro.microscope.microscope import Microscope
+from fibsem_maestro.settings.base_settings import BaseSettings
 from fibsem_maestro.settings.form_utils import WidgetType
 
 SCALAR_KINDS = {
@@ -49,39 +50,22 @@ class FormBuilder:
     """
 
     def build_form(
-        self, cls: type, microscope: Microscope | None = None
-    ) -> QScrollArea:
+        self, cls: type[BaseSettings], microscope: Microscope | None = None
+    ) -> ObjectWidget:
         """
-        Entry point.
-
-        Returns a QScrollArea containing the complete form.
-        Embed this widget anywhere in your application layout.
+        Entry point. Returns a widget containing the complete form.
         """
         self._microscope = microscope
         self._manufacturer_properties = (
             microscope.control.manufacturer_prop_names if microscope is not None else []
         )
-        inner = self._build_object(cls)
+        return self._build_object(cls)
 
-        scroll = QScrollArea()
-        scroll.setWidget(inner)
-        scroll.setWidgetResizable(True)
-
-        scroll.setStyleSheet("""
-            GroupBoxWidget[highlighted="true"] {
-                border: 1px solid #36678f;
-                border-radius: 3px;
-            }
-        """)
-
-        return scroll
-
-    def collect_values(self, form: QScrollArea) -> dict:
+    def collect_values(self, form: ObjectWidget) -> dict:
         """
         Walk the widget tree and return a plain dict of all field values.
         """
-        inner = form.widget()
-        return inner.get_value() if isinstance(inner, WidgetWrapper) else {}
+        return form.get_value()
 
     def _build_object(
         self, cls: type, field_infos: list[FieldInfo] | None = None

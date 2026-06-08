@@ -19,6 +19,7 @@ dependencies = [
     "pyqt6>=6.4.2",
     "pyqt6-qt6<6.5",
     "qdarkstyle>=3.2.3",
+    "platformdirs>=4.10.0",
 ]
 
 [dependency-groups]

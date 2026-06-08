@@ -4,7 +4,8 @@
 
 import threading
 
-from fibsem_maestro.core.action import Action
+from fibsem_maestro.action.action import Action, ActionConfig
+from fibsem_maestro.action.registry import ACTION_REGISTRY
 from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
@@ -21,47 +22,32 @@ from fibsem_maestro.settings.imaging_settings import (
     StandardResolution,
 )
 from fibsem_maestro.settings.property_names import PropertyNames
-from fibsem_maestro.store.frame.frame_store import FrameStore
 from fibsem_maestro.store.props.props_store import PropsStore
 
 
-class Imaging(Action):
+@ACTION_REGISTRY.register("imaging")
+class Imaging(Action[ImagingSettings, None]):
     """
     Orchestrates a single image acquisition cycle on the electron microscope.
-
-    Args:
-        name: Human-readable identifier for this imaging instance.
-        microscope: The microscope instance used for image acquisition.
-        settings: Configuration for image acquisition.
-        props_store: Store for reading and writing microscope properties.
-        frame_store: Store for persisting acquired frames.
-        txt_log: Logger for diagnostic and status messages.
-        img_log: Logger for saving helper images.
     """
 
     def __init__(
         self,
-        name: str,
-        microscope: Microscope,
-        settings: ImagingSettings,
-        props_store: PropsStore,
-        frame_store: FrameStore,
-        txt_log: TextLogger,
-        img_log: ImageLogger,
+        config: ActionConfig[ImagingSettings],
     ):
-        self._name = name
-        self._microscope = microscope
-        self._settings = settings
-        self._props_store = props_store
-        self._frame_store = frame_store
-        self._txt_log = txt_log
+        self._name = config.name
+        self._microscope = config.microscope
+        self._settings = config.settings
+        self._props_store = config.props_store
+        self._frame_store = config.frame_store
+        self._txt_log = config.txt_log
 
         if criterion_settings := self._settings.criterion:
             self._criterion = Criterion(
                 f"{self._name} criterion",
                 criterion_settings,
                 self._txt_log.derive("criterion"),
-                img_log,
+                config.img_log,
             )
         else:
             self._criterion = None
@@ -77,10 +63,18 @@ class Imaging(Action):
         # save the last acquired image
         self._last_acquired_image: Image | None = None
 
+    @classmethod
+    def settings_cls(cls) -> type[ImagingSettings]:
+        return ImagingSettings
+
     @property
     def name(self) -> str:
         """Human-readable identifier for this imaging instance."""
         return self._name
+
+    @name.setter
+    def name(self, value: str) -> None:
+        self._name = value
 
     @property
     def props_file(self) -> str:
@@ -113,6 +107,10 @@ class Imaging(Action):
         return self._txt_log
 
     @property
+    def settings(self) -> ImagingSettings:
+        return self._settings
+
+    @property
     def external_props(self) -> GlobalProperties:
         """External properties to use for this imaging action."""
         return self._settings.external_props
@@ -122,7 +120,7 @@ class Imaging(Action):
         """Get the last image acquired by this imaging."""
         return self._last_acquired_image
 
-    def execute(self, slice_number: int) -> None:
+    def execute(self, slice_number: int, links: None = None) -> None:
         """
         Execute the full image acquisition pipeline for the current slice.
 
@@ -140,6 +138,8 @@ class Imaging(Action):
         Raises:
             ImagingError: If a frame for the current slice already exists in the frame store.
         """
+        _ = links
+
         if (
             self._settings.execution_frequency is None
             # the first slice is 1, so we use slice_number - 1 to get the 0-indexed slice number

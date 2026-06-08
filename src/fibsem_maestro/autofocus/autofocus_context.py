@@ -13,7 +13,6 @@ from fibsem_maestro.autofocus.sweeping import Sweeping
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.criterion.criterion import Criterion
-from fibsem_maestro.imaging.imaging import Imaging
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.autofocus_settings import AutofocusSettings
@@ -26,7 +25,6 @@ class AutofocusContext:
         target_attribute: str,
         sweeping: Sweeping | None,
         criterion: Criterion | None,
-        imaging: Imaging,
         settings: AutofocusSettings,
         txt_log: TextLogger,
     ):
@@ -38,14 +36,12 @@ class AutofocusContext:
             target_attribute: Attribute which is optimized during autofocus.
             sweeping: Controller for sweeping the target beam attribute.
             criterion: Sharpness criterion used to evaluate acquired images.
-            imaging: Instance controlling the image aquisition.
             settings: Autofocus configuration.
             txt_log: Logger for diagnostic and status messages.
         """
         self.microscope = microscope
         self.target_attribute = target_attribute
         self.sweeping = sweeping
-        self.imaging = imaging
         self.txt_log = txt_log
         self.settings = settings
 
