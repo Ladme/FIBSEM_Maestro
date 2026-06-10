@@ -13,7 +13,10 @@ from fibsem_maestro.microscope.abstract_control.microscope_control import (
 )
 from fibsem_maestro.microscope.error import MicroscopeError
 from fibsem_maestro.microscope.registry import MICROSCOPE_CONTROLS
-from fibsem_maestro.microscope.simulated.beam_control import SimulatedBeamControl
+from fibsem_maestro.microscope.simulated.beam_control import (
+    SimulatedElectronBeamControl,
+    SimulatedIonBeamControl,
+)
 from fibsem_maestro.microscope.simulated.sample import SimulatedSample
 
 
@@ -59,14 +62,14 @@ class SimulatedMicroscopeControl(MicroscopeControl):
             "microscope.inner.parameter": 0.5,
         }
 
-        self._electron_beam = SimulatedBeamControl(
+        self._electron_beam = SimulatedElectronBeamControl(
             name="electron",
             stage_position=self._stage_position,
             sample=self._sample,
             txt_log=self._txt_log.derive("electron_beam"),
             rng=self._rng,
         )
-        self._ion_beam = SimulatedBeamControl(
+        self._ion_beam = SimulatedIonBeamControl(
             name="ion",
             stage_position=self._stage_position,
             sample=self._sample,

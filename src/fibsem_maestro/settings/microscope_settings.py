@@ -33,3 +33,11 @@ class MicroscopeSettings(BaseSettings):
         default=3,
         description="Number of trials to reach the goal position before raising an error.",
     )
+    beam_shift_to_stage_move_electron: tuple[float, float] = Field(
+        default=(-1.0, -1.0),
+        description="Per-axis factor for converting beam shift in the electron beam to stage move.",
+    )
+    beam_shift_to_stage_move_ion: tuple[float, float] = Field(
+        default=(-1.0, -1.0),
+        description="Per-axis factor for converting beam shift in the ion beam to stage move.",
+    )

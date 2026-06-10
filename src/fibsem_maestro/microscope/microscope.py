@@ -6,8 +6,6 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Any
 
-import numpy as np
-from numpy.typing import NDArray
 from scipy.spatial import distance  # pyright: ignore[reportMissingTypeStubs]
 
 from fibsem_maestro.core.beam_shift import BeamShift
@@ -150,6 +148,8 @@ class Microscope:
             if the fallback stage move was used instead.
         """
         beam = beam or self.beam
+        beam_type = beam.beam_type()
+
         # try setting beam shift
         try:
             beam.beam_shift = new_beam_shift
@@ -166,12 +166,19 @@ class Microscope:
         except Exception as e:
             self._txt_log.warning(f"Beam shift error: {e}. Adjusting stage position.")
 
-            beam_shift_array = np.array([new_beam_shift.x, new_beam_shift.y])
-            new_stage_move = self._beam_shift_to_stage_move() @ beam_shift_array
+            beam_shift_to_stage_move = (
+                self._settings.beam_shift_to_stage_move_electron
+                if beam_type == BeamType.ELECTRON
+                else self._settings.beam_shift_to_stage_move_ion
+            )
 
+            stage_move = [
+                new_beam_shift.x * beam_shift_to_stage_move[0],
+                new_beam_shift.y * beam_shift_to_stage_move[1],
+            ]
             # move stage
             self.move_stage_position_with_verification(
-                StagePosition(x=float(new_stage_move[0]), y=float(new_stage_move[1]))
+                StagePosition(x=stage_move[0], y=stage_move[1])
             )
             # set beam shift to zero
             beam.beam_shift = BeamShift(0.0, 0.0)
@@ -386,54 +393,3 @@ class Microscope:
                 setattr(beam_control, property, backup)
             except Exception as e:
                 self._txt_log.warning(f"Could not restore property {property}: {e}")
-
-    def _beam_shift_to_stage_move(self) -> NDArray[np.floating]:
-        """
-        Compute the matrix that converts a beam shift vector to a stage move.
-
-        Accounts for stage tilt, holder pretilt, and per-axis beam-shift-to-stage-move
-        scaling factors. The resulting 2x2 matrix can be multiplied by a
-        `[beam_shift_x, beam_shift_y]` vector to obtain the equivalent stage
-        delta in nanometers.
-
-        Returns:
-            A `(2, 2)` NumPy array representing the conversion matrix.
-
-        Raises:
-            MicroscopeError: If the effective tilt (stage tilt + holder pretilt)
-                is too close to 90°, making the conversion numerically unstable.
-        """
-        # get the tilt angle
-        effective_tilt = (
-            self._settings.holder_pretilt + self._control.stage_position.tilt
-        )
-        theta = np.radians(effective_tilt)
-
-        if (cos_theta := np.cos(theta)) < 1e-4:
-            raise MicroscopeError(
-                f"Effective tilt ({effective_tilt:.3f}°) is too close to 90°. Conversion unstable."
-            )
-
-        stretch = 1.0 / cos_theta
-
-        # construct scaling matrix from beam_shift_to_stage_move factors
-        scale_matrix = np.array(
-            [
-                [self.beam.beam_shift_to_stage_move[0], 0.0],
-                [0.0, self.beam.beam_shift_to_stage_move[1]],
-            ],
-            dtype=float,
-        )
-
-        # construct matrix for stretching along the tilt direction
-        stretch_matrix = np.array(
-            [[1.0, 0.0], [0.0, stretch]],
-            dtype=float,
-        )
-
-        conversion_matrix = scale_matrix @ stretch_matrix
-        self._txt_log.debug(
-            f"Beam shift to stage move conversion matrix: {list(conversion_matrix)}"
-        )
-
-        return conversion_matrix

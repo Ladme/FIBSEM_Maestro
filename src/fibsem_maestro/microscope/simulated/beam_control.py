@@ -10,6 +10,7 @@ import numpy as np
 
 from fibsem_maestro.core.area import NMArea, RelativeArea
 from fibsem_maestro.core.beam_shift import BeamShift
+from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.direction import Direction
 from fibsem_maestro.core.format import ImageFormat
 from fibsem_maestro.core.image import Image
@@ -63,7 +64,6 @@ class SimulatedBeamControl(BeamControl):
         self._horizontal_field_width = 20_000.0
         self._scanning_area = RelativeArea.full()
 
-        self._beam_shift_to_stage_move = (-1, -1)
         self._image_to_beam_shift = (-1, 1)
 
         self._manufacturer_properties: dict[str, Any] = {
@@ -433,10 +433,6 @@ class SimulatedBeamControl(BeamControl):
         self._manufacturer_properties[name] = value
 
     @property
-    def beam_shift_to_stage_move(self) -> tuple[float, float]:
-        return self._beam_shift_to_stage_move
-
-    @property
     def image_to_beam_shift(self) -> tuple[float, float]:
         return self._image_to_beam_shift
 
@@ -474,3 +470,15 @@ class SimulatedBeamControl(BeamControl):
     @property
     def txt_log(self) -> TextLogger:
         return self._txt_log
+
+
+class SimulatedElectronBeamControl(SimulatedBeamControl):
+    @classmethod
+    def beam_type(cls) -> BeamType:
+        return BeamType.ELECTRON
+
+
+class SimulatedIonBeamControl(SimulatedBeamControl):
+    @classmethod
+    def beam_type(cls) -> BeamType:
+        return BeamType.ION

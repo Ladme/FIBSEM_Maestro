@@ -9,6 +9,7 @@ from typing import Any
 
 from fibsem_maestro.core.area import NMArea, RelativeArea
 from fibsem_maestro.core.beam_shift import BeamShift
+from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.direction import Direction
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
@@ -25,6 +26,11 @@ class BeamControl(ABC):
     """
     Abstract interface for controlling an electron or ion beam in a microscope.
     """
+
+    @classmethod
+    def beam_type(cls) -> BeamType:
+        """Returns the beam type (electron or ion)."""
+        raise NotImplementedError(f"beam_type is not implemented for {cls.__name__}")
 
     @property
     @abstractmethod
@@ -384,11 +390,6 @@ class BeamControl(ABC):
             name: Property name as defined by the manufacturer.
             value: New property value.
         """
-
-    @property
-    @abstractmethod
-    def beam_shift_to_stage_move(self) -> tuple[float, float]:
-        """Per-axis scale factors for converting beam shift to stage movement."""
 
     @property
     @abstractmethod
