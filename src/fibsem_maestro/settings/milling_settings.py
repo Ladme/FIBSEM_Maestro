@@ -17,9 +17,10 @@ from fibsem_maestro.settings.property_names import PropertyNames
 
 class MillingSettings(BaseSettings):
     milling_area: Annotated[
-        RelativeArea, FormHint(widget=WidgetType.AREA_SELECT, max_areas=1)
+        list[RelativeArea], FormHint(widget=WidgetType.AREA_SELECT, max_areas=1)
     ] = Field(
-        description="Area in which milling will be performed, defined in relative units."
+        default_factory=list,
+        description="Area in which milling will be performed, defined in relative units.",
     )
     beam_type: BeamType = Field(
         default=BeamType.ION,
@@ -30,20 +31,24 @@ class MillingSettings(BaseSettings):
         description="Run the action every N-th slice. If not specified, the action will never run.",
     )
     pattern_file: Path | str = Field(
-        description="Configuration file containing definition of the pattern to use for milling."
+        default="",
+        description="Configuration file containing definition of the pattern to use for milling.",
     )
     milling_depth: Annotated[float, FieldUnit(suffix="nm")] = Field(
-        description="Depth of the milling."
+        default=0.0, description="Depth of the milling."
     )
     slice_distance: Annotated[float, FieldUnit(suffix="nm")] = Field(
-        description="Thickness of each slice, i.e., distance to shift the pattern by after each milling step."
+        default=0.0,
+        description="Thickness of each slice, i.e., distance to shift the pattern by after each milling step.",
     )
     milling_direction: Annotated[
         Direction,
         FormHint(
-            widget=WidgetType.DROPDOWN, choices=lambda: [Direction.UP, Direction.DOWN]
+            widget=WidgetType.DROPDOWN, choices=lambda: [Direction.DOWN, Direction.UP]
         ),
-    ] = Field(description="Direction in which the slicing progresses.")
+    ] = Field(
+        default=Direction.DOWN, description="Direction in which the slicing progresses."
+    )
     state_file: Path = Field(
         default=Path("milling_state.yaml"),
         description="Name of a file where the state of the milling process is stored.",

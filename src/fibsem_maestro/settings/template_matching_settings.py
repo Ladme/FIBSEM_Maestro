@@ -98,5 +98,6 @@ class TemplateMatchingSettings(BaseSettings):
         description="Standard deviation of a Gaussian filter applied to the image before template matching.",
     )
     correction_margin: Annotated[float, FieldUnit(suffix="nm")] = Field(
+        default=0.0,
         description="The maximum expected drift defining how far the template is allowed to search for a match.",
     )

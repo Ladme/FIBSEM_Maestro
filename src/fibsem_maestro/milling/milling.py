@@ -11,6 +11,7 @@ from fibsem_maestro.action.registry import ACTION_REGISTRY
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope import Microscope
+from fibsem_maestro.milling.error import MillingError
 from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.milling_settings import MillingSettings
 from fibsem_maestro.settings.property_names import PropertyNames
@@ -104,6 +105,11 @@ class Milling(Action[MillingSettings, None]):
         """
         _ = links
 
+        if len(self._settings.milling_area) != 1:
+            raise MillingError(
+                f"Expected exactly one milling area, got {len(self._settings.milling_area)}."
+            )
+
         if (
             self._settings.execution_frequency is None
             # the first slice is 1, so we use slice_number - 1 to get the 0-indexed slice number
@@ -119,7 +125,7 @@ class Milling(Action[MillingSettings, None]):
 
         # set the current milling area for the first slice
         if self._current_milling_area is None:
-            self._current_milling_area = self._settings.milling_area.to_nanometers(
+            self._current_milling_area = self._settings.milling_area[0].to_nanometers(
                 self._microscope.beam.resolution, self._microscope.beam.pixel_size
             )
             self._txt_log.debug(

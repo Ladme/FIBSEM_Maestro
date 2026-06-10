@@ -24,7 +24,8 @@ DriftCorrectionMode = Annotated[
 
 class DriftCorrectionSettings(BaseSettings):
     drift_calculation_mode: DriftCorrectionMode = Field(
-        description="Drift correction mode."
+        default_factory=TemplateMatchingDriftCorrection,
+        description="Drift correction mode.",
     )
     beam_type: BeamType = Field(
         default=BeamType.ELECTRON,

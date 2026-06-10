@@ -192,7 +192,7 @@ class ActionListPanel(QWidget):
 
     def _on_name_changed(self, old_name: str, new_name: str) -> None:
         if new_name in self._existing_names() - {old_name}:
-            # revert — name already taken
+            # revert - name already taken
             for i in range(self._list.count()):
                 w = self._item_widget(i)
                 if w is not None and w.action.name == old_name:

@@ -47,7 +47,7 @@ class AddActionDialog(QDialog):
         # type dropdown
         layout.addWidget(QLabel("Type:"))
         self._type_combo = QComboBox()
-        for key in list(ACTION_REGISTRY):
+        for key in sorted(ACTION_REGISTRY):
             self._type_combo.addItem(key)
         self._type_combo.currentTextChanged.connect(self._on_type_changed)
         layout.addWidget(self._type_combo)
