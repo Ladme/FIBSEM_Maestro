@@ -138,10 +138,12 @@ class PostMillingCorrection(
 
     def _perform_automatic_correction(self, milling_settings: MillingSettings) -> None:
         # y_correction = cos 52° * slice_distance
-        y_correction = np.cos(0.9076) * milling_settings.slice_distance
+        y_correction = float(np.cos(0.9076) * milling_settings.slice_distance)
 
         # wd correction = sqrt( slice_distance^2 - y_correction^2 )
-        wd_correction = np.sqrt(milling_settings.slice_distance**2 - y_correction**2)
+        wd_correction = float(
+            np.sqrt(milling_settings.slice_distance**2 - y_correction**2)
+        )
 
         self._txt_log.info(
             f"Performing automatic post milling correction: y_correction={y_correction}, wd_correction={wd_correction} based on slice_distance={milling_settings.slice_distance}"

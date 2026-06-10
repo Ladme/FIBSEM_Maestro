@@ -200,7 +200,7 @@ def main():
         slice,
         actions,
         propagations,
-        ActionLinks(txt_log.derive("links")),
+        links,
         txt_log.derive("workflow"),
     )
 
