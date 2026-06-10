@@ -2,7 +2,6 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
-from pathlib import Path
 from typing import Annotated, Literal
 
 from pydantic import Field
@@ -119,10 +118,6 @@ class AutofocusSettings(BaseSettings):
     max_workers: Annotated[int, Field(gt=0)] = Field(
         default=1,
         description="Maximal number of threads used for the calculations in this action.",
-    )
-    properties_file: Path = Field(
-        default=Path("autofocus_props.yaml"),
-        description="Name of the file where properties of the microscope used for this action will be stored.",
     )
     properties_to_collect: PropertyNames = Field(
         default_factory=PropertyNames,

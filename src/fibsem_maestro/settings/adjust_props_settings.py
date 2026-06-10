@@ -1,7 +1,6 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
-from pathlib import Path
 from typing import Annotated
 
 from pydantic import Field
@@ -12,10 +11,6 @@ from fibsem_maestro.settings.property_names import PropertyNames
 
 
 class AdjustPropsSettings(BaseSettings):
-    properties_file: Path = Field(
-        default=Path("adjust_props.yaml"),
-        description="Path to a file storing properties of the microscope used for adjust props.",
-    )
     properties_to_collect: PropertyNames = Field(
         default_factory=PropertyNames,
         description="Properties of the microscope and the beams relevant for this action.",

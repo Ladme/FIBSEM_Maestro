@@ -128,7 +128,7 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus]):
 
     @property
     def props_file(self) -> str:
-        return str(self._settings.properties_file)
+        return f"{str(self.name_with_underscores)}_props.yaml"
 
     @property
     def props_store(self) -> PropsStore:
@@ -179,7 +179,7 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus]):
             links: The autofocus links, used to access the imaging job.
         """
         if links is None:
-            raise AutofocusError("Link to Imaging must be specified.")
+            raise AutofocusError("Link to Imaging not specified.")
 
         # if we have a running autofocus, continue executing it
         if self._active_gen is not None:

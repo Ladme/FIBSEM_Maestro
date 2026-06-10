@@ -2,10 +2,10 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
-from dataclasses import dataclass
 from typing import Annotated
 
 from pydantic import Field
+from pydantic.dataclasses import dataclass
 
 from fibsem_maestro.settings.form_utils import FieldUnit
 
@@ -23,16 +23,14 @@ class DetailBand:
     """
 
     # low-detail cutoff, in nanometers
-    low: Annotated[float, FieldUnit(suffix="nm"), Field(gt=0)]
+    low: Annotated[float, FieldUnit(suffix="nm"), Field(gt=0.0)]
     # high-detail cutoff, in nanometers
-    high: Annotated[float, FieldUnit(suffix="nm"), Field(gt=0)]
+    high: Annotated[float, FieldUnit(suffix="nm"), Field(gt=0.0)]
 
     def to_frequency_range(self) -> tuple[float, float]:
         """Return the equivalent spatial frequency range in 1/nm."""
         return (1.0 / self.high, 1.0 / self.low)
 
     def __post_init__(self):
-        if self.low < 0 or self.high < 0:
-            raise ValueError("Detail scales must be non-negative.")
         if self.low > self.high:
             raise ValueError("DetailBand.low cannot be greater than DetailBand.high.")

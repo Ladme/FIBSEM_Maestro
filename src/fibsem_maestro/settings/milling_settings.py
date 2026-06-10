@@ -49,14 +49,6 @@ class MillingSettings(BaseSettings):
     ] = Field(
         default=Direction.DOWN, description="Direction in which the slicing progresses."
     )
-    state_file: Path = Field(
-        default=Path("milling_state.yaml"),
-        description="Name of a file where the state of the milling process is stored.",
-    )
-    properties_file: Path = Field(
-        default=Path("milling_props.yaml"),
-        description="Path to a file storing properties of the microscope used for milling.",
-    )
     properties_to_collect: PropertyNames = Field(
         default_factory=PropertyNames,
         description="Properties of the microscope and the beam relevant for milling.",

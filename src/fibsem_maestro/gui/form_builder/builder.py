@@ -231,7 +231,7 @@ class FormBuilder:
                     default=(default.low, default.high)
                     if default is not None
                     else None,
-                    minimum=fi.minimum,
+                    minimum=0.0,  # manual override
                     maximum=fi.maximum,
                     suffix=fi.unit.suffix if fi.unit else None,
                 )

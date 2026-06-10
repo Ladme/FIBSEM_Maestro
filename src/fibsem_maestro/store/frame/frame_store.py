@@ -1,15 +1,31 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
+from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from pathlib import Path
+from typing import TYPE_CHECKING
 
-from fibsem_maestro.core.image import Image
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from fibsem_maestro.core.image import Image
 
 
 class FrameStore(ABC):
     """Abstract interface controlling where acquired microscope frames are saved."""
+
+    @abstractmethod
+    def derive(self, name: str) -> FrameStore:
+        """
+        Create a new FrameStore scoped to the given name.
+
+        Args:
+            name: Name used to scope the derived store (e.g. imaging action name).
+
+        Returns:
+            A new FrameStore scoped to the given name.
+        """
 
     @abstractmethod
     def path(self) -> Path | None:
@@ -39,7 +55,7 @@ class FrameStore(ABC):
         """
 
     @abstractmethod
-    def raise_if_exists(self, ExceptionType: type[Exception]) -> None:
+    def raise_if_exists(self, ExceptionType: type[Exception], action_name: str) -> None:
         """
         Raise an Exception if a frame for the current slice has already been saved.
         """
@@ -48,5 +64,5 @@ class FrameStore(ABC):
     @abstractmethod
     def slice(self) -> int | None:
         """
-        Get the index of the slice this FrameStore relates to.
+        Get the index of the slice this DerivedFrameStore relates to.
         """

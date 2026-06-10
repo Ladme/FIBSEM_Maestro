@@ -73,9 +73,8 @@ class CriterionSettings(BaseSettings):
         DetailBand,
         FormHint(widget=WidgetType.DETAIL_BAND),
         FieldUnit(suffix="nm"),
-        Field(ge=0.0),
     ] = Field(
-        default=DetailBand(low=0.0, high=0.0),
+        default=DetailBand(low=1.0, high=1.0),
         description="Bandpass parameters: low and high details to filter out.",
     )
     area: Annotated[

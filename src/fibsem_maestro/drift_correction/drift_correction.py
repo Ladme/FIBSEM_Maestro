@@ -70,7 +70,7 @@ class DriftCorrection(Action[DriftCorrectionSettings, None]):
 
     @property
     def props_file(self) -> str:
-        return str(self._settings.properties_file)
+        return f"{str(self.name_with_underscores)}_props.yaml"
 
     @property
     def props_store(self) -> PropsStore:

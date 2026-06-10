@@ -75,7 +75,7 @@ def main():
     )
     img_log = FileImageLogger(slice)
     props_store = FilePropsStore(slice)
-    frame_store = FileFrameStore(slice, imaging_settings.images_directory)
+    frame_store = FileFrameStore(slice, Path("images"))
     txt_store = FileTextStore(slice)
     image_store = FileImageStore(slice, Image8Bit, directory=Path("stored_images"))
 

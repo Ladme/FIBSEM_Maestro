@@ -38,7 +38,9 @@ class Imaging(Action[ImagingSettings, None]):
         self._microscope = config.microscope
         self._settings = config.settings
         self._props_store = config.props_store
-        self._frame_store = config.frame_store
+        # derive frame store scoped to this action's name
+        # this is needed so that we can support multiple imagings
+        self._frame_store = config.frame_store.derive(self._name)
         self._txt_log = config.txt_log
 
         if criterion_settings := self._settings.criterion:
@@ -78,7 +80,7 @@ class Imaging(Action[ImagingSettings, None]):
     @property
     def props_file(self) -> str:
         """Filename used to read and write microscope properties."""
-        return str(self._settings.properties_file)
+        return f"{str(self.name_with_underscores)}_props.yaml"
 
     @property
     def props_store(self) -> PropsStore:
@@ -153,7 +155,7 @@ class Imaging(Action[ImagingSettings, None]):
         self.read_and_set_properties()
 
         # make sure that the image for the current slice does not exist
-        self._frame_store.raise_if_exists(ImagingError)
+        self._frame_store.raise_if_exists(ImagingError, self.name)
 
         # grab the frame and save it
         self._last_acquired_image = self._microscope.beam.grab_frame(self._frame_store)
@@ -206,7 +208,7 @@ class Imaging(Action[ImagingSettings, None]):
             )
 
             # save the properties to a file
-            store.write(str(self._settings.properties_file), props)
+            store.write(self.props_file, props)
 
     def wait_for_sharpness(self) -> float | None:
         """

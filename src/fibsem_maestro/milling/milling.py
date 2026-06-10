@@ -66,7 +66,11 @@ class Milling(Action[MillingSettings, None]):
 
     @property
     def props_file(self) -> str:
-        return str(self._settings.properties_file)
+        return f"{str(self.name_with_underscores)}_props.yaml"
+
+    @property
+    def state_file(self) -> str:
+        return f"{str(self.name_with_underscores)}_state.yaml"
 
     @property
     def props_store(self) -> PropsStore:
@@ -154,7 +158,7 @@ class Milling(Action[MillingSettings, None]):
         # this is needed only for restoring the milling in case the workflow is interrupted
         if (area := self._current_milling_area) is not None:
             self._txt_store.next.write(
-                str(self._settings.state_file),
+                self.state_file,
                 data=yaml.dump({"milling_area": area.model_dump()}),
             )
 

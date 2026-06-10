@@ -1,7 +1,6 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
-from pathlib import Path
 from typing import Annotated, Literal
 
 from pydantic import Field
@@ -38,10 +37,6 @@ class DriftCorrectionSettings(BaseSettings):
     stop_at_failure: bool = Field(
         default=True,
         description="If `True` and drift correction fails, the execution is stopped. If `False`, warning is printed but execution continues.",
-    )
-    properties_file: Path = Field(
-        default=Path("drift_corr_props.yaml"),
-        description="Path to a file storing properties of the microscope used for drift correction imaging.",
     )
     properties_to_collect: PropertyNames = Field(
         default_factory=PropertyNames,

@@ -1,8 +1,6 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
-
-from pathlib import Path
 from typing import Annotated, Literal
 
 from pydantic import Field
@@ -47,10 +45,6 @@ class PostMillingCorrectionSettings(BaseSettings):
     execution_frequency: Annotated[int, Field(gt=0)] | None = Field(
         default=1,
         description="Run the action every N-th slice. If not specified, the action will never run.",
-    )
-    properties_file: Path = Field(
-        default=Path("post_milling_corr_props.yaml"),
-        description="Path to a file storing properties of the microscope used for post milling correction.",
     )
     properties_to_collect: PropertyNames = Field(
         default_factory=PropertyNames,

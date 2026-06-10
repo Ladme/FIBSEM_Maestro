@@ -1,26 +1,34 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
+from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
-from fibsem_maestro.core.image import Image
-from fibsem_maestro.core.slice import SliceContext
 from fibsem_maestro.store.frame.frame_store import FrameStore
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from fibsem_maestro.core.image import Image
+    from fibsem_maestro.core.slice import SliceContext
 
 
 class FileFrameStore(FrameStore):
     """
-    FrameStore that persists frames as TIF/PNG files in a flat directory.
+    DerivedFrameStore that persists frames as TIF files in a flat directory.
 
     Args:
         ctx: Slice context used to determine the current slice index.
-        directory: Root directory where frames are stored.
+        directory: Directory where frames are stored.
     """
 
     def __init__(self, ctx: SliceContext, directory: Path) -> None:
         self._ctx = ctx
         self._directory = directory
+
+    def derive(self, name: str) -> FileFrameStore:
+        return FileFrameStore(self._ctx, self._directory / name)
 
     def _frame_path(self) -> Path:
         self._directory.mkdir(parents=True, exist_ok=True)
@@ -32,16 +40,16 @@ class FileFrameStore(FrameStore):
     def save_to_memory(self, image: Image) -> None:
         _ = image
         raise RuntimeError(
-            "FileFrameStore.save_to_memory should never be called. This is a bug."
+            "FileDerivedFrameStore.save_to_memory should never be called. This is a bug."
         )
 
     def exists(self) -> bool:
         return self._frame_path().exists()
 
-    def raise_if_exists(self, ExceptionType: type[Exception]) -> None:
+    def raise_if_exists(self, ExceptionType: type[Exception], action_name: str) -> None:
         if self.exists():
             raise ExceptionType(
-                f"Frame for slice {self._ctx.current_slice} already exists."
+                f"Frame for slice {self._ctx.current_slice} and action '{action_name}' already exists."
             )
 
     @property

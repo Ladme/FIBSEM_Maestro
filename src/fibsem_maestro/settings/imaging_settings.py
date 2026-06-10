@@ -1,7 +1,6 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
-from pathlib import Path
 from typing import Annotated, Literal
 
 from pydantic import Field
@@ -46,14 +45,6 @@ class ImagingSettings(BaseSettings):
     criterion: CriterionSettings | None = Field(
         default=None,
         description="Settings for the criterion to use to calculate image sharpness.",
-    )
-    images_directory: Path = Field(
-        default=Path("images"),
-        description="Name of a directory where the acquired images should be saved.",
-    )
-    properties_file: Path = Field(
-        default=Path("imaging_props.yaml"),
-        description="Name of a file storing properties of the microscope used for imaging.",
     )
     properties_to_collect: PropertyNames = Field(
         default_factory=PropertyNames,
