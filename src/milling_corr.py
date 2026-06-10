@@ -5,9 +5,8 @@
 import argparse
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING
 
-from fibsem_maestro.action.action import ActionConfig
+from fibsem_maestro.action.action import Action, ActionConfig
 from fibsem_maestro.core.image import Image8Bit
 from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.slice import SliceContext
@@ -17,9 +16,17 @@ from fibsem_maestro.logging.image.file import FileImageLogger
 from fibsem_maestro.logging.text.file import FileTextLogger
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.milling.milling import Milling
+from fibsem_maestro.post_milling_correction.correction import (
+    LinkedToPostMillingCorrection,
+    PostMillingCorrection,
+)
 from fibsem_maestro.settings.imaging_settings import ImagingSettings
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
 from fibsem_maestro.settings.milling_settings import MillingSettings
+from fibsem_maestro.settings.post_milling_correction_settings import (
+    PostMillingCorrectionSettings,
+)
+from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.store.frame.file import FileFrameStore
 from fibsem_maestro.store.image.file import FileImageStore
 from fibsem_maestro.store.props.file import FilePropsStore
@@ -28,12 +35,11 @@ from fibsem_maestro.workflow.links import ActionLinks
 from fibsem_maestro.workflow.propagations import Propagations
 from fibsem_maestro.workflow.workflow import Workflow
 
-if TYPE_CHECKING:
-    from fibsem_maestro.action.action import Action
-
 
 def main():
-    parser = argparse.ArgumentParser(description="Control the milling.")
+    parser = argparse.ArgumentParser(
+        description="Control the milling and post-milling correction."
+    )
 
     # define arguments
     parser.add_argument(
@@ -53,6 +59,12 @@ def main():
         type=Path,
         required=True,
         help="Path to the YAML file containing milling settings.",
+    )
+    parser.add_argument(
+        "--correction",
+        type=Path,
+        required=True,
+        help="Path to the YAML file containing post-milling correction settings.",
     )
     parser.add_argument(
         "--log-dir",
@@ -79,7 +91,9 @@ def main():
     # load settings
     microscope_settings = MicroscopeSettings.from_file(args.microscope)
     imaging_settings = ImagingSettings.from_file(args.imaging)
-    # drift_corr_settings = DriftCorrectionSettings.from_file(args.drift)
+    post_milling_corr_settings = PostMillingCorrectionSettings.from_file(
+        args.correction
+    )
     milling_settings = MillingSettings.from_file(args.milling)
 
     # initialize the loggers and stores
@@ -124,6 +138,20 @@ def main():
     )
     milling = Milling(milling_config)
 
+    # initialize the post-milling correction
+    corr_config = ActionConfig[PostMillingCorrectionSettings](
+        name="post milling correction",
+        microscope=microscope,
+        settings=post_milling_corr_settings,
+        props_store=props_store,
+        frame_store=frame_store,
+        txt_store=txt_store,
+        image_store=image_store,
+        txt_log=txt_log.derive("post_milling_correction"),
+        img_log=img_log,
+    )
+    post_milling_correction = PostMillingCorrection(corr_config)
+
     # set microscope properties manually
     # input("Set microscope properties for imaging interactively and then press ENTER.")
 
@@ -134,6 +162,9 @@ def main():
     microscope.beam.horizontal_field_width = 2000
 
     imaging.collect_and_write_properties(imaging.props_store.next)
+    post_milling_correction.collect_and_write_properties(
+        post_milling_correction.props_store.next
+    )
 
     # input("Set microscope properties for milling interactively and then press ENTER.")
     milling.collect_and_write_properties(milling.props_store.next)
@@ -146,11 +177,29 @@ def main():
     # optionally change microscope properties to test that the previously saved properties are reloaded before imaging
     # input("Microscope properties saved. Press ENTER.")
 
-    actions: list[Action] = [milling, imaging]
+    propagations = Propagations(txt_log.derive("propagations"))
+    propagations.register_rule(
+        "post milling correction",
+        ["imaging"],
+        PropertyNames(
+            electron_beam=["working_distance", "beam_shift"],
+            microscope=["stage_position"],
+        ),
+    )
+
+    links = ActionLinks(txt_log.derive("links"))
+    links.register_rule(
+        "post milling correction",
+        LinkedToPostMillingCorrection(
+            milling=milling,
+        ),
+    )
+
+    actions: list[Action] = [milling, post_milling_correction, imaging]
     workflow = Workflow(
         slice,
         actions,
-        Propagations(txt_log.derive("propagations")),
+        propagations,
         ActionLinks(txt_log.derive("links")),
         txt_log.derive("workflow"),
     )

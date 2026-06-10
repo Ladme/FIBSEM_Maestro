@@ -1,8 +1,9 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
+from dataclasses import dataclass
+
 import numpy as np
-from pydantic.dataclasses import dataclass
 
 from fibsem_maestro.action.action import Action, ActionConfig, LinkedActions
 from fibsem_maestro.action.registry import ACTION_REGISTRY

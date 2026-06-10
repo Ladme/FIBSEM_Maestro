@@ -5,8 +5,9 @@
 import argparse
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING
 
+from fibsem_maestro.action.action import Action, ActionConfig
+from fibsem_maestro.core.image import Image8Bit
 from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.slice import SliceContext
 from fibsem_maestro.core.stage_position import StagePosition
@@ -17,12 +18,12 @@ from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.imaging_settings import ImagingSettings
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
 from fibsem_maestro.store.frame.file import FileFrameStore
+from fibsem_maestro.store.image.file import FileImageStore
 from fibsem_maestro.store.props.file import FilePropsStore
+from fibsem_maestro.store.text.file import FileTextStore
+from fibsem_maestro.workflow.links import ActionLinks
 from fibsem_maestro.workflow.propagations import Propagations
 from fibsem_maestro.workflow.workflow import Workflow
-
-if TYPE_CHECKING:
-    from fibsem_maestro.core.action import Action
 
 
 def main():
@@ -75,20 +76,25 @@ def main():
     img_log = FileImageLogger(slice)
     props_store = FilePropsStore(slice)
     frame_store = FileFrameStore(slice, imaging_settings.images_directory)
+    txt_store = FileTextStore(slice)
+    image_store = FileImageStore(slice, Image8Bit, directory=Path("stored_images"))
 
     # initialize the microscope
     microscope = Microscope(microscope_settings, txt_log)
 
     # initialize the imaging
-    imaging = Imaging(
-        "imaging",
-        microscope,
-        imaging_settings,
-        props_store,
-        frame_store,
-        txt_log.derive("imaging"),
-        img_log,
+    imaging_config = ActionConfig[ImagingSettings](
+        name="imaging",
+        microscope=microscope,
+        settings=imaging_settings,
+        props_store=props_store,
+        frame_store=frame_store,
+        txt_store=txt_store,
+        image_store=image_store,
+        txt_log=txt_log.derive("imaging"),
+        img_log=img_log,
     )
+    imaging = Imaging(imaging_config)
 
     # set microscope properties manually
     input("Set microscope properties interactively and then press ENTER.")
@@ -113,7 +119,8 @@ def main():
     workflow = Workflow(
         slice,
         actions,
-        Propagations(actions, txt_log.derive("propagations")),
+        Propagations(txt_log.derive("propagations")),
+        ActionLinks(txt_log.derive("action_links")),
         txt_log.derive("workflow"),
     )
 
