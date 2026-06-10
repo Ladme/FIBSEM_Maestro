@@ -179,7 +179,7 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus]):
             links: The autofocus links, used to access the imaging job.
         """
         if links is None:
-            raise AutofocusError("Link to Imaging not specified.")
+            raise AutofocusError("Link to Imaging must be specified.")
 
         # if we have a running autofocus, continue executing it
         if self._active_gen is not None:
