@@ -111,3 +111,12 @@ class DiscriminatedUnionWidget(QWidget, WidgetWrapper):
             widget = self._variant_widgets[index]
             if isinstance(widget, WidgetWrapper):
                 widget.set_value(value)
+
+    def set_read_only(self, read_only: bool) -> None:
+        # disable radio buttons
+        for btn in self._button_group.buttons():
+            btn.setEnabled(not read_only)
+        # propagate to all variant widgets
+        for widget in self._variant_widgets:
+            if isinstance(widget, WidgetWrapper):
+                widget.set_read_only(read_only)

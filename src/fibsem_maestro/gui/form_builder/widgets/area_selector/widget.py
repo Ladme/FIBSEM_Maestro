@@ -256,3 +256,8 @@ class AreaSelectWidget(QWidget, WidgetWrapper):
         else:
             for area in regions:
                 self._add_relative_area(area)
+
+    def set_read_only(self, read_only: bool) -> None:
+        self._load_btn.setEnabled(not read_only)
+        self._toggle_btn.setEnabled(not read_only)
+        self._viewer.set_read_only(read_only)

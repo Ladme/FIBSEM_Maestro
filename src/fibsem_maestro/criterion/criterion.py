@@ -150,7 +150,11 @@ class Criterion:
             and a sharpness map (if logging is enabled).
         """
         # crop the image
-        cropped = image.crop(self._settings.area)
+        if len(self._settings.area) != 1:
+            raise CriterionError(
+                f"Expected exactly one criterion area, got {len(self._settings.area)}."
+            )
+        cropped = image.crop(self._settings.area[0])
 
         # calculate sharpness for the whole image
         if isinstance(self._tiling_mode, SingleTileMode):
@@ -192,7 +196,7 @@ class Criterion:
         # convert tiles to pixel coordinates in the original uncropped image
         tiles_px = list(
             Criterion._tiles_to_pixels_in_full_image(
-                tiles, self._settings.area, image.resolution, cropped.resolution
+                tiles, self._settings.area[0], image.resolution, cropped.resolution
             )
         )
 

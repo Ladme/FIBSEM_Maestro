@@ -5,12 +5,13 @@
 from enum import Enum
 from typing import Any
 
-from PyQt6.QtWidgets import QComboBox, QWidget
+from PyQt6.QtWidgets import QWidget
 
+from fibsem_maestro.gui.form_builder.widgets._no_scroll import NoScrollComboBox
 from fibsem_maestro.gui.form_builder.widgets.wrapper import WidgetWrapper
 
 
-class EnumWidget(QComboBox, WidgetWrapper):
+class EnumWidget(NoScrollComboBox, WidgetWrapper):
     def __init__(
         self,
         choices: list[Any],
@@ -31,6 +32,7 @@ class EnumWidget(QComboBox, WidgetWrapper):
             idx = self.findData(default)
             if idx >= 0:
                 self.setCurrentIndex(idx)
+        self.setFixedWidth(200)
 
     def get_value(self) -> Any:
         return self.currentData()
@@ -39,3 +41,6 @@ class EnumWidget(QComboBox, WidgetWrapper):
         idx = self.findData(value)
         if idx >= 0:
             self.setCurrentIndex(idx)
+
+    def set_read_only(self, read_only: bool) -> None:
+        self.setEnabled(not read_only)

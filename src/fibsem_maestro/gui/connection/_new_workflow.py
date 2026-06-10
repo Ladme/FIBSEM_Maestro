@@ -41,7 +41,9 @@ class NewWorkflowScreen(QWidget):
         all_infos = get_field_infos(MicroscopeSettings)
         connection_infos = [fi for fi in all_infos if fi.name in CONNECTION_FIELDS]
 
-        self._form = form_builder._build_object(MicroscopeSettings, connection_infos)
+        self._form = form_builder._build_object(
+            MicroscopeSettings, last_profile, connection_infos
+        )
         layout.addWidget(self._form)
 
         # pre-fill from last profile

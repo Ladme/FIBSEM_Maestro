@@ -4,8 +4,9 @@
 
 from typing import Any
 
-from PyQt6.QtWidgets import QDoubleSpinBox, QHBoxLayout, QLabel, QWidget
+from PyQt6.QtWidgets import QHBoxLayout, QLabel, QWidget
 
+from fibsem_maestro.gui.form_builder.widgets._no_scroll import NoScrollDoubleSpinBox
 from fibsem_maestro.gui.form_builder.widgets.wrapper import WidgetWrapper
 
 
@@ -26,16 +27,16 @@ class RangePairWidget(QWidget, WidgetWrapper):
 
         low, high = default if default is not None else (0.0, 0.0)
 
-        self._low = QDoubleSpinBox()
+        self._low = NoScrollDoubleSpinBox()
         self._low.setDecimals(6)
-        self._low.setFixedWidth(120)
+        self._low.setFixedWidth(200)
         self._low.setMinimum(minimum if minimum is not None else -1e12)
         self._low.setMaximum(high)
         self._low.setValue(low)
 
-        self._high = QDoubleSpinBox()
+        self._high = NoScrollDoubleSpinBox()
         self._high.setDecimals(6)
-        self._high.setFixedWidth(120)
+        self._high.setFixedWidth(200)
         self._high.setMinimum(low)
         self._high.setMaximum(maximum if maximum is not None else 1e12)
         self._high.setValue(high)
@@ -64,3 +65,7 @@ class RangePairWidget(QWidget, WidgetWrapper):
         low, high = value
         self._low.setValue(low)
         self._high.setValue(high)
+
+    def set_read_only(self, read_only: bool) -> None:
+        self._low.setReadOnly(read_only)
+        self._high.setReadOnly(read_only)

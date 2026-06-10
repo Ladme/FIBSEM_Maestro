@@ -69,12 +69,19 @@ class CriterionSettings(BaseSettings):
         default="bandpass",
         description="Criterion calculation function.",
     )
-    detail: DetailBand = Field(
+    detail: Annotated[
+        DetailBand,
+        FormHint(widget=WidgetType.DETAIL_BAND),
+        FieldUnit(suffix="nm"),
+        Field(ge=0.0),
+    ] = Field(
         default=DetailBand(low=0.0, high=0.0),
         description="Bandpass parameters: low and high details to filter out.",
     )
-    area: RelativeArea = Field(
-        default=RelativeArea.full(),
+    area: Annotated[
+        list[RelativeArea], FormHint(widget=WidgetType.AREA_SELECT, max_areas=1)
+    ] = Field(
+        default_factory=lambda: [RelativeArea.full()],
         description="Relative area of the image that should be used for image criterion calculation.",
     )
     log_sharpness_map: bool = Field(

@@ -45,3 +45,7 @@ class ObjectWidget(QWidget, WidgetWrapper):
         for name, w in self._fields.items():
             if name in value:
                 w.set_value(value[name])
+
+    def set_read_only(self, read_only: bool) -> None:
+        for w in self._fields.values():
+            w.set_read_only(read_only)

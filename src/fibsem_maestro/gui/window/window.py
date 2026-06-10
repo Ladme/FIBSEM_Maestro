@@ -52,7 +52,7 @@ class MainWindow(QMainWindow):
         self._app_state = AppState.EDITING
 
         self._form_builder = FormBuilder()
-        self._panels: dict[str, object] = {}
+        self._panels: dict[Action, QWidget] = {}
 
         self.setWindowTitle("FIBSEM Maestro")
         self.resize(1280, 800)
@@ -133,6 +133,8 @@ class MainWindow(QMainWindow):
         v_splitter.setStretchFactor(0, 1)
         v_splitter.setStretchFactor(1, 0)
 
+        h_splitter.setSizes([300, 1080])
+
         # wiring signals
         self._top_bar.run_requested.connect(
             lambda: self.set_app_state(AppState.RUNNING)
@@ -158,5 +160,17 @@ class MainWindow(QMainWindow):
         self.app_state_changed.emit(state)
 
     def _on_action_selected(self, action: Action) -> None:
-        pass
-        # TODO: should switch panel class
+        if action not in self._panels:
+            panel = ActionPanel(
+                action=action,
+                propagations=self._workflow.propagations,
+                all_actions=self._workflow.actions,
+                microscope=self._microscope,
+                form_builder=self._form_builder,
+            )
+            self.app_state_changed.connect(panel.on_app_state_changed)
+            panel.on_app_state_changed(self._app_state)
+            self._panels[action] = panel
+            self._stack.addWidget(panel)
+
+        self._stack.setCurrentWidget(self._panels[action])

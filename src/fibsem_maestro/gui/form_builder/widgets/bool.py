@@ -19,3 +19,6 @@ class BoolWidget(QCheckBox, WidgetWrapper):
 
     def set_value(self, value: Any) -> None:
         self.setChecked(bool(value))
+
+    def set_read_only(self, read_only: bool) -> None:
+        self.setEnabled(not read_only)

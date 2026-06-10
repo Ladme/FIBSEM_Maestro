@@ -30,3 +30,6 @@ class TextAreaWidget(QPlainTextEdit, WidgetWrapper):
         self.setPlainText(
             json.dumps(value, indent=2, default=str) if value is not None else ""
         )
+
+    def set_read_only(self, read_only: bool) -> None:
+        self.setReadOnly(read_only)

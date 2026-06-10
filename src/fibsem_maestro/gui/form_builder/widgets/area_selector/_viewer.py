@@ -79,6 +79,9 @@ class _AreaViewer(QGraphicsView):
         self.fitInView(self.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
     def mousePressEvent(self, event) -> None:
+        if self._read_only:
+            return
+
         if event.button() == Qt.MouseButton.RightButton:
             self._panning = True
             self._pan_start = event.position()
@@ -183,3 +186,6 @@ class _AreaViewer(QGraphicsView):
 
     def set_image_loaded(self) -> None:
         self._image_loaded = True
+
+    def set_read_only(self, read_only: bool) -> None:
+        self._read_only = read_only

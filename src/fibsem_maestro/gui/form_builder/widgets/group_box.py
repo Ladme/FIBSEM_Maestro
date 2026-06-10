@@ -64,3 +64,6 @@ class GroupBoxWidget(QGroupBox, WidgetWrapper):
 
     def set_value(self, value: Any) -> None:
         self._inner.set_value(value)
+
+    def set_read_only(self, read_only: bool) -> None:
+        self._inner.set_read_only(read_only)

@@ -37,3 +37,6 @@ class MultiSelectWidget(QListWidget, WidgetWrapper):
     def set_value(self, value: list[str]) -> None:
         for i in range(self.count()):
             self.item(i).setSelected(self.item(i).text() in value)
+
+    def set_read_only(self, read_only: bool) -> None:
+        self.setEnabled(not read_only)

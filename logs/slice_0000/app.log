@@ -1,0 +1,364 @@
+2026-06-10 14:00:13,107 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 14:00:13,157 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 14:00:13,237 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 14:00:13,237 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 14:00:13,237 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 14:00:13,237 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 14:00:56,885 [microscope.electron_beam] DEBUG: Getting an image.
+2026-06-10 14:00:56,885 [microscope.electron_beam] DEBUG: Grabbing frame.
+2026-06-10 14:00:56,885 [microscope.electron_beam] DEBUG: Getting resolution: 2048x1536.
+2026-06-10 14:00:56,886 [microscope.electron_beam] DEBUG: Getting beam shift: BeamShift(x=0.0, y=0.0).
+2026-06-10 14:00:56,886 [microscope.electron_beam] DEBUG: Getting beam shift: BeamShift(x=0.0, y=0.0).
+2026-06-10 14:00:56,886 [microscope.electron_beam] DEBUG: Getting horizontal field width: 2000.
+2026-06-10 14:00:56,886 [microscope.electron_beam] DEBUG: Getting horizontal field width: 2000.
+2026-06-10 14:00:56,886 [microscope.electron_beam] DEBUG: Getting resolution: 2048x1536.
+2026-06-10 14:00:56,886 [microscope.electron_beam] DEBUG: Getting resolution: 2048x1536.
+2026-06-10 14:00:56,886 [microscope.electron_beam] DEBUG: Getting vertical field width: 1500.0.
+2026-06-10 14:00:57,235 [microscope.electron_beam] DEBUG: Getting working distance: 5000000.0.
+2026-06-10 14:00:57,238 [microscope.electron_beam] DEBUG: Getting horizontal field width: 2000.
+2026-06-10 14:00:57,238 [microscope.electron_beam] DEBUG: Getting resolution: 2048x1536.
+2026-06-10 14:00:57,238 [microscope.electron_beam] DEBUG: Getting pixel size: 0.9765625.
+2026-06-10 14:00:57,238 [microscope.electron_beam] DEBUG: Getting stigmator: Stigmator(x=0.0, y=0.0).
+2026-06-10 14:00:57,238 [microscope.electron_beam] DEBUG: Getting stigmator: Stigmator(x=0.0, y=0.0).
+2026-06-10 14:00:57,290 [microscope.electron_beam] DEBUG: Getting dwell time: 1e-06.
+2026-06-10 14:00:57,290 [microscope.electron_beam] DEBUG: Getting line integration: 1.
+2026-06-10 14:00:57,315 [microscope.electron_beam] DEBUG: Getting detector brightness: 0.5.
+2026-06-10 14:00:57,315 [microscope.electron_beam] DEBUG: Getting detector contrast: 0.5.
+2026-06-10 14:00:57,323 [microscope.electron_beam] DEBUG: Getting bit depth: 8.
+2026-06-10 14:00:57,326 [microscope.electron_beam] DEBUG: Getting bit depth: 8.
+2026-06-10 14:00:57,327 [microscope.electron_beam] DEBUG: Getting horizontal field width: 2000.
+2026-06-10 14:00:57,327 [microscope.electron_beam] DEBUG: Getting resolution: 2048x1536.
+2026-06-10 14:00:57,327 [microscope.electron_beam] DEBUG: Getting pixel size: 0.9765625.
+2026-06-10 14:00:57,327 [microscope.electron_beam] DEBUG: Getting scanning area: origin=RelativePoint(x=0.0, y=0.0) width=1.0 height=1.0.
+2026-06-10 14:02:20,522 [microscope.electron_beam] DEBUG: Getting an image.
+2026-06-10 14:04:06,085 [microscope.electron_beam] DEBUG: Getting an image.
+2026-06-10 14:14:56,034 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 14:14:56,084 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 14:14:56,163 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 14:14:56,163 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 14:14:56,163 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 14:14:56,163 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 14:16:36,906 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 14:16:36,959 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 14:16:37,037 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 14:16:37,037 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 14:16:37,037 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 14:16:37,037 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 14:18:41,140 [microscope.electron_beam] DEBUG: Getting an image.
+2026-06-10 14:18:41,141 [microscope.electron_beam] DEBUG: Grabbing frame.
+2026-06-10 14:18:41,141 [microscope.electron_beam] DEBUG: Getting resolution: 2048x1536.
+2026-06-10 14:18:41,141 [microscope.electron_beam] DEBUG: Getting beam shift: BeamShift(x=0.0, y=0.0).
+2026-06-10 14:18:41,141 [microscope.electron_beam] DEBUG: Getting beam shift: BeamShift(x=0.0, y=0.0).
+2026-06-10 14:18:41,141 [microscope.electron_beam] DEBUG: Getting horizontal field width: 2000.
+2026-06-10 14:18:41,141 [microscope.electron_beam] DEBUG: Getting horizontal field width: 2000.
+2026-06-10 14:18:41,141 [microscope.electron_beam] DEBUG: Getting resolution: 2048x1536.
+2026-06-10 14:18:41,141 [microscope.electron_beam] DEBUG: Getting resolution: 2048x1536.
+2026-06-10 14:18:41,141 [microscope.electron_beam] DEBUG: Getting vertical field width: 1500.0.
+2026-06-10 14:18:41,490 [microscope.electron_beam] DEBUG: Getting working distance: 5000000.0.
+2026-06-10 14:18:41,493 [microscope.electron_beam] DEBUG: Getting horizontal field width: 2000.
+2026-06-10 14:18:41,493 [microscope.electron_beam] DEBUG: Getting resolution: 2048x1536.
+2026-06-10 14:18:41,493 [microscope.electron_beam] DEBUG: Getting pixel size: 0.9765625.
+2026-06-10 14:18:41,493 [microscope.electron_beam] DEBUG: Getting stigmator: Stigmator(x=0.0, y=0.0).
+2026-06-10 14:18:41,493 [microscope.electron_beam] DEBUG: Getting stigmator: Stigmator(x=0.0, y=0.0).
+2026-06-10 14:18:41,544 [microscope.electron_beam] DEBUG: Getting dwell time: 1e-06.
+2026-06-10 14:18:41,545 [microscope.electron_beam] DEBUG: Getting line integration: 1.
+2026-06-10 14:18:41,570 [microscope.electron_beam] DEBUG: Getting detector brightness: 0.5.
+2026-06-10 14:18:41,570 [microscope.electron_beam] DEBUG: Getting detector contrast: 0.5.
+2026-06-10 14:18:41,578 [microscope.electron_beam] DEBUG: Getting bit depth: 8.
+2026-06-10 14:18:41,580 [microscope.electron_beam] DEBUG: Getting bit depth: 8.
+2026-06-10 14:18:41,581 [microscope.electron_beam] DEBUG: Getting horizontal field width: 2000.
+2026-06-10 14:18:41,581 [microscope.electron_beam] DEBUG: Getting resolution: 2048x1536.
+2026-06-10 14:18:41,581 [microscope.electron_beam] DEBUG: Getting pixel size: 0.9765625.
+2026-06-10 14:18:41,582 [microscope.electron_beam] DEBUG: Getting scanning area: origin=RelativePoint(x=0.0, y=0.0) width=1.0 height=1.0.
+2026-06-10 14:25:50,981 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 14:25:51,031 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 14:25:51,111 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 14:25:51,112 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 14:25:51,112 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 14:25:51,112 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 14:26:02,220 [microscope.electron_beam] DEBUG: Getting an image.
+2026-06-10 14:26:02,220 [microscope.electron_beam] DEBUG: Grabbing frame.
+2026-06-10 14:26:02,221 [microscope.electron_beam] DEBUG: Getting resolution: 2048x1536.
+2026-06-10 14:26:02,221 [microscope.electron_beam] DEBUG: Getting beam shift: BeamShift(x=0.0, y=0.0).
+2026-06-10 14:26:02,221 [microscope.electron_beam] DEBUG: Getting beam shift: BeamShift(x=0.0, y=0.0).
+2026-06-10 14:26:02,221 [microscope.electron_beam] DEBUG: Getting horizontal field width: 2000.
+2026-06-10 14:26:02,221 [microscope.electron_beam] DEBUG: Getting horizontal field width: 2000.
+2026-06-10 14:26:02,221 [microscope.electron_beam] DEBUG: Getting resolution: 2048x1536.
+2026-06-10 14:26:02,221 [microscope.electron_beam] DEBUG: Getting resolution: 2048x1536.
+2026-06-10 14:26:02,221 [microscope.electron_beam] DEBUG: Getting vertical field width: 1500.0.
+2026-06-10 14:26:02,570 [microscope.electron_beam] DEBUG: Getting working distance: 5000000.0.
+2026-06-10 14:26:02,573 [microscope.electron_beam] DEBUG: Getting horizontal field width: 2000.
+2026-06-10 14:26:02,573 [microscope.electron_beam] DEBUG: Getting resolution: 2048x1536.
+2026-06-10 14:26:02,573 [microscope.electron_beam] DEBUG: Getting pixel size: 0.9765625.
+2026-06-10 14:26:02,573 [microscope.electron_beam] DEBUG: Getting stigmator: Stigmator(x=0.0, y=0.0).
+2026-06-10 14:26:02,573 [microscope.electron_beam] DEBUG: Getting stigmator: Stigmator(x=0.0, y=0.0).
+2026-06-10 14:26:02,628 [microscope.electron_beam] DEBUG: Getting dwell time: 1e-06.
+2026-06-10 14:26:02,628 [microscope.electron_beam] DEBUG: Getting line integration: 1.
+2026-06-10 14:26:02,654 [microscope.electron_beam] DEBUG: Getting detector brightness: 0.5.
+2026-06-10 14:26:02,654 [microscope.electron_beam] DEBUG: Getting detector contrast: 0.5.
+2026-06-10 14:26:02,662 [microscope.electron_beam] DEBUG: Getting bit depth: 8.
+2026-06-10 14:26:02,664 [microscope.electron_beam] DEBUG: Getting bit depth: 8.
+2026-06-10 14:26:02,665 [microscope.electron_beam] DEBUG: Getting horizontal field width: 2000.
+2026-06-10 14:26:02,665 [microscope.electron_beam] DEBUG: Getting resolution: 2048x1536.
+2026-06-10 14:26:02,665 [microscope.electron_beam] DEBUG: Getting pixel size: 0.9765625.
+2026-06-10 14:26:02,666 [microscope.electron_beam] DEBUG: Getting scanning area: origin=RelativePoint(x=0.0, y=0.0) width=1.0 height=1.0.
+2026-06-10 14:31:46,394 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 14:31:46,443 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 14:31:46,524 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 14:31:46,525 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 14:31:46,525 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 14:31:46,525 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 14:32:35,754 [microscope.electron_beam] DEBUG: Getting an image.
+2026-06-10 14:32:35,754 [microscope.electron_beam] DEBUG: Grabbing frame.
+2026-06-10 14:32:35,754 [microscope.electron_beam] DEBUG: Getting resolution: 2048x1536.
+2026-06-10 14:32:35,754 [microscope.electron_beam] DEBUG: Getting beam shift: BeamShift(x=0.0, y=0.0).
+2026-06-10 14:32:35,754 [microscope.electron_beam] DEBUG: Getting beam shift: BeamShift(x=0.0, y=0.0).
+2026-06-10 14:32:35,754 [microscope.electron_beam] DEBUG: Getting horizontal field width: 2000.
+2026-06-10 14:32:35,754 [microscope.electron_beam] DEBUG: Getting horizontal field width: 2000.
+2026-06-10 14:32:35,754 [microscope.electron_beam] DEBUG: Getting resolution: 2048x1536.
+2026-06-10 14:32:35,755 [microscope.electron_beam] DEBUG: Getting resolution: 2048x1536.
+2026-06-10 14:32:35,755 [microscope.electron_beam] DEBUG: Getting vertical field width: 1500.0.
+2026-06-10 14:32:36,109 [microscope.electron_beam] DEBUG: Getting working distance: 5000000.0.
+2026-06-10 14:32:36,112 [microscope.electron_beam] DEBUG: Getting horizontal field width: 2000.
+2026-06-10 14:32:36,112 [microscope.electron_beam] DEBUG: Getting resolution: 2048x1536.
+2026-06-10 14:32:36,112 [microscope.electron_beam] DEBUG: Getting pixel size: 0.9765625.
+2026-06-10 14:32:36,112 [microscope.electron_beam] DEBUG: Getting stigmator: Stigmator(x=0.0, y=0.0).
+2026-06-10 14:32:36,112 [microscope.electron_beam] DEBUG: Getting stigmator: Stigmator(x=0.0, y=0.0).
+2026-06-10 14:32:36,170 [microscope.electron_beam] DEBUG: Getting dwell time: 1e-06.
+2026-06-10 14:32:36,170 [microscope.electron_beam] DEBUG: Getting line integration: 1.
+2026-06-10 14:32:36,195 [microscope.electron_beam] DEBUG: Getting detector brightness: 0.5.
+2026-06-10 14:32:36,196 [microscope.electron_beam] DEBUG: Getting detector contrast: 0.5.
+2026-06-10 14:32:36,204 [microscope.electron_beam] DEBUG: Getting bit depth: 8.
+2026-06-10 14:32:36,206 [microscope.electron_beam] DEBUG: Getting bit depth: 8.
+2026-06-10 14:32:36,207 [microscope.electron_beam] DEBUG: Getting horizontal field width: 2000.
+2026-06-10 14:32:36,207 [microscope.electron_beam] DEBUG: Getting resolution: 2048x1536.
+2026-06-10 14:32:36,207 [microscope.electron_beam] DEBUG: Getting pixel size: 0.9765625.
+2026-06-10 14:32:36,208 [microscope.electron_beam] DEBUG: Getting scanning area: origin=RelativePoint(x=0.0, y=0.0) width=1.0 height=1.0.
+2026-06-10 14:39:21,638 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 14:39:21,689 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 14:39:21,749 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 14:39:21,749 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 14:39:21,749 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 14:39:21,749 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 14:41:23,042 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 14:41:23,101 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 14:41:23,178 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 14:41:23,178 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 14:41:23,178 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 14:41:23,178 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 14:42:43,970 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 14:42:44,030 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 14:42:44,109 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 14:42:44,109 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 14:42:44,110 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 14:42:44,110 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 14:44:34,830 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 14:44:34,890 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 14:44:34,967 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 14:44:34,968 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 14:44:34,968 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 14:44:34,968 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 14:46:28,299 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 14:46:28,352 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 14:46:28,432 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 14:46:28,432 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 14:46:28,432 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 14:46:28,432 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 14:47:10,690 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 14:47:10,750 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 14:47:10,830 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 14:47:10,830 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 14:47:10,830 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 14:47:10,830 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 14:49:10,906 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 14:49:10,958 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 14:49:11,037 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 14:49:11,038 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 14:49:11,038 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 14:49:11,038 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 14:50:30,133 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 14:50:30,183 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 14:50:30,263 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 14:50:30,263 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 14:50:30,263 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 14:50:30,263 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 14:52:12,191 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 14:52:12,239 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 14:52:12,315 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 14:52:12,315 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 14:52:12,315 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 14:52:12,315 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 14:56:11,750 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 14:56:11,799 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 14:56:11,878 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 14:56:11,878 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 14:56:11,878 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 14:56:11,878 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 14:57:20,669 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 14:57:20,719 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 14:57:20,796 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 14:57:20,796 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 14:57:20,796 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 14:57:20,796 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 14:59:07,677 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 14:59:07,735 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 14:59:07,817 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 14:59:07,817 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 14:59:07,817 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 14:59:07,818 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 14:59:32,660 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 14:59:32,711 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 14:59:32,772 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 14:59:32,772 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 14:59:32,772 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 14:59:32,772 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 15:00:20,424 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:00:20,473 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:00:20,549 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 15:00:20,549 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 15:00:20,549 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 15:00:20,549 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 15:02:51,333 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:02:51,384 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:02:51,462 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 15:02:51,463 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 15:02:51,463 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 15:02:51,463 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 15:03:52,180 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:03:52,238 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:03:52,316 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 15:03:52,316 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 15:03:52,316 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 15:03:52,316 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 15:03:59,943 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:04:00,004 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:04:00,087 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 15:04:00,087 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 15:04:00,087 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 15:04:00,087 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 15:05:26,132 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:05:26,193 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:05:26,279 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 15:05:26,279 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 15:05:26,279 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 15:05:26,279 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 15:05:41,564 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:05:41,614 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:05:41,688 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 15:05:41,688 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 15:05:41,688 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 15:05:41,688 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 15:09:52,645 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:09:52,695 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:09:52,770 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 15:09:52,770 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 15:09:52,771 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 15:09:52,771 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 15:10:14,334 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:10:14,394 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:10:14,473 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 15:10:14,473 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 15:10:14,473 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 15:10:14,473 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 15:15:08,208 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:15:08,260 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:15:08,338 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 15:15:08,338 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 15:15:08,338 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 15:15:08,338 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 15:16:40,570 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:16:40,633 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:16:40,694 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 15:16:40,695 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 15:16:40,695 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 15:16:40,695 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 15:20:07,722 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:20:07,771 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:20:07,849 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 15:20:07,849 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 15:20:07,849 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 15:20:07,849 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 15:21:37,531 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:21:37,592 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:21:37,682 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 15:21:37,682 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 15:21:37,682 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 15:21:37,682 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 15:22:31,760 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:22:31,810 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:22:31,887 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 15:22:31,888 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 15:22:31,888 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 15:22:31,888 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 15:24:59,177 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:24:59,229 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:24:59,310 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 15:24:59,310 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 15:24:59,310 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 15:24:59,310 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 15:25:40,412 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:25:40,462 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:25:40,541 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 15:25:40,541 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 15:25:40,541 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 15:25:40,541 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 15:26:16,621 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:26:16,682 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:26:16,762 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 15:26:16,762 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 15:26:16,762 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 15:26:16,762 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 15:27:54,701 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:27:54,752 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:27:54,831 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 15:27:54,831 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 15:27:54,831 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 15:27:54,831 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 15:31:28,176 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:31:28,225 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:31:28,302 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 15:31:28,302 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 15:31:28,302 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 15:31:28,302 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 15:33:00,693 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:33:00,743 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:33:00,819 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 15:33:00,819 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 15:33:00,819 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 15:33:00,819 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 15:35:00,668 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:35:00,727 [microscope] INFO: Initializing a simulated microscope.
+2026-06-10 15:35:00,805 [microscope] DEBUG: Setting stage position to StagePosition(x=0.0, y=0.0, z=5000000.0, rotation=0, tilt=0).
+2026-06-10 15:35:00,805 [microscope] DEBUG: Current stage position is StagePosition(x=4.954939461343227e-05, y=9.96061449084506e-05, z=5000000.0000563245, rotation=-8.061838393996147e-05, tilt=4.980887865188406e-05).
+2026-06-10 15:35:00,805 [microscope.electron_beam] DEBUG: Setting resolution: 2048x1536.
+2026-06-10 15:35:00,805 [microscope.electron_beam] DEBUG: Setting horizontal field width: 2000.
+2026-06-10 15:35:16,820 [microscope.electron_beam] DEBUG: Getting an image.
+2026-06-10 15:35:16,821 [microscope.electron_beam] DEBUG: Grabbing frame.
+2026-06-10 15:35:16,821 [microscope.electron_beam] DEBUG: Getting resolution: 2048x1536.
+2026-06-10 15:35:16,821 [microscope.electron_beam] DEBUG: Getting beam shift: BeamShift(x=0.0, y=0.0).
+2026-06-10 15:35:16,821 [microscope.electron_beam] DEBUG: Getting beam shift: BeamShift(x=0.0, y=0.0).
+2026-06-10 15:35:16,821 [microscope.electron_beam] DEBUG: Getting horizontal field width: 2000.
+2026-06-10 15:35:16,821 [microscope.electron_beam] DEBUG: Getting horizontal field width: 2000.
+2026-06-10 15:35:16,821 [microscope.electron_beam] DEBUG: Getting resolution: 2048x1536.
+2026-06-10 15:35:16,821 [microscope.electron_beam] DEBUG: Getting resolution: 2048x1536.
+2026-06-10 15:35:16,821 [microscope.electron_beam] DEBUG: Getting vertical field width: 1500.0.
+2026-06-10 15:35:17,170 [microscope.electron_beam] DEBUG: Getting working distance: 5000000.0.
+2026-06-10 15:35:17,173 [microscope.electron_beam] DEBUG: Getting horizontal field width: 2000.
+2026-06-10 15:35:17,173 [microscope.electron_beam] DEBUG: Getting resolution: 2048x1536.
+2026-06-10 15:35:17,173 [microscope.electron_beam] DEBUG: Getting pixel size: 0.9765625.
+2026-06-10 15:35:17,173 [microscope.electron_beam] DEBUG: Getting stigmator: Stigmator(x=0.0, y=0.0).
+2026-06-10 15:35:17,173 [microscope.electron_beam] DEBUG: Getting stigmator: Stigmator(x=0.0, y=0.0).
+2026-06-10 15:35:17,224 [microscope.electron_beam] DEBUG: Getting dwell time: 1e-06.
+2026-06-10 15:35:17,225 [microscope.electron_beam] DEBUG: Getting line integration: 1.
+2026-06-10 15:35:17,250 [microscope.electron_beam] DEBUG: Getting detector brightness: 0.5.
+2026-06-10 15:35:17,250 [microscope.electron_beam] DEBUG: Getting detector contrast: 0.5.
+2026-06-10 15:35:17,258 [microscope.electron_beam] DEBUG: Getting bit depth: 8.
+2026-06-10 15:35:17,260 [microscope.electron_beam] DEBUG: Getting bit depth: 8.
+2026-06-10 15:35:17,261 [microscope.electron_beam] DEBUG: Getting horizontal field width: 2000.
+2026-06-10 15:35:17,261 [microscope.electron_beam] DEBUG: Getting resolution: 2048x1536.
+2026-06-10 15:35:17,261 [microscope.electron_beam] DEBUG: Getting pixel size: 0.9765625.
+2026-06-10 15:35:17,262 [microscope.electron_beam] DEBUG: Getting scanning area: origin=RelativePoint(x=0.0, y=0.0) width=1.0 height=1.0.
+2026-06-10 15:38:23,822 [microscope.electron_beam] DEBUG: Getting an image.
+2026-06-10 15:40:14,073 [microscope.electron_beam] DEBUG: Getting stigmator: Stigmator(x=0.0, y=0.0).
+2026-06-10 15:40:17,041 [microscope.electron_beam] DEBUG: Getting stigmator: Stigmator(x=0.0, y=0.0).
+2026-06-10 15:40:17,317 [microscope.electron_beam] DEBUG: Getting stigmator: Stigmator(x=0.0, y=0.0).

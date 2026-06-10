@@ -19,3 +19,8 @@ class WidgetWrapper:
         raise NotImplementedError(
             f"set_value is not implemented for {self.__class__.__name__}"
         )
+
+    def set_read_only(self, read_only: bool) -> None:
+        raise NotImplementedError(
+            f"set_read_only is not implemented for {self.__class__.__name__}"
+        )

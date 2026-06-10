@@ -59,3 +59,7 @@ class OptionalWidget(QWidget, WidgetWrapper):
             self._inner.setVisible(True)
             inner = cast("WidgetWrapper", self._inner)
             inner.set_value(value)
+
+    def set_read_only(self, read_only: bool) -> None:
+        self._checkbox.setEnabled(not read_only)
+        cast("WidgetWrapper", self._inner).set_read_only(read_only)

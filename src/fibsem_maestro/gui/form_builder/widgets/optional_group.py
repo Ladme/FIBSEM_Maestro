@@ -71,3 +71,8 @@ class OptionalGroupWidget(QWidget, WidgetWrapper):
             self._checkbox_in_group.setChecked(True)
             self._layout.addWidget(self._group)
             self._inner.set_value(value)
+
+    def set_read_only(self, read_only: bool) -> None:
+        self._checkbox_standalone.setEnabled(not read_only)
+        self._checkbox_in_group.setEnabled(not read_only)
+        self._inner.set_read_only(read_only)

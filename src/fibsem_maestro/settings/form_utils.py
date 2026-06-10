@@ -13,6 +13,7 @@ class WidgetType(Enum):
     MULTI_PROPERTY_SELECTOR = "multi_property_selector"
     AREA_SELECT = "area_select"
     RANGE_PAIR = "range_pair"
+    DETAIL_BAND = "detail_band"
 
 
 @dataclass

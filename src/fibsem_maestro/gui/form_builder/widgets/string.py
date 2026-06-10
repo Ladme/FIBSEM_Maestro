@@ -21,10 +21,11 @@ class StringWidget(QWidget, WidgetWrapper):
 
         self._edit = QLineEdit()
         self._edit.setText(str(default) if default else "")
+        self._edit.setFixedWidth(200)
         layout.addWidget(self._edit)
-
         if suffix:
             layout.addWidget(QLabel(suffix))
+        layout.addStretch()
 
     def get_value(self) -> str | None:
         text = self._edit.text()
@@ -32,3 +33,6 @@ class StringWidget(QWidget, WidgetWrapper):
 
     def set_value(self, value: str | None) -> None:
         self._edit.setText(str(value) if value is not None else "")
+
+    def set_read_only(self, read_only: bool) -> None:
+        self._edit.setReadOnly(read_only)
