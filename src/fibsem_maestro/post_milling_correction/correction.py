@@ -9,6 +9,7 @@ from fibsem_maestro.action.action import Action, ActionConfig, LinkedActions
 from fibsem_maestro.action.registry import ACTION_REGISTRY
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
+from fibsem_maestro.core.direction import Direction
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.milling.milling import Milling
@@ -121,6 +122,7 @@ class PostMillingCorrection(
                 if links is None:
                     raise PostMillingCorrectionError("Link to Milling not specified.")
                 milling_settings = links.milling.settings
+
                 self._perform_automatic_correction(milling_settings)
 
         # update the microscope properties for the next frame
@@ -145,8 +147,14 @@ class PostMillingCorrection(
             np.sqrt(milling_settings.slice_distance**2 - y_correction**2)
         )
 
+        # we are milling up, so y_correction and wd_correction need to be inverted
+        if milling_settings.milling_direction is Direction.UP:
+            y_correction = -y_correction
+            wd_correction = -wd_correction
+
         self._txt_log.info(
-            f"Performing automatic post milling correction: y_correction={y_correction}, wd_correction={wd_correction} based on slice_distance={milling_settings.slice_distance}"
+            f"Performing automatic post milling correction: y_correction={y_correction}, wd_correction={wd_correction} "
+            f"based on slice_distance={milling_settings.slice_distance} and direction={milling_settings.milling_direction}."
         )
 
         self._microscope.add_beam_shift_with_verification(

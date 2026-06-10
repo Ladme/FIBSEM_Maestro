@@ -155,11 +155,11 @@ def main():
     # set microscope properties manually
     # input("Set microscope properties for imaging interactively and then press ENTER.")
 
-    microscope._control.try_set_stage_position(
-        StagePosition(x=0.0, y=0.0, z=5_000_000.0, rotation=0, tilt=0)
-    )
-    microscope.beam.resolution = Resolution(1024, 768)
-    microscope.beam.horizontal_field_width = 2000
+    # microscope._control.try_set_stage_position(
+    #    StagePosition(x=0.0, y=0.0, z=5_000_000.0, rotation=0, tilt=0)
+    # )
+    # microscope.beam.resolution = Resolution(1024, 768)
+    # microscope.beam.horizontal_field_width = 2000
 
     imaging.collect_and_write_properties(imaging.props_store.next)
     post_milling_correction.collect_and_write_properties(
@@ -195,7 +195,7 @@ def main():
         ),
     )
 
-    actions: list[Action] = [milling, post_milling_correction, imaging]
+    actions: list[Action] = [post_milling_correction, imaging]
     workflow = Workflow(
         slice,
         actions,
