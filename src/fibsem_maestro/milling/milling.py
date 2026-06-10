@@ -15,7 +15,6 @@ from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.milling_settings import MillingSettings
 from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.store.props.props_store import PropsStore
-from fibsem_maestro.store.text.text_store import TextStore
 
 if TYPE_CHECKING:
     from fibsem_maestro.core.area import NMArea
