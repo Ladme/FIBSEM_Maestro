@@ -2,13 +2,14 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 import re
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
+from typing import Any, Self
 
 import matplotlib as mpl
-import numpy as np
 
 from fibsem_maestro.logging.image.plot_element import Curve, PlotElement, VerticalLine
+from fibsem_maestro.slice.slice_view import SliceView
 
 mpl.use("Agg")
 from matplotlib import pyplot as plt
@@ -16,7 +17,6 @@ from matplotlib.axes import Axes
 from matplotlib.patches import Rectangle
 from numpy.typing import NDArray
 
-from fibsem_maestro.core.slice import SliceContext
 from fibsem_maestro.logging.image.image_logger import ImageLogger
 from fibsem_maestro.logging.image.overlay import (
     HeatmapOverlay,
@@ -29,49 +29,43 @@ from fibsem_maestro.logging.image.overlay import (
 
 class FileImageLogger(ImageLogger):
     """
-    ImageLogger that renders and writes PNG files into slice-aware directories.
+    `ImageLogger` that renders and writes PNG files into the slice directory.
 
-    Images and plots are rendered with Matplotlib and written to the `images`
-    subdirectory of the current slice, as resolved by the provided `SliceContext`.
+    Images and plots are rendered with Matplotlib and written directly into
+    the flat slice directory resolved by `view_provider`. If a file with the
+    same stem already exists in that directory, a numeric suffix is appended to
+    avoid overwriting it.
 
     Args:
-        ctx: Slice context used to resolve the active image output directory.
+        view_provider: Callable returning the `SliceView` to write to.
     """
 
-    def __init__(self, ctx: SliceContext):
-        """
-        Args:
-            ctx: Slice context used to resolve the active image output directory.
-        """
-        self._ctx = ctx
+    def __init__(self, view_provider: Callable[[], SliceView]) -> None:
+        self._view_provider = view_provider
 
     def save_image(
         self,
         filename: str,
-        img: NDArray[np.floating],
+        img: NDArray[Any],
         overlays: Sequence[Overlay] | None = None,
         title: str | None = None,
     ) -> None:
         """
-        Render and save a grayscale image as a PNG, optionally annotated with overlays.
-
-        The file is written to the current slice's image directory as
-        `{filename}`. Supported overlay types are `RectangleOverlay`,
-        `PolylineOverlay`, `VerticalLineOverlay`, and `HeatmapOverlay`.
+        Render and save a grayscale image as a PNG.
 
         Args:
-            filename: Output filename with extension, relative to the current
-                slice's image directory.
-            img: 2-D floating-point array containing the image data.
-            overlays: Optional sequence of overlay objects to draw on top of the
-                image. Unsupported overlay types are silently skipped.
+            filename: Output filename with extension, relative to the current slice directory.
+            img: 2D floating-point array containing the image data.
+            overlays: Optional sequence of overlay objects to draw on the
+                image. Supported types are `RectangleOverlay`, `PolylineOverlay`,
+                `VerticalLineOverlay`, and `HeatmapOverlay`. Unsupported types are silently skipped.
             title: Optional title rendered above the image.
         """
         fig, ax = plt.subplots()
         ax.imshow(img, cmap="gray")
 
         if overlays:
-            self._set_overlays(ax, overlays)
+            self._draw_overlays(ax, overlays)
 
         if title:
             ax.set_title(title)
@@ -79,17 +73,73 @@ class FileImageLogger(ImageLogger):
         ax.axis("off")
         fig.tight_layout()
 
-        out_path = FileImageLogger._unique_path(self._ctx.images() / filename)
+        out_path = self._unique_path(self._view_provider().path() / filename)
         fig.savefig(out_path, dpi=100)
         plt.close(fig)
 
-    def _set_overlays(self, ax: Axes, overlays: Sequence[Overlay]) -> None:
+    def save_plot(
+        self,
+        filename: str,
+        elements: Sequence[PlotElement],
+        title: str | None = None,
+        xlabel: str | None = None,
+        ylabel: str | None = None,
+    ) -> None:
         """
-        Apply overlay objects to the Matplotlib axes.
+        Render and save a multi-curve plot as a PNG.
 
         Args:
-            ax: Matplotlib axes object where overlays will be drawn.
-            overlays: A sequence of overlay definitions.
+            filename: Output filename with extension, relative to the current slice directory.
+            elements: Sequence of `PlotElement` objects defining the data.
+            title: Optional title rendered above the plot.
+            xlabel: Optional x-axis label.
+            ylabel: Optional y-axis label.
+        """
+        fig, ax = plt.subplots()
+
+        for element in elements:
+            match element:
+                case Curve():
+                    if element.x is None:
+                        ax.plot(
+                            element.y,
+                            color=element.color,
+                            linewidth=element.linewidth,
+                        )
+                    else:
+                        ax.plot(
+                            element.x,
+                            element.y,
+                            color=element.color,
+                            linewidth=element.linewidth,
+                        )
+                case VerticalLine():
+                    ax.axvline(
+                        x=element.x,
+                        color=element.color,
+                        linewidth=element.linewidth,
+                    )
+
+        if title:
+            ax.set_title(title)
+        if xlabel:
+            ax.set_xlabel(xlabel)
+        if ylabel:
+            ax.set_ylabel(ylabel)
+
+        fig.tight_layout()
+
+        out_path = self._unique_path(self._view_provider().path() / filename)
+        fig.savefig(out_path, dpi=100)
+        plt.close(fig)
+
+    def _draw_overlays(self, ax: Axes, overlays: Sequence[Overlay]) -> None:
+        """
+        Apply overlay objects to a Matplotlib axes.
+
+        Args:
+            ax: The axes to draw onto.
+            overlays: Sequence of overlay definitions. Unsupported types are silently skipped.
         """
         for overlay in overlays:
             if isinstance(overlay, RectangleOverlay):
@@ -104,93 +154,70 @@ class FileImageLogger(ImageLogger):
                         alpha=overlay.alpha,
                     )
                 )
-
             elif isinstance(overlay, PolylineOverlay):
                 xs = [p.x for p in overlay.points]
                 ys = [p.y for p in overlay.points]
                 ax.plot(xs, ys, color=overlay.color, linewidth=overlay.linewidth)
-
             elif isinstance(overlay, VerticalLineOverlay):
                 ax.axvline(
-                    x=overlay.x, color=overlay.color, linewidth=overlay.linewidth
+                    x=overlay.x,
+                    color=overlay.color,
+                    linewidth=overlay.linewidth,
                 )
-
             elif isinstance(overlay, HeatmapOverlay):
                 ax.imshow(overlay.data, cmap="hot", alpha=overlay.alpha)
 
-    def save_plot(
-        self,
-        filename: str,
-        elements: Sequence[PlotElement],
-        title: str | None = None,
-        xlabel: str | None = None,
-        ylabel: str | None = None,
-    ) -> None:
+    def at(self, slice_index: int) -> Self:
         """
-        Render and save a multi-curve plot as a PNG.
+        Return a view of this logger scoped to a specific slice.
 
         Args:
-            filename: Output filename with extension, relative to the current
-                slice's image directory.
-            elements: A sequence of PlotElement objects defining the data to plot.
-            title: Optional title rendered above the plot.
-            xlabel: Optional x-axis label.
-            ylabel: Optional y-axis label.
+            slice_index: The slice index to address.
+
+        Returns:
+            A `FileImageLogger` writing to the given slice directory.
         """
-        fig, ax = plt.subplots()
+        fixed = SliceView(self._view_provider().action_dir, slice_index)
+        return type(self)(lambda: fixed)
 
-        for element in elements:
-            match element:
-                case Curve():
-                    if element.x is None:
-                        ax.plot(
-                            element.y, color=element.color, linewidth=element.linewidth
-                        )
-                    else:
-                        ax.plot(
-                            element.x,
-                            element.y,
-                            color=element.color,
-                            linewidth=element.linewidth,
-                        )
-                case VerticalLine():
-                    ax.axvline(
-                        x=element.x, color=element.color, linewidth=element.linewidth
-                    )
+    @property
+    def next(self) -> Self:
+        """
+        Return a view of this logger scoped to the next slice.
 
-        if title:
-            ax.set_title(title)
-        if xlabel:
-            ax.set_xlabel(xlabel)
-        if ylabel:
-            ax.set_ylabel(ylabel)
+        Returns:
+            A `FileImageLogger` writing to the slice after the current one.
+        """
 
-        fig.tight_layout()
+        next_index = self._view_provider().slice_index + 1
+        fixed = SliceView(self._view_provider().action_dir, next_index)
+        return type(self)(lambda: fixed)
 
-        out_path = FileImageLogger._unique_path(self._ctx.images() / filename)
-        fig.savefig(out_path, dpi=100)
-        plt.close(fig)
+    @property
+    def slice(self) -> int:
+        return self._view_provider().slice_index
 
     @staticmethod
     def _unique_path(path: Path) -> Path:
         """
         Return a unique path by appending or incrementing a numeric suffix.
 
-        Scans the parent directory for files sharing the same stem, regardless of
-        extension, then returns a path with a suffix one above the current maximum.
-        If no conflicting files exist, the original path is returned unchanged.
+        Scans the parent directory for files sharing the same stem, regardless
+        of extension, and returns a path with a numeric suffix one above the
+        current maximum. If no conflicting files exist the original path is
+        returned unchanged.
 
         Args:
-            path: The desired file path.
+            path: The desired output path.
 
         Returns:
-            The original path if it does not conflict with any existing file,
-            otherwise a path of the form `<stem>_N<suffix>` where `N` is
-            one greater than the highest conflicting index found.
+            The original path if no conflict exists, otherwise a path of the
+            form `<stem>_N<suffix>` where `N` is one greater than the
+            highest conflicting index found.
         """
         clean_stem = re.sub(r"_\d+$", "", path.stem)
 
-        nums = []
+        nums: list[int] = []
         for p in path.parent.iterdir():
             if p.stem == clean_stem:
                 nums.append(1)

@@ -17,7 +17,7 @@ from PyQt6.QtWidgets import (
 )
 
 from fibsem_maestro.action.action import Action
-from fibsem_maestro.core.slice import SliceContext
+from fibsem_maestro.core._slice_obsolete import SliceContext
 from fibsem_maestro.gui.action_list_panel.panel import ActionListPanel
 from fibsem_maestro.gui.action_panel.action_panel import ActionPanel
 from fibsem_maestro.gui.app_state import AppState

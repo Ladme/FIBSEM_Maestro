@@ -2,27 +2,26 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
-from typing import TYPE_CHECKING
-
-import yaml
-
-from fibsem_maestro.action.action import Action, ActionConfig
+from fibsem_maestro.action.action import Action
 from fibsem_maestro.action.registry import ACTION_REGISTRY
+from fibsem_maestro.action.state import ActionState
+from fibsem_maestro.action_context.action_context import ActionContext
+from fibsem_maestro.core.area import NMArea
 from fibsem_maestro.core.beam_type import BeamType
-from fibsem_maestro.logging.text.text_logger import TextLogger
+from fibsem_maestro.logging.logging import with_logging_context
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.milling.error import MillingError
 from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.milling_settings import MillingSettings
 from fibsem_maestro.settings.property_names import PropertyNames
-from fibsem_maestro.store.props.props_store import PropsStore
 
-if TYPE_CHECKING:
-    from fibsem_maestro.core.area import NMArea
+
+class MillingState(ActionState):
+    milling_area: NMArea | None = None
 
 
 @ACTION_REGISTRY.register("milling")
-class Milling(Action[MillingSettings, None]):
+class Milling(Action[MillingSettings, None, MillingState]):
     """
     Performs focused ion beam milling one slice at a time.
 
@@ -41,16 +40,17 @@ class Milling(Action[MillingSettings, None]):
 
     def __init__(
         self,
-        config: ActionConfig[MillingSettings],
+        name: str,
+        microscope: Microscope,
+        settings: MillingSettings,
+        ctx: ActionContext,
     ):
-        self._name = config.name
-        self._microscope = config.microscope
-        self._settings = config.settings
-        self._props_store = config.props_store
-        self._txt_store = config.txt_store
-        self._txt_log = config.txt_log
+        self._name = name
+        self._microscope = microscope
+        self._settings = settings
+        self._ctx = ctx
 
-        self._current_milling_area: None | NMArea = None
+        self._milling_state = MillingState()
 
     @classmethod
     def settings_cls(cls) -> type[MillingSettings]:
@@ -65,18 +65,6 @@ class Milling(Action[MillingSettings, None]):
         self._name = value
 
     @property
-    def props_file(self) -> str:
-        return f"{str(self.name_with_underscores)}_props.yaml"
-
-    @property
-    def state_file(self) -> str:
-        return f"{str(self.name_with_underscores)}_state.yaml"
-
-    @property
-    def props_store(self) -> PropsStore:
-        return self._props_store
-
-    @property
     def beam_type(self) -> BeamType | None:
         return self._settings.beam_type
 
@@ -89,10 +77,6 @@ class Milling(Action[MillingSettings, None]):
         return self._microscope
 
     @property
-    def txt_log(self) -> TextLogger:
-        return self._txt_log
-
-    @property
     def settings(self) -> MillingSettings:
         return self._settings
 
@@ -100,7 +84,16 @@ class Milling(Action[MillingSettings, None]):
     def external_props(self) -> GlobalProperties:
         return self._settings.external_props
 
-    def execute(self, slice_number: int, links: None = None) -> None:
+    @property
+    def ctx(self) -> ActionContext:
+        return self._ctx
+
+    @property
+    def state(self) -> MillingState:
+        return self._milling_state
+
+    @with_logging_context
+    def execute(self, links: None = None) -> None:
         """
         Perform one milling step for the current slice if conditions are met.
 
@@ -117,49 +110,47 @@ class Milling(Action[MillingSettings, None]):
         if (
             self._settings.execution_frequency is None
             # the first slice is 1, so we use slice_number - 1 to get the 0-indexed slice number
-            or (slice_number - 1) % self._settings.execution_frequency != 0
+            or (self._ctx.slice - 1) % self._settings.execution_frequency != 0
         ):
-            self._txt_log.info(f"Skipping {self.name} for slice {slice_number}.")
+            self._ctx.text_logger.info(
+                f"Skipping {self.name} for slice {self._ctx.slice}."
+            )
             # even if milling is skipped, we need to write properties for the next slice
-            self.write_properties(self.read_properties(), self._props_store.next)
+            self.write_properties(self.read_properties(), self._ctx.props_store.next)
             return
 
         # set the properties of the microscope
         self.read_and_set_properties()
 
         # set the current milling area for the first slice
-        if self._current_milling_area is None:
-            self._current_milling_area = self._settings.milling_area[0].to_nanometers(
+        if self._milling_state.milling_area is None:
+            self._milling_state.milling_area = self._settings.milling_area[
+                0
+            ].to_nanometers(
                 self._microscope.beam.resolution, self._microscope.beam.pixel_size
             )
-            self._txt_log.debug(
-                f"First frame: setting milling area to: {self._current_milling_area}."
+            self._ctx.text_logger.debug(
+                f"First frame: setting milling area to: {self._milling_state.milling_area}."
             )
 
         # perform the milling step
-        self._txt_log.info("Starting milling.")
+        self._ctx.text_logger.info("Starting milling.")
         self._microscope.beam.rectangle_milling(
-            self._current_milling_area,
+            self._milling_state.milling_area,
             self._settings.milling_depth,
             self._settings.milling_direction,
             self._settings.pattern_file,
         )
-        self._txt_log.info("Milling step completed.")
+        self._ctx.text_logger.info("Milling step completed.")
 
         # update the current milling area for the next slice
-        self._current_milling_area = self._current_milling_area.shifted_in_direction(
-            self._settings.milling_direction, self._settings.slice_distance
-        )
-        self._txt_log.debug(
-            f"Updating milling area for the next slice: {self._current_milling_area}."
-        )
-
-        # store the milling area for the next slice
-        # this is needed only for restoring the milling in case the workflow is interrupted
-        if (area := self._current_milling_area) is not None:
-            self._txt_store.next.write(
-                self.state_file,
-                data=yaml.dump({"milling_area": area.model_dump()}),
+        self._milling_state.milling_area = (
+            self._milling_state.milling_area.shifted_in_direction(
+                self._settings.milling_direction, self._settings.slice_distance
             )
+        )
+        self._ctx.text_logger.debug(
+            f"Updating milling area for the next slice: {self._milling_state.milling_area}."
+        )
 
-        self.collect_and_write_properties(self._props_store.next)
+        self.collect_and_write_properties(self._ctx.props_store.next)

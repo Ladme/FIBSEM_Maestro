@@ -4,22 +4,19 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, Generic, TypeVar
 
+from fibsem_maestro.action.state import ActionState
+from fibsem_maestro.logging.logging import with_logging_context
 from fibsem_maestro.settings.base_settings import BaseSettings
 
 if TYPE_CHECKING:
+    from fibsem_maestro.action_context.action_context import ActionContext
     from fibsem_maestro.core.beam_type import BeamType
-    from fibsem_maestro.logging.image.image_logger import ImageLogger
-    from fibsem_maestro.logging.text.text_logger import TextLogger
     from fibsem_maestro.microscope.microscope import Microscope
     from fibsem_maestro.properties.global_properties import GlobalProperties
     from fibsem_maestro.settings.property_names import PropertyNames
-    from fibsem_maestro.store.frame.frame_store import FrameStore
-    from fibsem_maestro.store.image.image_store import ImageStore
     from fibsem_maestro.store.props.props_store import PropsStore
-    from fibsem_maestro.store.text.text_store import TextStore
 
 
 @abstractmethod
@@ -29,22 +26,10 @@ class LinkedActions:
 
 TSettings = TypeVar("TSettings", bound=BaseSettings)
 TLinkedActions = TypeVar("TLinkedActions", bound=LinkedActions | None)
+TState = TypeVar("TState", bound=ActionState)
 
 
-@dataclass
-class ActionConfig(Generic[TSettings]):
-    name: str
-    microscope: Microscope
-    settings: TSettings
-    props_store: PropsStore
-    txt_store: TextStore
-    image_store: ImageStore
-    frame_store: FrameStore
-    txt_log: TextLogger
-    img_log: ImageLogger
-
-
-class Action(ABC, Generic[TSettings, TLinkedActions]):
+class Action(ABC, Generic[TSettings, TLinkedActions, TState]):
     @classmethod
     def settings_cls(cls) -> type[BaseSettings]:
         """
@@ -55,16 +40,19 @@ class Action(ABC, Generic[TSettings, TLinkedActions]):
     @abstractmethod
     def __init__(
         self,
-        config: ActionConfig,
+        name: str,
+        microscope: Microscope,
+        settings: TSettings,
+        ctx: ActionContext,
     ):
         """
         Initialize the action.
         """
 
     @abstractmethod
-    def execute(self, slice_number: int, links: TLinkedActions | None = None) -> None:
+    def execute(self, links: TLinkedActions | None = None) -> None:
         """
-        Execute the action on the given slice while providing references to other actions.
+        Execute the action while providing references to other actions.
         """
 
     @property
@@ -83,16 +71,9 @@ class Action(ABC, Generic[TSettings, TLinkedActions]):
 
     @property
     @abstractmethod
-    def props_file(self) -> str:
+    def ctx(self) -> ActionContext:
         """
-        Name of the file where microscope properties are stored for this action.
-        """
-
-    @property
-    @abstractmethod
-    def props_store(self) -> PropsStore:
-        """
-        Props store for the action.
+        Slice navigation and access to all logging and storage resources for this action.
         """
 
     @property
@@ -119,13 +100,6 @@ class Action(ABC, Generic[TSettings, TLinkedActions]):
 
     @property
     @abstractmethod
-    def txt_log(self) -> TextLogger:
-        """
-        Text logger instance.
-        """
-
-    @property
-    @abstractmethod
     def external_props(self) -> GlobalProperties:
         """
         External properties of the microscope to use for this action.
@@ -139,21 +113,29 @@ class Action(ABC, Generic[TSettings, TLinkedActions]):
         """
 
     @property
+    @abstractmethod
+    def state(self) -> ActionState:
+        """
+        Internal state of the action.
+        """
+
+    @property
     def name_with_underscores(self) -> str:
         """
         Name of the action with spaces replaced by underscores.
         """
         return self.name.replace(" ", "_")
 
+    @with_logging_context
     def read_and_set_properties(self, store: PropsStore | None = None) -> None:
         # default: current frame
-        store = store or self.props_store
+        store = store or self.ctx.props_store
 
-        self.txt_log.debug(
+        self.ctx.text_logger.debug(
             f"Reading and setting microscope properties for {self.name}."
         )
         # read properties
-        props = store.read(self.props_file)
+        props = store.read("props.yaml")
 
         # select the beam used for this action
         if self.beam_type is not None:
@@ -162,6 +144,7 @@ class Action(ABC, Generic[TSettings, TLinkedActions]):
         # set properties to the microscope
         self.microscope.set_properties(props, beam=self.beam_type)
 
+    @with_logging_context
     def collect_and_write_properties(
         self,
         store: PropsStore | None = None,
@@ -170,9 +153,9 @@ class Action(ABC, Generic[TSettings, TLinkedActions]):
         Collect and write the properties of the microscope.
         """
         # default: current frame
-        store = store or self.props_store
+        store = store or self.ctx.props_store
 
-        self.txt_log.debug(
+        self.ctx.text_logger.debug(
             f"Collecting and saving microscope properties for {self.name}."
         )
 
@@ -181,20 +164,22 @@ class Action(ABC, Generic[TSettings, TLinkedActions]):
             props = self.microscope.collect_properties(self.props_to_collect)
 
         # write the properties
-        store.write(self.props_file, props)
+        store.write("props.yaml", props)
 
+    @with_logging_context
     def read_properties(self, store: PropsStore | None = None) -> GlobalProperties:
         """
         Read properties of the microscope from the properties file.
         """
-        store = store or self.props_store
-        return store.read(self.props_file)
+        store = store or self.ctx.props_store
+        return store.read("props.yaml")
 
+    @with_logging_context
     def write_properties(
         self, props: GlobalProperties, store: PropsStore | None = None
     ) -> None:
         """
         Write properties of the microscope to the properties file.
         """
-        store = store or self.props_store
-        store.write(self.props_file, props)
+        store = store or self.ctx.props_store
+        store.write("props.yaml", props)

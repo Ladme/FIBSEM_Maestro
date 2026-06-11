@@ -1,0 +1,143 @@
+# Released under MIT License.
+# Copyright (c) 2024-2025 CEMCOF
+
+
+from abc import ABC, abstractmethod
+from typing import Any, TypeVar
+
+from fibsem_maestro.core.image import _ImageBase
+from fibsem_maestro.logging.image.image_logger import ImageLogger
+from fibsem_maestro.logging.text.text_logger import TextLogger
+from fibsem_maestro.slice.slice_counter import SliceCounter
+from fibsem_maestro.slice.slice_view import SliceView
+from fibsem_maestro.store.frame.frame_store import FrameStore
+from fibsem_maestro.store.image.image_store import ImageStore
+from fibsem_maestro.store.props.props_store import PropsStore
+from fibsem_maestro.store.state.state_store import StateStore
+
+T = TypeVar("T", bound=_ImageBase[Any])
+
+
+class ActionContext(ABC):
+    """
+    Abstract base providing slice navigation and access to all logging and
+    storage resources for a single action.
+
+    Concrete subclasses decide which implementations (file or memory) are
+    used. Actions are written against this interface and are therefore
+    independent of the storage backend.
+    """
+
+    def __init__(self, slice: int = 0) -> None:
+        self._counter = SliceCounter(slice)
+        self._current_view = self._make_view(self._counter.current)
+
+    @abstractmethod
+    def _make_view(self, slice_index: int) -> SliceView:
+        """
+        Construct a `SliceView` for the given slice index.
+
+        Subclasses must implement this to supply the action directory.
+
+        Args:
+            slice_index: The slice index to construct a view for.
+
+        Returns:
+            A `SliceView` addressing the given slice.
+        """
+
+    def advance(self) -> SliceView:
+        """
+        Increment the slice counter and return the new `SliceView`.
+
+        Updates the active `SliceView` so all stores and loggers
+        automatically begin addressing the new slice on their next call.
+
+        Returns:
+            The `SliceView` for the newly activated slice.
+        """
+        new_index = self._counter.advance()
+        self._current_view = self._make_view(new_index)
+        return self._current_view
+
+    @property
+    def current_view(self) -> SliceView:
+        """
+        The `SliceView` for the currently active slice.
+
+        Returns:
+            The active `SliceView`.
+        """
+        return self._current_view
+
+    @property
+    def slice(self) -> int:
+        """
+        The currently active slice index.
+
+        Returns:
+            The current slice index.
+        """
+        return self._counter.current
+
+    @property
+    @abstractmethod
+    def text_logger(self) -> TextLogger:
+        """
+        The text logger for this action.
+
+        Returns:
+            A `TextLogger` writing to the current slice.
+        """
+
+    @property
+    @abstractmethod
+    def image_logger(self) -> ImageLogger:
+        """
+        The image logger for this action.
+
+        Returns:
+            An `ImageLogger` writing to the current slice.
+        """
+
+    @property
+    @abstractmethod
+    def props_store(self) -> PropsStore:
+        """
+        The props store for this action.
+
+        Returns:
+            A `PropsStore` addressing the current slice.
+        """
+
+    @property
+    @abstractmethod
+    def state_store(self) -> StateStore:
+        """
+        The state store for this action.
+
+        Returns:
+            A `StateStore` addressing the current slice.
+        """
+
+    @property
+    @abstractmethod
+    def frame_store(self) -> FrameStore:
+        """
+        The frame store for this action.
+
+        Returns:
+            A `FrameStore` addressing the current slice.
+        """
+
+    @abstractmethod
+    def image_store(self, cls: type[T]) -> ImageStore[T]:
+        """
+        Create an image store for the given image type.
+
+        Args:
+            cls: The concrete image class to read and write.
+
+        Returns:
+            An `ImageStore` addressing the current slice.
+        """

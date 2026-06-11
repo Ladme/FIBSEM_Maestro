@@ -2,8 +2,9 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 from fibsem_maestro.action.action import Action
-from fibsem_maestro.core.slice import SliceContext
-from fibsem_maestro.logging.text.text_logger import TextLogger
+from fibsem_maestro.action_context.action_context import ActionContext
+from fibsem_maestro.logging.logging import logging_context
+from fibsem_maestro.workflow.error import WorkflowError
 from fibsem_maestro.workflow.links import ActionLinks
 from fibsem_maestro.workflow.propagations import Propagations
 
@@ -11,11 +12,10 @@ from fibsem_maestro.workflow.propagations import Propagations
 class Workflow:
     def __init__(
         self,
-        slice_context: SliceContext,
         actions: list[Action],
         propagations: Propagations,
         links: ActionLinks,
-        txt_log: TextLogger,
+        context: ActionContext,
     ):
         """
         Orchestrates sequential execution of actions across multiple slices.
@@ -25,17 +25,16 @@ class Workflow:
         updates to dependent actions.
 
         Args:
-            slice_context: Tracks the current slice number.
             actions: The ordered sequence of actions to execute each slice.
-            synchronizations: The synchronization rules for property propagation.
-            txt_log: Logger for debug and info messages.
+            propagations: The synchronization rules for property propagation.
+            links: The action links for resolving dependencies.
+            context: The action context for managing slice state.
         """
 
         self.actions = actions
-        self._slice_context = slice_context
         self.propagations = propagations
-        self._links = links
-        self._txt_log = txt_log
+        self.links = links
+        self._ctx = context
 
     def run(self, n_slices: int) -> None:
         """
@@ -44,14 +43,45 @@ class Workflow:
         Args:
             n_slices: The number of slices to acquire.
         """
-        for _ in range(n_slices):
-            self._run_slice()
+        with logging_context(self._ctx.text_logger):
+            # advance the slice counter of all actions
+            # this brings us from the initialization slice 0 to slice 1
+            for action in self.actions:
+                self._ctx.text_logger.debug(
+                    f"Finishing initialization for action '{action.name}'."
+                )
+                action.ctx.advance()
+            self._ctx.advance()
+
+            for _ in range(n_slices):
+                self._run_slice()
 
     def _run_slice(self) -> None:
         """Executes all actions for a single slice and performs synchronization."""
-        self._slice_context.increment()
-        self._txt_log.info(f"Starting slice {self._slice_context.current_slice}.")
+        self._ctx.text_logger.info(f"Starting slice {self._ctx.slice}.")
         for action in self.actions:
-            links = self._links.resolve(action)
-            action.execute(self._slice_context.current_slice or 0, links)
+            # get links to other actions
+            links = self.links.resolve(action)
+
+            # execute the action
+            action.execute(links)
+
+            # store the state of the action to the next slice
+            action.ctx.state_store.next.write("state.yaml", action.state)
+
+            # propagate properties to other actions
             self.propagations.propagate(action, self.actions)
+
+            # advance the slice counter for the action
+            self._ctx.text_logger.debug(
+                f"Advancing slice counter for action '{action.name}'."
+            )
+            action.ctx.advance()
+
+        # at the end of each slice, increment the slice counter and verify consistency with actions
+        self._ctx.advance()
+        for action in self.actions:
+            if self._ctx.slice != action.ctx.slice:
+                raise WorkflowError(
+                    f"Desynchronization: workflow slice counter and '{action.name}' slice counter are out of sync"
+                )

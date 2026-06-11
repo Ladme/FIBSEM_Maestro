@@ -45,8 +45,6 @@ class TemplateMatching:
     confidence threshold.
 
     Args:
-        name: Human-readable identifier for this instance, used in log
-            messages and template filenames.
         area_provider: Provider for the image regions for template matching.
         settings: Template matching configuration.
         image_store: Store for persisting and retrieving template images.
@@ -56,24 +54,17 @@ class TemplateMatching:
 
     def __init__(
         self,
-        name: str,
         area_provider: AreaProvider,
         settings: TemplateMatchingSettings,
         image_store: ImageStore[Image8Bit],
         txt_log: TextLogger,
         img_log: ImageLogger,
     ):
-        self._name = name
         self._area_provider = area_provider
         self._settings = settings
         self._image_store = image_store
         self._txt_log = txt_log
         self._img_log = img_log
-
-    @property
-    def name_with_underscores(self) -> str:
-        """Instance name with spaces replaced by underscores."""
-        return self._name.replace(" ", "_")
 
     def create_templates(self, store: ImageStore[Image8Bit] | None = None) -> None:
         """
@@ -631,7 +622,7 @@ class TemplateMatching:
             A filename of the form `<name>_template_<index>.tif`,
             with spaces in the name replaced by underscores.
         """
-        return f"{self.name_with_underscores}_template_{index}.tif"
+        return f"template_{index}.tif"
 
     def _log_heatmaps(self, matches: list[TemplateMatchResult[ShiftPrecision]]) -> None:
         """
@@ -693,7 +684,7 @@ class TemplateMatching:
 
         try:
             self._img_log.save_image(
-                f"{self.name_with_underscores}_log.png",
+                "template_matching_log.png",
                 image,
                 overlays,
                 title="Template matching drift correction",
@@ -713,7 +704,7 @@ class TemplateMatching:
         """
         try:
             self._img_log.save_image(
-                f"{self.name_with_underscores}_heatmap_{index}.png",
+                f"template_matching_heatmap_{index}.png",
                 heatmap,
                 overlays=None,
                 title=f"Template matching heatmap for template {index}",

@@ -5,25 +5,22 @@
 import argparse
 import logging
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from fibsem_maestro.action.action import Action, ActionConfig
-from fibsem_maestro.core.image import Image8Bit
+from fibsem_maestro.action_context.file import FileActionContext
 from fibsem_maestro.core.resolution import Resolution
-from fibsem_maestro.core.slice import SliceContext
 from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.imaging.imaging import Imaging
-from fibsem_maestro.logging.image.file import FileImageLogger
-from fibsem_maestro.logging.text.file import FileTextLogger
+from fibsem_maestro.logging.text.contextual import ContextualTextLogger
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.imaging_settings import ImagingSettings
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
-from fibsem_maestro.store.frame.file import FileFrameStore
-from fibsem_maestro.store.image.file import FileImageStore
-from fibsem_maestro.store.props.file import FilePropsStore
-from fibsem_maestro.store.text.file import FileTextStore
 from fibsem_maestro.workflow.links import ActionLinks
 from fibsem_maestro.workflow.propagations import Propagations
 from fibsem_maestro.workflow.workflow import Workflow
+
+if TYPE_CHECKING:
+    from fibsem_maestro.action.action import Action
 
 
 def main():
@@ -68,33 +65,30 @@ def main():
     microscope_settings = MicroscopeSettings.from_file(args.microscope)
     imaging_settings = ImagingSettings.from_file(args.imaging)
 
-    # initialize the loggers and stores
-    slice = SliceContext(Path("logs"), 0)
-    txt_log = FileTextLogger(
-        slice, "microscope", logging.DEBUG if args.verbose else logging.INFO
+    # initialize the main workflow context
+    workflow_ctx = FileActionContext(
+        args.log_dir / "workflow",
+        "workflow",
+        log_level=logging.DEBUG if args.verbose else logging.INFO,
     )
-    img_log = FileImageLogger(slice)
-    props_store = FilePropsStore(slice)
-    frame_store = FileFrameStore(slice, Path("images"))
-    txt_store = FileTextStore(slice)
-    image_store = FileImageStore(slice, Image8Bit, directory=Path("stored_images"))
 
     # initialize the microscope
-    microscope = Microscope(microscope_settings, txt_log)
+    microscope = Microscope(
+        microscope_settings,
+        ContextualTextLogger(fallback=workflow_ctx.text_logger).derive("microscope"),
+    )
 
     # initialize the imaging
-    imaging_config = ActionConfig[ImagingSettings](
-        name="imaging",
-        microscope=microscope,
-        settings=imaging_settings,
-        props_store=props_store,
-        frame_store=frame_store,
-        txt_store=txt_store,
-        image_store=image_store,
-        txt_log=txt_log.derive("imaging"),
-        img_log=img_log,
+    imaging = Imaging(
+        "imaging",
+        microscope,
+        imaging_settings,
+        FileActionContext(
+            args.log_dir / "imaging",
+            "imaging",
+            log_level=logging.DEBUG if args.verbose else logging.INFO,
+        ),
     )
-    imaging = Imaging(imaging_config)
 
     # set microscope properties manually
     input("Set microscope properties interactively and then press ENTER.")
@@ -109,7 +103,7 @@ def main():
     # )
 
     # save microscope properties
-    imaging.collect_and_write_properties(imaging.props_store.next)
+    imaging.collect_and_write_properties(imaging.ctx.props_store.next)
 
     # optionally change microscope properties to test that the previously saved properties are reloaded before imaging
     input("Microscope properties saved. Press ENTER.")
@@ -117,11 +111,10 @@ def main():
     # prepare the workflow
     actions: list[Action] = [imaging]
     workflow = Workflow(
-        slice,
         actions,
-        Propagations(txt_log.derive("propagations")),
-        ActionLinks(txt_log.derive("action_links")),
-        txt_log.derive("workflow"),
+        Propagations(workflow_ctx.text_logger.derive("propagations")),
+        ActionLinks(workflow_ctx.text_logger.derive("action_links")),
+        workflow_ctx,
     )
 
     workflow.run(args.slices)

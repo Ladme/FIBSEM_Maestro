@@ -7,15 +7,13 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from fibsem_maestro.action.action import ActionConfig
+from fibsem_maestro.action_context.file import FileActionContext
 from fibsem_maestro.core.image import Image8Bit
 from fibsem_maestro.core.resolution import Resolution
-from fibsem_maestro.core.slice import SliceContext
 from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.drift_correction.drift_correction import DriftCorrection
 from fibsem_maestro.imaging.imaging import Imaging
-from fibsem_maestro.logging.image.file import FileImageLogger
-from fibsem_maestro.logging.text.file import FileTextLogger
+from fibsem_maestro.logging.text.contextual import ContextualTextLogger
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.microscope.simulated.microscope_control import (
     SimulatedMicroscopeControl,
@@ -24,10 +22,6 @@ from fibsem_maestro.settings.drift_correction_settings import DriftCorrectionSet
 from fibsem_maestro.settings.imaging_settings import ImagingSettings
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
 from fibsem_maestro.settings.property_names import PropertyNames
-from fibsem_maestro.store.frame.file import FileFrameStore
-from fibsem_maestro.store.image.file import FileImageStore
-from fibsem_maestro.store.props.file import FilePropsStore
-from fibsem_maestro.store.text.file import FileTextStore
 from fibsem_maestro.workflow.links import ActionLinks
 from fibsem_maestro.workflow.propagations import Propagations
 from fibsem_maestro.workflow.workflow import Workflow
@@ -85,47 +79,42 @@ def main():
     imaging_settings = ImagingSettings.from_file(args.imaging)
     drift_corr_settings = DriftCorrectionSettings.from_file(args.drift)
 
-    # initialize the loggers and stores
-    slice = SliceContext(Path("logs"), 0)
-    txt_log = FileTextLogger(
-        slice, "microscope", logging.DEBUG if args.verbose else logging.INFO
+    # initialize the main workflow context
+    workflow_ctx = FileActionContext(
+        args.log_dir / "workflow",
+        "workflow",
+        log_level=logging.DEBUG if args.verbose else logging.INFO,
     )
-    img_log = FileImageLogger(slice)
-    props_store = FilePropsStore(slice)
-    frame_store = FileFrameStore(slice, imaging_settings.images_directory)
-    txt_store = FileTextStore(slice)
-    image_store = FileImageStore(slice, Image8Bit, Path("templates"))
 
     # initialize the microscope
-    microscope = Microscope(microscope_settings, txt_log)
+    microscope = Microscope(
+        microscope_settings,
+        ContextualTextLogger(fallback=workflow_ctx.text_logger).derive("microscope"),
+    )
 
     # initialize the imaging
-    imaging_config = ActionConfig[ImagingSettings](
-        name="imaging",
-        microscope=microscope,
-        settings=imaging_settings,
-        props_store=props_store,
-        frame_store=frame_store,
-        txt_store=txt_store,
-        image_store=image_store,
-        txt_log=txt_log.derive("imaging"),
-        img_log=img_log,
+    imaging = Imaging(
+        "imaging",
+        microscope,
+        imaging_settings,
+        FileActionContext(
+            args.log_dir / "imaging",
+            "imaging",
+            log_level=logging.DEBUG if args.verbose else logging.INFO,
+        ),
     )
-    imaging = Imaging(imaging_config)
 
     # initialize the drift correction
-    drift_corr_config = ActionConfig[DriftCorrectionSettings](
-        name="drift correction",
-        microscope=microscope,
-        settings=drift_corr_settings,
-        props_store=props_store,
-        image_store=image_store,
-        txt_log=txt_log.derive("drift_correction"),
-        img_log=img_log,
-        txt_store=txt_store,
-        frame_store=frame_store,
+    drift_correction = DriftCorrection(
+        "drift correction",
+        microscope,
+        drift_corr_settings,
+        FileActionContext(
+            args.log_dir / "drift_correction",
+            "drift_correction",
+            log_level=logging.DEBUG if args.verbose else logging.INFO,
+        ),
     )
-    drift_correction = DriftCorrection(drift_corr_config)
 
     # set microscope properties manually
     input("Set microscope properties interactively and then press ENTER.")
@@ -137,21 +126,21 @@ def main():
     microscope.beam.horizontal_field_width = 2000
     microscope.beam.line_integration = 4
 
-    drift_correction.collect_and_write_properties(drift_correction.props_store.next)
+    drift_correction.collect_and_write_properties(drift_correction.ctx.props_store.next)
     # create templates for drift correction
-    drift_correction.setup(drift_correction.image_store.next)
+    drift_correction.setup(drift_correction.ctx.image_store(Image8Bit).next)
 
     microscope.beam.resolution = Resolution(1024, 768)
     microscope.beam.line_integration = 1
 
     # save microscope properties
-    imaging.collect_and_write_properties(imaging.props_store.next)
+    imaging.collect_and_write_properties(imaging.ctx.props_store.next)
 
     # optionally change microscope properties to test that the previously saved properties are reloaded before imaging
     # input("Microscope properties saved. Press ENTER.")
 
     actions: list[Action] = [drift_correction, imaging]
-    propagations = Propagations(txt_log.derive("propagations"))
+    propagations = Propagations(workflow_ctx.text_logger.derive("propagations"))
     propagations.register_rule(
         drift_correction.name,
         [imaging.name],
@@ -159,12 +148,14 @@ def main():
     )
 
     workflow = Workflow(
-        slice,
         actions,
         propagations,
-        ActionLinks(txt_log.derive("links")),
-        txt_log.derive("workflow"),
+        ActionLinks(workflow_ctx.text_logger.derive("links")),
+        workflow_ctx,
     )
+
+    # finish initialization
+    workflow.run(0)
 
     # run imaging
     for _ in range(args.slices):

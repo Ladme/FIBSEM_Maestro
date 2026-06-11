@@ -7,7 +7,6 @@ from pathlib import Path
 
 from PyQt6.QtCore import QThread, pyqtSignal
 
-from fibsem_maestro.core.slice import SliceContext
 from fibsem_maestro.logging.text.file import FileTextLogger
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings

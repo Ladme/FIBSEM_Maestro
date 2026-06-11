@@ -3,17 +3,20 @@
 
 
 from collections.abc import Callable
-from pathlib import Path
-from typing import Self
+from typing import Self, TypeVar
 
-from fibsem_maestro.properties.global_properties import GlobalProperties
+import yaml
+
+from fibsem_maestro.action.state import ActionState
 from fibsem_maestro.slice.slice_view import SliceView
-from fibsem_maestro.store.props.props_store import PropsStore
+from fibsem_maestro.store.state.state_store import StateStore
+
+T = TypeVar("T", bound=object)
 
 
-class FilePropsStore(PropsStore):
+class FileStateStore(StateStore):
     """
-    `PropsStore` that reads and writes YAML files on disk.
+    `StateStore` that reads and writes YAML files on disk.
 
     Files are written directly into the flat slice directory resolved by
     `view_provider`. Existing files with the same name are overwritten.
@@ -25,14 +28,20 @@ class FilePropsStore(PropsStore):
     def __init__(self, view_provider: Callable[[], SliceView]) -> None:
         self._view_provider = view_provider
 
-    def _path(self, filename: str) -> Path:
+    def _path(self, filename: str):
         return self._view_provider().path() / filename
 
-    def write(self, filename: str, props: GlobalProperties) -> None:
-        props.to_file(self._path(filename))
+    def write(self, filename: str, state: ActionState) -> None:
+        with self._path(filename).open("w") as f:
+            yaml.safe_dump(state.model_dump(), f)
 
-    def read(self, filename: str) -> GlobalProperties:
-        return GlobalProperties.from_file(self._path(filename))
+    def read(self, filename: str, cls: type[ActionState]) -> ActionState:
+        path = self._path(filename)
+        if not path.exists():
+            raise FileNotFoundError(f"No state file found at {path!r}")
+        with path.open() as f:
+            data = yaml.safe_load(f)
+        return cls.model_validate(data)
 
     def exists(self, filename: str) -> bool:
         return self._path(filename).exists()
@@ -45,7 +54,7 @@ class FilePropsStore(PropsStore):
             slice_index: The slice index to address.
 
         Returns:
-            A `FilePropsStore` writing to the given slice directory.
+            A `FileStateStore``writing to the given slice directory.
         """
         fixed = SliceView(self._view_provider().action_dir, slice_index)
         return type(self)(lambda: fixed)
@@ -56,7 +65,7 @@ class FilePropsStore(PropsStore):
         Return a view of this store scoped to the next slice.
 
         Returns:
-            A `FilePropsStore` writing to the slice after the current one.
+            A `FileStateStore` writing to the slice after the current one.
         """
         next_index = self._view_provider().slice_index + 1
         fixed = SliceView(self._view_provider().action_dir, next_index)

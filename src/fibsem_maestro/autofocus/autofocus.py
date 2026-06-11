@@ -9,8 +9,10 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from fibsem_maestro.action.action import Action, ActionConfig, LinkedActions
+from fibsem_maestro.action.action import Action, LinkedActions
 from fibsem_maestro.action.registry import ACTION_REGISTRY
+from fibsem_maestro.action.state import ActionState
+from fibsem_maestro.action_context.action_context import ActionContext
 from fibsem_maestro.autofocus import AUTOFOCUS_MODES, LineMode, StepMode
 from fibsem_maestro.autofocus.autofocus_context import AutofocusContext
 from fibsem_maestro.autofocus.error import AutofocusError
@@ -23,7 +25,7 @@ from fibsem_maestro.criterion.criterion import Criterion
 from fibsem_maestro.imaging.imaging import Imaging
 from fibsem_maestro.logging.image.overlay import PolylineOverlay
 from fibsem_maestro.logging.image.plot_element import Curve, PlotElement, VerticalLine
-from fibsem_maestro.logging.text.text_logger import TextLogger
+from fibsem_maestro.logging.logging import with_logging_context
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.autofocus_settings import (
@@ -31,7 +33,6 @@ from fibsem_maestro.settings.autofocus_settings import (
     AutoscriptMode,
 )
 from fibsem_maestro.settings.property_names import PropertyNames
-from fibsem_maestro.store.props.props_store import PropsStore
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -42,8 +43,13 @@ class LinkedToAutofocus(LinkedActions):
     imaging: Imaging
 
 
+class AutofocusState(ActionState):
+    # TODO: Autofocus DOES have an internal state
+    pass
+
+
 @ACTION_REGISTRY.register("autofocus")
-class Autofocus(Action[AutofocusSettings, LinkedToAutofocus]):
+class Autofocus(Action[AutofocusSettings, LinkedToAutofocus, AutofocusState]):
     """Orchestrates the autofocus pipeline for a single configured mode.
 
     Manages the full autofocus lifecycle: deciding when to execute based on
@@ -59,16 +65,15 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus]):
 
     def __init__(
         self,
-        config: ActionConfig[AutofocusSettings],
+        name: str,
+        microscope: Microscope,
+        settings: AutofocusSettings,
+        ctx: ActionContext,
     ):
-        self._name = config.name
-        self._props_store = config.props_store
-        self._txt_log = config.txt_log
-        self._img_log = config.img_log
-
-        self._microscope = config.microscope
-
-        self._settings = config.settings
+        self._name = name
+        self._microscope = microscope
+        self._settings = settings
+        self._ctx = ctx
 
         self._mode = AUTOFOCUS_MODES.get(self._settings.mode.type)()
 
@@ -83,23 +88,22 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus]):
                 else self._microscope.ion_beam,
                 self._settings.mode.sweeping,
                 self._settings.target_attribute,
-                self._txt_log.derive("sweeping"),
+                self._ctx.text_logger.derive("sweeping"),
             )
 
             self._criterion = Criterion(
-                f"{self._name} criterion",
                 self._settings.mode.criterion,
-                self._txt_log.derive("criterion"),
-                self._img_log,
+                self._ctx.text_logger.derive("criterion"),
+                self._ctx.image_logger,
             )
 
-        self._ctx = AutofocusContext(
+        self._autofocus_ctx = AutofocusContext(
             self._microscope,
             self._settings.target_attribute,
             self._sweeping,
             self._criterion,
             self._settings,
-            self._txt_log,
+            self._ctx.text_logger,
         )
 
         self._jobs = JobsManager(
@@ -127,14 +131,6 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus]):
         return self._name.replace(" ", "_")
 
     @property
-    def props_file(self) -> str:
-        return f"{str(self.name_with_underscores)}_props.yaml"
-
-    @property
-    def props_store(self) -> PropsStore:
-        return self._props_store
-
-    @property
     def beam_type(self) -> BeamType | None:
         return self._settings.beam_type
 
@@ -147,8 +143,8 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus]):
         return self._microscope
 
     @property
-    def txt_log(self) -> TextLogger:
-        return self._txt_log
+    def ctx(self) -> ActionContext:
+        return self._ctx
 
     @property
     def settings(self) -> AutofocusSettings:
@@ -158,9 +154,12 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus]):
     def external_props(self) -> GlobalProperties:
         return self._settings.external_props
 
-    def execute(
-        self, slice_number: int, links: LinkedToAutofocus | None = None
-    ) -> None:
+    @property
+    def state(self) -> AutofocusState:
+        return AutofocusState()
+
+    @with_logging_context
+    def execute(self, links: LinkedToAutofocus | None = None) -> None:
         """
         Advance the autofocus execution by one step for the current slice.
 
@@ -174,8 +173,6 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus]):
         up-to-date properties to read.
 
         Args:
-            slice_number: The current slice index, used for frequency gating
-                and first-slice detection.
             links: The autofocus links, used to access the imaging job.
         """
         if links is None:
@@ -186,7 +183,9 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus]):
             # mid-execution: keep going regardless of gating checks
             self._advance()
             if self._active_gen is not None:
-                self.write_properties(self.read_properties(), self._props_store.next)
+                self.write_properties(
+                    self.read_properties(), self._ctx.props_store.next
+                )
             return
 
         # remove the jobs and results from previous slice
@@ -194,11 +193,11 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus]):
 
         # wait for the sharpness of the image from the previous slice
         image_sharpness = links.imaging.wait_for_sharpness()
-        self._txt_log.debug(f"Last image sharpness: {image_sharpness}.")
+        self._ctx.text_logger.debug(f"Last image sharpness: {image_sharpness}.")
         # evaluate whether the autofocus should be performed based on the sharpness of the image from the previous slice
-        if not self._should_execute(slice_number, image_sharpness):
+        if not self._should_execute(self._ctx.slice, image_sharpness):
             # if the autofocus should not be run, we still need to copy the props file to the next slice
-            self.write_properties(self.read_properties(), self._props_store.next)
+            self.write_properties(self.read_properties(), self._ctx.props_store.next)
             return
 
         # read the microscope properties for autofocus from a file and set them
@@ -209,15 +208,18 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus]):
             self._sweeping.get_attribute_value() if self._sweeping is not None else None
         )
         # execute the autofocus
-        self._active_gen = self._mode.execute(self._ctx, self._jobs, links.imaging)
+        self._active_gen = self._mode.execute(
+            self._autofocus_ctx, self._jobs, links.imaging
+        )
         self._advance()
 
         # if we have started a long-running autofocus, we need to explicitly copy
         # the microscope properties for the autofocus to the next slice
         if self._active_gen is not None:
             # mid-sweep - copy the props file to the next slice
-            self.write_properties(self.read_properties(), self._props_store.next)
+            self.write_properties(self.read_properties(), self._ctx.props_store.next)
 
+    @with_logging_context
     def test_autofocus(self) -> None:
         """
         Run the autofocus pipeline once and apply the best sweep value.
@@ -233,9 +235,7 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus]):
         self._jobs.wait_and_clear()
 
         if isinstance(self._mode, StepMode):
-            # TODO: make this into an exception
-            self._txt_log.warning("Autofocus test is not supported for step mode.")
-            return
+            raise AutofocusError("Autofocus test is not supported for step mode.")
 
         # get the current sweep base value
         self._sweep_base_value: float | None = (
@@ -243,13 +243,13 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus]):
         )
 
         # we provide `None` instead of imaging; imaging is only needed for step mode which is not testable
-        for _ in self._mode.execute(self._ctx, self._jobs, None):
+        for _ in self._mode.execute(self._autofocus_ctx, self._jobs, None):
             self._jobs.wait()
 
         results = self._jobs.wait_and_collect()
         if self._sweeping is not None:
             best = self._sweeping.evaluate_best_sweep(results)
-            self._txt_log.info(f"Best sweep attribute value: {best}.")
+            self._ctx.text_logger.info(f"Best sweep attribute value: {best}.")
             self._sweeping.set_attribute_value(best)
 
             # log images
@@ -283,7 +283,7 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus]):
             # the first slice is 1, so we use slice_number - 1 to get the 0-indexed slice number
             and (slice_number - 1) % self._settings.execution_frequency == 0
         ):
-            self._txt_log.info(
+            self._ctx.text_logger.info(
                 f"Executing {self.name}: slice {slice_number} matches execution frequency ({self._settings.execution_frequency})."
             )
             return True
@@ -293,12 +293,12 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus]):
             and image_sharpness is not None
             and image_sharpness < self._settings.sharpness_limit
         ):
-            self._txt_log.info(
+            self._ctx.text_logger.info(
                 f"Executing {self.name}: image sharpness ({image_sharpness:.4f}) is below the limit ({self._settings.sharpness_limit:.4f})."
             )
             return True
 
-        self._txt_log.info(f"Skipping {self.name}.")
+        self._ctx.text_logger.info(f"Skipping {self.name}.")
         return False
 
     def _advance(self) -> None:
@@ -327,7 +327,7 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus]):
 
                 # set the microscope to the best attribute value
                 best = self._sweeping.evaluate_best_sweep(results)
-                self._txt_log.info(f"Best sweep attribute value: {best}.")
+                self._ctx.text_logger.info(f"Best sweep attribute value: {best}.")
                 self._sweeping.set_attribute_value(best)
 
                 # log images
@@ -337,7 +337,7 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus]):
 
             self._active_gen = None
             # sweep finished: record the new best value for the next slice
-            self.collect_and_write_properties(self._props_store.next)
+            self.collect_and_write_properties(self._ctx.props_store.next)
         except Exception:
             self._active_gen.close()
             self._active_gen = None
@@ -394,8 +394,8 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus]):
         # mark the best value
         elements.append(VerticalLine(x=best, color="green", linewidth=1.0))
 
-        self._img_log.save_plot(
-            filename=f"{self.name_with_underscores}_af_curve",
+        self._ctx.image_logger.save_plot(
+            filename="af_curve",
             elements=elements,
             title="Focus criterion",
             xlabel=self._settings.target_attribute,
@@ -414,9 +414,9 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus]):
 
         try:
             # assuming the image used for line autofocus is still the current microscope image
-            image = self._ctx.microscope.beam.get_image()
+            image = self._autofocus_ctx.microscope.beam.get_image()
         except Exception as e:
-            self._txt_log.warning(
+            self._ctx.text_logger.warning(
                 f"Could not retrieve line focus image for logging: {e}"
             )
             return
@@ -429,7 +429,7 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus]):
         ]
 
         if max(sharpness_values) == 0:
-            self._txt_log.warning(
+            self._ctx.text_logger.warning(
                 "Max sharpness value is 0. Unable to normalize the sharpness, skipping logging."
             )
             return
@@ -437,7 +437,7 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus]):
         # scale for normalizing sharpness to fit the image
         scale = image.shape[1] / max(sharpness_values)
 
-        self._img_log.save_image(
+        self._ctx.image_logger.save_image(
             filename=f"{self.name_with_underscores}_line_focus.png",
             img=image,
             overlays=[

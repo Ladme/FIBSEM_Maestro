@@ -3,21 +3,22 @@
 
 from typing import TYPE_CHECKING
 
-from fibsem_maestro.action.action import Action, ActionConfig
+from fibsem_maestro.action.action import Action
 from fibsem_maestro.action.registry import ACTION_REGISTRY
+from fibsem_maestro.action.state import ActionState
+from fibsem_maestro.action_context.action_context import ActionContext
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.drift import Drift
 from fibsem_maestro.core.image import Image8Bit
 from fibsem_maestro.drift_correction import DRIFT_CALCULATION_MODES
 from fibsem_maestro.drift_correction.error import DriftCorrectionError
-from fibsem_maestro.logging.text.text_logger import TextLogger
+from fibsem_maestro.logging.logging import with_logging_context
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.drift_correction_settings import DriftCorrectionSettings
 from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.store.image.image_store import ImageStore
-from fibsem_maestro.store.props.props_store import PropsStore
 
 if TYPE_CHECKING:
     from fibsem_maestro.drift_correction.drift_calculation_mode import (
@@ -25,35 +26,38 @@ if TYPE_CHECKING:
     )
 
 
+class DriftCorrectionState(ActionState):
+    pass
+
+
 @ACTION_REGISTRY.register("drift_correction")
-class DriftCorrection(Action[DriftCorrectionSettings, None]):
+class DriftCorrection(Action[DriftCorrectionSettings, None, DriftCorrectionState]):
     """
     Corrects sample drift between slices by applying a compensating beam shift.
     """
 
     def __init__(
         self,
-        config: ActionConfig[DriftCorrectionSettings],
+        name: str,
+        microscope: Microscope,
+        settings: DriftCorrectionSettings,
+        ctx: ActionContext,
     ):
-        self._name = config.name
-        self._microscope = config.microscope
-        self._settings = config.settings
-        self._props_store = config.props_store
-        self._image_store = config.image_store
-        self._txt_log = config.txt_log
-        self._img_log = config.img_log
+        self._name = name
+        self._microscope = microscope
+        self._settings = settings
+        self._ctx = ctx
 
         # set up the drift calculation method
         self._drift_calc_name = self._settings.drift_calculation_mode.type
         self._drift_calc: DriftCalculationMode = DRIFT_CALCULATION_MODES.get(
             self._drift_calc_name
         )(
-            f"{self._name} {self._drift_calc_name}",
             self._microscope,
             self._settings.drift_calculation_mode,
-            self._image_store,
-            self._txt_log,
-            self._img_log,
+            self._ctx.image_store(Image8Bit),
+            self._ctx.text_logger.derive(self._drift_calc_name),
+            self._ctx.image_logger,
         )
 
     @classmethod
@@ -69,14 +73,6 @@ class DriftCorrection(Action[DriftCorrectionSettings, None]):
         self._name = value
 
     @property
-    def props_file(self) -> str:
-        return f"{str(self.name_with_underscores)}_props.yaml"
-
-    @property
-    def props_store(self) -> PropsStore:
-        return self._props_store
-
-    @property
     def beam_type(self) -> BeamType | None:
         return self._settings.beam_type
 
@@ -89,10 +85,6 @@ class DriftCorrection(Action[DriftCorrectionSettings, None]):
         return self._microscope
 
     @property
-    def txt_log(self) -> TextLogger:
-        return self._txt_log
-
-    @property
     def settings(self) -> DriftCorrectionSettings:
         return self._settings
 
@@ -101,9 +93,15 @@ class DriftCorrection(Action[DriftCorrectionSettings, None]):
         return self._settings.external_props
 
     @property
-    def image_store(self) -> ImageStore[Image8Bit]:
-        return self._image_store
+    def ctx(self) -> ActionContext:
+        return self._ctx
 
+    @property
+    def state(self) -> DriftCorrectionState:
+        # drift correction has no persistent internal state
+        return DriftCorrectionState()
+
+    @with_logging_context
     def setup(self, store: ImageStore[Image8Bit] | None = None) -> None:
         """
         Initialize the drift calculation mode before acquisition begins.
@@ -118,7 +116,8 @@ class DriftCorrection(Action[DriftCorrectionSettings, None]):
         """
         self._drift_calc.setup(store)
 
-    def execute(self, slice_number: int, links: None = None) -> None:
+    @with_logging_context
+    def execute(self, links: None = None) -> None:
         """
         Acquire a frame, measure drift, and apply a compensating beam shift.
 
@@ -130,9 +129,6 @@ class DriftCorrection(Action[DriftCorrectionSettings, None]):
         hook is called and the updated microscope properties are written to
         the next slice's store.
 
-        Args:
-            slice_number: The current slice index.
-
         Raises:
             DriftCorrectionError: If drift calculation fails and
                 `settings.stop_at_failure` is `True`.
@@ -142,20 +138,22 @@ class DriftCorrection(Action[DriftCorrectionSettings, None]):
         if (
             self._settings.execution_frequency is None
             # the first slice is 1, so we use slice_number - 1 to get the 0-indexed slice number
-            or (slice_number - 1) % self._settings.execution_frequency != 0
+            or (self._ctx.slice - 1) % self._settings.execution_frequency != 0
         ):
-            self._txt_log.info(f"Skipping {self.name} for slice {slice_number}.")
+            self._ctx.text_logger.info(
+                f"Skipping {self.name} for slice {self._ctx.slice}."
+            )
             # even if drift correction is skipped, we need to write properties for the next slice
-            self.write_properties(self.read_properties(), self._props_store.next)
+            self.write_properties(self.read_properties(), self._ctx.props_store.next)
             # and potentially perform some other operations
-            self._drift_calc.if_skipped(slice_number)
+            self._drift_calc.if_skipped(self._ctx.slice)
             return
 
         # set properties of the microscope
         self.read_and_set_properties()
 
         # prepare drift calculation
-        self._drift_calc.before_calculate_drift(slice_number)
+        self._drift_calc.before_calculate_drift(self._ctx.slice)
 
         # calculate drift and get beam shift to compensate for it
         beam_shift = self._calculate_correcting_beam_shift()
@@ -163,7 +161,7 @@ class DriftCorrection(Action[DriftCorrectionSettings, None]):
         # try to apply the beam shift
         if not (self._microscope.add_beam_shift_with_verification(beam_shift)):
             # this branch is taken if stage is moved
-            self._txt_log.info(
+            self._ctx.text_logger.info(
                 "Fine-tuning drift correction to remove stage positioning error."
             )
             beam_shift = self._calculate_correcting_beam_shift()
@@ -174,10 +172,10 @@ class DriftCorrection(Action[DriftCorrectionSettings, None]):
             self._microscope.add_beam_shift_with_verification(beam_shift)
 
         # finalize drift calculation
-        self._drift_calc.after_calculate_drift(slice_number)
+        self._drift_calc.after_calculate_drift(self._ctx.slice)
 
         # collect and save the microscope properties for the next slice
-        self.collect_and_write_properties(self._props_store.next)
+        self.collect_and_write_properties(self._ctx.props_store.next)
 
     def _calculate_correcting_beam_shift(self) -> BeamShift:
         """
@@ -200,7 +198,7 @@ class DriftCorrection(Action[DriftCorrectionSettings, None]):
                     "Drift correction failed: could not calculate drift."
                 )
 
-            self._txt_log.warning(
+            self._ctx.text_logger.warning(
                 "Drift correction failed: could not calculate drift. Not performing correction."
             )
 

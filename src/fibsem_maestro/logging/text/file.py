@@ -1,69 +1,205 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
+from __future__ import annotations
 
 import logging
+from logging import FileHandler
 from typing import TYPE_CHECKING, Self
 
-from fibsem_maestro.core.slice import SliceContext
 from fibsem_maestro.logging.text.text_logger import TextLogger
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
+    from fibsem_maestro.slice.slice_view import SliceView
 
-class _SliceAwareFileHandler(logging.Handler):
+
+class FileTextLogger(TextLogger):
     """
-    A logging handler that transparently rotates to each new slice's log file.
+    `TextLogger` that writes to a per-slice log file on disk.
 
-    On every `emit` call, the handler compares the current log path
-    from the `SliceContext` against the one it last opened.
-    When the path changes (i.e. the slice has been incremented), the
-    old file is closed and a new `logging.FileHandler` is opened
-    automatically.
+    Each slice directory gets its own log file. The active file is determined
+    at each log call by invoking `view_provider`, so rotating to a new slice
+    requires only updating what `view_provider` returns.
+
+    All loggers produced by `derive()` share the same underlying
+    `_FileTextLoggerRoot` and therefore the same open `FileHandler`.
+    Records are emitted directly to the handler with the display name set
+    per-record, so no Python logger registry entries are created for derived loggers.
+
 
     Args:
-        ctx: The slice context used to resolve the active log file path.
+        view_provider: Callable returning the `SliceView` to write to.
+        name: Logger name embedded in each log record.
+        filename: Name of the log file within the slice directory. Defaults to `run.log`.
+        level: Logging level. Defaults to `logging.INFO`.
     """
 
-    def __init__(self, ctx: SliceContext) -> None:
-        super().__init__()
-        self._ctx = ctx
+    _FORMAT = "%(asctime)s [%(name)s] %(levelname)s: %(message)s"
+
+    def __init__(
+        self,
+        view_provider: Callable[[], SliceView],
+        name: str,
+        filename: str = "run.log",
+        level: int = logging.INFO,
+        *,
+        _root: _FileTextLoggerRoot | None = None,
+    ) -> None:
+        self._view_provider = view_provider
+        self._name = name
+        self._filename = filename
+        self._level = level
+        self._root = (
+            _root
+            if _root is not None
+            else _FileTextLoggerRoot(view_provider, filename, level)
+        )
+
+    def _emit(self, level: int, msg: str) -> None:
+        handler = self._root.get_handler()
+        record = logging.LogRecord(
+            name=self._name,
+            level=level,
+            pathname="",
+            lineno=0,
+            msg=msg,
+            args=(),
+            exc_info=None,
+        )
+        handler.emit(record)
+
+    def info(self, msg: str) -> None:
+        self._emit(logging.INFO, msg)
+
+    def warning(self, msg: str) -> None:
+        self._emit(logging.WARNING, msg)
+
+    def error(self, msg: str) -> None:
+        self._emit(logging.ERROR, msg)
+
+    def debug(self, msg: str) -> None:
+        self._emit(logging.DEBUG, msg)
+
+    def derive(self, name: str) -> Self:
+        """
+        Create a child logger writing to the same file.
+
+        The child shares the same handler root so no additional file handles
+        are opened. Only the name embedded in each record differs.
+
+        Args:
+            name: The suffix to append to this logger's name.
+
+        Returns:
+            A `FileTextLogger` sharing the same `view_provider` and log
+            file, with name `"{this_name}.{name}"`.
+        """
+        child_name = f"{self._name}.{name}" if self._name else name
+        return type(self)(
+            self._view_provider,
+            child_name,
+            self._filename,
+            self._level,
+            _root=self._root,
+        )
+
+    def at(self, slice_index: int) -> Self:
+        """
+        Return a view of this logger scoped to a specific slice.
+
+        Args:
+            slice_index: The slice index to address.
+
+        Returns:
+            A `FileTextLogger` writing to the given slice directory.
+        """
+        fixed = self._view_provider().__class__(
+            self._view_provider().action_dir, slice_index
+        )
+        return type(self)(
+            lambda: fixed,
+            self._name,
+            self._filename,
+            self._level,
+        )
+
+    @property
+    def next(self) -> Self:
+        """
+        Return a view of this logger scoped to the next slice.
+
+        Returns:
+            A `FileTextLogger` writing to the slice after the current one.
+        """
+        next_index = self._view_provider().slice_index + 1
+        fixed = self._view_provider().__class__(
+            self._view_provider().action_dir, next_index
+        )
+        return type(self)(
+            lambda: fixed,
+            self._name,
+            self._filename,
+            self._level,
+        )
+
+    @property
+    def slice(self) -> int:
+        return self._view_provider().slice_index
+
+
+class _FileTextLoggerRoot:
+    """
+    Owns the single `FileHandler` shared across a `FileTextLogger` and
+    all loggers derived from it.
+
+    This object holds all mutable handler state. Derived loggers hold a
+    reference to the root and delegate handler management here, ensuring
+    only one handler is ever open at a time regardless of how many derived
+    loggers exist.
+
+    Args:
+        view_provider: Callable returning the `SliceView` to write to.
+        filename: Name of the log file within the slice directory.
+        level: Logging level threshold.
+    """
+
+    _FORMAT = "%(asctime)s [%(name)s] %(levelname)s: %(message)s"
+
+    def __init__(
+        self,
+        view_provider: Callable[[], SliceView],
+        filename: str,
+        level: int,
+    ) -> None:
+        self._view_provider = view_provider
+        self._filename = filename
+        self._level = level
         self._active_path: Path | None = None
         self._active_handler: logging.FileHandler | None = None
 
-    def _get_handler(self) -> logging.FileHandler:
+    def get_handler(self) -> FileHandler:
         """
-        Return a FileHandler for the current log path, rotating if needed.
+        Return a `FileHandler` for the current slice, rotating if needed.
 
         Returns:
-            An open `logging.FileHandler` pointed at the active log file.
+            An open `FileHandler` pointed at the active slice log file.
         """
-        path = self._ctx.logs()
+        path = self._view_provider().path() / self._filename
         if path != self._active_path:
             if self._active_handler is not None:
                 self._active_handler.close()
-            self._active_handler = logging.FileHandler(path)
-            self._active_handler.setFormatter(self.formatter)
+            handler = logging.FileHandler(path)
+            handler.setLevel(self._level)
+            handler.setFormatter(logging.Formatter(self._FORMAT))
+            self._active_handler = handler
             self._active_path = path
-
-        assert self._active_handler is not None
+        # at this point, there is always an active handler
+        # it has either been set in this method or has been set previously
+        assert self._active_handler
         return self._active_handler
-
-    def emit(self, record: logging.LogRecord) -> None:
-        """
-        Emit a log record to the current slice's log file.
-
-        Args:
-            record: The log record to emit.
-        """
-        self._get_handler().emit(record)
-
-    def close(self) -> None:
-        """Close the underlying file handler and release resources."""
-        if self._active_handler is not None:
-            self._active_handler.close()
-        super().close()
 
 
 class _PrefixStrippingFormatter(logging.Formatter):
@@ -94,64 +230,3 @@ class _PrefixStrippingFormatter(logging.Formatter):
         record = logging.makeLogRecord(record.__dict__)
         record.name = record.name.removeprefix(self._prefix) or "root"
         return super().format(record)
-
-
-class FileTextLogger(TextLogger):
-    """
-    TextLogger that writes to the current slice's `app.log` file.
-
-    Args:
-        ctx: Slice context used to resolve the active log file path.
-        name: Logger name. Child loggers created via `derive` extend
-            this name hierarchically.
-        lavel: Logging level. Defaults to INFO.
-    """
-
-    _FORMAT = "%(asctime)s [%(name)s] %(levelname)s: %(message)s"
-
-    def __init__(
-        self, ctx: SliceContext, name: str = "", level: int = logging.INFO
-    ) -> None:
-        self._ctx = ctx
-        self._name = name
-
-        # one root logger per SliceContext instance, identified by object id
-        # to avoid collisions between independent runs
-        root_name = f"slice_ctx_{id(ctx)}"
-        root = logging.getLogger(root_name)
-        if not root.handlers:
-            handler = _SliceAwareFileHandler(ctx)
-            handler.setFormatter(
-                _PrefixStrippingFormatter(f"{root_name}.", self._FORMAT)
-            )
-            root.addHandler(handler)
-            root.setLevel(level)
-            root.propagate = False
-
-        full_name = f"{root_name}.{name}" if name else root_name
-        self._logger = logging.getLogger(full_name)
-
-    def derive(self, name: str) -> Self:
-        """
-        Create a child logger with a hierarchical name.
-
-        Args:
-            name: The name suffix appended to this logger's name.
-
-        Returns:
-            A new `FileTextLogger` sharing the same slice context.
-        """
-        child_name = f"{self._name}.{name}" if self._name else name
-        return type(self)(self._ctx, child_name)
-
-    def info(self, msg: str) -> None:
-        self._logger.info(msg)
-
-    def warning(self, msg: str) -> None:
-        self._logger.warning(msg)
-
-    def error(self, msg: str) -> None:
-        self._logger.error(msg)
-
-    def debug(self, msg: str) -> None:
-        self._logger.debug(msg)

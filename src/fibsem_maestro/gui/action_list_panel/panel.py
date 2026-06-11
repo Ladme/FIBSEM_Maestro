@@ -17,10 +17,10 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from fibsem_maestro.action.action import Action, ActionConfig
+from fibsem_maestro.action.action import Action
 from fibsem_maestro.action.registry import ACTION_REGISTRY
+from fibsem_maestro.core._slice_obsolete import SliceContext
 from fibsem_maestro.core.image import _ImageBase
-from fibsem_maestro.core.slice import SliceContext
 from fibsem_maestro.gui.action_list_panel._action_item import ActionItemWidget
 from fibsem_maestro.gui.action_list_panel._add_action import AddActionDialog
 from fibsem_maestro.gui.app_state import AppState
@@ -30,7 +30,6 @@ from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.store.frame.file import FileFrameStore
 from fibsem_maestro.store.image.file import FileImageStore
 from fibsem_maestro.store.props.file import FilePropsStore
-from fibsem_maestro.store.text.file import FileTextStore
 from fibsem_maestro.workflow.workflow import Workflow
 
 

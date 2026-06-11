@@ -5,45 +5,50 @@
 from abc import ABC, abstractmethod
 from typing import Self
 
-from fibsem_maestro.properties.global_properties import GlobalProperties
+from fibsem_maestro.action.state import ActionState
 
 
-class PropsStore(ABC):
-    """Abstract interface for a readable/writable store of microscope properties."""
+class StateStore(ABC):
+    """
+    Abstract interface for a readable/writable store of action state.
+
+    State represents the persistent internal state of an action,
+    and is serialized as YAML, allowing the workflow to be restored
+    after an interruption.
+    """
 
     @abstractmethod
-    def write(self, filename: str, props: GlobalProperties) -> None:
+    def write(self, filename: str, state: ActionState) -> None:
         """
-        Serialize and persist microscope properties under the given filename.
+        Serialize a dataclass instance to YAML under the given filename.
 
         Overwrites any existing file with the same name in the current slice
         directory.
 
         Args:
             filename: Target filename within the current slice directory.
-            props: The properties to serialize.
+            state: Action state to serialize.
         """
 
     @abstractmethod
-    def read(self, filename: str) -> GlobalProperties:
+    def read(self, filename: str, cls: type[ActionState]) -> ActionState:
         """
-        Deserialize and return previously written microscope properties.
+        Deserialize a previously written YAML file into a dataclass instance.
 
         Args:
             filename: Filename within the current slice directory.
+            cls: The dataclass type to deserialize into.
 
         Returns:
-            The deserialized `GlobalProperties` instance.
+            The deserialized dataclass instance.
 
         Raises:
-            FileNotFoundError: If no file with that name exists in the current
-                slice directory.
+            FileNotFoundError: If no file with that name exists in the current slice directory.
         """
 
     @abstractmethod
     def exists(self, filename: str) -> bool:
-        """
-        Return `True` if the given filename exists in the current slice.
+        """Return `True` if the given filename exists in the current slice.
 
         Args:
             filename: Filename to check within the current slice directory.
@@ -61,7 +66,7 @@ class PropsStore(ABC):
             slice_index: The slice index to address.
 
         Returns:
-            A `PropsStore` of the same concrete type addressing the given slice.
+            A `StateStore` of the same concrete type addressing the given slice.
         """
 
     @property
@@ -71,7 +76,7 @@ class PropsStore(ABC):
         Return a view of this store scoped to the next slice.
 
         Returns:
-            A `PropsStore` of the same concrete type addressing the slice
+            A `StateStore` of the same concrete type addressing the slice
             after the current one.
         """
 

@@ -4,7 +4,7 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, Self
 
 from numpy.typing import NDArray
 
@@ -58,4 +58,38 @@ class ImageLogger(ABC):
             title: Optional plot title.
             xlabel: Optional label for the x-axis.
             ylabel: Optional label for the y-axis.
+        """
+
+    @abstractmethod
+    def at(self, slice_index: int) -> Self:
+        """
+        Return a view of this logger scoped to a specific slice.
+
+        Args:
+            slice_index: The slice index to address.
+
+        Returns:
+            An `ImageLogger` of the same concrete type writing to the given
+            slice.
+        """
+
+    @property
+    @abstractmethod
+    def next(self) -> Self:
+        """
+        Return a view of this logger scoped to the next slice.
+
+        Returns:
+            An `ImageLogger` of the same concrete type writing to the slice
+            after the current one.
+        """
+
+    @property
+    @abstractmethod
+    def slice(self) -> int:
+        """
+        The slice index this logger is currently writing to.
+
+        Returns:
+            The current slice index.
         """

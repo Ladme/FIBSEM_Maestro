@@ -10,19 +10,18 @@ T = TypeVar("T", bound=_ImageBase[Any])
 
 
 class ImageStore(ABC, Generic[T]):
-    """
-    Abstract interface for a readable/writable store of microscope image files.
-    """
+    """Abstract interface for a readable/writable store of image files."""
 
     @abstractmethod
     def write(self, filename: str, image: T) -> None:
         """
-        Save an image under the given filename as a TIF file.
+        Save an image under the given filename.
+
+        Overwrites any existing file with the same name in the current slice
+        directory. The `.tif` extension is appended automatically if omitted.
 
         Args:
-            filename: Target filename within the configured directory of the
-                addressed slice. The `.tif` extension is added automatically
-                if omitted.
+            filename: Target filename within the current slice directory.
             image: The image instance to persist.
         """
 
@@ -32,38 +31,28 @@ class ImageStore(ABC, Generic[T]):
         Load a previously written image.
 
         Args:
-            filename: Filename within the configured directory of the addressed
-                slice. The `.tif` extension is added automatically if omitted.
+            filename: Filename within the current slice directory. The
+                `.tif` extension is appended automatically if omitted.
 
         Returns:
-            The loaded image as an instance of the concrete type this store
-            was initialised with.
+            The loaded image as an instance of `T`.
 
         Raises:
-            FileNotFoundError: If no image with that name has been written.
+            FileNotFoundError: If no image with that name exists in the
+                current slice directory.
         """
 
     @abstractmethod
     def exists(self, filename: str) -> bool:
-        """Return `True` if the given filename has been written to this slice.
+        """
+        Return `True` if the given filename exists in the current slice.
 
         Args:
-            filename: Filename to check within the configured directory of the
-                addressed slice. The `.tif` extension is added automatically
-                if omitted.
+            filename: Filename to check. The `.tif` extension is appended
+                automatically if omitted.
 
         Returns:
             `True` if the file exists, `False` otherwise.
-        """
-
-    @property
-    @abstractmethod
-    def next(self) -> Self:
-        """
-        Return a view of this store scoped to the next slice.
-
-        Returns:
-            A store of the same concrete type addressing the slice following the current slice.
         """
 
     @abstractmethod
@@ -75,20 +64,35 @@ class ImageStore(ABC, Generic[T]):
             slice_index: The slice index to address.
 
         Returns:
-            A store of the same concrete type addressing the given slice.
+            An `ImageStore` of the same concrete type addressing the given
+            slice.
         """
 
     @property
     @abstractmethod
-    def slice(self) -> int | None:
+    def next(self) -> Self:
         """
-        Get the index of the slice this ImageStore relates to.
+        Return a view of this store scoped to the next slice.
+
+        Returns:
+            An `ImageStore` of the same concrete type addressing the slice
+            after the current one.
+        """
+
+    @property
+    @abstractmethod
+    def slice(self) -> int:
+        """
+        The slice index this store is currently addressing.
+
+        Returns:
+            The current slice index.
         """
 
 
-def normalize_tif(filename: str) -> str:
+def _normalize_tif(filename: str) -> str:
     """
-    Ensure filename ends with the `.tif` extension.
+    Ensure a filename ends with the `.tif` extension.
 
     Args:
         filename: The raw filename provided by the caller.

@@ -77,11 +77,6 @@ class Propagations:
             action: The action that has just finished executing.
             all_actions: The ordered list of all actions in the workflow.
         """
-        try:
-            index = all_actions.index(action)
-        except ValueError:
-            raise WorkflowError(f"Action '{action.name}' is not defined.")
-
         actions_by_name = {a.name: a for a in all_actions}
 
         for rule in self.rules:
@@ -101,39 +96,25 @@ class Propagations:
                     raise WorkflowError(f"Dependent action '{name}' is not defined.")
                 dependents.append(actions_by_name[name])
 
-            self._propagate_to_dependents(index, all_actions, dependents, props)
+            self._propagate_to_dependents(all_actions, dependents, props)
 
     def _propagate_to_dependents(
         self,
-        index: int,
         all_actions: list[Action],
         dependents: list[Action],
         props: GlobalProperties,
     ) -> None:
         dependent_set = set(dependents)
 
-        # update dependents that were run BEFORE the target action
-        # properties need to be written for the following slice
-        for dependent in all_actions[:index]:
+        # due to the way slice advancing works,
+        # properties are automatically written for the correct slice
+        for dependent in all_actions:
             if dependent not in dependent_set:
                 continue
-            self._txt_log.debug(
-                f"Propagating to '{dependent.name}' for slice "
-                f"{(dependent.props_store.slice or 0) + 1}."
-            )
-            original_props = dependent.read_properties(dependent.props_store.next)
-            original_props.patch(props)
-            dependent.write_properties(original_props, dependent.props_store.next)
 
-        # update dependents that were run AFTER the target action
-        # properties need to be written for the current slice
-        for dependent in all_actions[index + 1 :]:
-            if dependent not in dependent_set:
-                continue
             self._txt_log.debug(
-                f"Propagating to '{dependent.name}' for slice "
-                f"{dependent.props_store.slice}."
+                f"Propagation to '{dependent.name}' for slice {dependent.ctx.props_store.slice}."
             )
-            original_props = dependent.read_properties(dependent.props_store)
+            original_props = dependent.read_properties()
             original_props.patch(props)
-            dependent.write_properties(original_props, dependent.props_store)
+            dependent.write_properties(original_props)

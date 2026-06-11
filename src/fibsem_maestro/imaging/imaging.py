@@ -2,17 +2,20 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
+import contextvars
 import threading
 
-from fibsem_maestro.action.action import Action, ActionConfig
+from fibsem_maestro.action.action import Action
 from fibsem_maestro.action.registry import ACTION_REGISTRY
+from fibsem_maestro.action.state import ActionState
+from fibsem_maestro.action_context.action_context import ActionContext
 from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.criterion.criterion import Criterion
 from fibsem_maestro.imaging.error import ImagingError
-from fibsem_maestro.logging.text.text_logger import TextLogger
+from fibsem_maestro.logging.logging import with_logging_context
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.imaging_settings import (
@@ -21,37 +24,32 @@ from fibsem_maestro.settings.imaging_settings import (
     StandardResolution,
 )
 from fibsem_maestro.settings.property_names import PropertyNames
+from fibsem_maestro.slice.slice_view import SliceView
 from fibsem_maestro.store.props.props_store import PropsStore
 
 
+class ImagingState(ActionState):
+    # TODO: imaging has an internal state
+    pass
+
+
 @ACTION_REGISTRY.register("imaging")
-class Imaging(Action[ImagingSettings, None]):
+class Imaging(Action[ImagingSettings, None, ImagingState]):
     """
     Orchestrates a single image acquisition cycle on the electron microscope.
     """
 
     def __init__(
         self,
-        config: ActionConfig[ImagingSettings],
+        name: str,
+        microscope: Microscope,
+        settings: ImagingSettings,
+        ctx: ActionContext,
     ):
-        self._name = config.name
-        self._microscope = config.microscope
-        self._settings = config.settings
-        self._props_store = config.props_store
-        # derive frame store scoped to this action's name
-        # this is needed so that we can support multiple imagings
-        self._frame_store = config.frame_store.derive(self._name)
-        self._txt_log = config.txt_log
-
-        if criterion_settings := self._settings.criterion:
-            self._criterion = Criterion(
-                f"{self._name} criterion",
-                criterion_settings,
-                self._txt_log.derive("criterion"),
-                config.img_log,
-            )
-        else:
-            self._criterion = None
+        self._name = name
+        self._microscope = microscope
+        self._settings = settings
+        self._ctx = ctx
 
         # was scanning area selected using extended resolution
         # necessary to avoid shrinking the selected area in subsequent imagings
@@ -78,16 +76,6 @@ class Imaging(Action[ImagingSettings, None]):
         self._name = value
 
     @property
-    def props_file(self) -> str:
-        """Filename used to read and write microscope properties."""
-        return f"{str(self.name_with_underscores)}_props.yaml"
-
-    @property
-    def props_store(self) -> PropsStore:
-        """Store used for reading and writing microscope properties."""
-        return self._props_store
-
-    @property
     def beam_type(self) -> BeamType | None:
         """Beam type used for acquisition, either electron or ion."""
         return self._settings.beam_type
@@ -103,11 +91,6 @@ class Imaging(Action[ImagingSettings, None]):
         return self._microscope
 
     @property
-    def txt_log(self) -> TextLogger:
-        """Logger for diagnostic and status messages."""
-        return self._txt_log
-
-    @property
     def settings(self) -> ImagingSettings:
         return self._settings
 
@@ -117,11 +100,20 @@ class Imaging(Action[ImagingSettings, None]):
         return self._settings.external_props
 
     @property
+    def ctx(self) -> ActionContext:
+        return self._ctx
+
+    @property
+    def state(self) -> ImagingState:
+        return ImagingState()
+
+    @property
     def last_acquired_image(self) -> Image | None:
         """Get the last image acquired by this imaging."""
         return self._last_acquired_image
 
-    def execute(self, slice_number: int, links: None = None) -> None:
+    @with_logging_context
+    def execute(self, links: None = None) -> None:
         """
         Execute the full image acquisition pipeline for the current slice.
 
@@ -133,9 +125,6 @@ class Imaging(Action[ImagingSettings, None]):
         Call `wait_for_sharpness` after this method to block until the
         sharpness result is available.
 
-        Args:
-            slice_number: The current slice index.
-
         Raises:
             ImagingError: If a frame for the current slice already exists in the frame store.
         """
@@ -144,39 +133,55 @@ class Imaging(Action[ImagingSettings, None]):
         if (
             self._settings.execution_frequency is None
             # the first slice is 1, so we use slice_number - 1 to get the 0-indexed slice number
-            or (slice_number - 1) % self._settings.execution_frequency != 0
+            or (self._ctx.slice - 1) % self._settings.execution_frequency != 0
         ):
-            self._txt_log.info(f"Skipping {self.name} for slice {slice_number}.")
+            self._ctx.text_logger.info(
+                f"Skipping {self.name} for slice {self._ctx.slice}."
+            )
             # even if imaging is skipped, we need to write properties for the next slice
-            self.write_properties(self.read_properties(), self._props_store.next)
+            self.write_properties(self.read_properties(), self._ctx.props_store.next)
             return
 
         # set the properties of the microscope
         self.read_and_set_properties()
 
         # make sure that the image for the current slice does not exist
-        self._frame_store.raise_if_exists(ImagingError, self.name)
+        self._ctx.frame_store.raise_if_exists(
+            ImagingError,
+            f"Frame for slice {self._ctx.slice} for action '{self.name}' already exists.",
+        )
 
         # grab the frame and save it
-        self._last_acquired_image = self._microscope.beam.grab_frame(self._frame_store)
+        self._last_acquired_image = self._microscope.beam.grab_frame(
+            self._ctx.frame_store
+        )
 
         # update the saved microscope properties for the next frame
-        self.collect_and_write_properties(self._props_store.next)
+        self.collect_and_write_properties(self._ctx.props_store.next)
 
         # calculate image sharpness in a separate thread
         self._image_sharpness = None
-        if self._criterion is not None:
+        if self._settings.criterion is not None:
+            # capture the current logging context to use in the thread
+            # this is done so that the logs from the sharpness calculation
+            # are logged to the correct slice
+            current_view = self._ctx.current_view
+            ctx_snapshot = contextvars.copy_context()
             self._sharpness_thread = threading.Thread(
-                target=self._calculate_sharpness,
-                args=(self._last_acquired_image,),
-                daemon=True,
+                target=ctx_snapshot.run,
+                args=(
+                    self._calculate_sharpness,
+                    self._last_acquired_image,
+                    current_view,
+                ),
             )
             self._sharpness_thread.start()
         else:
-            self._txt_log.debug(
+            self._ctx.text_logger.debug(
                 f"Criterion is not configured for {self.name}. Image sharpness will not be calculated."
             )
 
+    @with_logging_context
     def collect_and_write_properties(
         self,
         store: PropsStore | None = None,
@@ -187,8 +192,8 @@ class Imaging(Action[ImagingSettings, None]):
         Args:
             store: Store to write properties to. If `None`, the current slice's store is used.
         """
-        store = store or self._props_store
-        self._txt_log.debug("Saving microscope properties for imaging.")
+        store = store or self._ctx.props_store
+        self._ctx.text_logger.debug("Saving microscope properties for imaging.")
 
         self._microscope.set_beam(self._settings.beam_type)
 
@@ -208,7 +213,7 @@ class Imaging(Action[ImagingSettings, None]):
             )
 
             # save the properties to a file
-            store.write(self.props_file, props)
+            store.write("props.yaml", props)
 
     def wait_for_sharpness(self) -> float | None:
         """
@@ -251,7 +256,9 @@ class Imaging(Action[ImagingSettings, None]):
             and not area.is_full_frame()
             and not self._scanning_area_selected
         ):
-            self._txt_log.debug("Setting scanning area using extended resolution.")
+            self._ctx.text_logger.debug(
+                "Setting scanning area using extended resolution."
+            )
 
             # shift the beam to the center of the scanning area
             img_res = self._microscope.beam.resolution
@@ -289,7 +296,7 @@ class Imaging(Action[ImagingSettings, None]):
         # this is done even if scanning area is not specified
         self._microscope.beam.pixel_size = new_pixel_size
 
-    def _calculate_sharpness(self, image: Image) -> None:
+    def _calculate_sharpness(self, image: Image, view: SliceView) -> None:
         """
         Evaluate image sharpness on a background thread.
 
@@ -300,11 +307,22 @@ class Imaging(Action[ImagingSettings, None]):
 
         Args:
             image: The image to evaluate.
+            view: The slice view to use for logging.
         """
-        assert self._criterion is not None
+        assert self._settings.criterion is not None
+
+        # get logger for the slice corresponding to the provided view
+        text_logger = self._ctx.text_logger.at(view.slice_index)
+        image_logger = self._ctx.image_logger.at(view.slice_index)
+
+        criterion = Criterion(
+            self._settings.criterion,
+            text_logger.derive("criterion"),
+            image_logger,
+        )
 
         try:
-            self._image_sharpness = self._criterion.calculate_sharpness(image)
-            self._txt_log.debug(f"Image sharpness: {self._image_sharpness}.")
+            self._image_sharpness = criterion.calculate_sharpness(image)
+            text_logger.debug(f"Image sharpness: {self._image_sharpness}.")
         except Exception as e:
-            self._txt_log.warning(f"Could not calculate image sharpness: {e}")
+            text_logger.warning(f"Could not calculate image sharpness: {e}")

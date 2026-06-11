@@ -44,7 +44,6 @@ class DriftCalculationMode(ABC):
     retrieved by name at runtime.
 
     Args:
-        name: Human-readable identifier for this instance.
         microscope: Interface to the electron microscope.
         settings: Drift correction mode configuration.
         image_store: Store for persisting and retrieving images.
@@ -55,7 +54,6 @@ class DriftCalculationMode(ABC):
     @abstractmethod
     def __init__(
         self,
-        name: str,
         microscope: Microscope,
         settings: DriftCorrectionMode,
         image_store: ImageStore[Image8Bit],
@@ -134,7 +132,6 @@ class TemplateMatchingDrift(DriftCalculationMode):
     Delegates drift measurement to a `TemplateMatching` instance.
 
     Args:
-        name: Human-readable identifier for this instance.
         microscope: Interface to the electron microscope.
         settings: Template matching configuration.
         image_store: Store for persisting and retrieving template images.
@@ -144,7 +141,6 @@ class TemplateMatchingDrift(DriftCalculationMode):
 
     def __init__(
         self,
-        name: str,
         microscope: Microscope,
         settings: TemplateMatchingSettings,
         image_store: ImageStore[Image8Bit],
@@ -152,7 +148,6 @@ class TemplateMatchingDrift(DriftCalculationMode):
         img_log: ImageLogger,
     ):
         self._template_matching = TemplateMatching(
-            name,
             AREA_PROVIDERS.get(settings.frame_grabbing_mode.type)(
                 microscope, settings, txt_log
             ),

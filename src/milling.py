@@ -7,23 +7,16 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from fibsem_maestro.action.action import ActionConfig
-from fibsem_maestro.core.image import Image8Bit
+from fibsem_maestro.action_context.file import FileActionContext
 from fibsem_maestro.core.resolution import Resolution
-from fibsem_maestro.core.slice import SliceContext
 from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.imaging.imaging import Imaging
-from fibsem_maestro.logging.image.file import FileImageLogger
-from fibsem_maestro.logging.text.file import FileTextLogger
+from fibsem_maestro.logging.text.contextual import ContextualTextLogger
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.milling.milling import Milling
 from fibsem_maestro.settings.imaging_settings import ImagingSettings
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
 from fibsem_maestro.settings.milling_settings import MillingSettings
-from fibsem_maestro.store.frame.file import FileFrameStore
-from fibsem_maestro.store.image.file import FileImageStore
-from fibsem_maestro.store.props.file import FilePropsStore
-from fibsem_maestro.store.text.file import FileTextStore
 from fibsem_maestro.workflow.links import ActionLinks
 from fibsem_maestro.workflow.propagations import Propagations
 from fibsem_maestro.workflow.workflow import Workflow
@@ -82,47 +75,42 @@ def main():
     # drift_corr_settings = DriftCorrectionSettings.from_file(args.drift)
     milling_settings = MillingSettings.from_file(args.milling)
 
-    # initialize the loggers and stores
-    slice = SliceContext(Path("logs"), 0)
-    txt_log = FileTextLogger(
-        slice, "microscope", logging.DEBUG if args.verbose else logging.INFO
+    # initialize the main workflow context
+    workflow_ctx = FileActionContext(
+        args.log_dir / "workflow",
+        "workflow",
+        log_level=logging.DEBUG if args.verbose else logging.INFO,
     )
-    img_log = FileImageLogger(slice)
-    props_store = FilePropsStore(slice)
-    frame_store = FileFrameStore(slice, imaging_settings.images_directory)
-    txt_store = FileTextStore(slice)
-    image_store = FileImageStore(slice, Image8Bit, directory=Path("stored_images"))
 
     # initialize the microscope
-    microscope = Microscope(microscope_settings, txt_log)
+    microscope = Microscope(
+        microscope_settings,
+        ContextualTextLogger(fallback=workflow_ctx.text_logger).derive("microscope"),
+    )
 
     # initialize the imaging
-    imaging_config = ActionConfig[ImagingSettings](
-        name="imaging",
-        microscope=microscope,
-        settings=imaging_settings,
-        props_store=props_store,
-        frame_store=frame_store,
-        txt_store=txt_store,
-        image_store=image_store,
-        txt_log=txt_log.derive("imaging"),
-        img_log=img_log,
+    imaging = Imaging(
+        "imaging",
+        microscope,
+        imaging_settings,
+        FileActionContext(
+            args.log_dir / "imaging",
+            "imaging",
+            log_level=logging.DEBUG if args.verbose else logging.INFO,
+        ),
     )
-    imaging = Imaging(imaging_config)
 
     # initialize the milling
-    milling_config = ActionConfig[MillingSettings](
-        name="milling",
-        microscope=microscope,
-        settings=milling_settings,
-        props_store=props_store,
-        frame_store=frame_store,
-        txt_store=txt_store,
-        image_store=image_store,
-        txt_log=txt_log.derive("milling"),
-        img_log=img_log,
+    milling = Milling(
+        "milling",
+        microscope,
+        milling_settings,
+        FileActionContext(
+            args.log_dir / "milling",
+            "milling",
+            log_level=logging.DEBUG if args.verbose else logging.INFO,
+        ),
     )
-    milling = Milling(milling_config)
 
     # set microscope properties manually
     # input("Set microscope properties for imaging interactively and then press ENTER.")
@@ -133,10 +121,10 @@ def main():
     microscope.beam.resolution = Resolution(1024, 768)
     microscope.beam.horizontal_field_width = 2000
 
-    imaging.collect_and_write_properties(imaging.props_store.next)
+    imaging.collect_and_write_properties(imaging.ctx.props_store.next)
 
     # input("Set microscope properties for milling interactively and then press ENTER.")
-    milling.collect_and_write_properties(milling.props_store.next)
+    milling.collect_and_write_properties(milling.ctx.props_store.next)
 
     # save microscope properties
 
@@ -148,11 +136,10 @@ def main():
 
     actions: list[Action] = [milling, imaging]
     workflow = Workflow(
-        slice,
         actions,
-        Propagations(txt_log.derive("propagations")),
-        ActionLinks(txt_log.derive("links")),
-        txt_log.derive("workflow"),
+        Propagations(workflow_ctx.text_logger.derive("propagations")),
+        ActionLinks(workflow_ctx.text_logger.derive("links")),
+        workflow_ctx,
     )
 
     workflow.run(args.slices)
