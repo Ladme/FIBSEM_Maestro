@@ -18,6 +18,8 @@ from fibsem_maestro.store.image.image_store import ImageStore
 from fibsem_maestro.store.image.memory import MemoryImageStore
 from fibsem_maestro.store.props.memory import MemoryPropsStore
 from fibsem_maestro.store.props.props_store import PropsStore
+from fibsem_maestro.store.settings.memory import MemorySettingsStore
+from fibsem_maestro.store.settings.settings_store import SettingsStore
 from fibsem_maestro.store.state.memory import MemoryStateStore
 from fibsem_maestro.store.state.state_store import StateStore
 
@@ -48,6 +50,9 @@ class MemoryActionContext(ActionContext):
         self._state_store = MemoryStateStore(
             slice_provider=lambda: self._counter.current,
         )
+        self._settings_store = MemorySettingsStore(
+            slice_provider=lambda: self._counter.current,
+        )
         self._frame_store = MemoryFrameStore(
             slice_provider=lambda: self._counter.current,
         )
@@ -72,6 +77,10 @@ class MemoryActionContext(ActionContext):
     @property
     def state_store(self) -> StateStore:
         return self._state_store
+
+    @property
+    def settings_store(self) -> SettingsStore:
+        return self._settings_store
 
     @property
     def frame_store(self) -> FrameStore:

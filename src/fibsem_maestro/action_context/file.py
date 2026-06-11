@@ -18,6 +18,8 @@ from fibsem_maestro.store.image.file import FileImageStore
 from fibsem_maestro.store.image.image_store import ImageStore
 from fibsem_maestro.store.props.file import FilePropsStore
 from fibsem_maestro.store.props.props_store import PropsStore
+from fibsem_maestro.store.settings.file import FileSettingsStore
+from fibsem_maestro.store.settings.settings_store import SettingsStore
 from fibsem_maestro.store.state.file import FileStateStore
 from fibsem_maestro.store.state.state_store import StateStore
 
@@ -70,6 +72,9 @@ class FileActionContext(ActionContext):
         self._state_store = FileStateStore(
             view_provider=lambda: self._current_view,
         )
+        self._settings_store = FileSettingsStore(
+            view_provider=lambda: self._current_view
+        )
         self._frame_store = FileFrameStore(
             view_provider=lambda: self._current_view,
             directory_name=frames_directory_name,
@@ -93,6 +98,10 @@ class FileActionContext(ActionContext):
     @property
     def state_store(self) -> StateStore:
         return self._state_store
+
+    @property
+    def settings_store(self) -> SettingsStore:
+        return self._settings_store
 
     @property
     def frame_store(self) -> FrameStore:

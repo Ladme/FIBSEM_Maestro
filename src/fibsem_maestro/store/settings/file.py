@@ -5,16 +5,15 @@
 from collections.abc import Callable
 from typing import Self
 
-import yaml
-
-from fibsem_maestro.action.state import ActionState
+from fibsem_maestro.serializer.yaml_serializer import YamlSerializer
+from fibsem_maestro.settings.base_settings import BaseSettings
 from fibsem_maestro.slice.slice_view import SliceView
-from fibsem_maestro.store.state.state_store import StateStore
+from fibsem_maestro.store.settings.settings_store import SettingsStore
 
 
-class FileStateStore(StateStore):
+class FileSettingsStore(SettingsStore):
     """
-    `StateStore` that reads and writes YAML files on disk.
+    `SettingsStore` that reads and writes YAML files on disk.
 
     Files are written directly into the flat slice directory resolved by
     `view_provider`. Existing files with the same name are overwritten.
@@ -29,17 +28,15 @@ class FileStateStore(StateStore):
     def _path(self, filename: str):
         return self._view_provider().path() / filename
 
-    def write(self, filename: str, state: ActionState) -> None:
-        with self._path(filename).open("w") as f:
-            yaml.safe_dump(state.model_dump(), f)
+    def write(self, filename: str, settings: BaseSettings) -> None:
+        settings.to_file(self._path(filename), SerializerCls=YamlSerializer)
 
-    def read(self, filename: str, cls: type[ActionState]) -> ActionState:
+    def read(self, filename: str, cls: type[BaseSettings]) -> BaseSettings:
         path = self._path(filename)
         if not path.exists():
-            raise FileNotFoundError(f"No state file found at {path!r}")
-        with path.open() as f:
-            data = yaml.safe_load(f)
-        return cls.model_validate(data)
+            raise FileNotFoundError(f"No settings file found at {path!r}")
+
+        return cls.from_file(path, SerializerCls=YamlSerializer)
 
     def exists(self, filename: str) -> bool:
         return self._path(filename).exists()

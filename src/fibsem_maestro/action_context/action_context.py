@@ -13,6 +13,7 @@ from fibsem_maestro.slice.slice_view import SliceView
 from fibsem_maestro.store.frame.frame_store import FrameStore
 from fibsem_maestro.store.image.image_store import ImageStore
 from fibsem_maestro.store.props.props_store import PropsStore
+from fibsem_maestro.store.settings.settings_store import SettingsStore
 from fibsem_maestro.store.state.state_store import StateStore
 
 T = TypeVar("T", bound=_ImageBase[Any])
@@ -118,6 +119,16 @@ class ActionContext(ABC):
 
         Returns:
             A `StateStore` addressing the current slice.
+        """
+
+    @property
+    @abstractmethod
+    def settings_store(self) -> SettingsStore:
+        """
+        The settings store for this action.
+
+        Returns:
+            A `SettingsStore` addressing the current slice.
         """
 
     @property

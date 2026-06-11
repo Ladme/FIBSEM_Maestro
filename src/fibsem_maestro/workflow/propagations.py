@@ -113,7 +113,7 @@ class Propagations:
                 continue
 
             self._txt_log.debug(
-                f"Propagation to '{dependent.name}' for slice {dependent.ctx.props_store.slice}."
+                f"Propagating to '{dependent.name}' for slice {dependent.ctx.props_store.slice}."
             )
             original_props = dependent.read_properties()
             original_props.patch(props)

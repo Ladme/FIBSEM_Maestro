@@ -66,8 +66,9 @@ class Workflow:
             # execute the action
             action.execute(links)
 
-            # store the state of the action to the next slice
+            # store the state and the current settings of the action
             action.ctx.state_store.next.write("state.yaml", action.state)
+            action.ctx.settings_store.next.write("settings.yaml", action.settings)
 
             # propagate properties to other actions
             self.propagations.propagate(action, self.actions)
