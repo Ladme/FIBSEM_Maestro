@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -50,24 +50,19 @@ class SweepingStrategy(ABC):
     @abstractmethod
     def generate(
         self, base: float, range: tuple[float, float], steps: int, repetition: int
-    ) -> NDArray[np.floating]:
+    ) -> NDArray[np.floating[Any]]:
         """
         Generate a sweep space using the given strategy.
 
         Args:
-            base (float):
-                The base (current) value of the parameter being swept.
-            range (tuple[float, float]):
-                Relative sweep range `(min_offset, max_offset)` applied to the base.
-            steps (int):
-                Number of sweep points to generate.
-            repetition (int):
-                Sweep repetition index, used by some strategies to modify
+            base: The base (current) value of the parameter being swept.
+            range: Relative sweep range `(min_offset, max_offset)` applied to the base.
+            steps: Number of sweep points to generate.
+            repetition: Sweep repetition index, used by some strategies to modify
                 sweep ordering (e.g. zig-zag behavior).
 
         Returns:
-            NDArray[np.floating]:
-                A NumPy array of sweep values.
+            An array of sweep values.
         """
         pass
 

@@ -101,7 +101,7 @@ class DriftCorrection(Action[DriftCorrectionSettings, None, DriftCorrectionState
         # drift correction has no persistent internal state
         return DriftCorrectionState()
 
-    def set_state(self, state: DriftCorrectionState, links: None = None) -> None:
+    def set_state(self, state: DriftCorrectionState, links: None) -> None:
         _ = state, links
 
     @with_logging_context
@@ -179,6 +179,10 @@ class DriftCorrection(Action[DriftCorrectionSettings, None, DriftCorrectionState
 
         # collect and save the microscope properties for the next slice
         self.collect_and_write_properties(self._ctx.props_store.next)
+
+    def wait_for_background_threads(self) -> None:
+        # no background threads to wait for
+        pass
 
     def _calculate_correcting_beam_shift(self) -> BeamShift:
         """

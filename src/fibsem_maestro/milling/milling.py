@@ -92,7 +92,7 @@ class Milling(Action[MillingSettings, None, MillingState]):
     def state(self) -> MillingState:
         return MillingState(milling_area=self._current_milling_area)
 
-    def set_state(self, state: MillingState, links: None = None) -> None:
+    def set_state(self, state: MillingState, links: None) -> None:
         _ = links
         self._current_milling_area = state.milling_area
 
@@ -154,3 +154,7 @@ class Milling(Action[MillingSettings, None, MillingState]):
         )
 
         self.collect_and_write_properties(self._ctx.props_store.next)
+
+    def wait_for_background_threads(self) -> None:
+        # no background threads to wait for
+        pass

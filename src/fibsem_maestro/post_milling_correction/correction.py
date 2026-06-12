@@ -110,7 +110,7 @@ class PostMillingCorrection(
     def set_state(
         self,
         state: PostMillingCorrectionState,
-        links: LinkedToPostMillingCorrection | None = None,
+        links: LinkedToPostMillingCorrection,
     ) -> None:
         _ = links, state
 
@@ -177,3 +177,7 @@ class PostMillingCorrection(
             delta=BeamShift(0, y_correction)
         )
         self._microscope.beam.working_distance += wd_correction
+
+    def wait_for_background_threads(self) -> None:
+        # no background threads to wait for
+        pass

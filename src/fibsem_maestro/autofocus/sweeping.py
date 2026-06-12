@@ -140,10 +140,10 @@ class Sweeping:
 
         for s in sweep_space:
             if limits[0] <= s <= limits[1]:
-                yield s
+                yield float(s)
             else:
                 self._txt_log.warning(
-                    f"Sweeping value '{s}' of an attribute '{self._sweep_attribute}' is out of range [{limits[0]} - {limits[1]}]."
+                    f"Sweeping value '{float(s)}' of an attribute '{self._sweep_attribute}' is out of range [{limits[0]} - {limits[1]}]."
                 )
                 # do not yield anything
                 continue

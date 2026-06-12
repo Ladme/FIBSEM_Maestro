@@ -5,7 +5,7 @@
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Self
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -112,41 +112,6 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus, AutofocusState]):
     def settings_cls(cls) -> type[AutofocusSettings]:
         return AutofocusSettings
 
-    @classmethod
-    def restore_state(
-        cls,
-        name: str,
-        microscope: Microscope,
-        settings: AutofocusSettings,
-        ctx: ActionContext,
-        state: AutofocusState,
-        links: LinkedToAutofocus,
-    ) -> Self:
-        autofocus = cls(name, microscope, settings, ctx)
-        autofocus._sweep_base_value = state.sweep_base_value
-        autofocus._current_step_index = state.current_step_index
-
-        if state.sweep_in_progress:
-            autofocus.ctx.text_logger.info(
-                f"Restoring state of '{autofocus.name}': sweep in progress, resuming from global step index {state.current_step_index}."
-            )
-            # re-submit already-collected results into the job manager
-            # so that advance's wait_and_collect sees the full result set
-            for result in state.collected_results:
-                autofocus._jobs.submit(lambda r=result: r)
-
-            autofocus._active_gen = autofocus._mode.execute(
-                autofocus._autofocus_ctx,
-                autofocus._jobs,
-                links.imaging,
-                resume_from=state.current_step_index,
-            )
-            # fast-forward the generator to the correct position
-            for _ in range(state.current_step_index):
-                next(autofocus._active_gen)
-
-        return autofocus
-
     @property
     def name(self) -> str:
         return self._name
@@ -193,6 +158,27 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus, AutofocusState]):
             if self._active_gen is not None
             else [],
         )
+
+    def set_state(self, state: AutofocusState, links: LinkedToAutofocus) -> None:
+        self._sweep_base_value = state.sweep_base_value
+        self._current_step_index = state.current_step_index
+
+        if state.sweep_in_progress:
+            self.ctx.text_logger.info(
+                f"Restoring state of '{self.name}': sweep in progress, resuming from global step index {state.current_step_index}."
+            )
+            # re-submit already-collected results into the job manager
+            # so that advance's wait_and_collect sees the full result set
+            for result in state.collected_results:
+                self._jobs.submit(lambda r=result: r)
+
+            # construct the generator
+            self._active_gen = self._mode.execute(
+                self._autofocus_ctx,
+                self._jobs,
+                links.imaging,
+                resume_from=state.current_step_index,
+            )
 
     @with_logging_context
     def execute(self, links: LinkedToAutofocus | None = None) -> None:
@@ -295,6 +281,9 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus, AutofocusState]):
             if isinstance(self._mode, LineMode):
                 self._log_line_focus_image(results)
 
+    def wait_for_background_threads(self) -> None:
+        self._jobs.wait()
+
     def _should_execute(self, slice_number: int, image_sharpness: float | None) -> bool:
         """
         Decide whether autofocus should run for the current slice.
@@ -358,6 +347,12 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus, AutofocusState]):
         self._current_step_index += 1
         try:
             next(self._active_gen)
+            # wait for all background threads to finish
+            # this is not strictly necessary for the basic functionality,
+            # but without this, the state will not contain all the information
+            # (some background threads may still be running when the state is stored)
+            # then restoring the state after interrupt becomes complicated/messy
+            self._jobs.wait()
         except StopIteration:
             if self._sweeping is not None:
                 results = self._jobs.wait_and_collect()
@@ -375,9 +370,11 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus, AutofocusState]):
             self._active_gen = None
             # sweep finished: record the new best value for the next slice
             self.collect_and_write_properties(self._ctx.props_store.next)
+            self._current_step_index = 0
         except Exception:
             self._active_gen.close()
             self._active_gen = None
+            self._current_step_index = 0
             raise
 
     def _log_af_curve(

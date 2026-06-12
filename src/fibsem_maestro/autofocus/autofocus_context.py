@@ -120,7 +120,7 @@ class AutofocusContext:
                         text_logger,
                         image_logger,
                     )
-                    value = criterion.calculate_sharpness(image)
+                    value = float(criterion.calculate_sharpness(image))
                     if np.isnan(value):
                         raise AutofocusError("Sharpness calculation returned NaN")
                     text_logger.info(

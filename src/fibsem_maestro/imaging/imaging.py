@@ -110,7 +110,7 @@ class Imaging(Action[ImagingSettings, None, ImagingState]):
             image_sharpness=self._image_sharpness,
         )
 
-    def set_state(self, state: ImagingState, links: None = None) -> None:
+    def set_state(self, state: ImagingState, links: None) -> None:
         _ = links
 
         self._scanning_area_selected = state.scanning_area_selected
@@ -255,6 +255,9 @@ class Imaging(Action[ImagingSettings, None, ImagingState]):
         if self._sharpness_thread is not None:
             self._sharpness_thread.join()
         return self._image_sharpness
+
+    def wait_for_background_threads(self) -> None:
+        self.wait_for_sharpness()
 
     def _set_extended_resolution_props(self, new_pixel_size: float) -> None:
         """

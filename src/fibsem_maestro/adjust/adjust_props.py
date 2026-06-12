@@ -133,3 +133,7 @@ class AdjustProps(Action[AdjustPropsSettings, None, AdjustPropsState]):
 
         # update the microscope properties for the next frame
         self.collect_and_write_properties(self._ctx.props_store.next)
+
+    def wait_for_background_threads(self) -> None:
+        # no background threads to wait for
+        pass

@@ -50,21 +50,21 @@ class Action(ABC, Generic[TSettings, TLinkedActions, TState]):
         """
 
     @abstractmethod
-    def set_state(self, state: TState, links: TLinkedActions | None = None) -> None:
+    def set_state(self, state: TState, links: TLinkedActions) -> None:
         """
         Set the state of the action.
         """
 
     @abstractmethod
-    def execute(self, links: TLinkedActions | None = None) -> None:
+    def execute(self, links: TLinkedActions) -> None:
         """
         Execute the action while providing references to other actions.
         """
 
     @abstractmethod
-    def wait(self) -> None:
+    def wait_for_background_threads(self) -> None:
         """
-        Wait for the background threads spawned by this action to complete.
+        Wait for ALL background threads spawned by this action to complete.
         """
 
     @property
