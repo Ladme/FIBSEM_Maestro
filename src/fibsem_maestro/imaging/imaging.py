@@ -66,6 +66,10 @@ class Imaging(Action[ImagingSettings, None, ImagingState]):
     def settings_cls(cls) -> type[ImagingSettings]:
         return ImagingSettings
 
+    @classmethod
+    def state_cls(cls) -> type[ImagingState]:
+        return ImagingState
+
     @property
     def name(self) -> str:
         """Human-readable identifier for this imaging instance."""

@@ -66,6 +66,10 @@ class PostMillingCorrection(
         """
         return PostMillingCorrectionSettings
 
+    @classmethod
+    def state_cls(cls) -> type[PostMillingCorrectionState]:
+        return PostMillingCorrectionState
+
     @property
     def name(self) -> str:
         return self._name

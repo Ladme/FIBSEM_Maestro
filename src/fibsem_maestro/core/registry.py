@@ -83,6 +83,26 @@ class Registry(Generic[T]):
             )
         return self._entries[key]
 
+    def key_of(self, obj: T) -> str:
+        """
+        Return the name under which an object is registered.
+
+        Args:
+            obj: The registered object to look up.
+
+        Returns:
+            The name under which the object is registered.
+
+        Raises:
+            RegistryError: If the object is not registered.
+        """
+        for key, registered in self._entries.items():
+            if registered is obj:
+                return key
+        raise RegistryError(
+            f"Object {obj!r} is not registered in the {self._name} registry."
+        )
+
     def validate(self, key: str) -> str:
         """
         Validate that a name is registered.

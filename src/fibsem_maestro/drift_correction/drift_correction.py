@@ -64,6 +64,10 @@ class DriftCorrection(Action[DriftCorrectionSettings, None, DriftCorrectionState
     def settings_cls(cls) -> type[DriftCorrectionSettings]:
         return DriftCorrectionSettings
 
+    @classmethod
+    def state_cls(cls) -> type[DriftCorrectionState]:
+        return DriftCorrectionState
+
     @property
     def name(self) -> str:
         return self._name

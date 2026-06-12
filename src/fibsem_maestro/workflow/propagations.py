@@ -2,6 +2,7 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 from dataclasses import dataclass
+from typing import Self
 
 from fibsem_maestro.action.action import Action
 from fibsem_maestro.logging.text.text_logger import TextLogger
@@ -43,6 +44,12 @@ class Propagations:
     def __init__(self, txt_log: TextLogger) -> None:
         self._txt_log = txt_log
         self.rules: list[PropagationRule] = []
+
+    @classmethod
+    def from_rules(cls, rules: list[PropagationRule], txt_log: TextLogger) -> Self:
+        propagations = cls(txt_log)
+        propagations.rules = rules
+        return propagations
 
     def register_rule(
         self,

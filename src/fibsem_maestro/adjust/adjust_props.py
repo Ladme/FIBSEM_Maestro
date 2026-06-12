@@ -41,6 +41,10 @@ class AdjustProps(Action[AdjustPropsSettings, None, AdjustPropsState]):
     def settings_cls(cls) -> type[AdjustPropsSettings]:
         return AdjustPropsSettings
 
+    @classmethod
+    def state_cls(cls) -> type[AdjustPropsState]:
+        return AdjustPropsState
+
     @property
     def name(self) -> str:
         return self._name

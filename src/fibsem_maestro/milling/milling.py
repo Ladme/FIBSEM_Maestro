@@ -56,6 +56,10 @@ class Milling(Action[MillingSettings, None, MillingState]):
     def settings_cls(cls) -> type[MillingSettings]:
         return MillingSettings
 
+    @classmethod
+    def state_cls(cls) -> type[MillingState]:
+        return MillingState
+
     @property
     def name(self) -> str:
         return self._name

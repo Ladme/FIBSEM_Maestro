@@ -112,6 +112,10 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus, AutofocusState]):
     def settings_cls(cls) -> type[AutofocusSettings]:
         return AutofocusSettings
 
+    @classmethod
+    def state_cls(cls) -> type[AutofocusState]:
+        return AutofocusState
+
     @property
     def name(self) -> str:
         return self._name

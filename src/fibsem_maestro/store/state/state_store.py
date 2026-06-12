@@ -3,9 +3,11 @@
 
 
 from abc import ABC, abstractmethod
-from typing import Self
+from typing import Self, TypeVar
 
 from fibsem_maestro.action.state import ActionState
+
+T = TypeVar("T", bound=ActionState)
 
 
 class StateStore(ABC):
@@ -18,7 +20,7 @@ class StateStore(ABC):
     """
 
     @abstractmethod
-    def write(self, filename: str, state: ActionState) -> None:
+    def write(self, filename: str, state: T) -> None:
         """
         Serialize a dataclass instance to YAML under the given filename.
 
@@ -31,7 +33,7 @@ class StateStore(ABC):
         """
 
     @abstractmethod
-    def read(self, filename: str, cls: type[ActionState]) -> ActionState:
+    def read(self, filename: str, cls: type[T]) -> T:
         """
         Deserialize a previously written YAML file into a dataclass instance.
 

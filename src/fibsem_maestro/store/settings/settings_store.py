@@ -3,9 +3,11 @@
 
 
 from abc import ABC, abstractmethod
-from typing import Self
+from typing import Self, TypeVar
 
 from fibsem_maestro.settings.base_settings import BaseSettings
+
+T = TypeVar("T", bound=BaseSettings)
 
 
 class SettingsStore(ABC):
@@ -14,7 +16,7 @@ class SettingsStore(ABC):
     """
 
     @abstractmethod
-    def write(self, filename: str, settings: BaseSettings) -> None:
+    def write(self, filename: str, settings: T) -> None:
         """
         Serialize a settings instance to YAML under the given filename.
 
@@ -27,7 +29,7 @@ class SettingsStore(ABC):
         """
 
     @abstractmethod
-    def read(self, filename: str, cls: type[BaseSettings]) -> BaseSettings:
+    def read(self, filename: str, cls: type[T]) -> T:
         """
         Deserialize a previously written YAML file into a settings instance.
 

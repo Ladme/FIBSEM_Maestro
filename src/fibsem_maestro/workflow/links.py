@@ -3,6 +3,7 @@
 
 
 from dataclasses import dataclass
+from typing import Self
 
 from fibsem_maestro.action.action import Action, LinkedActions
 from fibsem_maestro.logging.text.text_logger import TextLogger
@@ -25,6 +26,12 @@ class ActionLinks:
     def __init__(self, txt_log: TextLogger) -> None:
         self._txt_log = txt_log
         self.rules: list[LinkRule] = []
+
+    @classmethod
+    def from_rules(cls, rules: list[LinkRule], txt_log: TextLogger) -> Self:
+        links = cls(txt_log)
+        links.rules = rules
+        return links
 
     def register_rule(
         self,

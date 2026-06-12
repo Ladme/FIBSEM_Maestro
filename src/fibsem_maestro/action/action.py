@@ -33,9 +33,16 @@ class Action(ABC, Generic[TSettings, TLinkedActions, TState]):
     @classmethod
     def settings_cls(cls) -> type[BaseSettings]:
         """
-        Class of the class used for the action's settings.
+        Class used for the action's settings.
         """
         raise NotImplementedError(f"settings_type not implemented for {cls.__name__}")
+
+    @classmethod
+    def state_cls(cls) -> type[ActionState]:
+        """
+        Class used for the action's state.
+        """
+        raise NotImplementedError(f"state_cls not implemented for {cls.__name__}")
 
     @abstractmethod
     def __init__(
