@@ -1,11 +1,13 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
+import contextvars
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 
 import numpy as np
 
+from fibsem_maestro.action_context.action_context import ActionContext
 from fibsem_maestro.autofocus.error import AutofocusError
 from fibsem_maestro.autofocus.result import AutofocusResult
 from fibsem_maestro.autofocus.sweep_step import SweepStep
@@ -13,9 +15,11 @@ from fibsem_maestro.autofocus.sweeping import Sweeping
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.criterion.criterion import Criterion
-from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope import Microscope
-from fibsem_maestro.settings.autofocus_settings import AutofocusSettings
+from fibsem_maestro.settings.autofocus_settings import (
+    AutofocusSettings,
+    AutoscriptMode,
+)
 
 
 class AutofocusContext:
@@ -24,9 +28,8 @@ class AutofocusContext:
         microscope: Microscope,
         target_attribute: str,
         sweeping: Sweeping | None,
-        criterion: Criterion | None,
         settings: AutofocusSettings,
-        txt_log: TextLogger,
+        ctx: ActionContext,
     ):
         """
         Shared execution environment for autofocus mode implementations.
@@ -35,17 +38,14 @@ class AutofocusContext:
             microscope: The microscope instance.
             target_attribute: Attribute which is optimized during autofocus.
             sweeping: Controller for sweeping the target beam attribute.
-            criterion: Sharpness criterion used to evaluate acquired images.
             settings: Autofocus configuration.
-            txt_log: Logger for diagnostic and status messages.
+            ctx: Context providing slice navigation and access logging and storage.
         """
         self.microscope = microscope
         self.target_attribute = target_attribute
         self.sweeping = sweeping
-        self.txt_log = txt_log
+        self.ctx = ctx
         self.settings = settings
-
-        self._criterion = criterion
 
     @contextmanager
     def temporary_stage_x_offset(self) -> Iterator[None]:
@@ -63,7 +63,7 @@ class AutofocusContext:
         self.microscope.move_stage_position_with_verification(
             StagePosition(x=-self.settings.delta_x)
         )
-        self.txt_log.info(
+        self.ctx.text_logger.info(
             f"Moving stage to focusing area (X offset {-self.settings.delta_x:+g})"
         )
 
@@ -74,7 +74,7 @@ class AutofocusContext:
             self.microscope.move_stage_position_with_verification(
                 StagePosition(x=self.settings.delta_x)
             )
-            self.txt_log.info(
+            self.ctx.text_logger.info(
                 f"Restoring stage position (X offset {self.settings.delta_x:+g})"
             )
 
@@ -89,6 +89,10 @@ class AutofocusContext:
         sharpness using the configured criterion and packages the result
         together with the associated sweep step.
 
+        The logging and store context is captured at the time this method is
+        called, so the job always writes to the slice that was active at
+        creation time, regardless of what the main thread does subsequently.
+
         If sharpness calculation raises an exception or returns NaN, a warning
         is logged and the exception is re-raised so that `JobsManager` can
         exclude the failed job from the collected results.
@@ -102,21 +106,33 @@ class AutofocusContext:
             invoked, or raises an exception if sharpness calculation fails
             or if the criterion is not defined.
         """
+        ctx_snapshot = contextvars.copy_context()
+        current_view = self.ctx.current_view
+        text_logger = self.ctx.text_logger.at(current_view.slice_index)
+        image_logger = self.ctx.image_logger.at(current_view.slice_index)
 
         def fn() -> AutofocusResult:
-            if self._criterion is None:
-                raise AutofocusError("Criterion for autofunction is undefined.")
+            def _run() -> AutofocusResult:
+                try:
+                    assert not isinstance(self.settings.mode, AutoscriptMode)
+                    criterion = Criterion(
+                        self.settings.mode.criterion,
+                        text_logger,
+                        image_logger,
+                    )
+                    value = criterion.calculate_sharpness(image)
+                    if np.isnan(value):
+                        raise AutofocusError("Sharpness calculation returned NaN")
+                    text_logger.info(
+                        f"Sharpness calculation for sweep {sweep}: {value}"
+                    )
+                    return AutofocusResult(value, sweep)
+                except Exception as exc:
+                    text_logger.warning(
+                        f"Sharpness calculation for sweep {sweep.value} failed: {exc}."
+                    )
+                    raise
 
-            try:
-                value = self._criterion.calculate_sharpness(image)
-                if np.isnan(value):
-                    raise AutofocusError("Sharpness calculation returned NaN")
-                self.txt_log.info(f"Sharpness calculation for sweep {sweep}: {value}")
-                return AutofocusResult(value, sweep)
-            except Exception as exc:
-                self.txt_log.warning(
-                    f"Sharpness calculation for sweep {sweep.value} failed: {exc}."
-                )
-                raise
+            return ctx_snapshot.run(_run)
 
         return fn

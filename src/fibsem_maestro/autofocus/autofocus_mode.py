@@ -84,7 +84,7 @@ class BasicMode(AutofocusMode):
 
         with ctx.temporary_stage_x_offset():
             for sweep in sweeping.sweep():
-                ctx.txt_log.info(
+                ctx.ctx.text_logger.info(
                     f"Autofunction step {sweep.index + 1} "
                     f"(repetition {sweep.repetition + 1}): value {sweep.value}"
                 )
@@ -206,7 +206,7 @@ class LineMode(AutofocusMode):
             # group consecutive sweep steps by repetition index so that each
             # cycle produces one stripe in the acquired image
             for repetition, steps in groupby(sweep_steps, key=lambda x: x.repetition):
-                ctx.txt_log.info(f"Line sweep cycle {repetition + 1}.")
+                ctx.ctx.text_logger.info(f"Line sweep cycle {repetition + 1}.")
 
                 # blank to create a dark separator band between the stripes
                 with ctx.microscope.beam.total_blanked():
@@ -322,14 +322,16 @@ class StepMode(AutofocusMode):
         self, ctx: AutofocusContext, jobs: JobsManager, imaging: Imaging | None
     ) -> Generator[None, None, None]:
         if not imaging:
-            raise AutofocusError("Imaging is not available for step mode autofocus.")
+            raise AutofocusError(
+                "Linking imaging to autofocus is required for step mode autofocus."
+            )
 
         if (sweeping := ctx.sweeping) is None:
             raise AutofocusError("Sweeping for step mode autofocus is not defined.")
         previous_step: SweepStep | None = None
 
         for sweep in sweeping.sweep():
-            ctx.txt_log.info(
+            ctx.ctx.text_logger.info(
                 f"Autofunction step {sweep.index + 1} "
                 f"(repetition {sweep.repetition + 1}): value {sweep.value}"
             )
@@ -338,7 +340,7 @@ class StepMode(AutofocusMode):
             # this is skipped on the first tick
             if previous_step is not None:
                 if (image := imaging.last_acquired_image) is None:
-                    ctx.txt_log.warning(
+                    ctx.ctx.text_logger.warning(
                         f"Last acquired image is not available for {imaging.name}. "
                         "Skipping sharpness evaluation for this sweep."
                     )
@@ -354,7 +356,7 @@ class StepMode(AutofocusMode):
         # trailing tick: score the image acquired at the final step's value
         assert previous_step is not None
         if (image := imaging.last_acquired_image) is None:
-            ctx.txt_log.warning(
+            ctx.ctx.text_logger.warning(
                 f"Last acquired image is not available for {imaging.name}. "
                 "Skipping sharpness evaluation for this sweep."
             )

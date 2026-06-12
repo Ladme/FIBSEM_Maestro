@@ -21,7 +21,6 @@ from fibsem_maestro.autofocus.result import AutofocusResult
 from fibsem_maestro.autofocus.sweeping import Sweeping
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.point import PixelPoint
-from fibsem_maestro.criterion.criterion import Criterion
 from fibsem_maestro.imaging.imaging import Imaging
 from fibsem_maestro.logging.image.overlay import PolylineOverlay
 from fibsem_maestro.logging.image.plot_element import Curve, PlotElement, VerticalLine
@@ -78,9 +77,8 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus, AutofocusState]):
         self._mode = AUTOFOCUS_MODES.get(self._settings.mode.type)()
 
         if isinstance(self._settings.mode, AutoscriptMode):
-            # sweeping and criterion are not used in the Autoscript mode
+            # sweeping is not used in the Autoscript mode
             self._sweeping = None
-            self._criterion = None
         else:
             self._sweeping = Sweeping(
                 self._microscope.electron_beam
@@ -91,19 +89,12 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus, AutofocusState]):
                 self._ctx.text_logger.derive("sweeping"),
             )
 
-            self._criterion = Criterion(
-                self._settings.mode.criterion,
-                self._ctx.text_logger.derive("criterion"),
-                self._ctx.image_logger,
-            )
-
         self._autofocus_ctx = AutofocusContext(
             self._microscope,
             self._settings.target_attribute,
             self._sweeping,
-            self._criterion,
             self._settings,
-            self._ctx.text_logger,
+            self._ctx,
         )
 
         self._jobs = JobsManager(
@@ -306,7 +297,6 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus, AutofocusState]):
         Advance the active autofocus generator by one step.
 
         Calls `next` on the active generator to execute one sweep step.
-        Waits for any submitted jobs to complete before returning.
 
         On `StopIteration` the sweep is considered complete: results are
         collected, the best sweep value is determined and applied to the
@@ -319,8 +309,6 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus, AutofocusState]):
         assert self._active_gen is not None
         try:
             next(self._active_gen)
-            # we always need to wait for the current jobs to finish
-            self._jobs.wait()
         except StopIteration:
             if self._sweeping is not None:
                 results = self._jobs.wait_and_collect()
