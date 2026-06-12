@@ -4,8 +4,8 @@
 
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any, Self
 
 import numpy as np
 
@@ -43,8 +43,10 @@ class LinkedToAutofocus(LinkedActions):
 
 
 class AutofocusState(ActionState):
-    # TODO: Autofocus DOES have an internal state
-    pass
+    sweep_base_value: Any | None = None
+    sweep_in_progress: bool = False
+    current_step_index: int = 0
+    collected_results: list[AutofocusResult] = field(default_factory=list)
 
 
 @ACTION_REGISTRY.register("autofocus")
@@ -104,10 +106,46 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus, AutofocusState]):
         self._active_gen: Generator[None, None, None] | None = None
 
         self._sweep_base_value: Any | None = None
+        self._current_step_index = 0
 
     @classmethod
     def settings_cls(cls) -> type[AutofocusSettings]:
         return AutofocusSettings
+
+    @classmethod
+    def restore_state(
+        cls,
+        name: str,
+        microscope: Microscope,
+        settings: AutofocusSettings,
+        ctx: ActionContext,
+        state: AutofocusState,
+        links: LinkedToAutofocus,
+    ) -> Self:
+        autofocus = cls(name, microscope, settings, ctx)
+        autofocus._sweep_base_value = state.sweep_base_value
+        autofocus._current_step_index = state.current_step_index
+
+        if state.sweep_in_progress:
+            autofocus.ctx.text_logger.info(
+                f"Restoring state of '{autofocus.name}': sweep in progress, resuming from global step index {state.current_step_index}."
+            )
+            # re-submit already-collected results into the job manager
+            # so that advance's wait_and_collect sees the full result set
+            for result in state.collected_results:
+                autofocus._jobs.submit(lambda r=result: r)
+
+            autofocus._active_gen = autofocus._mode.execute(
+                autofocus._autofocus_ctx,
+                autofocus._jobs,
+                links.imaging,
+                resume_from=state.current_step_index,
+            )
+            # fast-forward the generator to the correct position
+            for _ in range(state.current_step_index):
+                next(autofocus._active_gen)
+
+        return autofocus
 
     @property
     def name(self) -> str:
@@ -147,7 +185,14 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus, AutofocusState]):
 
     @property
     def state(self) -> AutofocusState:
-        return AutofocusState()
+        return AutofocusState(
+            sweep_base_value=self._sweep_base_value,
+            sweep_in_progress=self._active_gen is not None,
+            current_step_index=self._current_step_index,
+            collected_results=self._jobs.collect_completed()
+            if self._active_gen is not None
+            else [],
+        )
 
     @with_logging_context
     def execute(self, links: LinkedToAutofocus | None = None) -> None:
@@ -198,6 +243,8 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus, AutofocusState]):
         self._sweep_base_value: float | None = (
             self._sweeping.get_attribute_value() if self._sweeping is not None else None
         )
+        # reset the sweep index
+        self._current_step_index = 0
         # execute the autofocus
         self._active_gen = self._mode.execute(
             self._autofocus_ctx, self._jobs, links.imaging
@@ -307,6 +354,8 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus, AutofocusState]):
         exception is re-raised so the caller can handle it.
         """
         assert self._active_gen is not None
+
+        self._current_step_index += 1
         try:
             next(self._active_gen)
         except StopIteration:

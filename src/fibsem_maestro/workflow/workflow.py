@@ -66,6 +66,9 @@ class Workflow:
             # execute the action
             action.execute(links)
 
+            # TODO: implementing pausing
+            # if paused, wait for all actions to finish their background threads
+
             # store the state and the current settings of the action
             action.ctx.state_store.next.write("state.yaml", action.state)
             action.ctx.settings_store.next.write("settings.yaml", action.settings)

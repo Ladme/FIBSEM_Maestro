@@ -101,6 +101,9 @@ class DriftCorrection(Action[DriftCorrectionSettings, None, DriftCorrectionState
         # drift correction has no persistent internal state
         return DriftCorrectionState()
 
+    def set_state(self, state: DriftCorrectionState, links: None = None) -> None:
+        _ = state, links
+
     @with_logging_context
     def setup(self, store: ImageStore[Image8Bit] | None = None) -> None:
         """

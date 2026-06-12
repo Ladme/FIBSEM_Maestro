@@ -46,7 +46,11 @@ class AutofocusMode(ABC):
 
     @abstractmethod
     def execute(
-        self, ctx: AutofocusContext, jobs: JobsManager, imaging: Imaging | None
+        self,
+        ctx: AutofocusContext,
+        jobs: JobsManager,
+        imaging: Imaging | None,
+        resume_from: int = 0,
     ) -> Generator[None, None, None]:
         """
         Drive the autofocus sweep and submit sharpness evaluation jobs.
@@ -57,6 +61,8 @@ class AutofocusMode(ABC):
             jobs: Job manager to which sharpness evaluation callables are
                 submitted for asynchronous execution.
             imaging: Instance of the Imaging class used to acquire images.
+            resume_from: Global index of the sweep to resume from (default 0).
+                Only used by the StepMode.
         """
 
 
@@ -75,9 +81,13 @@ class BasicMode(AutofocusMode):
     """
 
     def execute(
-        self, ctx: AutofocusContext, jobs: JobsManager, imaging: Imaging | None
+        self,
+        ctx: AutofocusContext,
+        jobs: JobsManager,
+        imaging: Imaging | None,
+        resume_from: int = 0,
     ) -> Generator[None, None, None]:
-        _ = imaging
+        _ = imaging, resume_from
 
         if (sweeping := ctx.sweeping) is None:
             raise AutofocusError("Sweeping for basic mode autofocus is not defined.")
@@ -98,9 +108,13 @@ class BasicMode(AutofocusMode):
 @AUTOFOCUS_MODES.register("line")
 class LineMode(AutofocusMode):
     def execute(
-        self, ctx: AutofocusContext, jobs: JobsManager, imaging: Imaging | None
+        self,
+        ctx: AutofocusContext,
+        jobs: JobsManager,
+        imaging: Imaging | None,
+        resume_from: int = 0,
     ) -> Generator[None, None, None]:
-        _ = imaging
+        _ = imaging, resume_from
 
         if (sweeping := ctx.sweeping) is None:
             raise AutofocusError("Sweeping for line mode autofocus is not defined.")
@@ -319,7 +333,11 @@ class StepMode(AutofocusMode):
     """
 
     def execute(
-        self, ctx: AutofocusContext, jobs: JobsManager, imaging: Imaging | None
+        self,
+        ctx: AutofocusContext,
+        jobs: JobsManager,
+        imaging: Imaging | None,
+        resume_from: int = 0,
     ) -> Generator[None, None, None]:
         if not imaging:
             raise AutofocusError(
@@ -331,6 +349,14 @@ class StepMode(AutofocusMode):
         previous_step: SweepStep | None = None
 
         for sweep in sweeping.sweep():
+            # skip steps before the resume point
+            if sweep.index < resume_from:
+                ctx.ctx.text_logger.debug(
+                    f"Skipping step {sweep.index + 1} (repetition {sweep.repetition + 1}) before resume point."
+                )
+                previous_step = sweep
+                continue
+
             ctx.ctx.text_logger.info(
                 f"Autofunction step {sweep.index + 1} "
                 f"(repetition {sweep.repetition + 1}): value {sweep.value}"
@@ -380,23 +406,13 @@ class AutoscriptMode(AutofocusMode):
     """
 
     def execute(
-        self, ctx: AutofocusContext, jobs: JobsManager, imaging: Imaging | None
+        self,
+        ctx: AutofocusContext,
+        jobs: JobsManager,
+        imaging: Imaging | None,
+        resume_from: int = 0,
     ) -> Generator[None, None, None]:
-        """
-        Execute the manufacturer autofunction for the configured sweep attribute.
-
-        Args:
-            ctx: Shared execution environment providing access to the
-                microscope, sweeping controller, and logger.
-            jobs: Unused in this mode - manufacturer autofunctions do not
-                submit sharpness jobs.
-
-        Raises:
-            AutofocusError: If the microscope is not Autoscript-controlled,
-                or if the sweep attribute is not supported.
-        """
-
-        _ = jobs, imaging
+        _ = jobs, imaging, resume_from
 
         if not isinstance(ctx.microscope.control, AutoscriptMicroscopeControl):
             raise AutofocusError(

@@ -71,6 +71,20 @@ class JobsManager:
         with self._results_lock:
             return list(self._results)
 
+    def collect_completed(self) -> list[AutofocusResult]:
+        """
+        Return results from already-finished jobs without waiting or clearing.
+
+        Unlike `wait_and_collect`, this method does not block - it only
+        returns results that have already been computed and stored by the
+        done callback. Pending jobs are left untouched.
+
+        Returns:
+            All AutofocusResult instances computed so far, in completion order.
+        """
+        with self._results_lock:
+            return list(self._results)
+
     def wait(self) -> None:
         """
         Block until all submitted jobs finish, but do not return their results.

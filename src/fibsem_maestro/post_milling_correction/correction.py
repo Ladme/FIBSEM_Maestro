@@ -107,6 +107,13 @@ class PostMillingCorrection(
         # post milling correction has no persistent internal state
         return PostMillingCorrectionState()
 
+    def set_state(
+        self,
+        state: PostMillingCorrectionState,
+        links: LinkedToPostMillingCorrection | None = None,
+    ) -> None:
+        _ = links, state
+
     @with_logging_context
     def execute(self, links: LinkedToPostMillingCorrection | None = None) -> None:
         if (

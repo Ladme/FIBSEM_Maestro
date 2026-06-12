@@ -82,6 +82,9 @@ class AdjustProps(Action[AdjustPropsSettings, None, AdjustPropsState]):
         # AdjustProps action has no persistent internal state
         return AdjustPropsState()
 
+    def set_state(self, state: AdjustPropsState, links: None = None) -> None:
+        _ = state, links
+
     @with_logging_context
     def execute(self, links: None = None) -> None:
         _ = links

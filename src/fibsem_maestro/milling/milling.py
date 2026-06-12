@@ -50,7 +50,7 @@ class Milling(Action[MillingSettings, None, MillingState]):
         self._settings = settings
         self._ctx = ctx
 
-        self._milling_state = MillingState()
+        self._current_milling_area: NMArea | None = None
 
     @classmethod
     def settings_cls(cls) -> type[MillingSettings]:
@@ -90,7 +90,11 @@ class Milling(Action[MillingSettings, None, MillingState]):
 
     @property
     def state(self) -> MillingState:
-        return self._milling_state
+        return MillingState(milling_area=self._current_milling_area)
+
+    def set_state(self, state: MillingState, links: None = None) -> None:
+        _ = links
+        self._current_milling_area = state.milling_area
 
     @with_logging_context
     def execute(self, links: None = None) -> None:
@@ -123,20 +127,18 @@ class Milling(Action[MillingSettings, None, MillingState]):
         self.read_and_set_properties()
 
         # set the current milling area for the first slice
-        if self._milling_state.milling_area is None:
-            self._milling_state.milling_area = self._settings.milling_area[
-                0
-            ].to_nanometers(
+        if self._current_milling_area is None:
+            self._current_milling_area = self._settings.milling_area[0].to_nanometers(
                 self._microscope.beam.resolution, self._microscope.beam.pixel_size
             )
             self._ctx.text_logger.debug(
-                f"First frame: setting milling area to: {self._milling_state.milling_area}."
+                f"First frame: setting milling area to: {self._current_milling_area}."
             )
 
         # perform the milling step
         self._ctx.text_logger.info("Starting milling.")
         self._microscope.beam.rectangle_milling(
-            self._milling_state.milling_area,
+            self._current_milling_area,
             self._settings.milling_depth,
             self._settings.milling_direction,
             self._settings.pattern_file,
@@ -144,13 +146,11 @@ class Milling(Action[MillingSettings, None, MillingState]):
         self._ctx.text_logger.info("Milling step completed.")
 
         # update the current milling area for the next slice
-        self._milling_state.milling_area = (
-            self._milling_state.milling_area.shifted_in_direction(
-                self._settings.milling_direction, self._settings.slice_distance
-            )
+        self._current_milling_area = self._current_milling_area.shifted_in_direction(
+            self._settings.milling_direction, self._settings.slice_distance
         )
         self._ctx.text_logger.debug(
-            f"Updating milling area for the next slice: {self._milling_state.milling_area}."
+            f"Updating milling area for the next slice: {self._current_milling_area}."
         )
 
         self.collect_and_write_properties(self._ctx.props_store.next)
