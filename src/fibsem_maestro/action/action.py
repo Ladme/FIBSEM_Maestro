@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from fibsem_maestro.properties.global_properties import GlobalProperties
     from fibsem_maestro.settings.property_names import PropertyNames
     from fibsem_maestro.store.props.props_store import PropsStore
+    from fibsem_maestro.workflow.actions import Actions
 
 
 @abstractmethod
@@ -25,11 +26,10 @@ class LinkedActions:
 
 
 TSettings = TypeVar("TSettings", bound=BaseSettings)
-TLinkedActions = TypeVar("TLinkedActions", bound=LinkedActions | None)
 TState = TypeVar("TState", bound=ActionState)
 
 
-class Action(ABC, Generic[TSettings, TLinkedActions, TState]):
+class Action(ABC, Generic[TSettings, TState]):
     @classmethod
     def settings_cls(cls) -> type[BaseSettings]:
         """
@@ -51,21 +51,22 @@ class Action(ABC, Generic[TSettings, TLinkedActions, TState]):
         microscope: Microscope,
         settings: TSettings,
         ctx: ActionContext,
+        actions: Actions,
     ):
         """
         Initialize the action.
         """
 
     @abstractmethod
-    def set_state(self, state: TState, links: TLinkedActions) -> None:
+    def set_state(self, state: TState) -> None:
         """
         Set the state of the action.
         """
 
     @abstractmethod
-    def execute(self, links: TLinkedActions) -> None:
+    def execute(self) -> None:
         """
-        Execute the action while providing references to other actions.
+        Execute the action.
         """
 
     @abstractmethod

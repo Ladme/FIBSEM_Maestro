@@ -1,11 +1,10 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
-from dataclasses import dataclass
 
 import numpy as np
 
-from fibsem_maestro.action.action import Action, LinkedActions
+from fibsem_maestro.action.action import Action
 from fibsem_maestro.action.registry import ACTION_REGISTRY
 from fibsem_maestro.action.state import ActionState
 from fibsem_maestro.action_context.action_context import ActionContext
@@ -24,11 +23,7 @@ from fibsem_maestro.settings.post_milling_correction_settings import (
     PostMillingCorrectionSettings,
 )
 from fibsem_maestro.settings.property_names import PropertyNames
-
-
-@dataclass
-class LinkedToPostMillingCorrection(LinkedActions):
-    milling: Milling
+from fibsem_maestro.workflow.actions import Actions
 
 
 class PostMillingCorrectionState(ActionState):
@@ -39,7 +34,6 @@ class PostMillingCorrectionState(ActionState):
 class PostMillingCorrection(
     Action[
         PostMillingCorrectionSettings,
-        LinkedToPostMillingCorrection,
         PostMillingCorrectionState,
     ]
 ):
@@ -53,11 +47,13 @@ class PostMillingCorrection(
         microscope: Microscope,
         settings: PostMillingCorrectionSettings,
         ctx: ActionContext,
+        actions: Actions,
     ):
         self._name = name
         self._microscope = microscope
         self._settings = settings
         self._ctx = ctx
+        self._actions = actions
 
     @classmethod
     def settings_cls(cls) -> type[PostMillingCorrectionSettings]:
@@ -114,12 +110,15 @@ class PostMillingCorrection(
     def set_state(
         self,
         state: PostMillingCorrectionState,
-        links: LinkedToPostMillingCorrection,
     ) -> None:
-        _ = links, state
+        _ = state
+
+    def wait_for_background_threads(self) -> None:
+        # no background threads to wait for
+        pass
 
     @with_logging_context
-    def execute(self, links: LinkedToPostMillingCorrection | None = None) -> None:
+    def execute(self) -> None:
         if (
             self._settings.execution_frequency is None
             # the first slice is 1, so we use slice_number - 1 to get the 0-indexed slice number
@@ -139,14 +138,20 @@ class PostMillingCorrection(
             case ManualMode() as mode:
                 self._perform_manual_correction(mode)
             case DynamicFocusMode():
-                if links is None:
-                    raise PostMillingCorrectionError("Link to Milling not specified.")
-                milling_settings = links.milling.settings
+                milling_settings = self._resolve_milling().settings
 
                 self._perform_automatic_correction(milling_settings)
 
         # update the microscope properties for the next frame
         self.collect_and_write_properties(self._ctx.props_store.next)
+
+    def _resolve_milling(self) -> Milling:
+        milling = self._actions.named(self._settings.linked_milling)
+        if not isinstance(milling, Milling):
+            raise PostMillingCorrectionError(
+                f"Linked action is not a Milling action: {milling.name}"
+            )
+        return milling
 
     def _perform_manual_correction(self, mode: ManualMode) -> None:
         self._ctx.text_logger.info(
@@ -181,7 +186,3 @@ class PostMillingCorrection(
             delta=BeamShift(0, y_correction)
         )
         self._microscope.beam.working_distance += wd_correction
-
-    def wait_for_background_threads(self) -> None:
-        # no background threads to wait for
-        pass

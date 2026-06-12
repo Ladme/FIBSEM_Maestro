@@ -13,6 +13,7 @@ from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.adjust_props_settings import AdjustPropsSettings
 from fibsem_maestro.settings.property_names import PropertyNames
+from fibsem_maestro.workflow.actions import Actions
 
 if TYPE_CHECKING:
     from fibsem_maestro.properties.beam_properties import BeamProperties
@@ -24,18 +25,20 @@ class AdjustPropsState(ActionState):
 
 
 @ACTION_REGISTRY.register("adjust_props")
-class AdjustProps(Action[AdjustPropsSettings, None, AdjustPropsState]):
+class AdjustProps(Action[AdjustPropsSettings, AdjustPropsState]):
     def __init__(
         self,
         name: str,
         microscope: Microscope,
         settings: AdjustPropsSettings,
         ctx: ActionContext,
+        actions: Actions,
     ):
         self._name = name
         self._microscope = microscope
         self._settings = settings
         self._ctx = ctx
+        self._actions = actions
 
     @classmethod
     def settings_cls(cls) -> type[AdjustPropsSettings]:
@@ -86,13 +89,11 @@ class AdjustProps(Action[AdjustPropsSettings, None, AdjustPropsState]):
         # AdjustProps action has no persistent internal state
         return AdjustPropsState()
 
-    def set_state(self, state: AdjustPropsState, links: None = None) -> None:
-        _ = state, links
+    def set_state(self, state: AdjustPropsState) -> None:
+        _ = state
 
     @with_logging_context
-    def execute(self, links: None = None) -> None:
-        _ = links
-
+    def execute(self) -> None:
         if (
             self._settings.execution_frequency is None
             # the first slice is 1, so we use slice_number - 1 to get the 0-indexed slice number

@@ -1,7 +1,6 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
-import logging
 from pathlib import Path
 
 from PyQt6.QtCore import Qt, pyqtSignal
@@ -17,14 +16,11 @@ from PyQt6.QtWidgets import (
 )
 
 from fibsem_maestro.action.action import Action
-from fibsem_maestro.core._slice_obsolete import SliceContext
 from fibsem_maestro.gui.action_list_panel.panel import ActionListPanel
 from fibsem_maestro.gui.action_panel.action_panel import ActionPanel
 from fibsem_maestro.gui.app_state import AppState
 from fibsem_maestro.gui.form_builder.builder import FormBuilder
 from fibsem_maestro.gui.window._top_bar import TopBar
-from fibsem_maestro.logging.image.file import FileImageLogger
-from fibsem_maestro.logging.text.file import FileTextLogger
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.workflow.workflow import Workflow
 
@@ -44,10 +40,6 @@ class MainWindow(QMainWindow):
         self._workflow = workflow
         self._workflow_dir = workflow_dir
         self._is_resuming = is_resuming
-
-        self._slice = SliceContext(self._workflow_dir / "run", 0)
-        self._txt_log = FileTextLogger(self._slice, "app", logging.DEBUG)
-        self._img_log = FileImageLogger(self._slice)
 
         self._app_state = AppState.EDITING
 
@@ -90,9 +82,6 @@ class MainWindow(QMainWindow):
         self._action_list = ActionListPanel(
             workflow=workflow,
             microscope=microscope,
-            slice_context=self._slice,
-            base_logger=self._txt_log,
-            base_img_logger=self._img_log,
             workflow_dir=workflow_dir,
         )
 

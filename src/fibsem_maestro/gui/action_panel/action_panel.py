@@ -16,6 +16,7 @@ from fibsem_maestro.gui.action_panel._propagations_widget import PropagationsWid
 from fibsem_maestro.gui.app_state import AppState
 from fibsem_maestro.gui.form_builder.builder import FormBuilder
 from fibsem_maestro.microscope.microscope import Microscope
+from fibsem_maestro.workflow.actions import Actions
 from fibsem_maestro.workflow.propagations import Propagations
 
 
@@ -40,7 +41,7 @@ class ActionPanel(QWidget):
         self,
         action: Action,
         propagations: Propagations,
-        all_actions: list[Action],
+        all_actions: Actions,
         microscope: Microscope,
         form_builder: FormBuilder,
         parent: QWidget | None = None,

@@ -14,7 +14,6 @@ from PyQt6.QtWidgets import (
     QDoubleSpinBox,
     QLineEdit,
     QPlainTextEdit,
-    QScrollArea,
     QSpinBox,
     QWidget,
 )
@@ -23,7 +22,6 @@ from fibsem_maestro.gui.error import GUIError
 from fibsem_maestro.gui.form_builder.utils import (
     FieldInfo,
     TypeKind,
-    class_name_to_label,
     classify_type,
     get_field_infos,
 )

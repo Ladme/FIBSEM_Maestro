@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import (
 
 from fibsem_maestro.action.action import Action
 from fibsem_maestro.action.registry import ACTION_REGISTRY
+from fibsem_maestro.action_context.file import FileActionContext
 from fibsem_maestro.core._slice_obsolete import SliceContext
 from fibsem_maestro.core.image import _ImageBase
 from fibsem_maestro.gui.action_list_panel._action_item import ActionItemWidget
@@ -56,18 +57,13 @@ class ActionListPanel(QWidget):
         self,
         workflow: Workflow,
         microscope: Microscope,
-        slice_context: SliceContext,
-        base_logger: FileTextLogger,
-        base_img_logger: FileImageLogger,
         workflow_dir: Path,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._workflow = workflow
+        self._workflow_dir = workflow_dir
         self._microscope = microscope
-        self._slice_context = slice_context
-        self._base_logger = base_logger
-        self._base_img_logger = base_img_logger
         self._run_dir = workflow_dir / "run"
         self._app_state = AppState.EDITING
 
@@ -134,20 +130,16 @@ class ActionListPanel(QWidget):
         run_dir = self._run_dir
         run_dir.mkdir(parents=True, exist_ok=True)
 
-        config = ActionConfig(
+        return action_cls(
             name=name,
             microscope=self._microscope,
             settings=settings,
-            props_store=FilePropsStore(self._slice_context),
-            txt_store=FileTextStore(self._slice_context),
-            image_store=FileImageStore(
-                self._slice_context, cls=_ImageBase, directory=run_dir
+            ctx=FileActionContext(
+                action_dir=self._workflow_dir / name.replace(" ", "_"),
+                name=name.replace(" ", "_"),
             ),
-            frame_store=FileFrameStore(self._slice_context, directory=run_dir),
-            txt_log=self._base_logger.derive(name),
-            img_log=self._base_img_logger,
+            actions=self._workflow.actions,
         )
-        return action_cls(config)
 
     def _generate_unique_name(self, base_name: str) -> str:
         """Generate a unique name by appending a number suffix if needed."""

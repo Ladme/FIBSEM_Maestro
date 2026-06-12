@@ -1,13 +1,15 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
-from dataclasses import dataclass
 from typing import Self
+
+from pydantic.dataclasses import dataclass
 
 from fibsem_maestro.action.action import Action
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.property_names import PropertyNames
+from fibsem_maestro.workflow.actions import Actions
 from fibsem_maestro.workflow.error import WorkflowError
 
 
@@ -76,7 +78,7 @@ class Propagations:
             )
         )
 
-    def propagate(self, action: Action, all_actions: list[Action]) -> None:
+    def propagate(self, action: Action, all_actions: Actions) -> None:
         """
         Execute all propagation rules for the given action.
 
@@ -107,7 +109,7 @@ class Propagations:
 
     def _propagate_to_dependents(
         self,
-        all_actions: list[Action],
+        all_actions: Actions,
         dependents: list[Action],
         props: GlobalProperties,
     ) -> None:

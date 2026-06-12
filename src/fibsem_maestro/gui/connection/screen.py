@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from fibsem_maestro.action_context.file import FileActionContext
 from fibsem_maestro.gui.connection._common import load_last_profile, save_last_profile
 from fibsem_maestro.gui.connection._connect_worker import ConnectWorker
 from fibsem_maestro.gui.connection._new_workflow import NewWorkflowScreen
@@ -146,7 +147,13 @@ class ConnectionScreen(QDialog):
         self._connect_btn.setEnabled(False)
         self._status_label.setText("Connecting...")
 
-        self._worker = ConnectWorker(settings)
+        # TODO: connect properly to workflow
+        self._worker = ConnectWorker(
+            settings,
+            FileActionContext(
+                action_dir=self.workflow_dir / "workflow", name="workflow"
+            ),
+        )
         self._worker.succeeded.connect(self._on_success)
         self._worker.failed.connect(self._on_failure)
         self._worker.start()

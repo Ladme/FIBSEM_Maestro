@@ -34,6 +34,9 @@ PostMillingCorrectionMode = Annotated[
 
 
 class PostMillingCorrectionSettings(BaseSettings):
+    linked_milling: str = Field(
+        default="", description="Milling linked to this post-milling correction."
+    )
     correction_mode: PostMillingCorrectionMode = Field(
         default_factory=ManualMode,
         description="Mode of post milling correction to use.",

@@ -26,6 +26,7 @@ from fibsem_maestro.settings.imaging_settings import (
 from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.slice.slice_view import SliceView
 from fibsem_maestro.store.props.props_store import PropsStore
+from fibsem_maestro.workflow.actions import Actions
 
 
 class ImagingState(ActionState):
@@ -34,7 +35,7 @@ class ImagingState(ActionState):
 
 
 @ACTION_REGISTRY.register("imaging")
-class Imaging(Action[ImagingSettings, None, ImagingState]):
+class Imaging(Action[ImagingSettings, ImagingState]):
     """
     Orchestrates a single image acquisition cycle on the electron microscope.
     """
@@ -45,11 +46,13 @@ class Imaging(Action[ImagingSettings, None, ImagingState]):
         microscope: Microscope,
         settings: ImagingSettings,
         ctx: ActionContext,
+        actions: Actions,
     ):
         self._name = name
         self._microscope = microscope
         self._settings = settings
         self._ctx = ctx
+        self._actions = actions
 
         # was scanning area selected using extended resolution
         # necessary to avoid shrinking the selected area in subsequent imagings
@@ -114,9 +117,7 @@ class Imaging(Action[ImagingSettings, None, ImagingState]):
             image_sharpness=self._image_sharpness,
         )
 
-    def set_state(self, state: ImagingState, links: None) -> None:
-        _ = links
-
+    def set_state(self, state: ImagingState) -> None:
         self._scanning_area_selected = state.scanning_area_selected
         self._image_sharpness = state.image_sharpness
 
@@ -146,7 +147,7 @@ class Imaging(Action[ImagingSettings, None, ImagingState]):
         return self._last_acquired_image
 
     @with_logging_context
-    def execute(self, links: None = None) -> None:
+    def execute(self) -> None:
         """
         Execute the full image acquisition pipeline for the current slice.
 
@@ -161,8 +162,6 @@ class Imaging(Action[ImagingSettings, None, ImagingState]):
         Raises:
             ImagingError: If a frame for the current slice already exists in the frame store.
         """
-        _ = links
-
         if (
             self._settings.execution_frequency is None
             # the first slice is 1, so we use slice_number - 1 to get the 0-indexed slice number

@@ -5,7 +5,6 @@ import re
 from pathlib import Path
 from typing import Self
 
-from fibsem_maestro.action.action import Action
 from fibsem_maestro.action.registry import ACTION_REGISTRY
 from fibsem_maestro.action.state import ActionState
 from fibsem_maestro.action_context.action_context import ActionContext
@@ -14,8 +13,8 @@ from fibsem_maestro.logging.logging import logging_context
 from fibsem_maestro.logging.text.contextual import ContextualTextLogger
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
+from fibsem_maestro.workflow.actions import Actions
 from fibsem_maestro.workflow.error import WorkflowError
-from fibsem_maestro.workflow.links import ActionLinks, LinkRule
 from fibsem_maestro.workflow.propagations import PropagationRule, Propagations
 
 
@@ -24,16 +23,14 @@ class WorkflowState(ActionState):
     action_types: list[str]
     slice_index: int
     propagations: list[PropagationRule]
-    links: list[LinkRule]
 
 
 class Workflow:
     def __init__(
         self,
         microscope: Microscope,
-        actions: list[Action],
+        actions: Actions,
         propagations: Propagations,
-        links: ActionLinks,
         context: ActionContext,
     ):
         """
@@ -45,16 +42,14 @@ class Workflow:
 
         Args:
             microscope: THe microscope instance.
-            actions: The ordered sequence of actions to execute each slice.
+            actions: The sequence of actions to execute each slice.
             propagations: The synchronization rules for property propagation.
-            links: The action links for resolving dependencies.
             context: The action context for managing slice state.
         """
 
         self.microscope = microscope
         self.actions = actions
         self.propagations = propagations
-        self.links = links
         self._ctx = context
 
     @classmethod
@@ -148,7 +143,7 @@ class Workflow:
             ),
         )
 
-        actions: list[Action] = []
+        actions = Actions()
         for name, type in zip(workflow_state.action_names, workflow_state.action_types):
             name_with_underscores = name.replace(" ", "_")
             action_slice_number = action_slice_numbers[name]
@@ -163,23 +158,22 @@ class Workflow:
             action_ctx = FileActionContext(
                 dir / name_with_underscores, name, slice=action_slice_number
             )
-            actions.append(ActionCls(name, microscope, action_settings, action_ctx))
+            actions.append(
+                ActionCls(name, microscope, action_settings, action_ctx, actions)
+            )
 
         propagations = Propagations.from_rules(
             workflow_state.propagations, workflow_ctx.text_logger.derive("propagations")
         )
-        links = ActionLinks.from_rules(
-            workflow_state.links, workflow_ctx.text_logger.derive("links")
-        )
 
-        workflow = cls(microscope, actions, propagations, links, workflow_ctx)
+        workflow = cls(microscope, actions, propagations, workflow_ctx)
 
         if restore_state:
             for action in actions:
                 action_state = action.ctx.state_store.read(
                     "state.yaml", action.state_cls()
                 )
-                action.set_state(action_state, links.resolve(action))
+                action.set_state(action_state)
 
         return workflow
 
@@ -207,11 +201,8 @@ class Workflow:
         """Executes all actions for a single slice and performs synchronization."""
         self._ctx.text_logger.info(f"Starting slice {self._ctx.slice}.")
         for action in self.actions:
-            # get links to other actions
-            links = self.links.resolve(action)
-
             # execute the action
-            action.execute(links)
+            action.execute()
 
             # TODO: implementing pausing
             # if paused, wait for all actions to finish their background threads
@@ -246,7 +237,6 @@ class Workflow:
             ],
             slice_index=self._ctx.slice,
             propagations=self.propagations.rules,
-            links=self.links.rules,
         )
 
 

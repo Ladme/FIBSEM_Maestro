@@ -84,6 +84,9 @@ AutofocusMode = Annotated[
 
 
 class AutofocusSettings(BaseSettings):
+    linked_imaging: str = Field(
+        default="", description="Name of the imaging action linked to this autofocus."
+    )
     target_attribute: Annotated[
         str,
         FormHint(

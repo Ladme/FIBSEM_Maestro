@@ -14,6 +14,7 @@ from fibsem_maestro.milling.error import MillingError
 from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.milling_settings import MillingSettings
 from fibsem_maestro.settings.property_names import PropertyNames
+from fibsem_maestro.workflow.actions import Actions
 
 
 class MillingState(ActionState):
@@ -21,7 +22,7 @@ class MillingState(ActionState):
 
 
 @ACTION_REGISTRY.register("milling")
-class Milling(Action[MillingSettings, None, MillingState]):
+class Milling(Action[MillingSettings, MillingState]):
     """
     Performs focused ion beam milling one slice at a time.
 
@@ -44,11 +45,13 @@ class Milling(Action[MillingSettings, None, MillingState]):
         microscope: Microscope,
         settings: MillingSettings,
         ctx: ActionContext,
+        actions: Actions,
     ):
         self._name = name
         self._microscope = microscope
         self._settings = settings
         self._ctx = ctx
+        self._actions = actions
 
         self._current_milling_area: NMArea | None = None
 
@@ -96,20 +99,14 @@ class Milling(Action[MillingSettings, None, MillingState]):
     def state(self) -> MillingState:
         return MillingState(milling_area=self._current_milling_area)
 
-    def set_state(self, state: MillingState, links: None) -> None:
-        _ = links
+    def set_state(self, state: MillingState) -> None:
         self._current_milling_area = state.milling_area
 
     @with_logging_context
-    def execute(self, links: None = None) -> None:
+    def execute(self) -> None:
         """
         Perform one milling step for the current slice if conditions are met.
-
-        Args:
-            slice_number: The current slice index.
         """
-        _ = links
-
         if len(self._settings.milling_area) != 1:
             raise MillingError(
                 f"Expected exactly one milling area, got {len(self._settings.milling_area)}."

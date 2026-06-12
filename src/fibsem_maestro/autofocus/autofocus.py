@@ -4,12 +4,12 @@
 
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from fibsem_maestro.action.action import Action, LinkedActions
+from fibsem_maestro.action.action import Action
 from fibsem_maestro.action.registry import ACTION_REGISTRY
 from fibsem_maestro.action.state import ActionState
 from fibsem_maestro.action_context.action_context import ActionContext
@@ -32,14 +32,10 @@ from fibsem_maestro.settings.autofocus_settings import (
     AutoscriptMode,
 )
 from fibsem_maestro.settings.property_names import PropertyNames
+from fibsem_maestro.workflow.actions import Actions
 
 if TYPE_CHECKING:
     from collections.abc import Generator
-
-
-@dataclass
-class LinkedToAutofocus(LinkedActions):
-    imaging: Imaging
 
 
 class AutofocusState(ActionState):
@@ -50,7 +46,7 @@ class AutofocusState(ActionState):
 
 
 @ACTION_REGISTRY.register("autofocus")
-class Autofocus(Action[AutofocusSettings, LinkedToAutofocus, AutofocusState]):
+class Autofocus(Action[AutofocusSettings, AutofocusState]):
     """Orchestrates the autofocus pipeline for a single configured mode.
 
     Manages the full autofocus lifecycle: deciding when to execute based on
@@ -70,11 +66,13 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus, AutofocusState]):
         microscope: Microscope,
         settings: AutofocusSettings,
         ctx: ActionContext,
+        actions: Actions,
     ):
         self._name = name
         self._microscope = microscope
         self._settings = settings
         self._ctx = ctx
+        self._actions = actions
 
         self._mode = AUTOFOCUS_MODES.get(self._settings.mode.type)()
 
@@ -163,7 +161,7 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus, AutofocusState]):
             else [],
         )
 
-    def set_state(self, state: AutofocusState, links: LinkedToAutofocus) -> None:
+    def set_state(self, state: AutofocusState) -> None:
         self._sweep_base_value = state.sweep_base_value
         self._current_step_index = state.current_step_index
 
@@ -180,12 +178,12 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus, AutofocusState]):
             self._active_gen = self._mode.execute(
                 self._autofocus_ctx,
                 self._jobs,
-                links.imaging,
+                self._resolve_imaging(),
                 resume_from=state.current_step_index,
             )
 
     @with_logging_context
-    def execute(self, links: LinkedToAutofocus | None = None) -> None:
+    def execute(self) -> None:
         """
         Advance the autofocus execution by one step for the current slice.
 
@@ -197,13 +195,7 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus, AutofocusState]):
         In all cases, the microscope properties for autofocus are propagated
         to the next slice's property store so that the next action always has
         up-to-date properties to read.
-
-        Args:
-            links: The autofocus links, used to access the imaging job.
         """
-        if links is None:
-            raise AutofocusError("Link to Imaging not specified.")
-
         # if we have a running autofocus, continue executing it
         if self._active_gen is not None:
             # mid-execution: keep going regardless of gating checks
@@ -218,7 +210,7 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus, AutofocusState]):
         self._jobs.wait_and_clear()
 
         # wait for the sharpness of the image from the previous slice
-        image_sharpness = links.imaging.wait_for_sharpness()
+        image_sharpness = self._resolve_imaging().wait_for_sharpness()
         self._ctx.text_logger.debug(f"Last image sharpness: {image_sharpness}.")
         # evaluate whether the autofocus should be performed based on the sharpness of the image from the previous slice
         if not self._should_execute(self._ctx.slice, image_sharpness):
@@ -237,7 +229,7 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus, AutofocusState]):
         self._current_step_index = 0
         # execute the autofocus
         self._active_gen = self._mode.execute(
-            self._autofocus_ctx, self._jobs, links.imaging
+            self._autofocus_ctx, self._jobs, self._resolve_imaging()
         )
         self._advance()
 
@@ -287,6 +279,14 @@ class Autofocus(Action[AutofocusSettings, LinkedToAutofocus, AutofocusState]):
 
     def wait_for_background_threads(self) -> None:
         self._jobs.wait()
+
+    def _resolve_imaging(self) -> Imaging:
+        imaging = self._actions.named(self._settings.linked_imaging)
+        if not isinstance(imaging, Imaging):
+            raise AutofocusError(
+                f"Linked action is not an Imaging action: {imaging.name}"
+            )
+        return imaging
 
     def _should_execute(self, slice_number: int, image_sharpness: float | None) -> bool:
         """

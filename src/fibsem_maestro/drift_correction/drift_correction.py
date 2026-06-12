@@ -19,6 +19,7 @@ from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.drift_correction_settings import DriftCorrectionSettings
 from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.store.image.image_store import ImageStore
+from fibsem_maestro.workflow.actions import Actions
 
 if TYPE_CHECKING:
     from fibsem_maestro.drift_correction.drift_calculation_mode import (
@@ -31,7 +32,7 @@ class DriftCorrectionState(ActionState):
 
 
 @ACTION_REGISTRY.register("drift_correction")
-class DriftCorrection(Action[DriftCorrectionSettings, None, DriftCorrectionState]):
+class DriftCorrection(Action[DriftCorrectionSettings, DriftCorrectionState]):
     """
     Corrects sample drift between slices by applying a compensating beam shift.
     """
@@ -42,11 +43,13 @@ class DriftCorrection(Action[DriftCorrectionSettings, None, DriftCorrectionState
         microscope: Microscope,
         settings: DriftCorrectionSettings,
         ctx: ActionContext,
+        actions: Actions,
     ):
         self._name = name
         self._microscope = microscope
         self._settings = settings
         self._ctx = ctx
+        self._actions = actions
 
         # set up the drift calculation method
         self._drift_calc_name = self._settings.drift_calculation_mode.type
@@ -105,8 +108,8 @@ class DriftCorrection(Action[DriftCorrectionSettings, None, DriftCorrectionState
         # drift correction has no persistent internal state
         return DriftCorrectionState()
 
-    def set_state(self, state: DriftCorrectionState, links: None) -> None:
-        _ = state, links
+    def set_state(self, state: DriftCorrectionState) -> None:
+        _ = state
 
     @with_logging_context
     def setup(self, store: ImageStore[Image8Bit] | None = None) -> None:
@@ -124,7 +127,7 @@ class DriftCorrection(Action[DriftCorrectionSettings, None, DriftCorrectionState
         self._drift_calc.setup(store)
 
     @with_logging_context
-    def execute(self, links: None = None) -> None:
+    def execute(self) -> None:
         """
         Acquire a frame, measure drift, and apply a compensating beam shift.
 
@@ -140,8 +143,6 @@ class DriftCorrection(Action[DriftCorrectionSettings, None, DriftCorrectionState
             DriftCorrectionError: If drift calculation fails and
                 `settings.stop_at_failure` is `True`.
         """
-        _ = links
-
         if (
             self._settings.execution_frequency is None
             # the first slice is 1, so we use slice_number - 1 to get the 0-indexed slice number
