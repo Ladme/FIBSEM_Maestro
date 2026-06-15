@@ -42,8 +42,17 @@ class Microscope:
         self._txt_log = txt_log
 
         self._settings = settings
+
+        if self._settings.port:
+            try:
+                port_int: int | None = int(self._settings.port)
+            except ValueError:
+                raise MicroscopeError("Invalid port: must be an integer or empty.")
+        else:
+            port_int: int | None = None
+
         self._control = MICROSCOPE_CONTROLS.get(settings.control)(
-            self._settings.ip_address, self._txt_log
+            self._settings.ip_address, port_int, self._txt_log
         )
         self.beam = self._control.electron_beam
 

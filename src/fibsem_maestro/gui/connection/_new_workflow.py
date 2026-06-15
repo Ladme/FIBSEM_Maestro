@@ -52,6 +52,7 @@ class NewWorkflowScreen(QWidget):
                 {
                     "control": last_profile.control,
                     "ip_address": last_profile.ip_address,
+                    "port": last_profile.port,
                 }
             )
 

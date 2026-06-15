@@ -20,12 +20,14 @@ class MicroscopeControl(ABC):
     """
 
     @abstractmethod
-    def __init__(self, ip_address: str, txt_log: TextLogger):
+    def __init__(self, ip_address: str, port: int | None, txt_log: TextLogger):
         """
         Initialize the microscope control interface.
 
         Args:
             ip_address: Network address of the microscope server.
+            port: Port number of the microscope server.
+                If None, the default port is used.
             txt_log: Logger for diagnostic and status messages.
         """
 

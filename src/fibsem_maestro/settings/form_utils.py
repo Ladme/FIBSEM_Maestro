@@ -14,6 +14,7 @@ class WidgetType(Enum):
     AREA_SELECT = "area_select"
     RANGE_PAIR = "range_pair"
     DETAIL_BAND = "detail_band"
+    STRING = "string"
 
 
 @dataclass

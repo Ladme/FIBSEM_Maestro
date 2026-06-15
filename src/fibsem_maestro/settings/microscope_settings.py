@@ -20,6 +20,10 @@ MicroscopeControlName = Annotated[
 class MicroscopeSettings(BaseSettings):
     control: MicroscopeControlName = Field(description="Type of microscope control.")
     ip_address: str = Field(description="Microscope server address.")
+    port: str = Field(
+        default="",
+        description="Microscope port to connect to. Leave empty to connect to the default port.",
+    )
     holder_pretilt: float = Field(
         default=0.0, description="Tilt of the sample holder in degrees."
     )

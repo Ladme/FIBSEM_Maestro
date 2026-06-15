@@ -18,23 +18,15 @@ from fibsem_maestro.microscope.autoscript_control.beam_control import (
 from fibsem_maestro.microscope.autoscript_control.manufacturer_props import (
     AutoscriptManufacturerPropertiesRegistry,
 )
-from fibsem_maestro.microscope.error import MicroscopeError
 from fibsem_maestro.microscope.registry import MICROSCOPE_CONTROLS
 
 
 @MICROSCOPE_CONTROLS.register("autoscript")
 class AutoscriptMicroscopeControl(MicroscopeControl):
-    def __init__(self, ip_address: str, txt_log: TextLogger):
+    def __init__(self, ip_address: str, port: int | None, txt_log: TextLogger):
         self._txt_log = txt_log
         self._microscope = SdbMicroscopeClient()
-        if ":" in ip_address:
-            ip_address, port = ip_address.split(":")
-
-            try:
-                port = int(port)
-            except ValueError as e:
-                raise MicroscopeError(f"Invalid port number {port}") from e
-
+        if port:
             self._microscope.connect(ip_address, port)
             self._txt_log.info(f"Connecting to {ip_address}:{port}.")
         else:

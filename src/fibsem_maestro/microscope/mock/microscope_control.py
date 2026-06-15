@@ -21,8 +21,9 @@ from fibsem_maestro.microscope.registry import MICROSCOPE_CONTROLS
 class MockMicroscopeControl(MicroscopeControl):
     """Minimal mock implementation of MicroscopeControl for testing."""
 
-    def __init__(self, ip_address: str, txt_log: TextLogger):
+    def __init__(self, ip_address: str, port: int | None, txt_log: TextLogger):
         self._ip_address = ip_address
+        self._port = port
         self._txt_log = txt_log
 
         self._stage_position = StagePosition(

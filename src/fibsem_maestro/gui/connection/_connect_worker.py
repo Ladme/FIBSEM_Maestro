@@ -2,14 +2,10 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
-import logging
-from pathlib import Path
-
 from PyQt6.QtCore import QThread, pyqtSignal
 
 from fibsem_maestro.action_context.action_context import ActionContext
 from fibsem_maestro.logging.text.contextual import ContextualTextLogger
-from fibsem_maestro.logging.text.file import FileTextLogger
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
 

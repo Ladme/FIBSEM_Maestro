@@ -28,8 +28,7 @@ class StringWidget(QWidget, WidgetWrapper):
         layout.addStretch()
 
     def get_value(self) -> str | None:
-        text = self._edit.text()
-        return text if text != "" else None
+        return self._edit.text()
 
     def set_value(self, value: str | None) -> None:
         self._edit.setText(str(value) if value is not None else "")

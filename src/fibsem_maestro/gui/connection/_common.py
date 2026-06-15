@@ -11,7 +11,7 @@ from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
 CONFIG_DIR = Path(user_config_dir("fibsem_maestro"))
 LAST_PROFILE_PATH = CONFIG_DIR / "last_microscope_profile.yaml"
 
-CONNECTION_FIELDS = {"control", "ip_address"}
+CONNECTION_FIELDS = {"control", "ip_address", "port"}
 
 
 def load_last_profile() -> MicroscopeSettings | None:

@@ -32,23 +32,27 @@ class SimulatedMicroscopeControl(MicroscopeControl):
     def __init__(
         self,
         ip_address: str,
+        port: str,
         txt_log: TextLogger,
         *,
         sample_width: int = 200,
         sample_height: int = 200,
         seed: int = 0,
     ):
-        """Initialize the simulated microscope.
+        """
+        Initialize the simulated microscope.
 
         Args:
-            ip_address (str): Address string for compatibility with real controllers.
-            txt_log (TextLogger): Text logger.
-            seed (int, optional): Seed for deterministic noise. Defaults to 0.
+            ip_address: Address string for compatibility with real controllers.
+            port: Port string for compatibility with real controllers.
+            txt_log: Text logger.
+            seed: Seed for deterministic noise. Defaults to 0.
         """
         self._txt_log = txt_log
         self._txt_log.info("Initializing a simulated microscope.")
 
         self.ip_address = ip_address
+        self.port = port
         self._rng = np.random.default_rng(seed)
 
         self._stage_position = StagePosition(

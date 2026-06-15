@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from fibsem_maestro.action_context.action_context import ActionContext
 from fibsem_maestro.action_context.file import FileActionContext
 from fibsem_maestro.gui.connection._common import load_last_profile, save_last_profile
 from fibsem_maestro.gui.connection._connect_worker import ConnectWorker
@@ -47,6 +48,7 @@ class ConnectionScreen(QDialog):
 
         self.microscope: Microscope | None = None
         self.workflow_dir: Path | None = None
+        self.workflow_context: ActionContext | None = None
         self.is_resuming: bool = False
 
         self._form_builder = FormBuilder()
@@ -119,6 +121,7 @@ class ConnectionScreen(QDialog):
             partial_settings = MicroscopeSettings(
                 control=values["control"],
                 ip_address=values["ip_address"],
+                port=values["port"],
             )
         except Exception as e:
             self._status_label.setText(f"Invalid settings: {e}")
