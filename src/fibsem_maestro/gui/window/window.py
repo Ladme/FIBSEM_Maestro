@@ -21,7 +21,6 @@ from fibsem_maestro.gui.action_panel.action_panel import ActionPanel
 from fibsem_maestro.gui.app_state import AppState
 from fibsem_maestro.gui.form_builder.builder import FormBuilder
 from fibsem_maestro.gui.window._top_bar import TopBar
-from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.workflow.workflow import Workflow
 
 
@@ -30,14 +29,13 @@ class MainWindow(QMainWindow):
 
     def __init__(
         self,
-        microscope: Microscope,
         workflow: Workflow,
         workflow_dir: Path,
         is_resuming: bool = False,
     ) -> None:
         super().__init__()
-        self._microscope = microscope
         self._workflow = workflow
+        self._microscope = workflow.microscope
         self._workflow_dir = workflow_dir
         self._is_resuming = is_resuming
 
@@ -58,7 +56,7 @@ class MainWindow(QMainWindow):
 
         # top bar
         self._top_bar = TopBar(
-            microscope=microscope,
+            microscope=self._microscope,
             workflow=workflow,
             workflow_dir=workflow_dir,
         )
@@ -81,7 +79,7 @@ class MainWindow(QMainWindow):
         # scrollable panel with actions
         self._action_list = ActionListPanel(
             workflow=workflow,
-            microscope=microscope,
+            microscope=self._microscope,
             workflow_dir=workflow_dir,
         )
 

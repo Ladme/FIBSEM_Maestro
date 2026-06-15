@@ -16,15 +16,19 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from fibsem_maestro.action_context.action_context import ActionContext
 from fibsem_maestro.action_context.file import FileActionContext
-from fibsem_maestro.gui.connection._common import load_last_profile, save_last_profile
-from fibsem_maestro.gui.connection._connect_worker import ConnectWorker
+from fibsem_maestro.gui.connection._common import (
+    load_last_microscope_profile,
+    save_last_microscope_profile,
+)
 from fibsem_maestro.gui.connection._new_workflow import NewWorkflowScreen
 from fibsem_maestro.gui.connection._resume_workflow import ResumeWorkflowScreen
 from fibsem_maestro.gui.form_builder.builder import FormBuilder
+from fibsem_maestro.logging.text.contextual import ContextualTextLogger
 from fibsem_maestro.microscope.microscope import Microscope
-from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
+from fibsem_maestro.workflow.actions import Actions
+from fibsem_maestro.workflow.propagations import Propagations
+from fibsem_maestro.workflow.workflow import Workflow
 
 
 class ConnectionScreen(QDialog):
@@ -40,20 +44,18 @@ class ConnectionScreen(QDialog):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+
+        self.workflow_dir: Path | None = None
+        self.workflow: Workflow | None = None
+
         self.setWindowTitle("FIBSEM Maestro - Connect")
         self.setFixedWidth(480)
         self.setWindowFlags(
             self.windowFlags() & ~Qt.WindowType.WindowContextHelpButtonHint
         )
 
-        self.microscope: Microscope | None = None
-        self.workflow_dir: Path | None = None
-        self.workflow_context: ActionContext | None = None
-        self.is_resuming: bool = False
-
         self._form_builder = FormBuilder()
-        self._last_profile = load_last_profile()
-        self._worker: ConnectWorker | None = None
+        self._last_microscope_profile = load_last_microscope_profile()
 
         outer = QVBoxLayout(self)
         outer.setSpacing(16)
@@ -77,7 +79,7 @@ class ConnectionScreen(QDialog):
         self._stack = QStackedWidget()
 
         self._new_screen = NewWorkflowScreen(
-            last_profile=self._last_profile,
+            last_microscope_profile=self._last_microscope_profile,
             form_builder=self._form_builder,
         )
         self._stack.addWidget(self._new_screen)
@@ -115,14 +117,8 @@ class ConnectionScreen(QDialog):
 
     def _connect_new(self) -> None:
         """Validate fields, pick a save directory, and attempt connection."""
-        values = self._new_screen.get_connection_values()
-
         try:
-            partial_settings = MicroscopeSettings(
-                control=values["control"],
-                ip_address=values["ip_address"],
-                port=values["port"],
-            )
+            settings = self._new_screen.get_microscope_settings()
         except Exception as e:
             self._status_label.setText(f"Invalid settings: {e}")
             return
@@ -131,42 +127,51 @@ class ConnectionScreen(QDialog):
         path = QFileDialog.getExistingDirectory(self, "Choose workflow save directory")
         if not path:
             return
+
         self.workflow_dir = Path(path)
-        self.is_resuming = False
+        self._workflow_context = FileActionContext(
+            action_dir=self.workflow_dir / "workflow", name="workflow"
+        )
 
-        self._attempt_connection(partial_settings)
-
-    def _connect_resume(self) -> None:
-        """Load profile from snapshot directory and attempt connection."""
-        settings = self._resume_screen.load_profile()
-        if settings is None:
-            return
-        self.workflow_dir = self._resume_screen.get_workflow_dir()
-        self.is_resuming = True
-        self._attempt_connection(settings)
-
-    def _attempt_connection(self, settings: MicroscopeSettings) -> None:
-        """Start a worker thread to construct the Microscope instance."""
+        # attempt to connect to the microscope
         self._connect_btn.setEnabled(False)
         self._status_label.setText("Connecting...")
+        try:
+            microscope = Microscope(
+                settings,
+                ContextualTextLogger(
+                    fallback=self._workflow_context.text_logger
+                ).derive("microscope"),
+            )
+            self.workflow = Workflow(
+                microscope,
+                Actions(),
+                Propagations(self._workflow_context.text_logger.derive("propagations")),
+                self._workflow_context,
+            )
+            save_last_microscope_profile(microscope.settings)
+            self._connect_btn.setEnabled(True)
+            self.accept()
+        except Exception as e:
+            self._status_label.setText(f"Connection failed: {str(e)}")
+            self._connect_btn.setEnabled(True)
 
-        # TODO: connect properly to workflow
-        self._worker = ConnectWorker(
-            settings,
-            FileActionContext(
-                action_dir=self.workflow_dir / "workflow", name="workflow"
-            ),
-        )
-        self._worker.succeeded.connect(self._on_success)
-        self._worker.failed.connect(self._on_failure)
-        self._worker.start()
+    def _connect_resume(self) -> None:
+        """Load workflow and attempt connection to the microscope."""
 
-    def _on_success(self, microscope: Microscope) -> None:
-        self.microscope = microscope
-        save_last_profile(microscope.settings)
-        self._connect_btn.setEnabled(True)
-        self.accept()
+        if not (workflow_dir := self._resume_screen.get_workflow_dir()):
+            self._status_label.setText("No workflow directory selected")
+            return
+        self.workflow_dir = workflow_dir
 
-    def _on_failure(self, error: str) -> None:
-        self._status_label.setText(f"Connection failed: {error}")
-        self._connect_btn.setEnabled(True)
+        self._connect_btn.setEnabled(False)
+        self._status_label.setText("Loading workflow...")
+
+        try:
+            self.workflow = Workflow.import_from_dir_with_state(workflow_dir)
+            save_last_microscope_profile(self.workflow.microscope.settings)
+            self._connect_btn.setEnabled(True)
+            self.accept()
+        except Exception as e:
+            self._status_label.setText(f"Loading failed: {str(e)}")
+            self._connect_btn.setEnabled(True)

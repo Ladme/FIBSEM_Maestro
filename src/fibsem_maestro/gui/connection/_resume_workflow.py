@@ -13,8 +13,6 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
-
 
 class ResumeWorkflowScreen(QWidget):
     """
@@ -41,6 +39,7 @@ class ResumeWorkflowScreen(QWidget):
 
         browse_btn = QPushButton("Browse...")
         browse_btn.setFixedWidth(80)
+        # on click, open a directory dialog to select the workflow directory
         browse_btn.clicked.connect(self._browse)
         dir_row.addWidget(browse_btn)
         layout.addLayout(dir_row)
@@ -62,12 +61,3 @@ class ResumeWorkflowScreen(QWidget):
 
     def get_workflow_dir(self) -> Path | None:
         return self._workflow_dir
-
-    def load_profile(self) -> MicroscopeSettings | None:
-        """
-        Attempt to load a MicroscopeSettings profile from the snapshot directory.
-
-        Returns None and sets an error message if loading fails.
-        """
-        # TODO: placeholder
-        pass

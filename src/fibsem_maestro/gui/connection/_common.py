@@ -14,7 +14,7 @@ LAST_PROFILE_PATH = CONFIG_DIR / "last_microscope_profile.yaml"
 CONNECTION_FIELDS = {"control", "ip_address", "port"}
 
 
-def load_last_profile() -> MicroscopeSettings | None:
+def load_last_microscope_profile() -> MicroscopeSettings | None:
     """Load the last used microscope profile from the config directory."""
     if not LAST_PROFILE_PATH.exists():
         return None
@@ -24,7 +24,7 @@ def load_last_profile() -> MicroscopeSettings | None:
         return None
 
 
-def save_last_profile(settings: MicroscopeSettings) -> None:
+def save_last_microscope_profile(settings: MicroscopeSettings) -> None:
     """Save the microscope profile to the config directory."""
     try:
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
