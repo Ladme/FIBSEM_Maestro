@@ -20,17 +20,10 @@ from PyQt6.QtWidgets import (
 from fibsem_maestro.action.action import Action
 from fibsem_maestro.action.registry import ACTION_REGISTRY
 from fibsem_maestro.action_context.file import FileActionContext
-from fibsem_maestro.core._slice_obsolete import SliceContext
-from fibsem_maestro.core.image import _ImageBase
 from fibsem_maestro.gui.action_list_panel._action_item import ActionItemWidget
 from fibsem_maestro.gui.action_list_panel._add_action import AddActionDialog
 from fibsem_maestro.gui.app_state import AppState
-from fibsem_maestro.logging.image.file import FileImageLogger
-from fibsem_maestro.logging.text.file import FileTextLogger
 from fibsem_maestro.microscope.microscope import Microscope
-from fibsem_maestro.store.frame.file import FileFrameStore
-from fibsem_maestro.store.image.file import FileImageStore
-from fibsem_maestro.store.props.file import FilePropsStore
 from fibsem_maestro.workflow.workflow import Workflow
 
 
@@ -101,8 +94,6 @@ class ActionListPanel(QWidget):
 
     def _item_widget(self, row: int) -> ActionItemWidget | None:
         item = self._list.item(row)
-        if item is None:
-            return None
         return cast("ActionItemWidget", self._list.itemWidget(item))
 
     def _existing_names(self) -> set[str]:
@@ -140,9 +131,9 @@ class ActionListPanel(QWidget):
         if base_name not in existing:
             return base_name
         i = 2
-        while f"{base_name}_{i}" in existing:
+        while f"{base_name} {i}" in existing:
             i += 1
-        return f"{base_name}_{i}"
+        return f"{base_name} {i}"
 
     # -- event handlers -----------------------------------------------------
 

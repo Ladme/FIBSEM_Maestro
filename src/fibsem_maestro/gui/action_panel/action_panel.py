@@ -14,10 +14,12 @@ from PyQt6.QtWidgets import (
 from fibsem_maestro.action.action import Action
 from fibsem_maestro.gui.action_panel._propagations_widget import PropagationsWidget
 from fibsem_maestro.gui.app_state import AppState
+from fibsem_maestro.gui.common import class_name_to_label
 from fibsem_maestro.gui.form_builder.builder import FormBuilder
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.workflow.actions import Actions
 from fibsem_maestro.workflow.propagations import Propagations
+from fibsem_maestro.workflow.workflow import Workflow
 
 
 class ActionPanel(QWidget):
@@ -40,15 +42,14 @@ class ActionPanel(QWidget):
     def __init__(
         self,
         action: Action,
-        propagations: Propagations,
-        all_actions: Actions,
-        microscope: Microscope,
+        workflow: Workflow,
         form_builder: FormBuilder,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._action = action
-        self._microscope = microscope
+        self._workflow = workflow
+        self._microscope = workflow.microscope
 
         outer_layout = QVBoxLayout(self)
         outer_layout.setContentsMargins(0, 0, 0, 0)
@@ -80,14 +81,22 @@ class ActionPanel(QWidget):
         name_label.setStyleSheet("font-size: 15px; font-weight: bold;")
         title_layout.addWidget(name_label)
 
-        type_label = QLabel(type(action).__name__)
+        type_label = QLabel(f"   > type: {class_name_to_label(type(action).__name__)}")
         type_label.setStyleSheet("font-size: 11px; color: #888888;")
         title_layout.addWidget(type_label)
+
+        beam_label = QLabel(
+            f"   > beam: {str(action.beam_type) if action.beam_type is not None else '—'}"
+        )
+        beam_label.setStyleSheet("font-size: 11px; color: #888888")
+        title_layout.addWidget(beam_label)
 
         layout.addWidget(title_frame)
 
         # settings
-        self._settings_widget = form_builder.build_form(action.settings, microscope)
+        self._settings_widget = form_builder.build_form(
+            action.settings, self._microscope
+        )
         layout.addWidget(self._settings_widget)
 
         # propagations

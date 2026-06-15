@@ -74,12 +74,12 @@ class AddActionDialog(QDialog):
 
         # pre-fill name from first registry key
         if self._type_combo.count() > 0:
-            self._name_edit.setText(self._type_combo.currentText())
+            self._name_edit.setText(self._type_combo.currentText().replace("_", " "))
 
         self._validate()
 
     def _on_type_changed(self, key: str) -> None:
-        self._name_edit.setText(key)
+        self._name_edit.setText(key.replace("_", " "))
         self._validate()
 
     def _validate(self) -> None:

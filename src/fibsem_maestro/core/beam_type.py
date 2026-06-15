@@ -15,3 +15,6 @@ class BeamType(str, Enum):
                 return 1
             case BeamType.ION:
                 return 2
+
+    def __str__(self) -> str:
+        return self.value

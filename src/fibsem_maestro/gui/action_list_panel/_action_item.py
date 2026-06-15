@@ -3,10 +3,11 @@
 
 
 from PyQt6.QtCore import pyqtSignal
-from PyQt6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QWidget
+from PyQt6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QVBoxLayout, QWidget
 
 from fibsem_maestro.action.action import Action
 from fibsem_maestro.gui.action_list_panel._common import STATE_COLORS
+from fibsem_maestro.gui.common import class_name_to_label
 from fibsem_maestro.workflow.propagations import Propagations
 
 
@@ -33,7 +34,6 @@ class ActionItemWidget(QWidget):
         super().__init__(parent)
         self._action = action
         self._propagations = propagations
-
         layout = QHBoxLayout(self)
         layout.setContentsMargins(4, 2, 4, 2)
         layout.setSpacing(6)
@@ -44,31 +44,45 @@ class ActionItemWidget(QWidget):
         self._dot.setStyleSheet(f"color: {STATE_COLORS['idle']}; font-size: 8px;")
         layout.addWidget(self._dot)
 
+        # vertical group: name row + subtitle
+        text_layout = QVBoxLayout()
+        text_layout.setContentsMargins(0, 0, 0, 0)
+        text_layout.setSpacing(1)
+
+        # name row: name label + propagation badge
+        name_row = QHBoxLayout()
+        name_row.setContentsMargins(0, 0, 0, 0)
+        name_row.setSpacing(6)
+
         # name label (double-click to edit)
         self._name_label = QLabel(action.name)
         self._name_label.setStyleSheet("font-weight: bold;")
         self._name_label.mouseDoubleClickEvent = self._start_name_edit
-        layout.addWidget(self._name_label)
+        name_row.addWidget(self._name_label)
 
         # inline name editor (hidden by default)
         self._name_edit = QLineEdit(action.name)
         self._name_edit.hide()
         self._name_edit.returnPressed.connect(self._finish_name_edit)
         self._name_edit.editingFinished.connect(self._finish_name_edit)
-        layout.addWidget(self._name_edit)
-
-        # type label
-        type_label = QLabel(type(action).__name__)
-        type_label.setStyleSheet("color: #888888; font-size: 11px;")
-        layout.addWidget(type_label)
-
-        layout.addStretch()
+        name_row.addWidget(self._name_edit)
 
         # propagation badge
         self._badge = QLabel()
         self._badge.setStyleSheet("color: #5a9fd4; font-size: 11px;")
-        layout.addWidget(self._badge)
+        name_row.addWidget(self._badge)
 
+        name_row.addStretch()
+        text_layout.addLayout(name_row)
+
+        # type + beam subtitle
+        subtitle_label = QLabel(
+            f"{class_name_to_label(type(action).__name__)}  ·  {action.beam_type if action.beam_type is not None else '—'}"
+        )
+        subtitle_label.setStyleSheet("color: #888888; font-size: 10px;")
+        text_layout.addWidget(subtitle_label)
+
+        layout.addLayout(text_layout)
         self.update_propagation_badge()
 
     def _start_name_edit(self, event) -> None:

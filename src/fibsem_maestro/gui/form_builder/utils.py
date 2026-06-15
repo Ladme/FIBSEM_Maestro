@@ -11,6 +11,7 @@ from typing import Annotated, Any, Literal, Union, get_args, get_origin, get_typ
 from pydantic import BaseModel
 from pydantic_core import PydanticUndefined
 
+from fibsem_maestro.gui.common import field_name_to_label
 from fibsem_maestro.settings.form_utils import FieldUnit, FormHint
 
 
@@ -197,19 +198,6 @@ def _extract_annotated_extras(
     field_unit = next((a for a in extras if isinstance(a, FieldUnit)), None)
 
     return bare_type, form_hint, field_unit, extras
-
-
-def field_name_to_label(name: str) -> str:
-    """'stage_position' -> 'stage position'"""
-    return name.replace("_", " ")
-
-
-def class_name_to_label(name: str) -> str:
-    """'StandardResolution' -> 'standard resolution'"""
-    import re
-
-    spaced = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", name)
-    return spaced.lower()
 
 
 def classify_type(t: Any) -> TypeKind:

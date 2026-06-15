@@ -12,7 +12,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from fibsem_maestro.gui.form_builder.utils import FieldInfo, class_name_to_label
+from fibsem_maestro.gui.common import class_name_to_label
+from fibsem_maestro.gui.form_builder.utils import FieldInfo
 from fibsem_maestro.gui.form_builder.widgets.object import ObjectWidget
 from fibsem_maestro.gui.form_builder.widgets.wrapper import WidgetWrapper
 

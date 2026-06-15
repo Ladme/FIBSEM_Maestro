@@ -152,9 +152,7 @@ class MainWindow(QMainWindow):
         if action not in self._panels:
             panel = ActionPanel(
                 action=action,
-                propagations=self._workflow.propagations,
-                all_actions=self._workflow.actions,
-                microscope=self._microscope,
+                workflow=self._workflow,
                 form_builder=self._form_builder,
             )
             self.app_state_changed.connect(panel.on_app_state_changed)
