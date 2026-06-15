@@ -3,19 +3,20 @@
 
 from pathlib import Path
 
-from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtCore import QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
     QLabel,
+    QMessageBox,
     QPushButton,
-    QSpinBox,
     QStyle,
     QWidget,
 )
 
 from fibsem_maestro.gui.app_state import AppState
-from fibsem_maestro.microscope.microscope import Microscope
+from fibsem_maestro.gui.form_builder.builder import FormBuilder
+from fibsem_maestro.gui.window._microscope_dialog import MicroscopeSettingsDialog
 from fibsem_maestro.workflow.workflow import Workflow
 
 
@@ -24,7 +25,6 @@ class TopBar(QWidget):
     Horizontal bar at the top of the main window.
 
     Args:
-        microscope: The connected microscope instance.
         workflow: The current workflow.
         workflow_dir: Directory where the workflow is saved reactively.
     """
@@ -34,16 +34,19 @@ class TopBar(QWidget):
 
     def __init__(
         self,
-        microscope: Microscope,
         workflow: Workflow,
         workflow_dir: Path,
+        form_builder: FormBuilder,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
-        self._microscope = microscope
         self._workflow = workflow
+        self._microscope = workflow.microscope
         self._workflow_dir = workflow_dir
-        self._current_state = AppState.EDITING
+        self._current_state = (
+            AppState.EDITING if self._workflow.ctx.slice == 0 else AppState.PAUSED
+        )
+        self._form_builder = form_builder
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(8, 4, 8, 4)
@@ -61,30 +64,58 @@ class TopBar(QWidget):
         microscope_btn.clicked.connect(self._on_microscope_settings)
         layout.addWidget(microscope_btn)
 
-        self._separator(layout)
+        layout.addStretch()
 
         # run controls
-        layout.addWidget(QLabel("Slices:"))
-
-        self._slices_spin = QSpinBox()
-        self._slices_spin.setRange(1, 10000)
-        self._slices_spin.setValue(1)
-        self._slices_spin.setFixedWidth(70)
-        layout.addWidget(self._slices_spin)
-
         self._run_btn = QPushButton()
         style = self._run_btn.style()
+        icon_size = 20
         self._run_btn.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
-        self._run_btn.setText("")
+        self._run_btn.setIconSize(QSize(icon_size, icon_size))
+        self._run_btn.setFixedSize(QSize(icon_size + 8, icon_size + 8))
         self._run_btn.clicked.connect(self._on_run)
         layout.addWidget(self._run_btn)
 
-        # push directory label to the right
+        status_layout = QHBoxLayout()
+        status_layout.setSpacing(1)
+        status_layout.setContentsMargins(0, 0, 0, 0)
+
+        # slice number
+        self._slice_label = QLabel()
+        slice_font = self._slice_label.font()
+        slice_font.setPointSize(20)
+        slice_font.setBold(True)
+        self._slice_label.setFont(slice_font)
+        self._slice_label.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+        status_layout.addWidget(self._slice_label)
+
+        # current app state
+        self._state_label = QLabel()
+        state_font = self._state_label.font()
+        state_font.setPointSize(15)
+        state_font.setBold(True)
+        self._state_label.setFont(state_font)
+        self._state_label.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+        self._state_label.setFixedWidth(120)
+        status_layout.addWidget(self._state_label)
+
+        layout.addLayout(status_layout)
+        self._update_status()
         layout.addStretch()
 
-        self._dir_label = QLabel(f"Workflow: {self._workflow_dir}")
-        self._dir_label.setStyleSheet("color: #888888; font-size: 11px;")
+        # workflow directory
+        self._dir_label = QLabel(str(self._workflow_dir))
+        self._dir_label.setAlignment(
+            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight
+        )
+        self._dir_label.setStyleSheet("color: #888888;")
+        dir_font = self._dir_label.font()
+        dir_font.setPointSize(9)
+        self._dir_label.setFont(dir_font)
         layout.addWidget(self._dir_label)
+
+        # setup the animation of the states
+        self._setup_state_animation()
 
     @staticmethod
     def _separator(layout: QHBoxLayout) -> None:
@@ -98,11 +129,22 @@ class TopBar(QWidget):
         path = QFileDialog.getExistingDirectory(self, "Select workflow directory")
         if not path:
             return
-        # TODO: load actions and propagations from path into self._workflow
+
+        try:
+            imported = Workflow.import_from_dir(Path(path), self._workflow.microscope)
+            self._workflow.actions = imported.actions
+            self._workflow.propagations = imported.propagations
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Could not import workflow: {str(e)}")
 
     def _on_microscope_settings(self) -> None:
-        # TODO: replace placeholder
-        pass
+        """Opens the microscope settings dialog."""
+        dialog = MicroscopeSettingsDialog(
+            workflow=self._workflow,
+            form_builder=self._form_builder,
+            parent=self,
+        )
+        dialog.exec()
 
     def _on_run(self) -> None:
         match self._current_state:
@@ -115,6 +157,7 @@ class TopBar(QWidget):
 
     def on_app_state_changed(self, state: AppState) -> None:
         self._current_state = state
+        self._update_status()
         self._import_btn.setEnabled(state == AppState.EDITING)
         style = self._run_btn.style()
         match state:
@@ -142,3 +185,40 @@ class TopBar(QWidget):
                 )
 
                 self._run_btn.setEnabled(False)
+
+    def _update_status(self) -> None:
+        """Updates slice number and state label to reflect `_current_state`."""
+        color = self._animated_color()
+
+        self._slice_label.setText(str(self._workflow.ctx.slice))
+        self._slice_label.setStyleSheet(f"color: {color};")
+
+        self._state_label.setText(str(self._current_state))
+        self._state_label.setStyleSheet(f"color: {color};")
+
+    def _setup_state_animation(self) -> None:
+        """Sets up the timer driving state symbol animation."""
+        self._animation_frame = 0
+        self._animation_timer = QTimer(self)
+        self._animation_timer.setInterval(500)
+        self._animation_timer.timeout.connect(self._on_animation_tick)
+        self._animation_timer.start()
+
+    def _on_animation_tick(self) -> None:
+        """Advances the animation frame and refreshes the state label."""
+        self._animation_frame += 1
+        self._update_status()
+
+    def _animated_color(self) -> str:
+        """Returns the current color for `_current_state`."""
+        match self._current_state:
+            case AppState.EDITING:
+                return "#f0c040"
+            case AppState.RUNNING:
+                return "#4caf50"
+            case AppState.STOPPING:
+                return "#4caf50" if self._animation_frame % 2 == 0 else "#9e9e9e"
+            case AppState.PAUSED:
+                return "#9e9e9e"
+            case AppState.INTERRUPTED:
+                return "#f44336"

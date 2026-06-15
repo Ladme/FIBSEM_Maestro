@@ -7,5 +7,9 @@ from enum import Enum
 class AppState(Enum):
     EDITING = "editing"
     RUNNING = "running"
+    STOPPING = "stopping"
     PAUSED = "paused"
     INTERRUPTED = "interrupted"
+
+    def __str__(self) -> str:
+        return self.value

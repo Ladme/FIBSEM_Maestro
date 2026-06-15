@@ -24,9 +24,6 @@ class MicroscopeSettings(BaseSettings):
         default="",
         description="Microscope port to connect to. Leave empty to connect to the default port.",
     )
-    holder_pretilt: float = Field(
-        default=0.0, description="Tilt of the sample holder in degrees."
-    )
     beam_shift_tolerance: Annotated[float, FieldUnit(suffix="nm")] = Field(
         default=50, description="Maximal allowed beam shift error."
     )

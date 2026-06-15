@@ -57,6 +57,11 @@ class Microscope:
         self.beam = self._control.electron_beam
 
     @property
+    def txt_log(self) -> TextLogger:
+        """Logger for diagnostic and status messages."""
+        return self._txt_log
+
+    @property
     def electron_beam(self) -> BeamControl:
         """The electron beam control interface."""
         return self._control.electron_beam
@@ -75,6 +80,11 @@ class Microscope:
     def settings(self) -> MicroscopeSettings:
         """The microscope settings."""
         return self._settings
+
+    @settings.setter
+    def settings(self, new_settings: MicroscopeSettings) -> None:
+        """Sets the microscope settings. Does NOT reconnect the microscope even if connection fields changed."""
+        self._settings = new_settings
 
     def set_beam(self, type: BeamType) -> None:
         """Set the active beam to the electron or ion beam.

@@ -50,7 +50,7 @@ class Workflow:
         self.microscope = microscope
         self.actions = actions
         self.propagations = propagations
-        self._ctx = context
+        self.ctx = context
 
     @classmethod
     def import_from_dir(cls, dir: Path, microscope: Microscope) -> Self:
@@ -167,24 +167,24 @@ class Workflow:
         Args:
             n_slices: The number of slices to acquire.
         """
-        with logging_context(self._ctx.text_logger):
-            if self._ctx.slice == 0:
+        with logging_context(self.ctx.text_logger):
+            if self.ctx.slice == 0:
                 # if this is slice 0
                 # advance the slice counter of all actions
                 # this brings us from the initialization slice 0 to slice 1
                 for action in self.actions:
-                    self._ctx.text_logger.debug(
+                    self.ctx.text_logger.debug(
                         f"Finishing initialization for action '{action.name}'."
                     )
                     action.ctx.advance()
-                self._ctx.advance()
+                self.ctx.advance()
 
             for _ in range(n_slices):
                 self._run_slice()
 
     def _run_slice(self) -> None:
         """Executes all actions for a single slice and performs synchronization."""
-        self._ctx.text_logger.info(f"Starting slice {self._ctx.slice}.")
+        self.ctx.text_logger.info(f"Starting slice {self.ctx.slice}.")
         for action in self.actions:
             # execute the action
             action.execute()
@@ -200,21 +200,21 @@ class Workflow:
             self.propagations.propagate(action, self.actions)
 
             # advance the slice counter for the action
-            self._ctx.text_logger.debug(
+            self.ctx.text_logger.debug(
                 f"Advancing slice counter for action '{action.name}'."
             )
             action.ctx.advance()
 
         # at the end of each slice, increment the workflow slice counter
-        self._ctx.advance()
+        self.ctx.advance()
         # store the state of the workflow and the microscope settings
-        self._ctx.state_store.write("state.yaml", self.state)
-        self._ctx.settings_store.write(
+        self.ctx.state_store.write("state.yaml", self.state)
+        self.ctx.settings_store.write(
             "microscope_settings.yaml", self.microscope.settings
         )
         # verify consistency of the slice counter with actions
         for action in self.actions:
-            if self._ctx.slice != action.ctx.slice:
+            if self.ctx.slice != action.ctx.slice:
                 raise WorkflowError(
                     f"Desynchronization: workflow slice counter and '{action.name}' slice counter are out of sync"
                 )
@@ -226,7 +226,7 @@ class Workflow:
             action_types=[
                 ACTION_REGISTRY.key_of(type(action)) for action in self.actions
             ],
-            slice_index=self._ctx.slice,
+            slice_index=self.ctx.slice,
             propagations=self.propagations.rules,
         )
 

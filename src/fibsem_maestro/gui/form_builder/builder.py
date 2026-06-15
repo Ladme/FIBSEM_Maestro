@@ -4,6 +4,7 @@
 
 import contextlib
 import dataclasses
+import typing
 from collections.abc import Callable
 from typing import Any, cast, get_args
 
@@ -32,6 +33,7 @@ from fibsem_maestro.gui.form_builder.widgets.bool import BoolWidget
 from fibsem_maestro.gui.form_builder.widgets.detail_band import DetailBandWidget
 from fibsem_maestro.gui.form_builder.widgets.enum import EnumWidget
 from fibsem_maestro.gui.form_builder.widgets.float import FloatWidget
+from fibsem_maestro.gui.form_builder.widgets.float_tuple import FloatTupleWidget
 from fibsem_maestro.gui.form_builder.widgets.group_box import GroupBoxWidget
 from fibsem_maestro.gui.form_builder.widgets.int import IntWidget
 from fibsem_maestro.gui.form_builder.widgets.list import ListWidget
@@ -401,6 +403,17 @@ class FormBuilder:
                     )
                 else:
                     widget = TextAreaWidget(default=default)
+                if settings is not None:
+                    self._connect_widget(widget, fi, settings)
+                return self._maybe_optional(fi, widget, field_value)
+
+            case TypeKind.FLOAT_TUPLE:
+                args = get_args(fi.inner_type)
+                length = len(args)
+                widget = FloatTupleWidget(
+                    length=length,
+                    default=tuple(default) if default is not None else None,
+                )
                 if settings is not None:
                     self._connect_widget(widget, fi, settings)
                 return self._maybe_optional(fi, widget, field_value)

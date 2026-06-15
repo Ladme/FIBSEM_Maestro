@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
     QDialog,
     QFileDialog,
     QHBoxLayout,
-    QLabel,
+    QMessageBox,
     QPushButton,
     QStackedWidget,
     QVBoxLayout,
@@ -89,12 +89,6 @@ class ConnectionScreen(QDialog):
 
         outer.addWidget(self._stack)
 
-        # status label
-        self._status_label = QLabel("")
-        self._status_label.setStyleSheet("font-size: 11px; color: #888888;")
-        self._status_label.setWordWrap(True)
-        outer.addWidget(self._status_label)
-
         # connect button
         self._connect_btn = QPushButton("Connect")
         self._connect_btn.setDefault(True)
@@ -105,11 +99,8 @@ class ConnectionScreen(QDialog):
         self._stack.setCurrentIndex(index)
         self._new_btn.setChecked(index == 0)
         self._resume_btn.setChecked(index == 1)
-        self._status_label.setText("")
 
     def _on_connect(self) -> None:
-        self._status_label.setText("")
-
         if self._stack.currentIndex() == 0:
             self._connect_new()
         else:
@@ -120,7 +111,7 @@ class ConnectionScreen(QDialog):
         try:
             settings = self._new_screen.get_microscope_settings()
         except Exception as e:
-            self._status_label.setText(f"Invalid settings: {e}")
+            QMessageBox.critical(self, "Error", f"Invalid settings: {str(e)}")
             return
 
         # ask for save directory
@@ -135,7 +126,6 @@ class ConnectionScreen(QDialog):
 
         # attempt to connect to the microscope
         self._connect_btn.setEnabled(False)
-        self._status_label.setText("Connecting...")
         try:
             microscope = Microscope(
                 settings,
@@ -153,19 +143,18 @@ class ConnectionScreen(QDialog):
             self._connect_btn.setEnabled(True)
             self.accept()
         except Exception as e:
-            self._status_label.setText(f"Connection failed: {str(e)}")
+            QMessageBox.critical(self, "Error", f"Connection failed: {str(e)}")
             self._connect_btn.setEnabled(True)
 
     def _connect_resume(self) -> None:
         """Load workflow and attempt connection to the microscope."""
 
         if not (workflow_dir := self._resume_screen.get_workflow_dir()):
-            self._status_label.setText("No workflow directory selected")
+            QMessageBox.critical(self, "Error", "No workflow directory selected")
             return
         self.workflow_dir = workflow_dir
 
         self._connect_btn.setEnabled(False)
-        self._status_label.setText("Loading workflow...")
 
         try:
             self.workflow = Workflow.import_from_dir_with_state(workflow_dir)
@@ -173,5 +162,5 @@ class ConnectionScreen(QDialog):
             self._connect_btn.setEnabled(True)
             self.accept()
         except Exception as e:
-            self._status_label.setText(f"Loading failed: {str(e)}")
+            QMessageBox.critical(self, "Error", f"Loading failed: {str(e)}")
             self._connect_btn.setEnabled(True)

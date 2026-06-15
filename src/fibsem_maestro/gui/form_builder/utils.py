@@ -27,6 +27,7 @@ class TypeKind(Enum):
     )
     LIST = "list"
     UNKNOWN = "unknown"  # anything else  -> TextArea fallback
+    FLOAT_TUPLE = "float_tuple"
 
 
 @dataclass
@@ -217,12 +218,15 @@ def classify_type(t: Any) -> TypeKind:
     The caller should have already stripped Annotated[] and Optional[].
     """
     # bool must be checked before int since bool is a subclass of int
+    print(t)
     if t is bool:
         return TypeKind.BOOL
     if t is int:
         return TypeKind.INT
     if t is float:
         return TypeKind.FLOAT
+    if get_origin(t) is tuple and all(a is float for a in get_args(t)):
+        return TypeKind.FLOAT_TUPLE
 
     if t in (str, Path, Path | str):
         return TypeKind.STR

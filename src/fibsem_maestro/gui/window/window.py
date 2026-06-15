@@ -31,13 +31,11 @@ class MainWindow(QMainWindow):
         self,
         workflow: Workflow,
         workflow_dir: Path,
-        is_resuming: bool = False,
     ) -> None:
         super().__init__()
         self._workflow = workflow
         self._microscope = workflow.microscope
         self._workflow_dir = workflow_dir
-        self._is_resuming = is_resuming
 
         self._app_state = AppState.EDITING
 
@@ -56,9 +54,9 @@ class MainWindow(QMainWindow):
 
         # top bar
         self._top_bar = TopBar(
-            microscope=self._microscope,
             workflow=workflow,
             workflow_dir=workflow_dir,
+            form_builder=self._form_builder,
         )
         root_layout.addWidget(self._top_bar)
 
