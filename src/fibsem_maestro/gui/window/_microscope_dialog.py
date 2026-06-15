@@ -4,6 +4,7 @@
 
 from PyQt6.QtWidgets import QDialog, QPushButton, QVBoxLayout, QWidget
 
+from fibsem_maestro.gui.app_state import AppState
 from fibsem_maestro.gui.connection._common import (
     CONNECTION_FIELDS,
     save_last_microscope_profile,
@@ -21,6 +22,7 @@ class MicroscopeSettingsDialog(QDialog):
     Args:
         workflow: The current Workflow instance.
         form_builder: FormBuilder instance for building the settings form.
+        app_state: The current application state.
         parent: Parent widget.
     """
 
@@ -28,6 +30,7 @@ class MicroscopeSettingsDialog(QDialog):
         self,
         workflow: Workflow,
         form_builder: FormBuilder,
+        app_state: AppState,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -37,6 +40,7 @@ class MicroscopeSettingsDialog(QDialog):
 
         self._workflow = workflow
         self._microscope = workflow.microscope
+        self._app_state = app_state
 
         layout = QVBoxLayout(self)
         layout.setSpacing(12)
@@ -51,6 +55,11 @@ class MicroscopeSettingsDialog(QDialog):
             MicroscopeSettings, self._microscope.settings, non_connection_infos
         )
         self._form.set_value(self._microscope.settings.model_dump())
+
+        # set the form to be read only, if not in editing or paused state
+        read_only = app_state not in {AppState.EDITING, AppState.PAUSED}
+        self._form.set_read_only(read_only)
+
         layout.addWidget(self._form)
 
         close_btn = QPushButton("Apply")
@@ -58,5 +67,6 @@ class MicroscopeSettingsDialog(QDialog):
         layout.addWidget(close_btn)
 
     def _on_close(self) -> None:
-        save_last_microscope_profile(self._microscope.settings)
+        if self._app_state in {AppState.EDITING, AppState.PAUSED}:
+            save_last_microscope_profile(self._microscope.settings)
         self.accept()

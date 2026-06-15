@@ -142,6 +142,7 @@ class TopBar(QWidget):
         dialog = MicroscopeSettingsDialog(
             workflow=self._workflow,
             form_builder=self._form_builder,
+            app_state=self._current_state,
             parent=self,
         )
         dialog.exec()

@@ -4,7 +4,6 @@
 
 import contextlib
 import dataclasses
-import typing
 from collections.abc import Callable
 from typing import Any, cast, get_args
 

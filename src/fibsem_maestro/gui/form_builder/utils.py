@@ -218,7 +218,6 @@ def classify_type(t: Any) -> TypeKind:
     The caller should have already stripped Annotated[] and Optional[].
     """
     # bool must be checked before int since bool is a subclass of int
-    print(t)
     if t is bool:
         return TypeKind.BOOL
     if t is int:
