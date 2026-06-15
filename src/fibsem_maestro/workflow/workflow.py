@@ -53,88 +53,40 @@ class Workflow:
         self._ctx = context
 
     @classmethod
-    def import_from_dir(cls, dir: Path) -> Self:
+    def import_from_dir(cls, dir: Path, microscope: Microscope) -> Self:
+        # find the latest slice of the workflow
         if not (result := find_subdir_with_largest_int(dir / "workflow", "slice_*")):
             raise WorkflowError("No workflow slice found in directory")
         workflow_path, workflow_slice_number = result
 
+        # load the workflow state and construct the workflow context
         workflow_state = WorkflowState.from_file(workflow_path / "state.yaml")
-
-        action_slice_numbers: dict[str, int] = {}
-        for name in workflow_state.action_names:
-            name_with_underscores = name.replace(" ", "_")
-            if not (
-                result := find_subdir_with_largest_int(
-                    dir / name_with_underscores, "slice_*"
-                )
-            ):
-                raise WorkflowError(f"No slice found for action {name}")
-            _, action_slice_numbers[name] = result
-
-        return cls._build(
-            dir,
-            workflow_path,
-            workflow_slice_number,
-            action_slice_numbers,
-            restore_state=False,
+        workflow_ctx = FileActionContext(
+            dir / "workflow", "workflow", slice=workflow_slice_number
         )
+
+        # build the actions and propagations from the workflow state
+        actions = cls._build_actions(dir, workflow_state, microscope)
+        propagations = cls._build_propagations(workflow_state, workflow_ctx)
+
+        return cls(microscope, actions, propagations, workflow_ctx)
 
     @classmethod
     def import_from_dir_with_state(cls, dir: Path) -> Self:
+        # find the latest slice of the workflow
         if not (result := find_subdir_with_largest_int(dir / "workflow", "slice_*")):
             raise WorkflowError("No workflow slice found in directory")
         workflow_path, workflow_slice_number = result
 
+        # load the workflow state and construct the workflow context
         workflow_state = WorkflowState.from_file(workflow_path / "state.yaml")
-
-        action_slice_numbers: dict[str, int] = {}
-        for name in workflow_state.action_names:
-            name_with_underscores = name.replace(" ", "_")
-            if not (
-                result := find_subdir_with_largest_int(
-                    dir / name_with_underscores, "slice_*"
-                )
-            ):
-                raise WorkflowError(f"No slice found for action {name}")
-            _, action_slice_numbers[name] = result
-
-        return cls._build(
-            dir,
-            workflow_path,
-            workflow_slice_number,
-            action_slice_numbers,
-            restore_state=True,
-        )
-
-    @classmethod
-    def _build(
-        cls,
-        dir: Path,
-        workflow_path: Path,
-        workflow_slice_number: int,
-        action_slice_numbers: dict[str, int],
-        restore_state: bool,
-    ) -> Self:
-        """
-        Construct a Workflow from pre-resolved paths and slice numbers.
-
-        Args:
-            dir: Root acquisition directory.
-            workflow_path: Path to the workflow slice directory.
-            workflow_slice_number: Resolved slice number for the workflow context.
-            action_slice_numbers: Mapping from action name to its resolved slice number.
-            restore_state: If True, read and apply persisted state for each action.
-
-        Returns:
-            A fully constructed Workflow instance.
-        """
-        workflow_state = WorkflowState.from_file(workflow_path / "state.yaml")
-        microscope_settings = MicroscopeSettings.from_file(
-            workflow_path / "microscope_settings.yaml"
-        )
-
         workflow_ctx = FileActionContext(
             dir / "workflow", "workflow", slice=workflow_slice_number
+        )
+
+        # load the microscope settings and construct the microscope
+        microscope_settings = MicroscopeSettings.from_file(
+            workflow_path / "microscope_settings.yaml"
         )
         microscope = Microscope(
             microscope_settings,
@@ -143,14 +95,48 @@ class Workflow:
             ),
         )
 
+        # build the actions and propagations from the workflow state
+        actions = cls._build_actions(dir, workflow_state, microscope)
+        propagations = cls._build_propagations(workflow_state, workflow_ctx)
+
+        # set internal state of all actions
+        for action in actions:
+            action_state = action.ctx.state_store.read("state.yaml", action.state_cls())
+            action.set_state(action_state)
+
+        return cls(microscope, actions, propagations, workflow_ctx)
+
+    @classmethod
+    def _build_actions(
+        cls,
+        dir: Path,
+        workflow_state: WorkflowState,
+        microscope: Microscope,
+    ) -> Actions:
+        """
+        Construct actions from a resolved workflow state.
+
+        Args:
+            dir: Root acquisition directory.
+            workflow_state: Pre-parsed workflow state.
+            microscope: The microscope instance to use for all actions.
+
+        Returns:
+            An Actions instance.
+        """
         actions = Actions()
         for name, type in zip(workflow_state.action_names, workflow_state.action_types):
+            # find the latest slice of the action
             name_with_underscores = name.replace(" ", "_")
-            action_slice_number = action_slice_numbers[name]
-            action_slice_path = (
-                dir / name_with_underscores / f"slice_{action_slice_number}"
-            )
+            if not (
+                result := find_subdir_with_largest_int(
+                    dir / name_with_underscores, "slice_*"
+                )
+            ):
+                raise WorkflowError(f"No slice found for action {name}")
+            action_slice_path, action_slice_number = result
 
+            # load the action settings and construct the action
             ActionCls = ACTION_REGISTRY.get(type)
             action_settings = ActionCls.settings_cls().from_file(
                 action_slice_path / "settings.yaml"
@@ -161,21 +147,18 @@ class Workflow:
             actions.append(
                 ActionCls(name, microscope, action_settings, action_ctx, actions)
             )
+        return actions
 
-        propagations = Propagations.from_rules(
+    @classmethod
+    def _build_propagations(
+        cls,
+        workflow_state: WorkflowState,
+        workflow_ctx: ActionContext,
+    ) -> Propagations:
+        # build the propagations from the workflow state
+        return Propagations.from_rules(
             workflow_state.propagations, workflow_ctx.text_logger.derive("propagations")
         )
-
-        workflow = cls(microscope, actions, propagations, workflow_ctx)
-
-        if restore_state:
-            for action in actions:
-                action_state = action.ctx.state_store.read(
-                    "state.yaml", action.state_cls()
-                )
-                action.set_state(action_state)
-
-        return workflow
 
     def run(self, n_slices: int) -> None:
         """
@@ -185,14 +168,16 @@ class Workflow:
             n_slices: The number of slices to acquire.
         """
         with logging_context(self._ctx.text_logger):
-            # advance the slice counter of all actions
-            # this brings us from the initialization slice 0 to slice 1
-            for action in self.actions:
-                self._ctx.text_logger.debug(
-                    f"Finishing initialization for action '{action.name}'."
-                )
-                action.ctx.advance()
-            self._ctx.advance()
+            if self._ctx.slice == 0:
+                # if this is slice 0
+                # advance the slice counter of all actions
+                # this brings us from the initialization slice 0 to slice 1
+                for action in self.actions:
+                    self._ctx.text_logger.debug(
+                        f"Finishing initialization for action '{action.name}'."
+                    )
+                    action.ctx.advance()
+                self._ctx.advance()
 
             for _ in range(n_slices):
                 self._run_slice()
@@ -220,8 +205,14 @@ class Workflow:
             )
             action.ctx.advance()
 
-        # at the end of each slice, increment the slice counter and verify consistency with actions
+        # at the end of each slice, increment the workflow slice counter
         self._ctx.advance()
+        # store the state of the workflow and the microscope settings
+        self._ctx.state_store.write("state.yaml", self.state)
+        self._ctx.settings_store.write(
+            "microscope_settings.yaml", self.microscope.settings
+        )
+        # verify consistency of the slice counter with actions
         for action in self.actions:
             if self._ctx.slice != action.ctx.slice:
                 raise WorkflowError(

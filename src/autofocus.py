@@ -5,10 +5,9 @@ import argparse
 import logging
 import random
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from fibsem_maestro.action_context.file import FileActionContext
-from fibsem_maestro.autofocus.autofocus import Autofocus, LinkedToAutofocus
+from fibsem_maestro.autofocus.autofocus import Autofocus
 from fibsem_maestro.core.image import Image8Bit
 from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.stage_position import StagePosition
@@ -24,12 +23,9 @@ from fibsem_maestro.settings.drift_correction_settings import DriftCorrectionSet
 from fibsem_maestro.settings.imaging_settings import ImagingSettings
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
 from fibsem_maestro.settings.property_names import PropertyNames
-from fibsem_maestro.workflow.links import ActionLinks
+from fibsem_maestro.workflow.actions import Actions
 from fibsem_maestro.workflow.propagations import Propagations
 from fibsem_maestro.workflow.workflow import Workflow
-
-if TYPE_CHECKING:
-    from fibsem_maestro.action.action import Action
 
 
 def main():
@@ -78,106 +74,126 @@ def main():
         action="store_true",
         help="Enable verbose logging (DEBUG level).",
     )
+    parser.add_argument(
+        "-r",
+        "--resume",
+        type=Path,
+        default=None,
+        help="Directory containing the workflow to resume.",
+    )
 
     # parse the arguments
     args = parser.parse_args()
 
-    # load settings
-    microscope_settings = MicroscopeSettings.from_file(args.microscope)
-    imaging_settings = ImagingSettings.from_file(args.imaging)
-    autofocus_settings = AutofocusSettings.from_file(args.autofunction)
-    drift_corr_settings = DriftCorrectionSettings.from_file(args.drift)
+    if args.resume is None:
+        # load settings
+        microscope_settings = MicroscopeSettings.from_file(args.microscope)
+        imaging_settings = ImagingSettings.from_file(args.imaging)
+        autofocus_settings = AutofocusSettings.from_file(args.autofunction)
+        drift_corr_settings = DriftCorrectionSettings.from_file(args.drift)
 
-    # initialize the main workflow context
-    workflow_ctx = FileActionContext(
-        args.log_dir / "workflow",
-        "workflow",
-        log_level=logging.DEBUG if args.verbose else logging.INFO,
-    )
-
-    # initialize the microscope
-    microscope = Microscope(
-        microscope_settings,
-        ContextualTextLogger(fallback=workflow_ctx.text_logger).derive("microscope"),
-    )
-
-    # initialize the imaging
-    imaging = Imaging(
-        "imaging",
-        microscope,
-        imaging_settings,
-        FileActionContext(
-            args.log_dir / "imaging",
-            "imaging",
+        # initialize the main workflow context
+        workflow_ctx = FileActionContext(
+            args.log_dir / "workflow",
+            "workflow",
             log_level=logging.DEBUG if args.verbose else logging.INFO,
-        ),
-    )
+        )
 
-    # initialize the drift correction
-    drift_correction = DriftCorrection(
-        "drift correction",
-        microscope,
-        drift_corr_settings,
-        FileActionContext(
-            args.log_dir / "drift_correction",
-            "drift_correction",
-            log_level=logging.DEBUG if args.verbose else logging.INFO,
-        ),
-    )
+        # initialize the microscope
+        microscope = Microscope(
+            microscope_settings,
+            ContextualTextLogger(fallback=workflow_ctx.text_logger).derive(
+                "microscope"
+            ),
+        )
 
-    # initialize autofocus
-    autofocus = Autofocus(
-        "autofocus",
-        microscope,
-        autofocus_settings,
-        FileActionContext(
-            args.log_dir / "autofocus",
+        actions = Actions()
+
+        # initialize the drift correction
+        drift_correction = DriftCorrection(
+            "drift correction",
+            microscope,
+            drift_corr_settings,
+            FileActionContext(
+                args.log_dir / "drift_correction",
+                "drift_correction",
+                log_level=logging.DEBUG if args.verbose else logging.INFO,
+            ),
+            actions,
+        )
+        actions.append(drift_correction)
+
+        # initialize autofocus
+        autofocus = Autofocus(
             "autofocus",
-            log_level=logging.DEBUG if args.verbose else logging.INFO,
-        ),
-    )
+            microscope,
+            autofocus_settings,
+            FileActionContext(
+                args.log_dir / "autofocus",
+                "autofocus",
+                log_level=logging.DEBUG if args.verbose else logging.INFO,
+            ),
+            actions,
+        )
+        actions.append(autofocus)
 
-    microscope._control.try_set_stage_position(
-        StagePosition(x=0.0, y=0.0, z=5_000_000.0, rotation=0, tilt=0)
-    )
-    microscope.beam.resolution = Resolution(2048, 1536)
-    microscope.beam.horizontal_field_width = 2000
+        # initialize the imaging
+        imaging = Imaging(
+            "imaging",
+            microscope,
+            imaging_settings,
+            FileActionContext(
+                args.log_dir / "imaging",
+                "imaging",
+                log_level=logging.DEBUG if args.verbose else logging.INFO,
+            ),
+            actions,
+        )
+        actions.append(imaging)
 
-    drift_correction.collect_and_write_properties(drift_correction.ctx.props_store.next)
-    drift_correction.setup(drift_correction.ctx.image_store(Image8Bit).next)
+        microscope._control.try_set_stage_position(
+            StagePosition(x=0.0, y=0.0, z=5_000_000.0, rotation=0, tilt=0)
+        )
+        microscope.beam.resolution = Resolution(2048, 1536)
+        microscope.beam.horizontal_field_width = 2000
 
-    microscope.beam.line_integration = 5
-    autofocus.collect_and_write_properties(autofocus.ctx.props_store.next)
+        drift_correction.collect_and_write_properties(
+            drift_correction.ctx.props_store.next
+        )
+        drift_correction.setup(drift_correction.ctx.image_store(Image8Bit).next)
 
-    microscope.beam.resolution = Resolution(1024, 768)
-    microscope.beam.line_integration = 1
+        microscope.beam.line_integration = 5
+        autofocus.collect_and_write_properties(autofocus.ctx.props_store.next)
 
-    imaging.collect_and_write_properties(imaging.ctx.props_store.next)
+        microscope.beam.resolution = Resolution(1024, 768)
+        microscope.beam.line_integration = 1
 
-    actions: list[Action] = [drift_correction, autofocus, imaging]
+        imaging.collect_and_write_properties(imaging.ctx.props_store.next)
 
-    propagations = Propagations(workflow_ctx.text_logger.derive("propagations"))
-    propagations.register_rule(
-        drift_correction.name,
-        [autofocus.name, imaging.name],
-        PropertyNames(microscope=["stage_position"], electron_beam=["beam_shift"]),
-    )
-    propagations.register_rule(
-        autofocus.name,
-        [drift_correction.name, imaging.name],
-        PropertyNames(electron_beam=["working_distance"]),
-    )
-    links = ActionLinks(workflow_ctx.text_logger.derive("links"))
-    links.register_rule(
-        autofocus.name,
-        LinkedToAutofocus(
-            imaging=imaging,
-        ),
-    )
+        propagations = Propagations(workflow_ctx.text_logger.derive("propagations"))
+        propagations.register_rule(
+            drift_correction.name,
+            [autofocus.name, imaging.name],
+            PropertyNames(microscope=["stage_position"], electron_beam=["beam_shift"]),
+        )
+        propagations.register_rule(
+            autofocus.name,
+            [drift_correction.name, imaging.name],
+            PropertyNames(electron_beam=["working_distance"]),
+        )
 
-    workflow = Workflow(actions, propagations, links, workflow_ctx)
+        workflow = Workflow(microscope, actions, propagations, workflow_ctx)
 
-    workflow.run(0)
+        workflow.run(0)
+    else:
+        workflow = Workflow.import_from_dir_with_state(args.resume)
+        microscope = workflow.microscope
+        # set correct drift
+        drift = (58.0, -16.0, 176.0)
+        if isinstance(microscope.control, SimulatedMicroscopeControl):
+            microscope.control._sample.apply_drift(
+                drift_x=drift[0], drift_y=drift[1], drift_z=drift[2]
+            )
 
     for _ in range(args.slices):
         control = microscope._control
@@ -189,7 +205,7 @@ def main():
                 # drift_x=-10,
                 # drift_y=-10,
                 # drift_z=1_000,
-                drift_z=random.randrange(-2500, 2501),
+                drift_z=random.randrange(-2000, 2001),
                 # drift_z=10_000,
             )
             print(control._sample.drift)  # pyright: ignore[reportAttributeAccessIssue]

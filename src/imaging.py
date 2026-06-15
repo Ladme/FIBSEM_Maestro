@@ -5,7 +5,6 @@
 import argparse
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from fibsem_maestro.action_context.file import FileActionContext
 from fibsem_maestro.core.resolution import Resolution
@@ -15,12 +14,9 @@ from fibsem_maestro.logging.text.contextual import ContextualTextLogger
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.imaging_settings import ImagingSettings
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
-from fibsem_maestro.workflow.links import ActionLinks
+from fibsem_maestro.workflow.actions import Actions
 from fibsem_maestro.workflow.propagations import Propagations
 from fibsem_maestro.workflow.workflow import Workflow
-
-if TYPE_CHECKING:
-    from fibsem_maestro.action.action import Action
 
 
 def main():
@@ -57,65 +53,83 @@ def main():
         action="store_true",
         help="Enable verbose logging (DEBUG level).",
     )
+    parser.add_argument(
+        "-r",
+        "--resume",
+        type=Path,
+        default=None,
+        help="Directory containing the workflow to resume.",
+    )
 
     # parse the arguments
     args = parser.parse_args()
 
-    # load settings
-    microscope_settings = MicroscopeSettings.from_file(args.microscope)
-    imaging_settings = ImagingSettings.from_file(args.imaging)
+    if args.resume is None:
+        # load settings
+        microscope_settings = MicroscopeSettings.from_file(args.microscope)
+        imaging_settings = ImagingSettings.from_file(args.imaging)
 
-    # initialize the main workflow context
-    workflow_ctx = FileActionContext(
-        args.log_dir / "workflow",
-        "workflow",
-        log_level=logging.DEBUG if args.verbose else logging.INFO,
-    )
-
-    # initialize the microscope
-    microscope = Microscope(
-        microscope_settings,
-        ContextualTextLogger(fallback=workflow_ctx.text_logger).derive("microscope"),
-    )
-
-    # initialize the imaging
-    imaging = Imaging(
-        "imaging",
-        microscope,
-        imaging_settings,
-        FileActionContext(
-            args.log_dir / "imaging",
-            "imaging",
+        # initialize the main workflow context
+        workflow_ctx = FileActionContext(
+            args.log_dir / "workflow",
+            "workflow",
             log_level=logging.DEBUG if args.verbose else logging.INFO,
-        ),
-    )
+        )
 
-    # set microscope properties manually
-    input("Set microscope properties interactively and then press ENTER.")
+        # initialize the microscope
+        microscope = Microscope(
+            microscope_settings,
+            ContextualTextLogger(fallback=workflow_ctx.text_logger).derive(
+                "microscope"
+            ),
+        )
 
-    microscope._control.try_set_stage_position(
-        StagePosition(x=0.0, y=0.0, z=5_000_000.0, rotation=0, tilt=0)
-    )
-    microscope.beam.resolution = Resolution(1000, 1000)
-    microscope.beam.horizontal_field_width = 2000
-    # microscope.beam.scanning_area = RelativeArea(
-    #    origin=RelativePoint(x=0.25, y=0.5), width=0.5, height=0.25
-    # )
+        actions = Actions()
 
-    # save microscope properties
-    imaging.collect_and_write_properties(imaging.ctx.props_store.next)
+        # initialize the imaging
+        actions.append(
+            Imaging(
+                "imaging",
+                microscope,
+                imaging_settings,
+                FileActionContext(
+                    args.log_dir / "imaging",
+                    "imaging",
+                    log_level=logging.DEBUG if args.verbose else logging.INFO,
+                ),
+                actions,
+            )
+        )
 
-    # optionally change microscope properties to test that the previously saved properties are reloaded before imaging
-    input("Microscope properties saved. Press ENTER.")
+        imaging = actions[0]
 
-    # prepare the workflow
-    actions: list[Action] = [imaging]
-    workflow = Workflow(
-        actions,
-        Propagations(workflow_ctx.text_logger.derive("propagations")),
-        ActionLinks(workflow_ctx.text_logger.derive("action_links")),
-        workflow_ctx,
-    )
+        # set microscope properties manually
+        input("Set microscope properties interactively and then press ENTER.")
+
+        microscope._control.try_set_stage_position(
+            StagePosition(x=0.0, y=0.0, z=5_000_000.0, rotation=0, tilt=0)
+        )
+        microscope.beam.resolution = Resolution(1000, 1000)
+        microscope.beam.horizontal_field_width = 2000
+        # microscope.beam.scanning_area = RelativeArea(
+        #    origin=RelativePoint(x=0.25, y=0.5), width=0.5, height=0.25
+        # )
+
+        # save microscope properties
+        imaging.collect_and_write_properties(imaging.ctx.props_store.next)
+
+        # optionally change microscope properties to test that the previously saved properties are reloaded before imaging
+        input("Microscope properties saved. Press ENTER.")
+
+        # prepare the workflow
+        workflow = Workflow(
+            microscope,
+            actions,
+            Propagations(workflow_ctx.text_logger.derive("propagations")),
+            workflow_ctx,
+        )
+    else:
+        workflow = Workflow.import_from_dir_with_state(args.resume)
 
     workflow.run(args.slices)
 
