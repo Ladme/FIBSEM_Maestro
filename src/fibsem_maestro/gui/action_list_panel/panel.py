@@ -40,15 +40,6 @@ class ActionListPanel(QWidget):
 
     Directly mutates the provided Workflow as actions are added, removed,
     or reordered. Emits action_selected when the user clicks an action.
-
-    Args:
-        workflow: The current workflow.
-        microscope: The connected microscope instance.
-        slice_context: Shared slice context used to construct stores and loggers.
-        base_logger: Base text logger, derived per action.
-        base_img_logger: Base image logger.
-        workflow_dir: Root workflow directory.
-        parent: Parent widget.
     """
 
     action_selected = pyqtSignal(object)  # emits Action
@@ -58,6 +49,7 @@ class ActionListPanel(QWidget):
         workflow: Workflow,
         microscope: Microscope,
         workflow_dir: Path,
+        app_state: AppState,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -65,7 +57,7 @@ class ActionListPanel(QWidget):
         self._workflow_dir = workflow_dir
         self._microscope = microscope
         self._run_dir = workflow_dir / "run"
-        self._app_state = AppState.EDITING
+        self._app_state = app_state
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -90,6 +82,7 @@ class ActionListPanel(QWidget):
         # add button
         self._add_btn = QPushButton("+ Add action")
         self._add_btn.clicked.connect(self._on_add)
+        self._add_btn.setEnabled(self._app_state == AppState.EDITING)
         outer.addWidget(self._add_btn)
 
         # populate from existing workflow actions
@@ -206,8 +199,11 @@ class ActionListPanel(QWidget):
             return
 
         menu = QMenu(self)
+        is_editing = self._app_state == AppState.EDITING
         remove_action = menu.addAction("Remove")
+        remove_action.setEnabled(is_editing)
         duplicate_action = menu.addAction("Duplicate")
+        duplicate_action.setEnabled(is_editing)
 
         chosen = menu.exec(self._list.mapToGlobal(pos))
 
@@ -234,6 +230,7 @@ class ActionListPanel(QWidget):
         self._app_state = state
         is_editing = state == AppState.EDITING
         self._add_btn.setEnabled(is_editing)
+
         self._list.setDragDropMode(
             QAbstractItemView.DragDropMode.InternalMove
             if is_editing

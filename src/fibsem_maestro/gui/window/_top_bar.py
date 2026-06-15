@@ -23,10 +23,6 @@ from fibsem_maestro.workflow.workflow import Workflow
 class TopBar(QWidget):
     """
     Horizontal bar at the top of the main window.
-
-    Args:
-        workflow: The current workflow.
-        workflow_dir: Directory where the workflow is saved reactively.
     """
 
     run_requested = pyqtSignal()
@@ -37,15 +33,14 @@ class TopBar(QWidget):
         workflow: Workflow,
         workflow_dir: Path,
         form_builder: FormBuilder,
+        app_state: AppState,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._workflow = workflow
         self._microscope = workflow.microscope
         self._workflow_dir = workflow_dir
-        self._current_state = (
-            AppState.EDITING if self._workflow.ctx.slice == 0 else AppState.PAUSED
-        )
+        self._current_state = app_state
         self._form_builder = form_builder
 
         layout = QHBoxLayout(self)

@@ -37,7 +37,9 @@ class MainWindow(QMainWindow):
         self._microscope = workflow.microscope
         self._workflow_dir = workflow_dir
 
-        self._app_state = AppState.EDITING
+        self._app_state = (
+            AppState.EDITING if self._workflow.ctx.slice == 0 else AppState.PAUSED
+        )
 
         self._form_builder = FormBuilder()
         self._panels: dict[Action, QWidget] = {}
@@ -57,6 +59,7 @@ class MainWindow(QMainWindow):
             workflow=workflow,
             workflow_dir=workflow_dir,
             form_builder=self._form_builder,
+            app_state=self._app_state,
         )
         root_layout.addWidget(self._top_bar)
 
@@ -79,6 +82,7 @@ class MainWindow(QMainWindow):
             workflow=workflow,
             microscope=self._microscope,
             workflow_dir=workflow_dir,
+            app_state=self._app_state,
         )
 
         left_scroll = QScrollArea()
