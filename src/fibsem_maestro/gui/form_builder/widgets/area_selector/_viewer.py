@@ -39,6 +39,8 @@ class _AreaViewer(QGraphicsView):
         self._draw_origin = QPointF()
         self._current_rect: ResizableRect | None = None
         self._image_loaded = False
+        # TODO: set properly
+        self._read_only = False
 
         self._status_timer = QTimer(self)
         self._status_timer.setSingleShot(True)
