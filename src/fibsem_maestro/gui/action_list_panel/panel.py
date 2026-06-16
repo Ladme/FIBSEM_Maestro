@@ -23,8 +23,7 @@ from fibsem_maestro.action_context.file import FileActionContext
 from fibsem_maestro.gui.action_list_panel._action_item import ActionItemWidget
 from fibsem_maestro.gui.action_list_panel._add_action import AddActionDialog
 from fibsem_maestro.gui.app_state import AppState
-from fibsem_maestro.microscope.microscope import Microscope
-from fibsem_maestro.workflow.workflow import Workflow
+from fibsem_maestro.gui.workflow_manager import WorkflowManager
 
 
 class ActionListPanel(QWidget):
@@ -39,16 +38,15 @@ class ActionListPanel(QWidget):
 
     def __init__(
         self,
-        workflow: Workflow,
-        microscope: Microscope,
+        workflow_manager: WorkflowManager,
         workflow_dir: Path,
         app_state: AppState,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
-        self._workflow = workflow
+        self._manager = workflow_manager
         self._workflow_dir = workflow_dir
-        self._microscope = microscope
+        self._microscope = self._manager.workflow.microscope
         self._run_dir = workflow_dir / "run"
         self._app_state = app_state
 
@@ -79,13 +77,13 @@ class ActionListPanel(QWidget):
         outer.addWidget(self._add_btn)
 
         # populate from existing workflow actions
-        for action in workflow.actions:
+        for action in self._manager.workflow.actions:
             self._append_item(action)
 
     def _append_item(self, action: Action) -> QListWidgetItem:
         """Create and append a list item for the given action."""
         item = QListWidgetItem(self._list)
-        item_widget = ActionItemWidget(action, self._workflow.propagations)
+        item_widget = ActionItemWidget(action, self._manager)
         item_widget.name_changed.connect(self._on_name_changed)
         item.setSizeHint(item_widget.sizeHint())
         self._list.addItem(item)
@@ -102,8 +100,6 @@ class ActionListPanel(QWidget):
             for i in range(self._list.count())
             if self._item_widget(i) is not None
         }
-
-    # -- action construction ------------------------------------------------
 
     def _build_action(self, type_key: str, name: str) -> Action:
         """Construct a new Action from the registry with default settings."""
@@ -122,7 +118,7 @@ class ActionListPanel(QWidget):
                 action_dir=self._workflow_dir / name.replace(" ", "_"),
                 name=name.replace(" ", "_"),
             ),
-            actions=self._workflow.actions,
+            actions=self._manager.workflow.actions,
         )
 
     def _generate_unique_name(self, base_name: str) -> str:
@@ -135,8 +131,6 @@ class ActionListPanel(QWidget):
             i += 1
         return f"{base_name} {i}"
 
-    # -- event handlers -----------------------------------------------------
-
     def _on_add(self) -> None:
         dialog = AddActionDialog(
             existing_names=self._existing_names(),
@@ -145,10 +139,11 @@ class ActionListPanel(QWidget):
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         action = self._build_action(dialog.selected_type_key(), dialog.selected_name())
-        self._workflow.actions.append(action)
+        self._manager.workflow.actions.append(action)
         item = self._append_item(action)
         self._list.setCurrentItem(item)
         self.action_selected.emit(action)
+        self._manager.notify_workflow_changed()
 
     def _on_selection_changed(self, row: int) -> None:
         widget = self._item_widget(row)
@@ -162,8 +157,9 @@ class ActionListPanel(QWidget):
             widget = self._item_widget(i)
             if widget is not None:
                 actions.append(widget.action)
-        self._workflow.actions.clear()
-        self._workflow.actions.extend(actions)
+        self._manager.workflow.actions.clear()
+        self._manager.workflow.actions.extend(actions)
+        self._manager.notify_workflow_changed()
 
     def _on_name_changed(self, old_name: str, new_name: str) -> None:
         if new_name in self._existing_names() - {old_name}:
@@ -173,6 +169,7 @@ class ActionListPanel(QWidget):
                 if w is not None and w.action.name == old_name:
                     w._name_label.setText(old_name)
             return
+
         # apply to the action
         for i in range(self._list.count()):
             w = self._item_widget(i)
@@ -205,7 +202,8 @@ class ActionListPanel(QWidget):
 
     def _remove_action(self, row: int, action: Action) -> None:
         self._list.takeItem(row)
-        self._workflow.actions.remove(action)
+        self._manager.workflow.actions.remove(action)
+        self._manager.notify_workflow_changed()
 
     def _duplicate_action(self, action: Action) -> None:
         new_name = self._generate_unique_name(action.name)
@@ -213,8 +211,9 @@ class ActionListPanel(QWidget):
             key for key in ACTION_REGISTRY if ACTION_REGISTRY.get(key) is type(action)
         )
         new_action = self._build_action(type_key, new_name)
-        self._workflow.actions.append(new_action)
+        self._manager.workflow.actions.append(new_action)
         self._append_item(new_action)
+        self._manager.notify_workflow_changed()
 
     def on_app_state_changed(self, state: AppState) -> None:
         """Called by MainWindow when the application state changes."""

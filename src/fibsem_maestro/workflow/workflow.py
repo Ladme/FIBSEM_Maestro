@@ -3,7 +3,8 @@
 
 import re
 from pathlib import Path
-from typing import Self
+from time import sleep
+from typing import Protocol, Self
 
 from fibsem_maestro.action.registry import ACTION_REGISTRY
 from fibsem_maestro.action.state import ActionState
@@ -23,6 +24,14 @@ class WorkflowState(ActionState):
     action_types: list[str]
     slice_index: int
     propagations: list[PropagationRule]
+
+
+class WorkflowCallbacks(Protocol):
+    def notify_action_finished(self, finished_action_index: int) -> None: ...
+    def notify_slice_finished(self) -> None: ...
+    def notify_is_paused(self) -> None: ...
+    def is_pause_requested(self) -> bool: ...
+    def wait_for_resume(self) -> None: ...
 
 
 class Workflow:
@@ -51,6 +60,10 @@ class Workflow:
         self.actions = actions
         self.propagations = propagations
         self.ctx = context
+        self.callbacks: WorkflowCallbacks | None = None
+
+    def set_callbacks(self, callbacks: WorkflowCallbacks) -> None:
+        self.callbacks = callbacks
 
     @classmethod
     def import_from_dir(cls, dir: Path, microscope: Microscope) -> Self:
@@ -185,12 +198,9 @@ class Workflow:
     def _run_slice(self) -> None:
         """Executes all actions for a single slice and performs synchronization."""
         self.ctx.text_logger.info(f"Starting slice {self.ctx.slice}.")
-        for action in self.actions:
+        for i, action in enumerate(self.actions):
             # execute the action
             action.execute()
-
-            # TODO: implementing pausing
-            # if paused, wait for all actions to finish their background threads
 
             # store the state and the current settings of the action
             action.ctx.state_store.next.write("state.yaml", action.state)
@@ -205,6 +215,18 @@ class Workflow:
             )
             action.ctx.advance()
 
+            if self.callbacks:
+                self.callbacks.notify_action_finished(i)
+
+            if self.callbacks and self.callbacks.is_pause_requested():
+                # all actions should wait for their background threads to finish
+                for action in self.actions:
+                    action.wait_for_background_threads()
+                # then we notify that the workflow is actually paused
+                self.callbacks.notify_is_paused()
+                # and wait for the resume signal
+                self.callbacks.wait_for_resume()
+
         # at the end of each slice, increment the workflow slice counter
         self.ctx.advance()
         # store the state of the workflow and the microscope settings
@@ -218,6 +240,9 @@ class Workflow:
                 raise WorkflowError(
                     f"Desynchronization: workflow slice counter and '{action.name}' slice counter are out of sync"
                 )
+
+        if self.callbacks:
+            self.callbacks.notify_slice_finished()
 
     @property
     def state(self) -> WorkflowState:

@@ -16,6 +16,7 @@ from fibsem_maestro.gui.action_panel._propagations_widget import PropagationsWid
 from fibsem_maestro.gui.app_state import AppState
 from fibsem_maestro.gui.common import class_name_to_label
 from fibsem_maestro.gui.form_builder.builder import FormBuilder
+from fibsem_maestro.gui.workflow_manager import WorkflowManager
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.workflow.actions import Actions
 from fibsem_maestro.workflow.propagations import Propagations
@@ -30,26 +31,20 @@ class ActionPanel(QWidget):
     pre-populated from action.settings and writes back to it reactively
     on every change. The propagations section mutates the Propagations
     manager directly.
-
-    Args:
-        action: The live action instance to bind to.
-        propagations: The Propagations manager for the workflow.
-        all_actions: All actions in the workflow.
-        microscope: The microscope instance.
-        form_builder: FormBuilder instance used to build the settings form.
     """
 
     def __init__(
         self,
         action: Action,
-        workflow: Workflow,
+        workflow_manager: WorkflowManager,
         form_builder: FormBuilder,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._action = action
-        self._workflow = workflow
-        self._microscope = workflow.microscope
+        self._manager = workflow_manager
+        self._microscope = self._manager.workflow.microscope
+        self._form_builder = form_builder
 
         outer_layout = QVBoxLayout(self)
         outer_layout.setContentsMargins(0, 0, 0, 0)
@@ -77,9 +72,9 @@ class ActionPanel(QWidget):
         title_layout.setContentsMargins(8, 6, 8, 6)
         title_layout.setSpacing(2)
 
-        name_label = QLabel(action.name)
-        name_label.setStyleSheet("font-size: 15px; font-weight: bold;")
-        title_layout.addWidget(name_label)
+        self._name_label = QLabel(action.name)
+        self._name_label.setStyleSheet("font-size: 15px; font-weight: bold;")
+        title_layout.addWidget(self._name_label)
 
         type_label = QLabel(f"   > type: {class_name_to_label(type(action).__name__)}")
         type_label.setStyleSheet("font-size: 11px; color: #888888;")
@@ -94,7 +89,9 @@ class ActionPanel(QWidget):
         layout.addWidget(title_frame)
 
         # settings
-        self._settings_widget = form_builder.build_form(action.settings, self._workflow)
+        self._settings_widget = self._form_builder.build_form(
+            action.settings, self._manager.workflow
+        )
         layout.addWidget(self._settings_widget)
 
         # propagations
@@ -125,3 +122,19 @@ class ActionPanel(QWidget):
     def on_app_state_changed(self, state: AppState) -> None:
         read_only = state not in {AppState.EDITING, AppState.PAUSED}
         self._settings_widget.set_read_only(read_only)
+
+    def on_action_changed(self, action: Action) -> None:
+        if self._action is action:
+            self._name_label.setText(action.name)
+
+    def on_workflow_changed(self) -> None:
+        # TODO: we should only update what needs to be updated
+        old_widget = self._settings_widget
+        new_widget = self._form_builder.build_form(
+            self._action.settings, self._manager.workflow
+        )
+        parent = old_widget.parentWidget()
+        if parent is not None and (layout := parent.layout()) is not None:
+            layout.replaceWidget(old_widget, new_widget)
+        old_widget.deleteLater()
+        self._settings_widget = new_widget

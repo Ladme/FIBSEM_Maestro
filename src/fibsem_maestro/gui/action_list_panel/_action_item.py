@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QVBoxLayout, QWidget
 from fibsem_maestro.action.action import Action
 from fibsem_maestro.gui.action_list_panel._common import STATE_COLORS
 from fibsem_maestro.gui.common import class_name_to_label
+from fibsem_maestro.gui.workflow_manager import WorkflowManager
 from fibsem_maestro.workflow.propagations import Propagations
 
 
@@ -28,12 +29,12 @@ class ActionItemWidget(QWidget):
     def __init__(
         self,
         action: Action,
-        propagations: Propagations,
+        workflow_manager: WorkflowManager,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._action = action
-        self._propagations = propagations
+        self._manager = workflow_manager
         layout = QHBoxLayout(self)
         layout.setContentsMargins(4, 2, 4, 2)
         layout.setSpacing(6)
@@ -99,6 +100,7 @@ class ActionItemWidget(QWidget):
             old_name = self._name_label.text()
             self._name_label.setText(new_name)
             self.name_changed.emit(old_name, new_name)
+            self._manager.action_changed.emit(self._action)
         self._name_edit.hide()
         self._name_label.show()
 
@@ -106,13 +108,13 @@ class ActionItemWidget(QWidget):
         """Recount outgoing propagation rules and update the badge."""
         count = sum(
             1
-            for rule in self._propagations.rules
+            for rule in self._manager.workflow.propagations.rules
             if rule.parent_name == self._action.name
         )
         if count > 0:
             dependents = ", ".join(
                 d
-                for rule in self._propagations.rules
+                for rule in self._manager.workflow.propagations.rules
                 if rule.parent_name == self._action
                 for d in rule.dependent_names
             )

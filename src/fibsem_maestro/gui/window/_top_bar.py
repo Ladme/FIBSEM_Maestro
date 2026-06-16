@@ -17,6 +17,7 @@ from PyQt6.QtWidgets import (
 from fibsem_maestro.gui.app_state import AppState
 from fibsem_maestro.gui.form_builder.builder import FormBuilder
 from fibsem_maestro.gui.window._microscope_dialog import MicroscopeSettingsDialog
+from fibsem_maestro.gui.workflow_manager import WorkflowManager
 from fibsem_maestro.workflow.workflow import Workflow
 
 
@@ -25,22 +26,17 @@ class TopBar(QWidget):
     Horizontal bar at the top of the main window.
     """
 
-    run_requested = pyqtSignal()
-    pause_requested = pyqtSignal()
-
     def __init__(
         self,
-        workflow: Workflow,
+        workflow_manager: WorkflowManager,
         workflow_dir: Path,
         form_builder: FormBuilder,
-        app_state: AppState,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
-        self._workflow = workflow
-        self._microscope = workflow.microscope
+        self._manager = workflow_manager
+        self._microscope = self._manager.workflow.microscope
         self._workflow_dir = workflow_dir
-        self._current_state = app_state
         self._form_builder = form_builder
 
         layout = QHBoxLayout(self)
@@ -81,7 +77,10 @@ class TopBar(QWidget):
         slice_font.setPointSize(20)
         slice_font.setBold(True)
         self._slice_label.setFont(slice_font)
-        self._slice_label.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+        self._slice_label.setAlignment(
+            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignHCenter
+        )
+        self._slice_label.setFixedWidth(100)
         status_layout.addWidget(self._slice_label)
 
         # current app state
@@ -126,33 +125,37 @@ class TopBar(QWidget):
             return
 
         try:
-            imported = Workflow.import_from_dir(Path(path), self._workflow.microscope)
-            self._workflow.actions = imported.actions
-            self._workflow.propagations = imported.propagations
+            imported = Workflow.import_from_dir(
+                Path(path),
+                self._manager.workflow.microscope,
+            )
+            self._manager.workflow.actions = imported.actions
+            self._manager.workflow.propagations = imported.propagations
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Could not import workflow: {str(e)}")
 
     def _on_microscope_settings(self) -> None:
         """Opens the microscope settings dialog."""
         dialog = MicroscopeSettingsDialog(
-            workflow=self._workflow,
+            workflow=self._manager.workflow,
             form_builder=self._form_builder,
-            app_state=self._current_state,
+            app_state=self._manager.state,
             parent=self,
         )
         dialog.exec()
 
     def _on_run(self) -> None:
-        match self._current_state:
-            case AppState.EDITING | AppState.PAUSED:
-                self.run_requested.emit()
+        match self._manager.state:
+            case AppState.EDITING:
+                self._manager.start(9000)
+            case AppState.PAUSED:
+                self._manager.resume()
             case AppState.RUNNING:
-                self.pause_requested.emit()
+                self._manager.pause()
             case AppState.INTERRUPTED:
                 pass
 
     def on_app_state_changed(self, state: AppState) -> None:
-        self._current_state = state
         self._update_status()
         self._import_btn.setEnabled(state == AppState.EDITING)
         style = self._run_btn.style()
@@ -182,15 +185,20 @@ class TopBar(QWidget):
 
                 self._run_btn.setEnabled(False)
 
+    def on_slice_changed(self, _: int) -> None:
+        self._update_status()
+
     def _update_status(self) -> None:
         """Updates slice number and state label to reflect `_current_state`."""
         color = self._animated_color()
 
-        self._slice_label.setText(str(self._workflow.ctx.slice))
+        self._slice_label.setText(str(self._manager.workflow.ctx.slice))
         self._slice_label.setStyleSheet(f"color: {color};")
+        self._slice_label.repaint
 
-        self._state_label.setText(str(self._current_state))
+        self._state_label.setText(str(self._manager.state))
         self._state_label.setStyleSheet(f"color: {color};")
+        self._state_label.repaint()
 
     def _setup_state_animation(self) -> None:
         """Sets up the timer driving state symbol animation."""
@@ -207,7 +215,7 @@ class TopBar(QWidget):
 
     def _animated_color(self) -> str:
         """Returns the current color for `_current_state`."""
-        match self._current_state:
+        match self._manager.state:
             case AppState.EDITING:
                 return "#f0c040"
             case AppState.RUNNING:
