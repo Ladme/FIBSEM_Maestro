@@ -141,6 +141,7 @@ class PropagationRuleWidget(QFrame):
             item.data(Qt.ItemDataRole.UserRole)
             for item in self._dep_list.selectedItems()
         }
+        self._dep_list.itemSelectionChanged.disconnect(self._sync_dependents)
         self._dep_list.clear()
         for action in actions:
             if action is self._current_action:
@@ -153,6 +154,7 @@ class PropagationRuleWidget(QFrame):
                 or action.name in self.rule.dependent_names
             ):
                 item.setSelected(True)
+        self._dep_list.itemSelectionChanged.connect(self._sync_dependents)
 
     def on_action_changed(self, action: Action) -> None:
         for i in range(self._dep_list.count()):

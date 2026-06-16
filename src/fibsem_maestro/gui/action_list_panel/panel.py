@@ -24,6 +24,7 @@ from fibsem_maestro.gui.action_list_panel._action_item import ActionItemWidget
 from fibsem_maestro.gui.action_list_panel._add_action import AddActionDialog
 from fibsem_maestro.gui.app_state import AppState
 from fibsem_maestro.gui.workflow_manager import WorkflowManager
+from fibsem_maestro.workflow.actions import Actions
 
 
 class ActionListPanel(QWidget):
@@ -77,8 +78,16 @@ class ActionListPanel(QWidget):
         outer.addWidget(self._add_btn)
 
         # populate from existing workflow actions
-        for action in self._manager.workflow.actions:
+        self._rebuild(self._manager.workflow.actions)
+        self._manager.actions_changed.connect(self._rebuild)
+
+    def _rebuild(self, actions: Actions) -> None:
+        """Rebuild the list from the current workflow actions."""
+        current_row = self._list.currentRow()
+        self._list.clear()
+        for action in actions:
             self._append_item(action)
+        self._list.setCurrentRow(current_row)
 
     def _append_item(self, action: Action) -> QListWidgetItem:
         """Create and append a list item for the given action."""

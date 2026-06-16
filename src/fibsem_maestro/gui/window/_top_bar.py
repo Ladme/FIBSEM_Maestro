@@ -134,6 +134,8 @@ class TopBar(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Could not import workflow: {str(e)}")
 
+        self._manager.notify_actions_changed()
+
     def _on_microscope_settings(self) -> None:
         """Opens the microscope settings dialog."""
         dialog = MicroscopeSettingsDialog(
