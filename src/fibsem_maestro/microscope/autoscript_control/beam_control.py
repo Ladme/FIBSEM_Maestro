@@ -71,6 +71,14 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
             Resolution(768, 512),
         )  # available resolutions supported in standard mode
 
+        # fallback for line integration
+        # only used if the linked Autoscript version does not support setting line_integration via scanning
+        self._line_integration: int = 1
+
+        # fallback for scanning area
+        # only used if the linked Autoscript version does not support getting reduced_area via scanning.mode
+        self._scanning_area: RelativeArea = RelativeArea.full()
+
     @property
     @abstractmethod
     def _beam(self) -> BeamT:
@@ -293,14 +301,34 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
 
     @property
     def line_integration(self) -> int:
-        li = self._beam.scanning.line_integration
+        # while Autoscript 4.13 does support getting and setting line integration via `scanning.line_integration`,
+        # older Autoscript versions do not - we need a workaround for those versions
+        try:
+            li = self._beam.scanning.line_integration
+        except Exception:
+            self._txt_log.warning(
+                "Linked autoscript version does not support getting line_integration via scanning. "
+                "Cannot get line_integration from Thermofisher's Microscope Control - "
+                "Line integration must be specified externally in FIBSEM Maestro!"
+            )
+            li = self._line_integration
+
         self._txt_log.debug(f"Getting line integration ({self._modality}): {li}.")
         return li
 
     @line_integration.setter
     def line_integration(self, value: int) -> None:
+        # while Autoscript 4.13 does support getting and setting line integration via `scanning.line_integration`,
+        # older Autoscript versions do not - we need a workaround for those versions
         self._txt_log.debug(f"Setting line integration to ({self._modality}): {value}.")
-        self._beam.scanning.line_integration = value
+        try:
+            self._beam.scanning.line_integration = value
+        except Exception:
+            self._txt_log.warning(
+                "Linked autoscript version does not support setting line_integration via scanning. Using a fallback."
+            )
+
+        self._line_integration = value
 
     @property
     def dwell_time(self) -> float:
@@ -428,27 +456,44 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
 
     @property
     def scanning_area(self) -> RelativeArea:
-        if self._beam.scanning.mode.value is ScanningMode.REDUCED_AREA:
-            area = RelativeArea.from_autoscript(
-                self._beam.scanning.mode.reduced_area.value
+        # while Autoscript 4.13 does support getting scanning_area via `scanning.mode.reduced_area`,
+        # older Autoscript versions do not - we need a workaround for those versions
+        try:
+            if self._beam.scanning.mode.value is ScanningMode.REDUCED_AREA:
+                area = RelativeArea.from_autoscript(
+                    self._beam.scanning.mode.reduced_area.value
+                )
+            else:
+                area = RelativeArea.full()
+        except Exception:
+            self._txt_log.warning(
+                "Linked autoscript version does not support getting reduced_area via scanning.mode. "
+                "Cannot get scanning area from Thermofisher's Microscope Control - "
+                "Scanning area must be specified externally in FIBSEM Maestro!"
             )
-            self._txt_log.debug(f"Getting scanning area ({self._modality}): {area}.")
-            return area
 
-        area = RelativeArea.full()
+            area = self._scanning_area
+
         self._txt_log.debug(f"Getting scanning area ({self._modality}): {area}")
         return area
 
     @scanning_area.setter
     def scanning_area(self, value: RelativeArea) -> None:
         # copy dwell and resolution to reduced area scanning mode
+        # TODO: why is this needed?
         backup_dwell = self.dwell_time
         backup_res = self.resolution
 
         if value.is_full_frame():
             self._txt_log.debug(f"Disabling scanning area ({self._modality}).")
-            self._beam.scanning.mode.reduced_area.value = value.to_autoscript()
-            self._beam.scanning.mode.set_full_frame()  # used for acquisition started by start_acquisition()
+            try:
+                self._beam.scanning.mode.reduced_area.value = value.to_autoscript()
+            except Exception:
+                self._txt_log.warning(
+                    "Linked autoscript version does not support setting reduced_area via scanning.mode. Using a fallback."
+                )
+            # used for acquisition started by start_acquisition()
+            self._beam.scanning.mode.set_full_frame()
         else:
             self._txt_log.debug(f"Setting scanning area ({self._modality}): {value}.")
             # used for acquisition started by start_acquisition()
@@ -458,6 +503,9 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
                 width=value.width,
                 height=value.height,
             )
+
+        # fallback for older Autoscript versions
+        self._scanning_area = value
 
         self.dwell_time = backup_dwell
         self.resolution = backup_res
