@@ -3,6 +3,7 @@
 
 
 from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtGui import QMouseEvent
 from PyQt6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QVBoxLayout, QWidget
 
 from fibsem_maestro.action.action import Action
@@ -10,6 +11,14 @@ from fibsem_maestro.gui.action_list_panel._common import STATE_COLORS
 from fibsem_maestro.gui.common import class_name_to_label
 from fibsem_maestro.gui.workflow_manager import WorkflowManager
 from fibsem_maestro.workflow.propagations import Propagations
+
+
+class DoubleClickLabel(QLabel):
+    double_clicked = pyqtSignal()
+
+    def mouseDoubleClickEvent(self, a0: QMouseEvent | None) -> None:
+        _ = a0
+        self.double_clicked.emit()
 
 
 class ActionItemWidget(QWidget):
@@ -56,9 +65,9 @@ class ActionItemWidget(QWidget):
         name_row.setSpacing(6)
 
         # name label (double-click to edit)
-        self._name_label = QLabel(action.name)
+        self._name_label = DoubleClickLabel(action.name)
         self._name_label.setStyleSheet("font-weight: bold;")
-        self._name_label.mouseDoubleClickEvent = self._start_name_edit
+        self._name_label.double_clicked.connect(self._start_name_edit)
         name_row.addWidget(self._name_label)
 
         # inline name editor (hidden by default)
@@ -77,17 +86,27 @@ class ActionItemWidget(QWidget):
         text_layout.addLayout(name_row)
 
         # type + beam subtitle
-        subtitle_label = QLabel(
+        self._subtitle_label = QLabel(
             f"{class_name_to_label(type(action).__name__)}  ·  {action.beam_type if action.beam_type is not None else '—'}"
         )
-        subtitle_label.setStyleSheet("color: #888888; font-size: 10px;")
-        text_layout.addWidget(subtitle_label)
+        self._subtitle_label.setStyleSheet("color: #888888; font-size: 10px;")
+        text_layout.addWidget(self._subtitle_label)
+        self._manager.action_changed.connect(self._on_action_changed)
+        self._manager.propagations_changed.connect(self._on_propagations_changed)
 
         layout.addLayout(text_layout)
-        self.update_propagation_badge()
+        self.update_propagation_badge(self._manager.workflow.propagations)
 
-    def _start_name_edit(self, event) -> None:
-        _ = event
+    def _on_action_changed(self, action: Action) -> None:
+        if self._action is action:
+            self._subtitle_label.setText(
+                f"{class_name_to_label(type(action).__name__)}  ·  {action.beam_type if action.beam_type is not None else '—'}"
+            )
+
+    def _on_propagations_changed(self, propagations: Propagations) -> None:
+        self.update_propagation_badge(propagations)
+
+    def _start_name_edit(self) -> None:
         self._name_label.hide()
         self._name_edit.setText(self._name_label.text())
         self._name_edit.show()
@@ -104,25 +123,25 @@ class ActionItemWidget(QWidget):
         self._name_edit.hide()
         self._name_label.show()
 
-    def update_propagation_badge(self) -> None:
+    def update_propagation_badge(self, propagations: Propagations) -> None:
         """Recount outgoing propagation rules and update the badge."""
         count = sum(
-            1
-            for rule in self._manager.workflow.propagations.rules
-            if rule.parent_name == self._action.name
+            1 for rule in propagations.rules if rule.parent_name == self._action.name
         )
         if count > 0:
             dependents = ", ".join(
                 d
-                for rule in self._manager.workflow.propagations.rules
-                if rule.parent_name == self._action
+                for rule in propagations.rules
+                if rule.parent_name == self._action.name
                 for d in rule.dependent_names
             )
             self._badge.setText(f"→{count}")
             self._badge.setToolTip(f"Propagates to: {dependents}")
+            self._badge.show()
         else:
             self._badge.setText("")
             self._badge.setToolTip("")
+            self._badge.hide()
 
     def set_state(self, state: str) -> None:
         """Update the state dot color. State is one of: idle/running/completed/failed."""

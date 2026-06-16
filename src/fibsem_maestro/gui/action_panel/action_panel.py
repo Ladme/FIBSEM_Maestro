@@ -17,10 +17,6 @@ from fibsem_maestro.gui.app_state import AppState
 from fibsem_maestro.gui.common import class_name_to_label
 from fibsem_maestro.gui.form_builder.builder import FormBuilder
 from fibsem_maestro.gui.workflow_manager import WorkflowManager
-from fibsem_maestro.microscope.microscope import Microscope
-from fibsem_maestro.workflow.actions import Actions
-from fibsem_maestro.workflow.propagations import Propagations
-from fibsem_maestro.workflow.workflow import Workflow
 
 
 class ActionPanel(QWidget):
@@ -76,33 +72,32 @@ class ActionPanel(QWidget):
         self._name_label.setStyleSheet("font-size: 15px; font-weight: bold;")
         title_layout.addWidget(self._name_label)
 
-        type_label = QLabel(f"   > type: {class_name_to_label(type(action).__name__)}")
-        type_label.setStyleSheet("font-size: 11px; color: #888888;")
-        title_layout.addWidget(type_label)
+        self._type_label = QLabel(
+            f"   > type: {class_name_to_label(type(action).__name__)}"
+        )
+        self._type_label.setStyleSheet("font-size: 11px; color: #888888;")
+        title_layout.addWidget(self._type_label)
 
-        beam_label = QLabel(
+        self._beam_label = QLabel(
             f"   > beam: {str(action.beam_type) if action.beam_type is not None else '—'}"
         )
-        beam_label.setStyleSheet("font-size: 11px; color: #888888")
-        title_layout.addWidget(beam_label)
+        self._beam_label.setStyleSheet("font-size: 11px; color: #888888")
+        title_layout.addWidget(self._beam_label)
 
         layout.addWidget(title_frame)
 
         # settings
         self._settings_widget = self._form_builder.build_form(
-            action.settings, self._manager.workflow
+            action.settings, self._manager, fields=None, action=self._action
         )
         layout.addWidget(self._settings_widget)
 
         # propagations
-        # self._propagations_widget = _PropagationsWidget(
-        #    propagations=propagations,
-        #    current_action=action,
-        #    all_actions=all_actions,
-        #    form_builder=form_builder,
-        #    microscope=microscope,
-        # )
-        # layout.addWidget(self._propagations_widget)
+        self._propagations_widget = PropagationsWidget(
+            current_action=action,
+            workflow_manager=self._manager,
+        )
+        layout.addWidget(self._propagations_widget)
 
         # collect properties button
         collect_btn = QPushButton("Collect properties")
@@ -126,15 +121,6 @@ class ActionPanel(QWidget):
     def on_action_changed(self, action: Action) -> None:
         if self._action is action:
             self._name_label.setText(action.name)
-
-    def on_workflow_changed(self) -> None:
-        # TODO: we should only update what needs to be updated
-        old_widget = self._settings_widget
-        new_widget = self._form_builder.build_form(
-            self._action.settings, self._manager.workflow
-        )
-        parent = old_widget.parentWidget()
-        if parent is not None and (layout := parent.layout()) is not None:
-            layout.replaceWidget(old_widget, new_widget)
-        old_widget.deleteLater()
-        self._settings_widget = new_widget
+            self._beam_label.setText(
+                f"   > beam: {str(action.beam_type) if action.beam_type is not None else '—'}"
+            )

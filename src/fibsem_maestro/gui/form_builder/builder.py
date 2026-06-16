@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from fibsem_maestro.action.action import Action
 from fibsem_maestro.gui.error import GUIError
 from fibsem_maestro.gui.form_builder.utils import (
     FieldInfo,
@@ -46,9 +47,9 @@ from fibsem_maestro.gui.form_builder.widgets.string import StringWidget
 from fibsem_maestro.gui.form_builder.widgets.text_area import TextAreaWidget
 from fibsem_maestro.gui.form_builder.widgets.union import DiscriminatedUnionWidget
 from fibsem_maestro.gui.form_builder.widgets.wrapper import WidgetWrapper
+from fibsem_maestro.gui.workflow_manager import WorkflowManager
 from fibsem_maestro.settings.base_settings import BaseSettings
 from fibsem_maestro.settings.form_utils import WidgetType
-from fibsem_maestro.workflow.workflow import Workflow
 
 SCALAR_KINDS = {
     TypeKind.BOOL,
@@ -72,26 +73,20 @@ class FormBuilder:
     def build_form(
         self,
         settings: BaseSettings,
-        workflow: Workflow,
+        workflow_manager: WorkflowManager,
         fields: list[str] | None = None,
+        action: Action | None = None,
     ) -> ObjectWidget:
         """
         Build a form for a live settings instance.
 
         The form is pre-populated with current values and writes back
         reactively on every change.
-
-        Args:
-            settings: The live settings instance to bind to.
-            workflow: The current workflow instance.
-            fields: Optional list of field names to include. If None, all fields are shown.
-
-        Returns:
-            An ObjectWidget containing the complete form.
         """
-        self._workflow = workflow
-        self._microscope = self._workflow.microscope
+        self._manager = workflow_manager
+        self._microscope = self._manager.workflow.microscope
         self._manufacturer_properties = self._microscope.control.manufacturer_prop_names
+        self._action = action
 
         field_infos = None
         if fields is not None:
@@ -226,7 +221,7 @@ class FormBuilder:
                 )
 
             case WidgetType.DETAIL_BAND:
-                return DetailBandWidget(
+                widget = DetailBandWidget(
                     default=(default.low, default.high)
                     if default is not None
                     else None,
@@ -237,12 +232,16 @@ class FormBuilder:
 
             case WidgetType.ACTION_SELECTOR:
                 type_filter = fi.hint.action_type_filter if fi.hint is not None else []
-                return ActionSelectWidget(
-                    actions=self._workflow.actions,
+                widget = ActionSelectWidget(
+                    actions=self._manager.workflow.actions,
                     type_filter=type_filter,
                     default=fi.default,
                     optional=fi.optional,
                 )
+                # if an action is added or removed, we need to rebuild the dropdown
+                self._manager.actions_changed.connect(widget.on_actions_changed)
+                # we also need to update the dropdown, if a name of an action changed
+                self._manager.action_changed.connect(widget.on_action_changed)
 
             case _:
                 widget = TextAreaWidget(default=default)
@@ -453,6 +452,8 @@ class FormBuilder:
         def write_back(_=None) -> None:
             with contextlib.suppress(Exception):
                 setattr(settings, fi.name, widget.get_value())
+                if self._action is not None:
+                    self._manager.action_changed.emit(self._action)
 
         def connect_qt_widget(w: QWidget) -> bool:
             """Connect the appropriate signal of a Qt leaf widget.

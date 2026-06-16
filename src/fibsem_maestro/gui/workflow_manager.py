@@ -1,18 +1,20 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
-from PyQt6.QtCore import Q_ARG, QMetaObject, QObject, Qt, QThread, pyqtSignal
+from PyQt6.QtCore import QObject, QThread, pyqtSignal
 
 from fibsem_maestro.action.action import Action
 from fibsem_maestro.gui.app_state import AppState
 from fibsem_maestro.gui.workflow_worker import WorkflowWorker
 from fibsem_maestro.workflow.actions import Actions
+from fibsem_maestro.workflow.propagations import Propagations
 from fibsem_maestro.workflow.workflow import Workflow
 
 
 class WorkflowManager(QObject):
-    workflow_changed = pyqtSignal()
     action_changed = pyqtSignal(Action)
+    actions_changed = pyqtSignal(Actions)
+    propagations_changed = pyqtSignal(Propagations)
     action_finished = pyqtSignal(Action)
     slice_finished = pyqtSignal(int)
     app_state_changed = pyqtSignal(AppState)
@@ -48,8 +50,11 @@ class WorkflowManager(QObject):
     def notify_action_changed(self, action: Action) -> None:
         self.action_changed.emit(action)
 
-    def notify_workflow_changed(self) -> None:
-        self.workflow_changed.emit()
+    def notify_actions_changed(self) -> None:
+        self.actions_changed.emit(self.workflow.actions)
+
+    def notify_propagations_changed(self) -> None:
+        self.propagations_changed.emit(self.workflow.propagations)
 
     def start(self, n_slices: int) -> None:
         self._thread.started.connect(lambda: self._worker.run(n_slices))

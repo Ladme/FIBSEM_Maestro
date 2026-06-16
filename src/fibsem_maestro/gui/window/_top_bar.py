@@ -3,7 +3,7 @@
 
 from pathlib import Path
 
-from PyQt6.QtCore import QSize, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QSize, Qt, QTimer
 from PyQt6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,

@@ -21,30 +21,41 @@ class ActionSelectWidget(NoScrollComboBox, WidgetWrapper):
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
-        if optional:
+        self._type_filter = type_filter
+        self._optional = optional
+        self._populate(actions, default)
+        self.setFixedWidth(200)
+
+    def _populate(self, actions: Actions, default: Any = None) -> None:
+        self.clear()
+        if self._optional:
             self.addItem("(none)", userData=None)
-
-        # get all actions matching the type filter
-        choices: list[str] = [
-            action.name for action in actions if isinstance(action, tuple(type_filter))
-        ]
-
-        for choice in choices:
-            self.addItem(choice, userData=choice)
-
+        for action in actions:
+            if isinstance(action, tuple(self._type_filter)):
+                self.addItem(action.name, userData=action)
         if default is not None:
             idx = self.findData(default)
             if idx >= 0:
                 self.setCurrentIndex(idx)
-        self.setFixedWidth(200)
+
+    def on_actions_changed(self, actions: Actions) -> None:
+        self._populate(actions, self.currentData())
+
+    def on_action_changed(self, action: Action) -> None:
+        idx = self.findData(action)
+        if idx >= 0:
+            self.setItemText(idx, action.name)
 
     def get_value(self) -> Any:
-        return self.currentData()
+        action = self.currentData()
+        return action.name if action is not None else None
 
     def set_value(self, value: Any) -> None:
-        idx = self.findData(value)
-        if idx >= 0:
-            self.setCurrentIndex(idx)
+        for i in range(self.count()):
+            action = self.itemData(i)
+            if action is not None and action.name == value:
+                self.setCurrentIndex(i)
+                return
 
     def set_read_only(self, read_only: bool) -> None:
         self.setEnabled(not read_only)

@@ -35,7 +35,7 @@ PostMillingCorrectionMode = Annotated[
 
 
 class PostMillingCorrectionSettings(BaseSettings):
-    linked_imaging: Annotated[
+    linked_milling: Annotated[
         str, FormHint(widget=WidgetType.ACTION_SELECTOR, action_type_filter=[Milling])
     ] = Field(default="", description="Milling linked to this post-milling correction.")
     correction_mode: PostMillingCorrectionMode = Field(

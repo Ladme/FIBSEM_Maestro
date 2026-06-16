@@ -5,7 +5,7 @@
 from pathlib import Path
 from typing import cast
 
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import QModelIndex, Qt, pyqtSignal
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QDialog,
@@ -96,9 +96,9 @@ class ActionListPanel(QWidget):
 
     def _existing_names(self) -> set[str]:
         return {
-            self._item_widget(i).action.name
+            item.action.name
             for i in range(self._list.count())
-            if self._item_widget(i) is not None
+            if (item := self._item_widget(i)) is not None
         }
 
     def _build_action(self, type_key: str, name: str) -> Action:
@@ -143,15 +143,23 @@ class ActionListPanel(QWidget):
         item = self._append_item(action)
         self._list.setCurrentItem(item)
         self.action_selected.emit(action)
-        self._manager.notify_workflow_changed()
+        self._manager.notify_actions_changed()
 
     def _on_selection_changed(self, row: int) -> None:
         widget = self._item_widget(row)
         if widget is not None:
             self.action_selected.emit(widget.action)
 
-    def _on_rows_moved(self, parent, start, end, dest, row) -> None:
+    def _on_rows_moved(
+        self,
+        parent: QModelIndex,
+        start: int,
+        end: int,
+        dest: QModelIndex,
+        row: int,
+    ) -> None:
         """Sync workflow action order after a drag-reorder."""
+        _ = parent, start, end, dest, row
         actions = []
         for i in range(self._list.count()):
             widget = self._item_widget(i)
@@ -159,7 +167,7 @@ class ActionListPanel(QWidget):
                 actions.append(widget.action)
         self._manager.workflow.actions.clear()
         self._manager.workflow.actions.extend(actions)
-        self._manager.notify_workflow_changed()
+        self._manager.notify_actions_changed()
 
     def _on_name_changed(self, old_name: str, new_name: str) -> None:
         if new_name in self._existing_names() - {old_name}:
@@ -203,7 +211,7 @@ class ActionListPanel(QWidget):
     def _remove_action(self, row: int, action: Action) -> None:
         self._list.takeItem(row)
         self._manager.workflow.actions.remove(action)
-        self._manager.notify_workflow_changed()
+        self._manager.notify_actions_changed()
 
     def _duplicate_action(self, action: Action) -> None:
         new_name = self._generate_unique_name(action.name)
@@ -213,7 +221,7 @@ class ActionListPanel(QWidget):
         new_action = self._build_action(type_key, new_name)
         self._manager.workflow.actions.append(new_action)
         self._append_item(new_action)
-        self._manager.notify_workflow_changed()
+        self._manager.notify_actions_changed()
 
     def on_app_state_changed(self, state: AppState) -> None:
         """Called by MainWindow when the application state changes."""
@@ -240,10 +248,3 @@ class ActionListPanel(QWidget):
             if w is not None and w.action.name == action_name:
                 w.set_state(state)
                 break
-
-    def refresh_propagation_badges(self) -> None:
-        """Refresh all propagation badges, e.g. after rules are added or removed."""
-        for i in range(self._list.count()):
-            w = self._item_widget(i)
-            if w is not None:
-                w.update_propagation_badge()

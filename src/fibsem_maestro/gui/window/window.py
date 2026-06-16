@@ -17,11 +17,9 @@ from PyQt6.QtWidgets import (
 from fibsem_maestro.action.action import Action
 from fibsem_maestro.gui.action_list_panel.panel import ActionListPanel
 from fibsem_maestro.gui.action_panel.action_panel import ActionPanel
-from fibsem_maestro.gui.app_state import AppState
 from fibsem_maestro.gui.form_builder.builder import FormBuilder
 from fibsem_maestro.gui.window._top_bar import TopBar
 from fibsem_maestro.gui.workflow_manager import WorkflowManager
-from fibsem_maestro.gui.workflow_worker import WorkflowWorker
 from fibsem_maestro.workflow.workflow import Workflow
 
 
@@ -36,7 +34,6 @@ class MainWindow(QMainWindow):
         self._microscope = workflow.microscope
         self._workflow_dir = workflow_dir
 
-        self._form_builder = FormBuilder()
         self._panels: dict[Action, QWidget] = {}
 
         self.setWindowTitle("FIBSEM Maestro")
@@ -53,7 +50,7 @@ class MainWindow(QMainWindow):
         self._top_bar = TopBar(
             workflow_manager=self._manager,
             workflow_dir=workflow_dir,
-            form_builder=self._form_builder,
+            form_builder=FormBuilder(),
         )
         self._manager.app_state_changed.connect(self._top_bar.on_app_state_changed)
         self._manager.slice_finished.connect(self._top_bar.on_slice_changed)
@@ -126,11 +123,10 @@ class MainWindow(QMainWindow):
             panel = ActionPanel(
                 action=action,
                 workflow_manager=self._manager,
-                form_builder=self._form_builder,
+                form_builder=FormBuilder(),
             )
             self._manager.app_state_changed.connect(panel.on_app_state_changed)
             self._manager.action_changed.connect(panel.on_action_changed)
-            self._manager.workflow_changed.connect(panel.on_workflow_changed)
             self._panels[action] = panel
             self._stack.addWidget(panel)
 

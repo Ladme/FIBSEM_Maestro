@@ -9,6 +9,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QFrame,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QListWidget,
@@ -20,9 +21,12 @@ from PyQt6.QtWidgets import (
 
 from fibsem_maestro.action.action import Action
 from fibsem_maestro.gui.form_builder.builder import FormBuilder
+from fibsem_maestro.gui.form_builder.widgets.field_label import FieldLabel
+from fibsem_maestro.gui.form_builder.widgets.group_box import GroupBoxWidget
+from fibsem_maestro.gui.workflow_manager import WorkflowManager
 from fibsem_maestro.settings.property_names import PropertyNames
+from fibsem_maestro.workflow.actions import Actions
 from fibsem_maestro.workflow.propagations import PropagationRule
-from fibsem_maestro.workflow.workflow import Workflow
 
 
 class PropagationRuleWidget(QFrame):
@@ -33,91 +37,126 @@ class PropagationRuleWidget(QFrame):
     def __init__(
         self,
         rule: PropagationRule,
+        workflow_manager: WorkflowManager,
         current_action: Action,
-        workflow: Workflow,
         on_remove: Callable,
-        form_builder: FormBuilder,
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
         self.rule = rule
-        self.setFrameShape(QFrame.Shape.StyledPanel)
-
         self._current_action = current_action
-        self._workflow = workflow
+        self._manager = workflow_manager
 
-        outer = QVBoxLayout(self)
-        outer.setContentsMargins(6, 6, 6, 6)
-        outer.setSpacing(6)
+        self.setFrameShape(QFrame.Shape.StyledPanel)
+        self.setProperty("dataclass_form", True)
 
-        # header
+        # outer row: number label + rule box
+        outer = QHBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(8)
+
+        # rule box
+        box = QFrame()
+        box.setProperty("dataclass_form", True)
+        box.setFrameShape(QFrame.Shape.StyledPanel)
+        box_layout = QVBoxLayout(box)
+        box_layout.setContentsMargins(8, 8, 8, 8)
+        box_layout.setSpacing(4)
+
+        # number label
+        label = FieldLabel("propagation rule", box)
+        label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        outer.addWidget(label)
+        outer.addWidget(box, stretch=1)
+
+        # remove button
         header = QHBoxLayout()
-        header.addWidget(QLabel("Propagation rule"))
         header.addStretch()
         remove_btn = QPushButton("×")
         remove_btn.setFixedSize(22, 22)
-        remove_btn.setStyleSheet(
-            "QPushButton { border: none; color: #cc4444; font-size: 14px; }"
-        )
         remove_btn.clicked.connect(lambda: on_remove(self))
         header.addWidget(remove_btn)
-        outer.addLayout(header)
+        box_layout.addLayout(header)
 
-        lists_row = QHBoxLayout()
-        lists_row.setSpacing(12)
+        # grid layout matching form builder style
+        grid = QGridLayout()
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setSpacing(4)
+        grid.setColumnStretch(1, 1)
+        box_layout.addLayout(grid)
 
-        # dependents list
-        dep_col = QVBoxLayout()
-        dep_col.addWidget(QLabel("Dependents:"))
-
+        # dependents
+        dep_label = QLabel("dependents")
+        dep_label.setAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        )
         self._dep_list = QListWidget()
         self._dep_list.setSelectionMode(QAbstractItemView.SelectionMode.MultiSelection)
         self._dep_list.setStyleSheet("""
             QListWidget::item:selected {
                 background: #2d5a4a;
                 color: #ffffff;
-                border-left: 3px solid #5a9fd4;
             }
         """)
-        for action in self._workflow.actions:
-            if action.name == self._current_action.name:
-                continue
-            item = QListWidgetItem(action.name)
-            item.setData(Qt.ItemDataRole.UserRole, action.name)
-            self._dep_list.addItem(item)
-            if action.name in rule.dependent_names:
-                item.setSelected(True)
-
+        self._dep_list.setMaximumHeight(120)
         self._dep_list.itemSelectionChanged.connect(self._sync_dependents)
-        dep_col.addWidget(self._dep_list)
-        lists_row.addLayout(dep_col)
+        self._populate_dep_list(self._manager.workflow.actions)
+        grid.addWidget(dep_label, 0, 0)
+        grid.addWidget(self._dep_list, 0, 1)
 
-        # properties form
-        prop_col = QVBoxLayout()
-        prop_col.addWidget(QLabel("Properties:"))
-
-        self._props_widget = form_builder.build_form(PropertyNames, self._workflow)
-
-        # prepopulate from existing rule
+        # properties
+        self._props_widget = GroupBoxWidget(
+            FormBuilder().build_form(PropertyNames(), self._manager)
+        )
+        prop_label = FieldLabel("properties", self._props_widget)
+        prop_label.setAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        )
         if rule.props_to_propagate is not None:
             self._props_widget.set_value(rule.props_to_propagate.model_dump())
-
-        # sync on every change
         for child in self._props_widget.findChildren(QListWidget):
             cast("QListWidget", child).itemSelectionChanged.connect(self._sync_props)
+        grid.addWidget(prop_label, 1, 0)
+        grid.addWidget(self._props_widget, 1, 1)
 
-        prop_col.addWidget(self._props_widget)
-        lists_row.addLayout(prop_col)
-
-        outer.addLayout(lists_row)
+        # wire manager signals
+        self._manager.actions_changed.connect(self._populate_dep_list)
+        self._manager.action_changed.connect(self.on_action_changed)
 
     def _sync_dependents(self) -> None:
-        """Sync selected dependents back to the rule immediately."""
         self.rule.dependent_names = [
-            item.data(Qt.ItemDataRole.UserRole)
+            item.data(Qt.ItemDataRole.UserRole).name
             for item in self._dep_list.selectedItems()
         ]
+
+        self._manager.notify_propagations_changed()
 
     def _sync_props(self) -> None:
         """Sync selected properties back to the rule immediately."""
         self.rule.props_to_propagate = PropertyNames(**self._props_widget.get_value())
+        self._manager.notify_propagations_changed()
+
+    def _populate_dep_list(self, actions: Actions) -> None:
+        previously_selected = {
+            item.data(Qt.ItemDataRole.UserRole)
+            for item in self._dep_list.selectedItems()
+        }
+        self._dep_list.clear()
+        for action in actions:
+            if action is self._current_action:
+                continue
+            item = QListWidgetItem(action.name)
+            item.setData(Qt.ItemDataRole.UserRole, action)
+            self._dep_list.addItem(item)
+            if (
+                action in previously_selected
+                or action.name in self.rule.dependent_names
+            ):
+                item.setSelected(True)
+
+    def on_action_changed(self, action: Action) -> None:
+        for i in range(self._dep_list.count()):
+            item = self._dep_list.item(i)
+            if item is not None and item.data(Qt.ItemDataRole.UserRole) is action:
+                item.setText(action.name)
+                break
