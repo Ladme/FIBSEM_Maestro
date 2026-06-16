@@ -18,36 +18,33 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from fibsem_maestro.action.action import Action
 from fibsem_maestro.gui.form_builder.builder import FormBuilder
-from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.workflow.propagations import PropagationRule
+from fibsem_maestro.workflow.workflow import Workflow
 
 
 class PropagationRuleWidget(QFrame):
     """
     Displays and allows editing of a single Propagation rule.
-
-    Args:
-        rule: The Propagation rule to display and mutate.
-        all_action_names: All action names in the workflow.
-        current_action_name: The parent action name.
-        on_remove: Callback invoked when the user clicks ×.
     """
 
     def __init__(
         self,
         rule: PropagationRule,
-        current_action_name: str,
-        all_action_names: list[str],
+        current_action: Action,
+        workflow: Workflow,
         on_remove: Callable,
         form_builder: FormBuilder,
-        microscope: Microscope,
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
         self.rule = rule
         self.setFrameShape(QFrame.Shape.StyledPanel)
+
+        self._current_action = current_action
+        self._workflow = workflow
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(6, 6, 6, 6)
@@ -82,13 +79,13 @@ class PropagationRuleWidget(QFrame):
                 border-left: 3px solid #5a9fd4;
             }
         """)
-        for action_name in all_action_names:
-            if action_name == current_action_name:
+        for action in self._workflow.actions:
+            if action.name == self._current_action.name:
                 continue
-            item = QListWidgetItem(action_name)
-            item.setData(Qt.ItemDataRole.UserRole, action_name)
+            item = QListWidgetItem(action.name)
+            item.setData(Qt.ItemDataRole.UserRole, action.name)
             self._dep_list.addItem(item)
-            if action_name in rule.dependent_names:
+            if action.name in rule.dependent_names:
                 item.setSelected(True)
 
         self._dep_list.itemSelectionChanged.connect(self._sync_dependents)
@@ -99,7 +96,7 @@ class PropagationRuleWidget(QFrame):
         prop_col = QVBoxLayout()
         prop_col.addWidget(QLabel("Properties:"))
 
-        self._props_widget = form_builder.build_form(PropertyNames, microscope)
+        self._props_widget = form_builder.build_form(PropertyNames, self._workflow)
 
         # prepopulate from existing rule
         if rule.props_to_propagate is not None:

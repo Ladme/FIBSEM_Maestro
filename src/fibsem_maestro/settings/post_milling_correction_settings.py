@@ -6,9 +6,10 @@ from typing import Annotated, Literal
 from pydantic import Field
 
 from fibsem_maestro.core.beam_type import BeamType
+from fibsem_maestro.milling.milling import Milling
 from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.base_settings import BaseSettings
-from fibsem_maestro.settings.form_utils import FieldUnit
+from fibsem_maestro.settings.form_utils import FieldUnit, FormHint, WidgetType
 from fibsem_maestro.settings.property_names import PropertyNames
 
 
@@ -34,9 +35,9 @@ PostMillingCorrectionMode = Annotated[
 
 
 class PostMillingCorrectionSettings(BaseSettings):
-    linked_milling: str = Field(
-        default="", description="Milling linked to this post-milling correction."
-    )
+    linked_imaging: Annotated[
+        str, FormHint(widget=WidgetType.ACTION_SELECTOR, action_type_filter=[Milling])
+    ] = Field(default="", description="Milling linked to this post-milling correction.")
     correction_mode: PostMillingCorrectionMode = Field(
         default_factory=ManualMode,
         description="Mode of post milling correction to use.",

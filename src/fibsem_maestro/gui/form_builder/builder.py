@@ -25,6 +25,7 @@ from fibsem_maestro.gui.form_builder.utils import (
     classify_type,
     get_field_infos,
 )
+from fibsem_maestro.gui.form_builder.widgets.action_select import ActionSelectWidget
 from fibsem_maestro.gui.form_builder.widgets.area_selector.widget import (
     AreaSelectWidget,
 )
@@ -45,9 +46,9 @@ from fibsem_maestro.gui.form_builder.widgets.string import StringWidget
 from fibsem_maestro.gui.form_builder.widgets.text_area import TextAreaWidget
 from fibsem_maestro.gui.form_builder.widgets.union import DiscriminatedUnionWidget
 from fibsem_maestro.gui.form_builder.widgets.wrapper import WidgetWrapper
-from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.base_settings import BaseSettings
 from fibsem_maestro.settings.form_utils import WidgetType
+from fibsem_maestro.workflow.workflow import Workflow
 
 SCALAR_KINDS = {
     TypeKind.BOOL,
@@ -71,7 +72,7 @@ class FormBuilder:
     def build_form(
         self,
         settings: BaseSettings,
-        microscope: Microscope | None = None,
+        workflow: Workflow,
         fields: list[str] | None = None,
     ) -> ObjectWidget:
         """
@@ -82,16 +83,15 @@ class FormBuilder:
 
         Args:
             settings: The live settings instance to bind to.
-            microscope: Optional microscope instance for property selectors.
+            workflow: The current workflow instance.
             fields: Optional list of field names to include. If None, all fields are shown.
 
         Returns:
             An ObjectWidget containing the complete form.
         """
-        self._microscope = microscope
-        self._manufacturer_properties = (
-            microscope.control.manufacturer_prop_names if microscope is not None else []
-        )
+        self._workflow = workflow
+        self._microscope = self._workflow.microscope
+        self._manufacturer_properties = self._microscope.control.manufacturer_prop_names
 
         field_infos = None
         if fields is not None:
@@ -233,6 +233,15 @@ class FormBuilder:
                     minimum=0.0,  # manual override
                     maximum=fi.maximum,
                     suffix=fi.unit.suffix if fi.unit else None,
+                )
+
+            case WidgetType.ACTION_SELECTOR:
+                type_filter = fi.hint.action_type_filter if fi.hint is not None else []
+                return ActionSelectWidget(
+                    actions=self._workflow.actions,
+                    type_filter=type_filter,
+                    default=fi.default,
+                    optional=fi.optional,
                 )
 
             case _:

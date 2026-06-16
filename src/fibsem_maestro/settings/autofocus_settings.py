@@ -7,6 +7,7 @@ from typing import Annotated, Literal
 from pydantic import Field
 
 from fibsem_maestro.core.beam_type import BeamType
+from fibsem_maestro.imaging.imaging import Imaging
 from fibsem_maestro.properties.beam_properties import BeamProperties
 from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.base_settings import BaseSettings
@@ -84,7 +85,9 @@ AutofocusMode = Annotated[
 
 
 class AutofocusSettings(BaseSettings):
-    linked_imaging: str = Field(
+    linked_imaging: Annotated[
+        str, FormHint(widget=WidgetType.ACTION_SELECTOR, action_type_filter=[Imaging])
+    ] = Field(
         default="", description="Name of the imaging action linked to this autofocus."
     )
     target_attribute: Annotated[

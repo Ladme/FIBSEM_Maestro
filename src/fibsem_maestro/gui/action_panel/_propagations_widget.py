@@ -4,11 +4,12 @@
 
 from PyQt6.QtWidgets import QGroupBox, QPushButton, QSizePolicy, QVBoxLayout, QWidget
 
+from fibsem_maestro.action.action import Action
 from fibsem_maestro.gui.action_panel._rule_widget import PropagationRuleWidget
 from fibsem_maestro.gui.form_builder.builder import FormBuilder
-from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.workflow.propagations import PropagationRule, Propagations
+from fibsem_maestro.workflow.workflow import Workflow
 
 
 class PropagationsWidget(QGroupBox):
@@ -25,19 +26,17 @@ class PropagationsWidget(QGroupBox):
 
     def __init__(
         self,
+        current_action: Action,
+        workflow: Workflow,
         propagations: Propagations,
-        current_action_name: str,
-        all_action_names: list[str],
         form_builder: FormBuilder,
-        microscope: Microscope,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__("Propagations", parent)
-        self._propagations = propagations
-        self._current_action_name = current_action_name
-        self._all_action_names = all_action_names
+        self._workflow = workflow
+        self._microscope = workflow.microscope
+        self._current_action = current_action
         self._form_builder = form_builder
-        self._microscope = microscope
         self._rule_widgets: list[PropagationRuleWidget] = []
 
         self._layout = QVBoxLayout(self)
@@ -45,7 +44,7 @@ class PropagationsWidget(QGroupBox):
 
         # populate existing rules for this action
         for rule in propagations.rules:
-            if rule.parent_name == current_action_name:
+            if rule.parent_name == self._current_action.name:
                 self._insert_rule_widget(rule)
 
         self._add_btn = QPushButton("+ Add rule")
@@ -57,26 +56,25 @@ class PropagationsWidget(QGroupBox):
         """Insert a rule widget before the Add button."""
         widget = PropagationRuleWidget(
             rule=rule,
-            current_action_name=self._current_action_name,
-            all_action_names=self._all_action_names,
+            current_action=self._current_action,
+            workflow=self._workflow,
             on_remove=self._remove_rule,
             form_builder=self._form_builder,
-            microscope=self._microscope,
         )
         self._layout.insertWidget(self._layout.count() - 1, widget)
         self._rule_widgets.append(widget)
 
     def _add_rule(self) -> None:
         rule = PropagationRule(
-            parent_name=self._current_action_name,
+            parent_name=self._current_action.name,
             dependent_names=[],
             props_to_propagate=PropertyNames(),
         )
-        self._propagations.rules.append(rule)
+        self._workflow.propagations.rules.append(rule)
         self._insert_rule_widget(rule)
 
     def _remove_rule(self, widget: PropagationRuleWidget) -> None:
-        self._propagations.rules.remove(widget.rule)
+        self._workflow.propagations.rules.remove(widget.rule)
         self._layout.removeWidget(widget)
         widget.deleteLater()
         self._rule_widgets.remove(widget)

@@ -94,9 +94,7 @@ class ActionPanel(QWidget):
         layout.addWidget(title_frame)
 
         # settings
-        self._settings_widget = form_builder.build_form(
-            action.settings, self._microscope
-        )
+        self._settings_widget = form_builder.build_form(action.settings, self._workflow)
         layout.addWidget(self._settings_widget)
 
         # propagations
