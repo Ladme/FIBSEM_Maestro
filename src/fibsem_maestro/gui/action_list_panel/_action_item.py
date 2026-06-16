@@ -125,22 +125,19 @@ class ActionItemWidget(QWidget):
 
     def update_propagation_badge(self, propagations: Propagations) -> None:
         """Recount outgoing propagation rules and update the badge."""
-        count = sum(
-            1 for rule in propagations.rules if rule.parent_name == self._action.name
-        )
-        if count > 0:
-            dependents = ", ".join(
+        dependents = list(
+            dict.fromkeys(
                 d
                 for rule in propagations.rules
                 if rule.parent_name == self._action.name
                 for d in rule.dependent_names
             )
-            self._badge.setText(f"→{count}")
-            self._badge.setToolTip(f"Propagates to: {dependents}")
+        )
+        if dependents:
+            self._badge.setText(f"→{len(dependents)}")
+            self._badge.setToolTip(f"Propagates to: {', '.join(dependents)}")
             self._badge.show()
         else:
-            self._badge.setText("")
-            self._badge.setToolTip("")
             self._badge.hide()
 
     def set_state(self, state: str) -> None:
