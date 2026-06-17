@@ -13,6 +13,7 @@ class MultiSelectWidget(QListWidget, WidgetWrapper):
         self, choices: list[str], default: list[str] | None = None, parent=None
     ):
         super().__init__(parent)
+        WidgetWrapper.__init__(self)
         self.setSelectionMode(QAbstractItemView.SelectionMode.MultiSelection)
         self.setStyleSheet("""
             QListWidget::item:selected {
@@ -30,6 +31,8 @@ class MultiSelectWidget(QListWidget, WidgetWrapper):
             items = self.findItems(text, Qt.MatchFlag.MatchExactly)
             for item in items:
                 item.setSelected(True)
+
+        self.itemSelectionChanged.connect(self._notify_changed)
 
     def get_value(self) -> list[str]:
         return [item.text() for item in self.selectedItems()]

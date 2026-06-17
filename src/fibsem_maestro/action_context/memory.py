@@ -63,6 +63,10 @@ class MemoryActionContext(ActionContext):
         return SliceView(Path(f"memory://{self.__class__.__name__}"), slice_index)
 
     @property
+    def path_to_dir(self) -> Path | None:
+        return None
+
+    @property
     def text_logger(self) -> TextLogger:
         return self._text_logger
 
@@ -100,3 +104,7 @@ class MemoryActionContext(ActionContext):
             slice_provider=lambda: self._counter.current,
             cls=cls,
         )
+
+    def change_action_dir(self, dir: Path) -> None:
+        _ = dir
+        pass

@@ -18,7 +18,6 @@ from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.drift_correction_settings import DriftCorrectionSettings
 from fibsem_maestro.settings.property_names import PropertyNames
-from fibsem_maestro.store.image.image_store import ImageStore
 from fibsem_maestro.workflow.actions import Actions
 
 if TYPE_CHECKING:
@@ -112,19 +111,10 @@ class DriftCorrection(Action[DriftCorrectionSettings, DriftCorrectionState]):
         _ = state
 
     @with_logging_context
-    def setup(self, store: ImageStore[Image8Bit] | None = None) -> None:
-        """
-        Initialize the drift calculation mode before acquisition begins.
-
-        Delegates to the configured `DriftCalculationMode.setup`, which
-        performs any one-time preparation required before the first slice -
-        for example, acquiring reference templates.
-
-        Args:
-            store: Optional image store to use for template loading/saving.
-                If not provided, the image store for the current slice is used.
-        """
-        self._drift_calc.setup(store)
+    def initialize_first_slice(self) -> None:
+        super().initialize_first_slice()
+        # context has been advanced to slice 1 by the parent method
+        self._drift_calc.setup()
 
     @with_logging_context
     def execute(self) -> None:

@@ -121,7 +121,12 @@ class Imaging(Action[ImagingSettings, ImagingState]):
         self._scanning_area_selected = state.scanning_area_selected
         self._image_sharpness = state.image_sharpness
 
-        if state.image_sharpness is None and self.settings.criterion is not None:
+        if (
+            # skip if the acquisition hasn't started yet
+            self._ctx.slice != 0
+            and state.image_sharpness is None
+            and self.settings.criterion is not None
+        ):
             self._ctx.text_logger.warning(
                 f"Restoring state of '{self.name}': image sharpness not computed, recovering from frame captured for slice {self._ctx.slice}."
             )

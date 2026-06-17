@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
 )
 
 from fibsem_maestro.action.registry import ACTION_REGISTRY
+from fibsem_maestro.gui.common import validate_action_name
 
 
 class AddActionDialog(QDialog):
@@ -84,15 +85,9 @@ class AddActionDialog(QDialog):
 
     def _validate(self) -> None:
         name = self._name_edit.text().strip()
-        if not name:
-            self._error_label.setText("Name cannot be empty.")
-            self._ok_btn.setEnabled(False)
-        elif name in self._existing_names:
-            self._error_label.setText(f"Name '{name}' is already in use.")
-            self._ok_btn.setEnabled(False)
-        else:
-            self._error_label.setText("")
-            self._ok_btn.setEnabled(True)
+        error = validate_action_name(name, self._existing_names)
+        self._error_label.setText(error or "")
+        self._ok_btn.setEnabled(error is None)
 
     def _on_accept(self) -> None:
         self._validate()

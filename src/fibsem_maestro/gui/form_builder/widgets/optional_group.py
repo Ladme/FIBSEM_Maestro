@@ -15,7 +15,9 @@ class OptionalGroupWidget(QWidget, WidgetWrapper):
         self, inner: ObjectWidget, enabled_by_default: bool = False, parent=None
     ):
         super().__init__(parent)
+        WidgetWrapper.__init__(self)
         self._inner = inner
+        inner._parent = self
         self._enabled = enabled_by_default
 
         self._layout = QVBoxLayout(self)
@@ -48,6 +50,7 @@ class OptionalGroupWidget(QWidget, WidgetWrapper):
             self._checkbox_standalone.setParent(None)  # type: ignore
             self._checkbox_in_group.setChecked(True)
             self._layout.addWidget(self._group)
+            self._notify_changed()
 
     def _on_checked_toggled(self, state):
         if not state:
@@ -55,6 +58,7 @@ class OptionalGroupWidget(QWidget, WidgetWrapper):
             self._group.setParent(None)  # type: ignore
             self._checkbox_standalone.setChecked(False)
             self._layout.addWidget(self._checkbox_standalone)
+            self._notify_changed()
 
     def get_value(self) -> Any:
         return self._inner.get_value() if self._enabled else None

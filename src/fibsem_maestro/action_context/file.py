@@ -2,6 +2,7 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 import logging
+import shutil
 from pathlib import Path
 from typing import Any, TypeVar
 
@@ -84,6 +85,10 @@ class FileActionContext(ActionContext):
         return SliceView(self._action_dir, slice_index)
 
     @property
+    def path_to_dir(self) -> Path | None:
+        return self._action_dir
+
+    @property
     def text_logger(self) -> TextLogger:
         return self._text_logger
 
@@ -121,3 +126,8 @@ class FileActionContext(ActionContext):
             view_provider=lambda: self._current_view,
             cls=cls,
         )
+
+    def change_action_dir(self, dir: Path) -> None:
+        shutil.move(self._action_dir, dir)
+        self._action_dir = dir
+        self._current_view = self._make_view(self._current_view.slice_index)

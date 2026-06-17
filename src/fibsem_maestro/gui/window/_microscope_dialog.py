@@ -11,8 +11,8 @@ from fibsem_maestro.gui.connection._common import (
 )
 from fibsem_maestro.gui.form_builder.builder import FormBuilder
 from fibsem_maestro.gui.form_builder.utils import get_field_infos
+from fibsem_maestro.gui.workflow_manager import WorkflowManager
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
-from fibsem_maestro.workflow.workflow import Workflow
 
 
 class MicroscopeSettingsDialog(QDialog):
@@ -28,7 +28,7 @@ class MicroscopeSettingsDialog(QDialog):
 
     def __init__(
         self,
-        workflow: Workflow,
+        workflow_manager: WorkflowManager,
         form_builder: FormBuilder,
         app_state: AppState,
         parent: QWidget | None = None,
@@ -38,8 +38,8 @@ class MicroscopeSettingsDialog(QDialog):
         self.setModal(True)
         self.setMinimumWidth(400)
 
-        self._workflow = workflow
-        self._microscope = workflow.microscope
+        self._manager = workflow_manager
+        self._microscope = self._manager.workflow.microscope
         self._app_state = app_state
 
         layout = QVBoxLayout(self)
@@ -69,4 +69,5 @@ class MicroscopeSettingsDialog(QDialog):
     def _on_close(self) -> None:
         if self._app_state in {AppState.EDITING, AppState.PAUSED}:
             save_last_microscope_profile(self._microscope.settings)
+        self._manager.notify_microscope_changed()
         self.accept()

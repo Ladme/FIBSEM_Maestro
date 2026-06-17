@@ -3,7 +3,6 @@
 
 import re
 from pathlib import Path
-from time import sleep
 from typing import Protocol, Self
 
 from fibsem_maestro.action.registry import ACTION_REGISTRY
@@ -66,21 +65,50 @@ class Workflow:
         self.callbacks = callbacks
 
     @classmethod
-    def import_from_dir(cls, dir: Path, microscope: Microscope) -> Self:
+    def import_from_dir(
+        cls, dir: Path, microscope: Microscope, current_workflow_dir: Path
+    ) -> Self:
         # find the latest slice of the workflow
         if not (result := find_subdir_with_largest_int(dir / "workflow", "slice_*")):
             raise WorkflowError("No workflow slice found in directory")
-        workflow_path, workflow_slice_number = result
+        workflow_path, _ = result
 
-        # load the workflow state and construct the workflow context
+        # load the workflow state
         workflow_state = WorkflowState.from_file(workflow_path / "state.yaml")
-        workflow_ctx = FileActionContext(
-            dir / "workflow", "workflow", slice=workflow_slice_number
-        )
 
-        # build the actions and propagations from the workflow state
-        actions = cls._build_actions(dir, workflow_state, microscope)
-        propagations = cls._build_propagations(workflow_state, workflow_ctx)
+        # construct the workflow context
+        workflow_ctx = FileActionContext(current_workflow_dir / "workflow", "workflow")
+
+        # load the settings of actions and construct them
+        actions = Actions()
+        for name, type in zip(workflow_state.action_names, workflow_state.action_types):
+            # find the latest slice of the action
+            name_with_underscores = name.replace(" ", "_")
+            if not (
+                result := find_subdir_with_largest_int(
+                    dir / name_with_underscores, "slice_*"
+                )
+            ):
+                raise WorkflowError(f"No slice found for action {name}")
+            action_slice_path, _ = result
+
+            # load the action settings and construct the action
+            ActionCls = ACTION_REGISTRY.get(type)
+            action_settings = ActionCls.settings_cls().from_file(
+                action_slice_path / "settings.yaml"
+            )
+            action_ctx = FileActionContext(
+                current_workflow_dir / name_with_underscores,
+                name,
+            )
+            actions.append(
+                ActionCls(name, microscope, action_settings, action_ctx, actions)
+            )
+
+        # build the propagations
+        propagations = Propagations.from_rules(
+            workflow_state.propagations, workflow_ctx.text_logger.derive("propagations")
+        )
 
         return cls(microscope, actions, propagations, workflow_ctx)
 
@@ -108,35 +136,7 @@ class Workflow:
             ),
         )
 
-        # build the actions and propagations from the workflow state
-        actions = cls._build_actions(dir, workflow_state, microscope)
-        propagations = cls._build_propagations(workflow_state, workflow_ctx)
-
-        # set internal state of all actions
-        for action in actions:
-            action_state = action.ctx.state_store.read("state.yaml", action.state_cls())
-            action.set_state(action_state)
-
-        return cls(microscope, actions, propagations, workflow_ctx)
-
-    @classmethod
-    def _build_actions(
-        cls,
-        dir: Path,
-        workflow_state: WorkflowState,
-        microscope: Microscope,
-    ) -> Actions:
-        """
-        Construct actions from a resolved workflow state.
-
-        Args:
-            dir: Root acquisition directory.
-            workflow_state: Pre-parsed workflow state.
-            microscope: The microscope instance to use for all actions.
-
-        Returns:
-            An Actions instance.
-        """
+        # load the settings of actions and construct them
         actions = Actions()
         for name, type in zip(workflow_state.action_names, workflow_state.action_types):
             # find the latest slice of the action
@@ -149,7 +149,7 @@ class Workflow:
                 raise WorkflowError(f"No slice found for action {name}")
             action_slice_path, action_slice_number = result
 
-            # load the action settings and construct the action
+            # load the action settings
             ActionCls = ACTION_REGISTRY.get(type)
             action_settings = ActionCls.settings_cls().from_file(
                 action_slice_path / "settings.yaml"
@@ -157,21 +157,23 @@ class Workflow:
             action_ctx = FileActionContext(
                 dir / name_with_underscores, name, slice=action_slice_number
             )
-            actions.append(
-                ActionCls(name, microscope, action_settings, action_ctx, actions)
-            )
-        return actions
 
-    @classmethod
-    def _build_propagations(
-        cls,
-        workflow_state: WorkflowState,
-        workflow_ctx: ActionContext,
-    ) -> Propagations:
-        # build the propagations from the workflow state
-        return Propagations.from_rules(
+            # construct the action
+            action = ActionCls(name, microscope, action_settings, action_ctx, actions)
+
+            # load the action's state
+            action.set_state(
+                action.ctx.state_store.read("state.yaml", action.state_cls())
+            )
+
+            actions.append(action)
+
+        # build the propagations
+        propagations = Propagations.from_rules(
             workflow_state.propagations, workflow_ctx.text_logger.derive("propagations")
         )
+
+        return cls(microscope, actions, propagations, workflow_ctx)
 
     def run(self, n_slices: int) -> None:
         """
@@ -182,14 +184,9 @@ class Workflow:
         """
         with logging_context(self.ctx.text_logger):
             if self.ctx.slice == 0:
-                # if this is slice 0
-                # advance the slice counter of all actions
-                # this brings us from the initialization slice 0 to slice 1
+                # if this is slice 0, initialize all actions
                 for action in self.actions:
-                    self.ctx.text_logger.debug(
-                        f"Finishing initialization for action '{action.name}'."
-                    )
-                    action.ctx.advance()
+                    action.initialize_first_slice()
                 self.ctx.advance()
 
             for _ in range(n_slices):

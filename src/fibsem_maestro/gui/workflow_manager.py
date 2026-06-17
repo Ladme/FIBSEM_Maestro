@@ -6,6 +6,7 @@ from PyQt6.QtCore import QObject, QThread, pyqtSignal
 from fibsem_maestro.action.action import Action
 from fibsem_maestro.gui.app_state import AppState
 from fibsem_maestro.gui.workflow_worker import WorkflowWorker
+from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.workflow.actions import Actions
 from fibsem_maestro.workflow.propagations import Propagations
 from fibsem_maestro.workflow.workflow import Workflow
@@ -15,6 +16,7 @@ class WorkflowManager(QObject):
     action_changed = pyqtSignal(Action)
     actions_changed = pyqtSignal(Actions)
     propagations_changed = pyqtSignal(Propagations)
+    microscope_changed = pyqtSignal(Microscope)
     action_finished = pyqtSignal(Action)
     slice_finished = pyqtSignal(int)
     app_state_changed = pyqtSignal(AppState)
@@ -55,6 +57,9 @@ class WorkflowManager(QObject):
 
     def notify_propagations_changed(self) -> None:
         self.propagations_changed.emit(self.workflow.propagations)
+
+    def notify_microscope_changed(self) -> None:
+        self.microscope_changed.emit(self.workflow.microscope)
 
     def start(self, n_slices: int) -> None:
         self._thread.started.connect(lambda: self._worker.run(n_slices))

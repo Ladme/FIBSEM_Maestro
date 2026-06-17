@@ -8,6 +8,7 @@ from typing import Self, TypeVar
 from fibsem_maestro.action.state import ActionState
 
 T = TypeVar("T", bound=ActionState)
+TSelf = TypeVar("TSelf", bound="StateStore")
 
 
 class StateStore(ABC):
@@ -46,6 +47,16 @@ class StateStore(ABC):
 
         Raises:
             FileNotFoundError: If no file with that name exists in the current slice directory.
+        """
+
+    @abstractmethod
+    def copy_to(self, filename: str, to: TSelf) -> None:
+        """
+        Copy the given state file to the target `StateStore`.
+
+        Args:
+            filename: Filename within the current slice directory.
+            to: The target `StateStore` to copy the state to.
         """
 
     @abstractmethod

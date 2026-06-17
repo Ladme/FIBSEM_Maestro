@@ -48,6 +48,18 @@ class MemorySettingsStore(SettingsStore):
                 f"No settings stored for slice {slice_idx!r}, filename {fname!r}"
             ) from None
 
+    def copy_to(self, filename: str, to: Self) -> None:
+        key = self._key(filename)
+        try:
+            value = self._store[key]
+        except KeyError:
+            slice_idx, fname = key
+            raise FileNotFoundError(
+                f"No settings stored for slice {slice_idx!r}, filename {fname!r}"
+            ) from None
+
+        to._store[to._key(filename)] = value
+
     def exists(self, filename: str) -> bool:
         return self._key(filename) in self._store
 

@@ -14,6 +14,7 @@ from fibsem_maestro.gui.form_builder.widgets.wrapper import WidgetWrapper
 class ObjectWidget(QWidget, WidgetWrapper):
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
+        WidgetWrapper.__init__(self)
         self._layout = QGridLayout(self)
         self._layout.setContentsMargins(0, 0, 0, 0)
         self._layout.setSpacing(4)
@@ -24,6 +25,7 @@ class ObjectWidget(QWidget, WidgetWrapper):
     def add_field(
         self, name: str, label: str, widget: WidgetWrapper, description: str = ""
     ) -> None:
+        widget._parent = self
         label_widget = FieldLabel(label, cast("QWidget", widget))
         label_widget.setWordWrap(True)
         label_widget.setAlignment(

@@ -21,6 +21,7 @@ class IntWidget(QWidget, WidgetWrapper):
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
+        WidgetWrapper.__init__(self)
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
@@ -31,6 +32,7 @@ class IntWidget(QWidget, WidgetWrapper):
         self._spin.setValue(int(default))
         self._spin.setFixedWidth(200)
         self._spin.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self._spin.valueChanged.connect(lambda _: self._notify_changed())
         layout.addWidget(self._spin)
         if suffix:
             layout.addWidget(QLabel(suffix))

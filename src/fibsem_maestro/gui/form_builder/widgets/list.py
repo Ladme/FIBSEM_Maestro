@@ -34,6 +34,7 @@ class ListWidget(QWidget, WidgetWrapper):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
+        WidgetWrapper.__init__(self)
         self._item_factory = item_factory
         self._items: list[WidgetWrapper] = []
 
@@ -61,6 +62,7 @@ class ListWidget(QWidget, WidgetWrapper):
 
     def _add_item(self, value: Any = None) -> None:
         widget = self._item_factory()
+        widget._parent = self
 
         row = QHBoxLayout()
         row.setContentsMargins(0, 0, 0, 0)
@@ -80,6 +82,7 @@ class ListWidget(QWidget, WidgetWrapper):
 
         if value is not None:
             widget.set_value(value)
+        self._notify_changed()
 
     def _remove_item(self, row: QHBoxLayout, widget: WidgetWrapper) -> None:
         self._items.remove(widget)
@@ -88,6 +91,7 @@ class ListWidget(QWidget, WidgetWrapper):
             if item.widget():
                 item.widget().deleteLater()
         self._items_layout.removeItem(row)
+        self._notify_changed()
 
     def get_value(self) -> list[Any]:
         return [w.get_value() for w in self._items]

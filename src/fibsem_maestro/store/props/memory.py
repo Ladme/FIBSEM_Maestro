@@ -49,6 +49,10 @@ class MemoryPropsStore(PropsStore):
                 f"No props stored for slice {slice_idx!r}, filename {fname!r}"
             ) from None
 
+    def copy_to(self, filename: str, to: Self) -> None:
+        props = self.read(filename)
+        to.write(filename, props)
+
     def exists(self, filename: str) -> bool:
         return self._key(filename) in self._store
 

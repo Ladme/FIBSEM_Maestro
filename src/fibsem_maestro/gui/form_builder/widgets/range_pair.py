@@ -22,6 +22,7 @@ class RangePairWidget(QWidget, WidgetWrapper):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
+        WidgetWrapper.__init__(self)
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
@@ -54,9 +55,11 @@ class RangePairWidget(QWidget, WidgetWrapper):
 
     def _on_low_changed(self, value: float) -> None:
         self._high.setMinimum(value)
+        self._notify_changed()
 
     def _on_high_changed(self, value: float) -> None:
         self._low.setMaximum(value)
+        self._notify_changed()
 
     def get_value(self) -> tuple[float, float]:
         return (self._low.value(), self._high.value())

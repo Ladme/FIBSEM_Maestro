@@ -18,7 +18,9 @@ class OptionalWidget(QWidget, WidgetWrapper):
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
+        WidgetWrapper.__init__(self)
         self._inner = cast("QWidget", inner)
+        inner._parent = self
 
         if inline:
             layout = QHBoxLayout(self)
@@ -27,9 +29,7 @@ class OptionalWidget(QWidget, WidgetWrapper):
             layout.addWidget(self._checkbox)
             layout.addWidget(self._inner)
             layout.addStretch()
-            self._checkbox.stateChanged.connect(
-                lambda: self._inner.setVisible(self._checkbox.isChecked())
-            )
+            self._checkbox.stateChanged.connect(self._on_toggled)
             self._inner.setVisible(enabled_by_default)
         else:
             layout = QVBoxLayout(self)
@@ -38,12 +38,17 @@ class OptionalWidget(QWidget, WidgetWrapper):
             layout.addWidget(self._checkbox)
             layout.addWidget(self._inner)
             layout.addStretch()
-            self._checkbox.stateChanged.connect(
-                lambda: self._inner.setVisible(self._checkbox.isChecked())
-            )
+            self._checkbox.stateChanged.connect(self._on_toggled)
             self._inner.setVisible(enabled_by_default)
 
         self._checkbox.setChecked(enabled_by_default)
+
+    def _on_toggled(self, state: int = 0) -> None:
+        print(
+            f"[_on_toggled] id(self)={id(self)}, state={state}, checked={self._checkbox.isChecked()}"
+        )
+        self._inner.setVisible(self._checkbox.isChecked())
+        self._notify_changed()
 
     def get_value(self) -> Any:
         if not self._checkbox.isChecked():

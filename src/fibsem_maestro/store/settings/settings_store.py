@@ -8,6 +8,7 @@ from typing import Self, TypeVar
 from fibsem_maestro.settings.base_settings import BaseSettings
 
 T = TypeVar("T", bound=BaseSettings)
+TSelf = TypeVar("TSelf", bound="SettingsStore")
 
 
 class SettingsStore(ABC):
@@ -42,6 +43,16 @@ class SettingsStore(ABC):
 
         Raises:
             FileNotFoundError: If no file with that name exists in the current slice directory.
+        """
+
+    @abstractmethod
+    def copy_to(self, filename: str, to: TSelf) -> None:
+        """
+        Copy the given settings file to the target `SettingsStore`.
+
+        Args:
+            filename: Filename within the current slice directory.
+            to: The target `SettingsStore` to copy the settings to.
         """
 
     @abstractmethod

@@ -32,7 +32,9 @@ class GroupBoxWidget(QGroupBox, WidgetWrapper):
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
+        WidgetWrapper.__init__(self)
         self._inner = inner
+        inner._parent = self
         self._collapsed = False
 
         # small toggle button in the title bar area

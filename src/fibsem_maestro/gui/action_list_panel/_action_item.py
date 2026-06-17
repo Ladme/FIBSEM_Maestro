@@ -1,14 +1,22 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
+from pathlib import Path
 
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtGui import QMouseEvent
-from PyQt6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import (
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QVBoxLayout,
+    QWidget,
+)
 
 from fibsem_maestro.action.action import Action
 from fibsem_maestro.gui.action_list_panel._common import STATE_COLORS
-from fibsem_maestro.gui.common import class_name_to_label
+from fibsem_maestro.gui.common import class_name_to_label, validate_action_name
 from fibsem_maestro.gui.workflow_manager import WorkflowManager
 from fibsem_maestro.workflow.propagations import Propagations
 
@@ -33,17 +41,18 @@ class ActionItemWidget(QWidget):
         propagations: The propagations manager, used to count outgoing rules.
     """
 
-    name_changed = pyqtSignal(str, str)  # old_name, new_name
-
     def __init__(
         self,
         action: Action,
         workflow_manager: WorkflowManager,
+        workflow_dir: Path,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._action = action
         self._manager = workflow_manager
+        self._workflow_dir = workflow_dir
+
         layout = QHBoxLayout(self)
         layout.setContentsMargins(4, 2, 4, 2)
         layout.setSpacing(6)
@@ -115,11 +124,28 @@ class ActionItemWidget(QWidget):
 
     def _finish_name_edit(self) -> None:
         new_name = self._name_edit.text().strip()
-        if new_name and new_name != self._name_label.text():
-            old_name = self._name_label.text()
-            self._name_label.setText(new_name)
-            self.name_changed.emit(old_name, new_name)
-            self._manager.action_changed.emit(self._action)
+        old_name = self._name_label.text()
+
+        if new_name != old_name:
+            existing_names = {
+                action.name
+                for action in self._manager.workflow.actions
+                if action.name != old_name
+            }
+            if (error := validate_action_name(new_name, existing_names)) is not None:
+                self._name_edit.setText(old_name)
+                QMessageBox.critical(self, "Invalid name", error)
+            else:
+                self._name_label.setText(new_name)
+                # update the action
+                self._action.name = new_name
+                # update the actions context and move the action directory
+                self._action.ctx.change_action_dir(
+                    self._workflow_dir / self._action.name_with_underscores
+                )
+
+                self._manager.action_changed.emit(self._action)
+
         self._name_edit.hide()
         self._name_label.show()
 

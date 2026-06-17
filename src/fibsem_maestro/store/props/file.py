@@ -2,6 +2,7 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
+import shutil
 from collections.abc import Callable
 from pathlib import Path
 from typing import Self
@@ -33,6 +34,15 @@ class FilePropsStore(PropsStore):
 
     def read(self, filename: str) -> GlobalProperties:
         return GlobalProperties.from_file(self._path(filename))
+
+    def copy_to(self, filename: str, to: Self) -> None:
+        src = self._path(filename)
+        if not src.exists():
+            raise FileNotFoundError(f"No props file found at {src!r}")
+
+        target = to._path(filename)
+
+        shutil.copy(src, target)
 
     def exists(self, filename: str) -> bool:
         return self._path(filename).exists()

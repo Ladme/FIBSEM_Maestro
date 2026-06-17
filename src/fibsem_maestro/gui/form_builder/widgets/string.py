@@ -15,6 +15,7 @@ class StringWidget(QWidget, WidgetWrapper):
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
+        WidgetWrapper.__init__(self)
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -22,6 +23,7 @@ class StringWidget(QWidget, WidgetWrapper):
         self._edit = QLineEdit()
         self._edit.setText(str(default) if default else "")
         self._edit.setFixedWidth(200)
+        self._edit.textChanged.connect(lambda _: self._notify_changed())
         layout.addWidget(self._edit)
         if suffix:
             layout.addWidget(QLabel(suffix))

@@ -3,6 +3,7 @@
 
 
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any, TypeVar
 
 from fibsem_maestro.core.image import _ImageBase
@@ -83,6 +84,16 @@ class ActionContext(ABC):
 
     @property
     @abstractmethod
+    def path_to_dir(self) -> Path | None:
+        """
+        The path to the directory containing this action's files.
+
+        Returns:
+            The path to the directory, or `None` if not available.
+        """
+
+    @property
+    @abstractmethod
     def text_logger(self) -> TextLogger:
         """
         The text logger for this action.
@@ -151,4 +162,17 @@ class ActionContext(ABC):
 
         Returns:
             An `ImageStore` addressing the current slice.
+        """
+
+    @abstractmethod
+    def change_action_dir(self, dir: Path) -> None:
+        """
+        Change the action directory to the given path.
+
+        This also moves contents of the original directory to the new one.
+
+        When working in-memory, this method does nothing.
+
+        Args:
+            dir: The new action directory path.
         """

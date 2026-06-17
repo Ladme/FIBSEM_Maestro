@@ -5,18 +5,7 @@
 import contextlib
 import dataclasses
 from collections.abc import Callable
-from typing import Any, cast, get_args
-
-from PyQt6.QtWidgets import (
-    QAbstractItemView,
-    QCheckBox,
-    QComboBox,
-    QDoubleSpinBox,
-    QLineEdit,
-    QPlainTextEdit,
-    QSpinBox,
-    QWidget,
-)
+from typing import Any, get_args
 
 from fibsem_maestro.action.action import Action
 from fibsem_maestro.gui.error import GUIError
@@ -150,11 +139,17 @@ class FormBuilder:
             settings: The parent settings instance to write back to on change.
         """
         if fi.hint is not None:
-            inner = self._build_hinted_widget(fi, field_value, settings)
+            # build unconnected - we connect after any optional-wrapping below,
+            # so write-back fires on the outermost widget (the one whose
+            # checkbox/value actually changes when the user interacts with it)
+            inner = self._build_hinted_widget(fi, field_value, settings, connect=False)
+            result: WidgetWrapper = inner
             if fi.optional:
                 enabled = field_value is not None
-                return OptionalWidget(inner, inline=True, enabled_by_default=enabled)
-            return inner
+                result = OptionalWidget(inner, inline=True, enabled_by_default=enabled)
+            if settings is not None:
+                self._connect_widget(result, fi, settings)
+            return result
 
         return self._build_typed_widget(fi, field_value, settings)
 
@@ -163,8 +158,15 @@ class FormBuilder:
         fi: FieldInfo,
         field_value: Any,
         settings: BaseSettings | None,
+        connect: bool = True,
     ) -> WidgetWrapper:
-        """Build the widget specified by fi.hint, pre-populated and reactive."""
+        """Build the widget specified by fi.hint, pre-populated and reactive.
+
+        Args:
+            connect: Whether to connect write-back here. Pass False when the
+                     caller will wrap this widget further (e.g. in an
+                     OptionalWidget) and connect the wrapper instead.
+        """
         if (hint := fi.hint) is None:
             raise GUIError(f"Could not get hint for FieldInfo: {fi.name}.")
 
@@ -246,7 +248,7 @@ class FormBuilder:
             case _:
                 widget = TextAreaWidget(default=default)
 
-        if settings is not None:
+        if settings is not None and connect:
             self._connect_widget(widget, fi, settings)
 
         return widget
@@ -263,6 +265,10 @@ class FormBuilder:
         Scalar fields are connected reactively to the settings instance.
         Nested dataclass fields recurse into _build_object with the nested
         settings instance, so each level binds independently.
+
+        Write-back is always connected to the outermost widget returned
+        (after any optional-wrapping), since that's the widget whose value
+        actually changes from the user's perspective.
 
         Args:
             fi: Field metadata.
@@ -281,9 +287,10 @@ class FormBuilder:
                 widget = BoolWidget(
                     default=bool(default) if default is not None else False
                 )
+                result = self._maybe_optional(fi, widget, field_value)
                 if settings is not None:
-                    self._connect_widget(widget, fi, settings)
-                return self._maybe_optional(fi, widget, field_value)
+                    self._connect_widget(result, fi, settings)
+                return result
 
             case TypeKind.INT:
                 min_val = (
@@ -302,9 +309,10 @@ class FormBuilder:
                     maximum=max_val,
                     suffix=suffix,
                 )
+                result = self._maybe_optional(fi, widget, field_value)
                 if settings is not None:
-                    self._connect_widget(widget, fi, settings)
-                return self._maybe_optional(fi, widget, field_value)
+                    self._connect_widget(result, fi, settings)
+                return result
 
             case TypeKind.FLOAT:
                 widget = FloatWidget(
@@ -313,20 +321,24 @@ class FormBuilder:
                     maximum=fi.maximum,
                     suffix=suffix,
                 )
+                result = self._maybe_optional(fi, widget, field_value)
                 if settings is not None:
-                    self._connect_widget(widget, fi, settings)
-                return self._maybe_optional(fi, widget, field_value)
+                    self._connect_widget(result, fi, settings)
+                return result
 
             case TypeKind.STR:
                 widget = StringWidget(
                     default=str(default) if default is not None else "",
                     suffix=suffix,
                 )
+                result = self._maybe_optional(fi, widget, field_value)
                 if settings is not None:
-                    self._connect_widget(widget, fi, settings)
-                return self._maybe_optional(fi, widget, field_value)
+                    self._connect_widget(result, fi, settings)
+                return result
 
             case TypeKind.ENUM:
+                # optional is handled internally by EnumWidget (adds a "(none)" entry),
+                # so no _maybe_optional wrapping needed here
                 widget = EnumWidget(
                     list(fi.inner_type),  # type: ignore
                     default=default,
@@ -337,6 +349,7 @@ class FormBuilder:
                 return widget
 
             case TypeKind.LITERAL:
+                # optional is handled internally by EnumWidget, same as ENUM above
                 widget = EnumWidget(
                     fi.literal_choices or [],
                     default=default,
@@ -358,9 +371,15 @@ class FormBuilder:
                 )
                 inner_obj = self._build_object(fi.inner_type, nested_settings)
                 if fi.optional:
-                    return OptionalGroupWidget(
+                    # unlike the required case below, toggling between None and the
+                    # nested object IS a change to the parent's own field value, so
+                    # this needs its own write-back connection
+                    group = OptionalGroupWidget(
                         inner_obj, enabled_by_default=nested_settings is not None
                     )
+                    if settings is not None:
+                        self._connect_widget(group, fi, settings)
+                    return group
                 return GroupBoxWidget(inner_obj)
 
             case TypeKind.DISCRIMINATED_UNION:
@@ -390,14 +409,17 @@ class FormBuilder:
                     ),
                 )
                 group = GroupBoxWidget(union_widget)
-                if settings is not None:
-                    self._connect_widget(group, fi, settings)
                 if fi.optional:
-                    return OptionalWidget(
+                    result = OptionalWidget(
                         group,
                         inline=False,
                         enabled_by_default=field_value is not None,
                     )
+                    if settings is not None:
+                        self._connect_widget(result, fi, settings)
+                    return result
+                if settings is not None:
+                    self._connect_widget(group, fi, settings)
                 return group
 
             case TypeKind.LIST:
@@ -410,9 +432,10 @@ class FormBuilder:
                     )
                 else:
                     widget = TextAreaWidget(default=default)
+                result = self._maybe_optional(fi, widget, field_value)
                 if settings is not None:
-                    self._connect_widget(widget, fi, settings)
-                return self._maybe_optional(fi, widget, field_value)
+                    self._connect_widget(result, fi, settings)
+                return result
 
             case TypeKind.FLOAT_TUPLE:
                 args = get_args(fi.inner_type)
@@ -421,15 +444,17 @@ class FormBuilder:
                     length=length,
                     default=tuple(default) if default is not None else None,
                 )
+                result = self._maybe_optional(fi, widget, field_value)
                 if settings is not None:
-                    self._connect_widget(widget, fi, settings)
-                return self._maybe_optional(fi, widget, field_value)
+                    self._connect_widget(result, fi, settings)
+                return result
 
             case TypeKind.UNKNOWN:
                 widget = TextAreaWidget(default=default)
+                result = self._maybe_optional(fi, widget, field_value)
                 if settings is not None:
-                    self._connect_widget(widget, fi, settings)
-                return self._maybe_optional(fi, widget, field_value)
+                    self._connect_widget(result, fi, settings)
+                return result
 
     def _connect_widget(
         self,
@@ -440,60 +465,19 @@ class FormBuilder:
         """
         Connect a widget's change signal to write its value back to settings.
 
-        Tries to connect the widget itself first. If the widget is a compound
-        wrapper, searches its children for known Qt input types instead.
-
         Args:
             widget: The WidgetWrapper to connect.
             fi: Field metadata identifying the settings attribute to write to.
             settings: The live settings instance to write back to.
         """
 
-        def write_back(_=None) -> None:
+        def write_back() -> None:
             with contextlib.suppress(Exception):
                 setattr(settings, fi.name, widget.get_value())
                 if self._action is not None:
                     self._manager.action_changed.emit(self._action)
 
-        def connect_qt_widget(w: QWidget) -> bool:
-            """Connect the appropriate signal of a Qt leaf widget.
-
-            Returns:
-                True if a signal was connected, False if the widget type
-                is not a known input type.
-            """
-            match w:
-                case QSpinBox():
-                    w.valueChanged.connect(write_back)
-                case QDoubleSpinBox():
-                    w.valueChanged.connect(write_back)
-                case QLineEdit():
-                    w.textChanged.connect(write_back)
-                case QCheckBox():
-                    w.stateChanged.connect(write_back)
-                case QComboBox():
-                    w.currentIndexChanged.connect(write_back)
-                case QPlainTextEdit():
-                    w.textChanged.connect(write_back)
-                case QAbstractItemView():
-                    w.selectionModel().selectionChanged.connect(write_back)
-                case _:
-                    return False
-            return True
-
-        # try the widget itself first, then fall back to searching children
-        if not connect_qt_widget(cast("QWidget", widget)):
-            for child_type in (
-                QSpinBox,
-                QDoubleSpinBox,
-                QLineEdit,
-                QCheckBox,
-                QComboBox,
-                QPlainTextEdit,
-                QAbstractItemView,
-            ):
-                for child in cast("QWidget", widget).findChildren(child_type):
-                    connect_qt_widget(cast("QWidget", child))
+        widget.on_change(write_back)
 
     def _maybe_optional(
         self,

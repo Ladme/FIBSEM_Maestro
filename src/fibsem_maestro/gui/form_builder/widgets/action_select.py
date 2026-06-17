@@ -21,10 +21,12 @@ class ActionSelectWidget(NoScrollComboBox, WidgetWrapper):
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
+        WidgetWrapper.__init__(self)
         self._type_filter = type_filter
         self._optional = optional
         self._populate(actions, default)
         self.setFixedWidth(200)
+        self.currentIndexChanged.connect(lambda _: self._notify_changed())
 
     def _populate(self, actions: Actions, default: Any = None) -> None:
         self.clear()

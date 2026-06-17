@@ -108,11 +108,7 @@ class ActionPanel(QWidget):
         layout.addStretch()
 
     def _collect_properties(self) -> None:
-        """Call microscope.collect_properties using the action's props_to_collect."""
-        try:
-            self._microscope.collect_properties(self._action.props_to_collect)
-        except Exception as e:
-            print(f"collect_properties failed: {e}")
+        self._action.collect_and_write_properties()
 
     def on_app_state_changed(self, state: AppState) -> None:
         read_only = state not in {AppState.EDITING, AppState.PAUSED}

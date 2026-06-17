@@ -20,6 +20,8 @@ from fibsem_maestro.gui.action_panel.action_panel import ActionPanel
 from fibsem_maestro.gui.form_builder.builder import FormBuilder
 from fibsem_maestro.gui.window._top_bar import TopBar
 from fibsem_maestro.gui.workflow_manager import WorkflowManager
+from fibsem_maestro.microscope.microscope import Microscope
+from fibsem_maestro.workflow.actions import Actions
 from fibsem_maestro.workflow.workflow import Workflow
 
 
@@ -33,6 +35,10 @@ class MainWindow(QMainWindow):
         self._manager = WorkflowManager(workflow)
         self._microscope = workflow.microscope
         self._workflow_dir = workflow_dir
+
+        # store microscope settings and initial workflow state
+        self._store_microscope_settings(self._microscope)
+        self._store_workflow_state(self._manager.workflow.actions)
 
         self._panels: dict[Action, QWidget] = {}
 
@@ -115,6 +121,16 @@ class MainWindow(QMainWindow):
         self._action_list.action_selected.connect(self._on_action_selected)
         self._manager.app_state_changed.connect(self._action_list.on_app_state_changed)
 
+        # store the settings for each action every time the action changes
+        self._manager.action_changed.connect(self._store_action_settings)
+
+        # store the workflow state every time actions or propagations change
+        self._manager.actions_changed.connect(self._store_workflow_state)
+        self._manager.propagations_changed.connect(self._store_workflow_state)
+
+        # store the microscope settings every time the microscope changes
+        self._manager.microscope_changed.connect(self._store_microscope_settings)
+
     def append_log(self, message: str) -> None:
         self.log_view.appendPlainText(message)
 
@@ -131,3 +147,17 @@ class MainWindow(QMainWindow):
             self._stack.addWidget(panel)
 
         self._stack.setCurrentWidget(self._panels[action])
+
+    def _store_action_settings(self, action: Action) -> None:
+        action.ctx.settings_store.write("settings.yaml", action.settings)
+
+    def _store_microscope_settings(self, microscope: Microscope) -> None:
+        self._manager.workflow.ctx.settings_store.write(
+            "microscope_settings.yaml", microscope.settings
+        )
+
+    def _store_workflow_state(self, actions: Actions) -> None:
+        _ = actions
+        self._manager.workflow.ctx.state_store.write(
+            "state.yaml", self._manager.workflow.state
+        )

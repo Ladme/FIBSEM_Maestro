@@ -12,7 +12,10 @@ from fibsem_maestro.gui.form_builder.widgets.wrapper import WidgetWrapper
 class BoolWidget(QCheckBox, WidgetWrapper):
     def __init__(self, default: bool = False, parent: QWidget | None = None):
         super().__init__(parent)
+        WidgetWrapper.__init__(self)
         self.setChecked(bool(default))
+        self.setChecked(bool(default))
+        self.stateChanged.connect(lambda _: self._notify_changed())
 
     def get_value(self) -> bool:
         return self.isChecked()

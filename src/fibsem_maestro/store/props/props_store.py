@@ -3,9 +3,11 @@
 
 
 from abc import ABC, abstractmethod
-from typing import Self
+from typing import Self, TypeVar
 
 from fibsem_maestro.properties.global_properties import GlobalProperties
+
+TSelf = TypeVar("TSelf", bound="PropsStore")
 
 
 class PropsStore(ABC):
@@ -38,6 +40,16 @@ class PropsStore(ABC):
         Raises:
             FileNotFoundError: If no file with that name exists in the current
                 slice directory.
+        """
+
+    @abstractmethod
+    def copy_to(self, filename: str, to: TSelf) -> None:
+        """
+        Copy the given properties file to the target `PropsStore`.
+
+        Args:
+            filename: Filename within the current slice directory.
+            to: The target `PropsStore` to copy the properties to.
         """
 
     @abstractmethod

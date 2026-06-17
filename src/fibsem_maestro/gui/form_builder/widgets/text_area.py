@@ -13,9 +13,11 @@ from fibsem_maestro.gui.form_builder.widgets.wrapper import WidgetWrapper
 class TextAreaWidget(QPlainTextEdit, WidgetWrapper):
     def __init__(self, default: Any = None, parent: QWidget | None = None):
         super().__init__(parent)
+        WidgetWrapper.__init__(self)
         self.setFixedHeight(80)
         if default is not None:
             self.setPlainText(json.dumps(default, indent=2, default=str))
+        self.textChanged.connect(self._notify_changed)
 
     def get_value(self) -> Any:
         text = self.toPlainText().strip()

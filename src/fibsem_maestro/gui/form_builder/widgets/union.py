@@ -3,6 +3,7 @@
 
 
 from collections.abc import Callable
+from typing import Any
 
 from PyQt6.QtWidgets import (
     QButtonGroup,
@@ -47,6 +48,7 @@ class DiscriminatedUnionWidget(QWidget, WidgetWrapper):
 
         self._discriminator_key = discriminator_key
         self._discriminator_values: list[str] = []
+        self._variant_classes: list[type] = []
         self._empty_indices: set[int] = set()
         self._variant_widgets: list[QWidget] = []
 
@@ -55,6 +57,7 @@ class DiscriminatedUnionWidget(QWidget, WidgetWrapper):
 
         for i, (disc_value, variant_cls) in enumerate(variants):
             self._discriminator_values.append(disc_value)
+            self._variant_classes.append(variant_cls)
 
             btn = QRadioButton(class_name_to_label(variant_cls.__name__))
             self._button_group.addButton(btn, i)
@@ -68,6 +71,7 @@ class DiscriminatedUnionWidget(QWidget, WidgetWrapper):
 
             if extra_field_infos:
                 variant_widget = build_object(variant_cls, extra_field_infos)
+                variant_widget._parent = self
             else:
                 variant_widget = QWidget()
                 self._empty_indices.add(i)
@@ -89,18 +93,20 @@ class DiscriminatedUnionWidget(QWidget, WidgetWrapper):
     def _on_selection_changed(self, index: int) -> None:
         for i, widget in enumerate(self._variant_widgets):
             widget.setVisible(i == index and index not in self._empty_indices)
+        self._notify_changed()
 
-    def get_value(self) -> dict:
+    def get_value(self) -> Any:
         index = self._button_group.checkedId()
-        result = {self._discriminator_key: self._discriminator_values[index]}
+        variant_cls = self._variant_classes[index]
+        data = {self._discriminator_key: self._discriminator_values[index]}
         if index not in self._empty_indices:
             widget = self._variant_widgets[index]
             if isinstance(widget, WidgetWrapper):
-                result.update(widget.get_value())
-        return result
+                data.update(widget.get_value())
+        return variant_cls(**data)
 
-    def set_value(self, value: dict) -> None:
-        disc_value = value.get(self._discriminator_key)
+    def set_value(self, value: Any) -> None:
+        disc_value = getattr(value, self._discriminator_key, None)
         if disc_value not in self._discriminator_values:
             return
         index = self._discriminator_values.index(disc_value)

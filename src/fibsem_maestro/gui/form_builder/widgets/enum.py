@@ -20,6 +20,7 @@ class EnumWidget(NoScrollComboBox, WidgetWrapper):
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
+        WidgetWrapper.__init__(self)
         if optional:
             self.addItem("(none)", userData=None)
         for choice in choices:
@@ -33,6 +34,7 @@ class EnumWidget(NoScrollComboBox, WidgetWrapper):
             if idx >= 0:
                 self.setCurrentIndex(idx)
         self.setFixedWidth(200)
+        self.currentIndexChanged.connect(lambda _: self._notify_changed())
 
     def get_value(self) -> Any:
         return self.currentData()

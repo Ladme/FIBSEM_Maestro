@@ -2,6 +2,7 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
+import shutil
 from pathlib import Path
 
 from PyQt6.QtCore import Qt
@@ -120,6 +121,10 @@ class ConnectionScreen(QDialog):
             return
 
         self.workflow_dir = Path(path)
+        # clear the workflow directory
+        for dir in self.workflow_dir.iterdir():
+            shutil.rmtree(dir)
+
         self._workflow_context = FileActionContext(
             action_dir=self.workflow_dir / "workflow", name="workflow"
         )

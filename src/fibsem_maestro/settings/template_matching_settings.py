@@ -1,7 +1,6 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
-from pathlib import Path
 from typing import Annotated, Literal
 
 from pydantic import Field
@@ -53,10 +52,6 @@ FrameGrabbingMode = Annotated[
 
 
 class TemplateMatchingSettings(BaseSettings):
-    templates_directory: Path = Field(
-        default=Path("templates"),
-        description="Name of a directory where templates will be saved.",
-    )
     matching_mode: TemplateMatchingMode = Field(
         default_factory=StandardMode,
         description="Template matching mode.",

@@ -57,6 +57,8 @@ class AreaSelectWidget(QWidget, WidgetWrapper):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
+        WidgetWrapper.__init__(self)
+
         self._microscope = microscope
         self._max_areas = max_areas
         self._image_size: tuple[int, int] | None = None
@@ -184,6 +186,7 @@ class AreaSelectWidget(QWidget, WidgetWrapper):
 
     def _on_scene_changed(self, _) -> None:
         self._update_thumbnail()
+        self._notify_changed()
 
     def _update_thumbnail(self) -> None:
         if self._last_pixmap is None:

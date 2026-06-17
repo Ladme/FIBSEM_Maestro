@@ -75,6 +75,22 @@ class Action(ABC, Generic[TSettings, TState]):
         Wait for ALL background threads spawned by this action to complete.
         """
 
+    @with_logging_context
+    def initialize_first_slice(self) -> None:
+        """
+        Initialize the action for the first slice.
+
+        By default, this method copies props, settings, and state from slice 0 to slice 1,
+        and then advances the action context.
+
+        This method assumes that props, settings and state have already been written for slice 0.
+        """
+        self.ctx.text_logger.debug(f"Initializing action {self.name}.")
+        self.ctx.props_store.copy_to("props.yaml", self.ctx.props_store.next)
+        self.ctx.settings_store.copy_to("settings.yaml", self.ctx.settings_store.next)
+        self.ctx.state_store.copy_to("state.yaml", self.ctx.state_store.next)
+        self.ctx.advance()
+
     @property
     @abstractmethod
     def name(self) -> str:

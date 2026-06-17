@@ -1,6 +1,7 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
+import shutil
 from pathlib import Path
 
 from PyQt6.QtCore import QSize, Qt, QTimer
@@ -126,11 +127,23 @@ class TopBar(QWidget):
 
         try:
             imported = Workflow.import_from_dir(
-                Path(path),
-                self._manager.workflow.microscope,
+                Path(path), self._manager.workflow.microscope, self._workflow_dir
             )
+
+            # delete all directories in the original workflow_dir, except for the workflow directory
+            for dir in self._workflow_dir.iterdir():
+                if dir.is_dir() and dir.name != "workflow":
+                    shutil.rmtree(dir)
+
+            # store action states and settings
+            for action in imported.actions:
+                action.ctx.state_store.write("state.yaml", action.state)
+                action.ctx.settings_store.write("settings.yaml", action.settings)
+
             self._manager.workflow.actions = imported.actions
             self._manager.workflow.propagations = imported.propagations
+            self._manager.notify_actions_changed()
+            self._manager.notify_propagations_changed()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Could not import workflow: {str(e)}")
 
@@ -139,7 +152,7 @@ class TopBar(QWidget):
     def _on_microscope_settings(self) -> None:
         """Opens the microscope settings dialog."""
         dialog = MicroscopeSettingsDialog(
-            workflow=self._manager.workflow,
+            workflow_manager=self._manager,
             form_builder=self._form_builder,
             app_state=self._manager.state,
             parent=self,

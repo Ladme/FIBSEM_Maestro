@@ -2,6 +2,8 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
+import contextlib
+import shutil
 from pathlib import Path
 from typing import cast
 
@@ -48,7 +50,6 @@ class ActionListPanel(QWidget):
         self._manager = workflow_manager
         self._workflow_dir = workflow_dir
         self._microscope = self._manager.workflow.microscope
-        self._run_dir = workflow_dir / "run"
         self._app_state = app_state
 
         outer = QVBoxLayout(self)
@@ -92,8 +93,7 @@ class ActionListPanel(QWidget):
     def _append_item(self, action: Action) -> QListWidgetItem:
         """Create and append a list item for the given action."""
         item = QListWidgetItem(self._list)
-        item_widget = ActionItemWidget(action, self._manager)
-        item_widget.name_changed.connect(self._on_name_changed)
+        item_widget = ActionItemWidget(action, self._manager, self._workflow_dir)
         item.setSizeHint(item_widget.sizeHint())
         self._list.addItem(item)
         self._list.setItemWidget(item, item_widget)
@@ -116,10 +116,7 @@ class ActionListPanel(QWidget):
         settings_cls = action_cls.settings_cls()
         settings = settings_cls()
 
-        run_dir = self._run_dir
-        run_dir.mkdir(parents=True, exist_ok=True)
-
-        return action_cls(
+        action = action_cls(
             name=name,
             microscope=self._microscope,
             settings=settings,
@@ -129,6 +126,13 @@ class ActionListPanel(QWidget):
             ),
             actions=self._manager.workflow.actions,
         )
+
+        # immediately after constructing an action, store its settings and state
+        # internal state is not changed in the editing mode, so we do not need to update it
+        action.ctx.state_store.write("state.yaml", action.state)
+        action.ctx.settings_store.write("settings.yaml", action.settings)
+
+        return action
 
     def _generate_unique_name(self, base_name: str) -> str:
         """Generate a unique name by appending a number suffix if needed."""
@@ -178,22 +182,6 @@ class ActionListPanel(QWidget):
         self._manager.workflow.actions.extend(actions)
         self._manager.notify_actions_changed()
 
-    def _on_name_changed(self, old_name: str, new_name: str) -> None:
-        if new_name in self._existing_names() - {old_name}:
-            # revert - name already taken
-            for i in range(self._list.count()):
-                w = self._item_widget(i)
-                if w is not None and w.action.name == old_name:
-                    w._name_label.setText(old_name)
-            return
-
-        # apply to the action
-        for i in range(self._list.count()):
-            w = self._item_widget(i)
-            if w is not None and w.action.name == old_name:
-                w.action.name = new_name
-                break
-
     def _on_context_menu(self, pos) -> None:
         item = self._list.itemAt(pos)
         if item is None:
@@ -221,6 +209,9 @@ class ActionListPanel(QWidget):
         self._list.takeItem(row)
         self._manager.workflow.actions.remove(action)
         self._manager.notify_actions_changed()
+        # delete the directory for the action; ignore failures
+        with contextlib.suppress(Exception):
+            shutil.rmtree(self._workflow_dir / action.name_with_underscores)
 
     def _duplicate_action(self, action: Action) -> None:
         new_name = self._generate_unique_name(action.name)

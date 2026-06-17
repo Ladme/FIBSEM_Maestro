@@ -7,6 +7,7 @@ from typing import Any, Generic, Self, TypeVar
 from fibsem_maestro.core.image import _ImageBase
 
 T = TypeVar("T", bound=_ImageBase[Any])
+TSelf = TypeVar("TSelf", bound="ImageStore[Any]")
 
 
 class ImageStore(ABC, Generic[T]):
@@ -40,6 +41,17 @@ class ImageStore(ABC, Generic[T]):
         Raises:
             FileNotFoundError: If no image with that name exists in the
                 current slice directory.
+        """
+
+    @abstractmethod
+    def copy_to(self, filename: str, to: TSelf) -> None:
+        """
+        Copy the image at the given filename to the target `ImageStore`.
+
+        Args:
+            filename: Filename within the current slice directory. The
+                `.tif` extension is appended automatically if omitted.
+            to: The target `ImageStore` to copy the image to.
         """
 
     @abstractmethod

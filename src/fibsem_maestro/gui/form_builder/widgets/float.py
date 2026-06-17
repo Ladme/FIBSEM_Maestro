@@ -22,6 +22,7 @@ class FloatWidget(QWidget, WidgetWrapper):
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
+        WidgetWrapper.__init__(self)
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
@@ -32,6 +33,7 @@ class FloatWidget(QWidget, WidgetWrapper):
         self._spin.setSingleStep(1.0)
         self._spin.setValue(float(default))
         self._spin.setFixedWidth(200)
+        self._spin.valueChanged.connect(lambda _: self._notify_changed())
         layout.addWidget(self._spin)
         if suffix:
             layout.addWidget(QLabel(suffix))

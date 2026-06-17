@@ -33,6 +33,7 @@ class FloatTupleWidget(QWidget, WidgetWrapper):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
+        WidgetWrapper.__init__(self)
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(4)
@@ -45,6 +46,7 @@ class FloatTupleWidget(QWidget, WidgetWrapper):
             spinbox.setMinimum(minimum if minimum is not None else -1e12)
             spinbox.setMaximum(maximum if maximum is not None else 1e12)
             spinbox.setValue(value)
+            spinbox.valueChanged.connect(lambda _: self._notify_changed())
             layout.addWidget(spinbox)
             self._spinboxes.append(spinbox)
 
