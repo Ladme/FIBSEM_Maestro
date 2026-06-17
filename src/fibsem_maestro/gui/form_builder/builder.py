@@ -103,7 +103,7 @@ class FormBuilder:
         Returns:
             A populated, reactive ObjectWidget.
         """
-        obj = ObjectWidget()
+        obj = ObjectWidget(cls=cls)
         obj.setProperty("dataclass_form", True)
         infos = field_infos if field_infos is not None else get_field_infos(cls)
 

@@ -2,6 +2,10 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
+import dataclasses
+from typing import Any
+
+
 def field_name_to_label(name: str) -> str:
     """'stage_position' -> 'stage position'"""
     return name.replace("_", " ")
@@ -35,4 +39,15 @@ def validate_action_name(name: str, existing_names: set[str]) -> str | None:
         return f"Name '{name}' is already in use."
     if name == "workflow":
         return "Name 'workflow' is reserved."
+    return None
+
+
+def _model_to_dict(value: Any) -> dict | None:
+    """Convert a Pydantic model or dataclass instance to a dict, or return None."""
+    # pydantic model
+    if hasattr(value, "model_dump"):
+        return value.model_dump()
+    # plain dataclass
+    if dataclasses.is_dataclass(value) and not isinstance(value, type):
+        return dataclasses.asdict(value)
     return None

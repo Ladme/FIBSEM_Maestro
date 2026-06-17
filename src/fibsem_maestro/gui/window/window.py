@@ -2,6 +2,7 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 from pathlib import Path
+from typing import Any
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
@@ -131,6 +132,10 @@ class MainWindow(QMainWindow):
         # store the microscope settings every time the microscope changes
         self._manager.microscope_changed.connect(self._store_microscope_settings)
 
+        # check if the workflow is ready every time an action or workflow is changed
+        self._manager.actions_changed.connect(self._check_workflow_ready)
+        self._manager.action_changed.connect(self._check_workflow_ready)
+
     def append_log(self, message: str) -> None:
         self.log_view.appendPlainText(message)
 
@@ -160,4 +165,12 @@ class MainWindow(QMainWindow):
         _ = actions
         self._manager.workflow.ctx.state_store.write(
             "state.yaml", self._manager.workflow.state
+        )
+
+    def _check_workflow_ready(self, _: Any) -> None:
+        self._manager.preparedness_changed.emit(
+            all(
+                action.ctx.props_store.exists("props.yaml")
+                for action in self._manager.workflow.actions
+            )
         )

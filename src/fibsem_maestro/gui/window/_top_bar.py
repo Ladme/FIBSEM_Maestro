@@ -66,6 +66,7 @@ class TopBar(QWidget):
         self._run_btn.setIconSize(QSize(icon_size, icon_size))
         self._run_btn.setFixedSize(QSize(icon_size + 8, icon_size + 8))
         self._run_btn.clicked.connect(self._on_run)
+        self._run_btn.setEnabled(False)
         layout.addWidget(self._run_btn)
 
         status_layout = QHBoxLayout()
@@ -111,6 +112,9 @@ class TopBar(QWidget):
 
         # setup the animation of the states
         self._setup_state_animation()
+
+        # enable/disable the run button based on whether the workflow is prepared
+        self._manager.preparedness_changed.connect(self._on_preparedness_changed)
 
     @staticmethod
     def _separator(layout: QHBoxLayout) -> None:
@@ -202,6 +206,9 @@ class TopBar(QWidget):
 
     def on_slice_changed(self, _: int) -> None:
         self._update_status()
+
+    def _on_preparedness_changed(self, prepared: bool) -> None:
+        self._run_btn.setEnabled(prepared)
 
     def _update_status(self) -> None:
         """Updates slice number and state label to reflect `_current_state`."""

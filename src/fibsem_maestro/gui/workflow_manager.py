@@ -20,6 +20,7 @@ class WorkflowManager(QObject):
     action_finished = pyqtSignal(Action)
     slice_finished = pyqtSignal(int)
     app_state_changed = pyqtSignal(AppState)
+    preparedness_changed = pyqtSignal(bool)
 
     def __init__(self, workflow: Workflow, parent: QObject | None = None):
         super().__init__(parent)
@@ -81,3 +82,6 @@ class WorkflowManager(QObject):
 
     def _on_paused(self) -> None:
         self._set_state(AppState.PAUSED)
+
+    def _on_action_ready(self, action: Action) -> None:
+        _ = action

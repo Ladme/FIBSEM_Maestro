@@ -31,9 +31,6 @@ class WidgetWrapper:
         """Fire change hooks on this widget and all ancestor widgets, bottom-up."""
         node: WidgetWrapper | None = self
         while node is not None:
-            print(
-                f"[_notify_changed] visiting {type(node).__name__}, hooks={len(node._change_hooks)}"
-            )
             for hook in node._change_hooks:
                 hook()
             node = node._parent

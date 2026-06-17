@@ -17,7 +17,7 @@ class WorkflowWorker(QObject):
     def __init__(self, workflow: Workflow, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self._workflow = workflow
-        self._paused_requested = False
+        self._pause_requested = False
         self._resume_event = threading.Event()
         # start in resumed state
         self._resume_event.set()

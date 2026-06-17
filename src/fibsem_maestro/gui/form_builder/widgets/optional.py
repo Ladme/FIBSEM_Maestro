@@ -43,10 +43,7 @@ class OptionalWidget(QWidget, WidgetWrapper):
 
         self._checkbox.setChecked(enabled_by_default)
 
-    def _on_toggled(self, state: int = 0) -> None:
-        print(
-            f"[_on_toggled] id(self)={id(self)}, state={state}, checked={self._checkbox.isChecked()}"
-        )
+    def _on_toggled(self, _: int = 0) -> None:
         self._inner.setVisible(self._checkbox.isChecked())
         self._notify_changed()
 

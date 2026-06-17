@@ -109,6 +109,7 @@ class ActionPanel(QWidget):
 
     def _collect_properties(self) -> None:
         self._action.collect_and_write_properties()
+        self._manager.notify_action_changed(self._action)
 
     def on_app_state_changed(self, state: AppState) -> None:
         read_only = state not in {AppState.EDITING, AppState.PAUSED}

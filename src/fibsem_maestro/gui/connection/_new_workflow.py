@@ -68,13 +68,7 @@ class NewWorkflowScreen(QWidget):
             Exception: If any of the form fields are invalid.
 
         """
-        values = self._form.get_value()
-
-        settings = MicroscopeSettings(
-            control=values["control"],
-            ip_address=values["ip_address"],
-            port=values["port"],
-        )
+        settings = self._form.get_value()
 
         # get the non-connection fields from the last profile
         if self._last_microscope_profile is not None:
