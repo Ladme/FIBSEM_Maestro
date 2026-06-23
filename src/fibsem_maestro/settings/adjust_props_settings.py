@@ -17,7 +17,7 @@ class AdjustPropsSettings(BaseSettings):
     )
     execution_frequency: Annotated[int, Field(gt=0)] | None = Field(
         default=1,
-        description="The action runs every N-th slice. If None, the action will never run.",
+        description="The action runs every N-th slice. If not checked, the action will never run.",
     )
     properties_to_collect: PropertyNames = Field(
         default_factory=PropertyNames,

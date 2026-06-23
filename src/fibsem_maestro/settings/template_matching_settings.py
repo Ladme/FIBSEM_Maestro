@@ -68,7 +68,7 @@ class TemplateMatchingSettings(BaseSettings):
         list[RelativeArea], FormHint(widget=WidgetType.AREA_SELECT, max_areas=None)
     ] = Field(
         default_factory=list,
-        description="Areas of the image used for template matching defined in relative units.",
+        description="Areas of the image used for template matching.",
     )
     min_confidence: Annotated[float | None, Field(gt=0.0)] = Field(
         default=None,
@@ -82,11 +82,11 @@ class TemplateMatchingSettings(BaseSettings):
     )
     update_frequency: Annotated[int | None, Field(gt=0)] = Field(
         default=None,
-        description="Templates are updated every Nth slice. If not specified, this condition is not applied.",
+        description="Templates are updated every Nth slice. If not checked, this condition is not applied.",
     )
     update_confidence_limit: Annotated[float | None, Field(gt=0.0)] = Field(
         default=None,
-        description="Templates are updated if the match confidence is below this limit. If not specified, this condition is not applied.",
+        description="Templates are updated if the match confidence is below this limit. If not checked, this condition is not applied.",
     )
     blur: Annotated[int | None, FieldUnit(suffix="px"), Field(gt=0)] = Field(
         default=None,

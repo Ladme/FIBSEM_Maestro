@@ -109,17 +109,17 @@ class AutofocusSettings(BaseSettings):
         default=BeamType.ELECTRON,
         description="Beam on which the autofocus should be performed.",
     )
-    execution_frequency: Annotated[int, Field(gt=0)] | None = Field(
-        default=None,
-        description="Autofunction runs every N-th slice. If not selected, this condition is not applied.",
-    )
     delta_x: Annotated[float, FieldUnit(suffix="nm")] = Field(
         default=0,
         description="Offset for out of sample focusing on the x-axis.",
     )
+    execution_frequency: Annotated[int, Field(gt=0)] | None = Field(
+        default=None,
+        description="Autofunction runs every N-th slice. If not checked, this condition is not applied.",
+    )
     sharpness_limit: Annotated[float, Field(gt=0)] | None = Field(
         default=None,
-        description="Autofunction runs if image sharpness is below this limit. If not selected, this condition is not applied.",
+        description="Autofunction runs if image sharpness is below this limit. If not checked, this condition is not applied.",
     )
     max_workers: Annotated[int, Field(gt=0)] = Field(
         default=1,

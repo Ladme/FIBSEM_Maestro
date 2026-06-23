@@ -34,7 +34,7 @@ class MaskMode(BaseSettings):
     mask_name: str = Field(default="mask", description="Name of the mask to use.")
     region_reduction_fn: ReductionName = Field(
         default="mean",
-        description="Method for calculating final criterion from all masked regions. Accepts numpy functions (min, mean).",
+        description="Numpy method for calculating final criterion from all masked regions.",
     )
 
 
@@ -49,7 +49,7 @@ class MultiTileMode(BaseSettings):
     type: Literal["multi"] = "multi"
     tile_reduction_fn: ReductionName = Field(
         default="mean",
-        description="Method for calculating final criterion from all tiles. Accepts numpy functions (min, mean).",
+        description="Numpy method for calculating final criterion from all tiles.",
     )
     tile_size: Annotated[float, Field(gt=0), FieldUnit(suffix="nm")] = Field(
         default=0.0, description="Tile size for criterion calculation."
@@ -81,7 +81,7 @@ class CriterionSettings(BaseSettings):
         list[RelativeArea], FormHint(widget=WidgetType.AREA_SELECT, max_areas=1)
     ] = Field(
         default_factory=lambda: [RelativeArea.full()],
-        description="Relative area of the image that should be used for image criterion calculation.",
+        description="Area of the image to be used for image criterion calculation.",
     )
     log_sharpness_map: bool = Field(
         default=False,

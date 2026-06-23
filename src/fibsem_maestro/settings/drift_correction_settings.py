@@ -32,11 +32,11 @@ class DriftCorrectionSettings(BaseSettings):
     )
     execution_frequency: Annotated[int, Field(gt=0)] | None = Field(
         default=1,
-        description="Drift correction runs every N-th slice. If None, drift correction will never run.",
+        description="Drift correction runs every N-th slice. If not checked, drift correction will never run.",
     )
     stop_at_failure: bool = Field(
         default=True,
-        description="If `True` and drift correction fails, the execution is stopped. If `False`, warning is printed but execution continues.",
+        description="If checked and drift correction fails, the execution is stopped. If not checked, warning is printed but execution continues.",
     )
     properties_to_collect: PropertyNames = Field(
         default_factory=PropertyNames,

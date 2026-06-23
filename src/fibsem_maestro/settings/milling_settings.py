@@ -20,7 +20,7 @@ class MillingSettings(BaseSettings):
         list[RelativeArea], FormHint(widget=WidgetType.AREA_SELECT, max_areas=1)
     ] = Field(
         default_factory=list,
-        description="Area in which milling will be performed, defined in relative units.",
+        description="Area in which milling will be performed.",
     )
     beam_type: BeamType = Field(
         default=BeamType.ION,
@@ -28,7 +28,7 @@ class MillingSettings(BaseSettings):
     )
     execution_frequency: Annotated[int, Field(gt=0)] | None = Field(
         default=1,
-        description="Run the action every N-th slice. If not specified, the action will never run.",
+        description="Run the action every N-th slice. If not checked, the action will never run.",
     )
     pattern_file: Path | str = Field(
         default="",

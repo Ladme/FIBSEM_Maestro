@@ -40,7 +40,7 @@ class ImagingSettings(BaseSettings):
     )
     execution_frequency: Annotated[int, Field(gt=0)] | None = Field(
         default=1,
-        description="Run the action every N-th slice. If not specified, the action will never run.",
+        description="Run the action every N-th slice. If not checked, the action will never run.",
     )
     criterion: CriterionSettings | None = Field(
         default=None,
