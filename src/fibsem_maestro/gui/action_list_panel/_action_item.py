@@ -15,7 +15,11 @@ from PyQt6.QtWidgets import (
 )
 
 from fibsem_maestro.action.action import Action
-from fibsem_maestro.gui.action_list_panel._common import STATE_COLORS
+from fibsem_maestro.gui.action_list_panel._indicator_widget import (
+    IndicatorMode,
+    IndicatorWidget,
+)
+from fibsem_maestro.gui.app_state import AppState
 from fibsem_maestro.gui.common import class_name_to_label, validate_action_name
 from fibsem_maestro.gui.workflow_manager import WorkflowManager
 from fibsem_maestro.workflow.propagations import Propagations
@@ -57,11 +61,10 @@ class ActionItemWidget(QWidget):
         layout.setContentsMargins(4, 2, 4, 2)
         layout.setSpacing(6)
 
-        # state dot
-        self._dot = QLabel("●")
-        self._dot.setFixedWidth(12)
-        self._dot.setStyleSheet(f"color: {STATE_COLORS['idle']}; font-size: 8px;")
-        layout.addWidget(self._dot)
+        # state indicator: dot when editing, arrow when running
+        self._indicator = IndicatorWidget()
+        layout.addWidget(self._indicator)
+        self._manager.app_state_changed.connect(self._on_app_state_changed)
 
         # vertical group: name row + subtitle
         text_layout = QVBoxLayout()
@@ -106,11 +109,15 @@ class ActionItemWidget(QWidget):
         layout.addLayout(text_layout)
         self.update_propagation_badge(self._manager.workflow.propagations)
 
+        self._manager.app_state_changed.connect(self._on_app_state_changed)
+
     def _on_action_changed(self, action: Action) -> None:
         if self._action is action:
             self._subtitle_label.setText(
                 f"{class_name_to_label(type(action).__name__)}  ·  {action.beam_type if action.beam_type is not None else '—'}"
             )
+
+            self._update_indicator()
 
     def _on_propagations_changed(self, propagations: Propagations) -> None:
         self.update_propagation_badge(propagations)
@@ -121,6 +128,9 @@ class ActionItemWidget(QWidget):
         self._name_edit.show()
         self._name_edit.setFocus()
         self._name_edit.selectAll()
+
+    def _action_is_prepared(self) -> bool:
+        return self._action.ctx.props_store.exists("props.yaml")
 
     def _finish_name_edit(self) -> None:
         new_name = self._name_edit.text().strip()
@@ -166,11 +176,24 @@ class ActionItemWidget(QWidget):
         else:
             self._badge.hide()
 
-    def set_state(self, state: str) -> None:
-        """Update the state dot color. State is one of: idle/running/completed/failed."""
-        color = STATE_COLORS.get(state, STATE_COLORS["idle"])
-        self._dot.setStyleSheet(f"color: {color}; font-size: 8px;")
-
     @property
     def action(self) -> Action:
         return self._action
+
+    def _on_app_state_changed(self, _: AppState) -> None:
+        self._update_indicator()
+
+    def _update_indicator(self, active: bool = False) -> None:
+        if self._manager.state == AppState.EDITING:
+            self._indicator.set_mode(
+                IndicatorMode.CHECK
+                if self._action_is_prepared()
+                else IndicatorMode.NONE
+            )
+        else:
+            self._indicator.set_mode(
+                IndicatorMode.ARROW if active else IndicatorMode.NONE
+            )
+
+    def set_active(self, active: bool) -> None:
+        self._update_indicator(active=active)

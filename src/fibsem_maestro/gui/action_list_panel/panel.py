@@ -87,6 +87,7 @@ class ActionListPanel(QWidget):
         # populate from existing workflow actions
         self._rebuild(self._manager.workflow.actions)
         self._manager.actions_changed.connect(self._rebuild)
+        self._manager.action_finished.connect(self._on_action_finished)
 
     def _rebuild(self, actions: Actions) -> None:
         """Rebuild the list from the current workflow actions."""
@@ -241,16 +242,8 @@ class ActionListPanel(QWidget):
             else QAbstractItemView.DragDropMode.NoDragDrop
         )
 
-    def set_action_state(self, action_name: str, state: str) -> None:
-        """
-        Update the state dot for the given action.
-
-        Args:
-            action_name: Name of the action to update.
-            state: One of 'idle', 'running', 'completed', 'failed'.
-        """
+    def _on_action_finished(self, action: Action) -> None:
         for i in range(self._list.count()):
             w = self._item_widget(i)
-            if w is not None and w.action.name == action_name:
-                w.set_state(state)
-                break
+            if w is not None:
+                w.set_active(w.action is action)
