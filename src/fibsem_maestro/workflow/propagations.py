@@ -38,18 +38,14 @@ class Propagations:
     of the update depends on workflow ordering: dependents that have already
     run in the current slice receive the update for the next slice, while
     dependents that haven't run yet receive it for the current slice.
-
-    Args:
-        txt_log: Logger for debug and info messages.
     """
 
-    def __init__(self, txt_log: TextLogger) -> None:
-        self._txt_log = txt_log
+    def __init__(self) -> None:
         self.rules: list[PropagationRule] = []
 
     @classmethod
-    def from_rules(cls, rules: list[PropagationRule], txt_log: TextLogger) -> Self:
-        propagations = cls(txt_log)
+    def from_rules(cls, rules: list[PropagationRule]) -> Self:
+        propagations = cls()
         propagations.rules = rules
         return propagations
 
@@ -78,7 +74,9 @@ class Propagations:
             )
         )
 
-    def propagate(self, action: Action, all_actions: Actions) -> None:
+    def propagate(
+        self, action: Action, all_actions: Actions, text_logger: TextLogger
+    ) -> None:
         """
         Execute all propagation rules for the given action.
 
@@ -92,7 +90,7 @@ class Propagations:
             if rule.parent_name != action.name:
                 continue
 
-            self._txt_log.debug(
+            text_logger.debug(
                 f"Propagating properties '{rule.props_to_propagate}' "
                 f"from '{action.name}' to its dependents."
             )
@@ -105,13 +103,14 @@ class Propagations:
                     raise WorkflowError(f"Dependent action '{name}' is not defined.")
                 dependents.append(actions_by_name[name])
 
-            self._propagate_to_dependents(all_actions, dependents, props)
+            self._propagate_to_dependents(all_actions, dependents, props, text_logger)
 
     def _propagate_to_dependents(
         self,
         all_actions: Actions,
         dependents: list[Action],
         props: GlobalProperties,
+        text_logger: TextLogger,
     ) -> None:
         dependent_set = set(dependents)
 
@@ -121,7 +120,7 @@ class Propagations:
             if dependent not in dependent_set:
                 continue
 
-            self._txt_log.debug(
+            text_logger.debug(
                 f"Propagating to '{dependent.name}' for slice {dependent.ctx.props_store.slice}."
             )
             original_props = dependent.read_properties()

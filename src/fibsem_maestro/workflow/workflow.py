@@ -106,9 +106,7 @@ class Workflow:
             )
 
         # build the propagations
-        propagations = Propagations.from_rules(
-            workflow_state.propagations, workflow_ctx.text_logger.derive("propagations")
-        )
+        propagations = Propagations.from_rules(workflow_state.propagations)
 
         return cls(microscope, actions, propagations, workflow_ctx)
 
@@ -170,9 +168,7 @@ class Workflow:
             )
 
         # build the propagations
-        propagations = Propagations.from_rules(
-            workflow_state.propagations, workflow_ctx.text_logger.derive("propagations")
-        )
+        propagations = Propagations.from_rules(workflow_state.propagations)
 
         return cls(microscope, actions, propagations, workflow_ctx)
 
@@ -213,7 +209,7 @@ class Workflow:
             action.ctx.settings_store.next.write("settings.yaml", action.settings)
 
             # propagate properties to other actions
-            self.propagations.propagate(action, self.actions)
+            self.propagations.propagate(action, self.actions, self.ctx.text_logger)
 
             # advance the slice counter for the action
             self.ctx.text_logger.debug(

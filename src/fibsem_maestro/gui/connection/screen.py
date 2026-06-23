@@ -141,7 +141,7 @@ class ConnectionScreen(QDialog):
             self.workflow = Workflow(
                 microscope,
                 Actions(),
-                Propagations(self._workflow_context.text_logger.derive("propagations")),
+                Propagations(),
                 self._workflow_context,
             )
             save_last_microscope_profile(microscope.settings)

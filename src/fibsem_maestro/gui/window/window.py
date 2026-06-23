@@ -9,7 +9,6 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QCloseEvent
 from PyQt6.QtWidgets import (
     QMainWindow,
-    QPlainTextEdit,
     QScrollArea,
     QSplitter,
     QStackedWidget,
@@ -21,6 +20,7 @@ from fibsem_maestro.action.action import Action
 from fibsem_maestro.gui.action_list_panel.panel import ActionListPanel
 from fibsem_maestro.gui.action_panel.action_panel import ActionPanel
 from fibsem_maestro.gui.form_builder.builder import FormBuilder
+from fibsem_maestro.gui.log_panel.panel import LogPanel
 from fibsem_maestro.gui.window._top_bar import TopBar
 from fibsem_maestro.gui.workflow_manager import WorkflowManager
 from fibsem_maestro.microscope.microscope import Microscope
@@ -103,18 +103,11 @@ class MainWindow(QMainWindow):
         h_splitter.setStretchFactor(1, 4)
 
         # bottom panel
-        bottom = QWidget()
-        bottom_layout = QVBoxLayout(bottom)
-        bottom_layout.setContentsMargins(4, 4, 4, 4)
-        bottom_layout.setSpacing(4)
-
-        self.log_view = QPlainTextEdit()
-        self.log_view.setReadOnly(True)
-        self.log_view.setMaximumBlockCount(1000)
-        self.log_view.setFixedHeight(120)
-        bottom_layout.addWidget(self.log_view)
-
-        v_splitter.addWidget(bottom)
+        self._log_panel = LogPanel(
+            workflow_manager=self._manager,
+            workflow_dir=workflow_dir,
+        )
+        v_splitter.addWidget(self._log_panel)
         v_splitter.setStretchFactor(0, 1)
         v_splitter.setStretchFactor(1, 0)
 
@@ -138,8 +131,8 @@ class MainWindow(QMainWindow):
         self._manager.actions_changed.connect(self._check_workflow_ready)
         self._manager.action_changed.connect(self._check_workflow_ready)
 
-    def append_log(self, message: str) -> None:
-        self.log_view.appendPlainText(message)
+        self._manager.slice_finished.connect(self._log_panel.on_slice_changed)
+        self._manager.actions_changed.connect(self._log_panel.on_actions_changed)
 
     def _on_action_selected(self, action: Action) -> None:
         if action not in self._panels:
