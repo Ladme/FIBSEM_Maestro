@@ -64,6 +64,12 @@ class ActionListPanel(QWidget):
         self._list.customContextMenuRequested.connect(self._on_context_menu)
         self._list.currentRowChanged.connect(self._on_selection_changed)
         self._list.model().rowsMoved.connect(self._on_rows_moved)
+        self._list.setStyleSheet("""
+            QListWidget::item:selected {
+                background: #36678f;
+                border: none;
+            }
+        """)
         outer.addWidget(self._list)
 
         # separator

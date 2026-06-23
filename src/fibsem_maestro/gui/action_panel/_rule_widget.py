@@ -94,7 +94,7 @@ class PropagationRuleWidget(QFrame):
         self._dep_list.setSelectionMode(QAbstractItemView.SelectionMode.MultiSelection)
         self._dep_list.setStyleSheet("""
             QListWidget::item:selected {
-                background: #2d5a4a;
+                background: #36678f;
                 color: #ffffff;
             }
         """)

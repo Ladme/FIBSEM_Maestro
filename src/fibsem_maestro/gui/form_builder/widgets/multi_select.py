@@ -17,11 +17,11 @@ class MultiSelectWidget(QListWidget, WidgetWrapper):
         self.setSelectionMode(QAbstractItemView.SelectionMode.MultiSelection)
         self.setStyleSheet("""
             QListWidget::item:selected {
-                background: #2d5a4a;
+                background: #36678f;
                 color: #ffffff;
             }
             QListWidget::item:selected:hover {
-                background: #3a6a5a;
+                background: #36678f;
             }
         """)
 
