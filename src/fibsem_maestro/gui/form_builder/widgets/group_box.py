@@ -61,7 +61,7 @@ class GroupBoxWidget(QGroupBox, WidgetWrapper):
         self._toggle.setText("⯈" if self._collapsed else "⯆")
         self._inner.setVisible(not self._collapsed)
 
-    def get_value(self) -> dict:
+    def get_value(self) -> Any:
         return self._inner.get_value()
 
     def set_value(self, value: Any) -> None:

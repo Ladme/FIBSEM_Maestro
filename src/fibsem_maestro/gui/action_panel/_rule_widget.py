@@ -133,7 +133,7 @@ class PropagationRuleWidget(QFrame):
 
     def _sync_props(self) -> None:
         """Sync selected properties back to the rule immediately."""
-        self.rule.props_to_propagate = PropertyNames(**self._props_widget.get_value())
+        self.rule.props_to_propagate = self._props_widget.get_value()
         self._manager.notify_propagations_changed()
 
     def _populate_dep_list(self, actions: Actions) -> None:
