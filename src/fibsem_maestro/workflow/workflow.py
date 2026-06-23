@@ -3,6 +3,7 @@
 
 import re
 from pathlib import Path
+from time import sleep
 from typing import Protocol, Self
 
 from fibsem_maestro.action.registry import ACTION_REGISTRY

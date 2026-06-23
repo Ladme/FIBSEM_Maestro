@@ -5,11 +5,12 @@ from typing import Annotated, Literal
 
 from pydantic import Field
 
+from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.base_settings import BaseSettings
 from fibsem_maestro.settings.criterion_settings import CriterionSettings
-from fibsem_maestro.settings.form_utils import FieldUnit
+from fibsem_maestro.settings.form_utils import FieldUnit, FormHint, WidgetType
 from fibsem_maestro.settings.property_names import PropertyNames
 
 
@@ -19,7 +20,7 @@ class StandardResolution(BaseSettings):
 
 class ExtendedResolution(BaseSettings):
     type: Literal["extended"] = "extended"
-    pixel_size: Annotated[float, FieldUnit(suffix="nm")] = Field(
+    pixel_size: Annotated[float, Field(gt=0), FieldUnit(suffix="nm")] = Field(
         description="Requested size of each pixel."
     )
 
@@ -30,6 +31,12 @@ ResolutionMode = Annotated[
 
 
 class ImagingSettings(BaseSettings):
+    scanning_area: Annotated[
+        list[RelativeArea], FormHint(widget=WidgetType.AREA_SELECT, max_areas=1)
+    ] = Field(
+        default_factory=list,
+        description="Area that should be imaged.",
+    )
     resolution_mode: ResolutionMode = Field(
         default=StandardResolution(),
         description="Use standard or extended resolution?",

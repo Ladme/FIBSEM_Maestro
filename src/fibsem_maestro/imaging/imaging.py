@@ -234,13 +234,31 @@ class Imaging(Action[ImagingSettings, ImagingState]):
 
         self._microscope.set_beam(self._settings.beam_type)
 
-        # set external microscope properties such as scanning area or bit depth
-        with self._microscope.set_temporary_properties(self.external_props):
+        # get scanning area from the settings
+        try:
+            scanning_area = self._settings.scanning_area[0]
+        except IndexError:
+            scanning_area = RelativeArea.full()
+
+        # set scanning area from the settings and set external microscope properties
+        # there are actually up to three ways to set a scanning area for imaging - inside the microscope's GUI
+        # (if available there), via the scanning_area property of the imaging settings, or via
+        # external microscope properties
+        # scanning area in external props overrides scanning_area property in settings
+        # and scanning_area property in settings overrides the scanning area set in the microscope's GUI
+        # when using extended resolution, the scanning area must always be set via scanning_area property in settings
+        with (
+            self._microscope.set_temporary_beam_property(
+                "scanning_area", scanning_area, self._settings.beam_type
+            ),
+            self._microscope.set_temporary_properties(self.external_props),
+        ):
             match self._settings.resolution_mode:
                 case StandardResolution():
                     pass
                 case ExtendedResolution() as mode:
                     self._set_extended_resolution_props(
+                        scanning_area,
                         mode.pixel_size,
                     )
 
@@ -267,7 +285,9 @@ class Imaging(Action[ImagingSettings, ImagingState]):
     def wait_for_background_threads(self) -> None:
         self.wait_for_sharpness()
 
-    def _set_extended_resolution_props(self, new_pixel_size: float) -> None:
+    def _set_extended_resolution_props(
+        self, scanning_area: RelativeArea, new_pixel_size: float
+    ) -> None:
         """
         Configure the beam for extended resolution imaging.
 
@@ -280,22 +300,11 @@ class Imaging(Action[ImagingSettings, ImagingState]):
         `new_pixel_size`, regardless of whether a scanning area is configured.
 
         Args:
+            scanning_area: The scanning area to image.
             new_pixel_size: The target pixel size in nanometers.
         """
-        # get external properties for the relevant beam
-        props = (
-            self._settings.external_props.electron_beam
-            if self._settings.beam_type == BeamType.ELECTRON
-            else self._settings.external_props.ion_beam
-        )
-
         # image only the scanning area
-        if (
-            props is not None
-            and (area := props.scanning_area) is not None
-            and not area.is_full_frame()
-            and not self._scanning_area_selected
-        ):
+        if not scanning_area.is_full_frame() and not self._scanning_area_selected:
             self._ctx.text_logger.debug(
                 "Setting scanning area using extended resolution."
             )
@@ -303,7 +312,7 @@ class Imaging(Action[ImagingSettings, ImagingState]):
             # shift the beam to the center of the scanning area
             img_res = self._microscope.beam.resolution
             pixel_size = self._microscope.beam.pixel_size
-            area_nm = area.to_nanometers(img_res, pixel_size)
+            area_nm = scanning_area.to_nanometers(img_res, pixel_size)
             image_to_beam_shift = self._microscope.beam.image_to_beam_shift
 
             shift = BeamShift(
