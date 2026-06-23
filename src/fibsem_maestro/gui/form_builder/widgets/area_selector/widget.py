@@ -226,10 +226,11 @@ class AreaSelectWidget(QWidget, WidgetWrapper):
 
     def get_value(self) -> list[RelativeArea]:
         if self._image_size is None:
-            return []
+            return self._pending_regions
         w, h = self._image_size
         result = []
-        for item in self._scene.items():
+        # reversing list to ensure correct order in reloaded workflows
+        for item in reversed(list(self._scene.items())):
             if isinstance(item, ResizableRect):
                 sr = item.scene_rect()
                 result.append(

@@ -43,11 +43,11 @@ def validate_action_name(name: str, existing_names: set[str]) -> str | None:
 
 
 def _model_to_dict(value: Any) -> dict | None:
-    """Convert a Pydantic model or dataclass instance to a dict, or return None."""
+    """Convert a Pydantic model or dataclass instance to a shallow dict, or return None."""
     # pydantic model
-    if hasattr(value, "model_dump"):
-        return value.model_dump()
+    if hasattr(value, "model_fields"):
+        return {name: getattr(value, name) for name in value.model_fields}
     # plain dataclass
     if dataclasses.is_dataclass(value) and not isinstance(value, type):
-        return dataclasses.asdict(value)
+        return {f.name: getattr(value, f.name) for f in dataclasses.fields(value)}
     return None

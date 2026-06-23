@@ -4,7 +4,7 @@
 from collections.abc import Callable, Hashable, Iterable
 from typing import Any, Generic, Self, SupportsIndex, TypeVar
 
-from pydantic import BaseModel
+from pydantic import BaseModel, PrivateAttr
 from pydantic_core import core_schema
 
 
@@ -64,6 +64,9 @@ class ReactiveModel(BaseModel, ReactiveNode):
     parent nodes.
     """
 
+    _hooks: list[Callable] = PrivateAttr(default_factory=list)
+    _parent: "ReactiveNode | None" = PrivateAttr(default=None)
+
     def __init__(self, **data: Any):
         """
         Initialize a reactive Pydantic model.
@@ -77,8 +80,6 @@ class ReactiveModel(BaseModel, ReactiveNode):
         """
         # run pydantic
         super().__init__(**data)
-        # initialize _parent and _hooks
-        ReactiveNode.__init__(self)
 
     def update(self, other: Self):
         """

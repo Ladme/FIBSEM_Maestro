@@ -3,7 +3,6 @@
 
 import re
 from pathlib import Path
-from time import sleep
 from typing import Protocol, Self
 
 from fibsem_maestro.action.registry import ACTION_REGISTRY
@@ -162,12 +161,13 @@ class Workflow:
             # construct the action
             action = ActionCls(name, microscope, action_settings, action_ctx, actions)
 
-            # load the action's state
+            actions.append(action)
+
+        # load the action states
+        for action in actions:
             action.set_state(
                 action.ctx.state_store.read("state.yaml", action.state_cls())
             )
-
-            actions.append(action)
 
         # build the propagations
         propagations = Propagations.from_rules(
@@ -197,6 +197,14 @@ class Workflow:
         """Executes all actions for a single slice and performs synchronization."""
         self.ctx.text_logger.info(f"Starting slice {self.ctx.slice}.")
         for i, action in enumerate(self.actions):
+            # necessary when resuming an interrupted workflow
+            # we need to skip actions that have already been executed for this slice
+            if action.ctx.slice > self.ctx.slice:
+                self.ctx.text_logger.debug(
+                    f"Skipping action '{action.name}' for slice {self.ctx.slice} (already executed)."
+                )
+                continue
+
             # execute the action
             action.execute()
 

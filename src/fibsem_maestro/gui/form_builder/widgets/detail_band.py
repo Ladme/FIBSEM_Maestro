@@ -18,5 +18,7 @@ class DetailBandWidget(RangePairWidget):
     def set_value(self, value: Any) -> None:
         if hasattr(value, "low") and hasattr(value, "high"):
             super().set_value((value.low, value.high))
+        elif isinstance(value, dict) and "low" in value and "high" in value:
+            super().set_value((value["low"], value["high"]))
         else:
             super().set_value(value)

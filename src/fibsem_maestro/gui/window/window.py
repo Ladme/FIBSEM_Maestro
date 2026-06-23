@@ -1,10 +1,12 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
+import os
 from pathlib import Path
 from typing import Any
 
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QCloseEvent
 from PyQt6.QtWidgets import (
     QMainWindow,
     QPlainTextEdit,
@@ -174,3 +176,7 @@ class MainWindow(QMainWindow):
                 for action in self._manager.workflow.actions
             )
         )
+
+    def closeEvent(self, a0: QCloseEvent) -> None:
+        _ = a0
+        os._exit(0)

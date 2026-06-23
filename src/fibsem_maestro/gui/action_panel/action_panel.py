@@ -90,6 +90,13 @@ class ActionPanel(QWidget):
         self._settings_widget = self._form_builder.build_form(
             action.settings, self._manager, fields=None, action=self._action
         )
+        if self._manager.state not in {
+            AppState.EDITING,
+            AppState.PAUSED,
+            AppState.RELOADED,
+            AppState.FINISHED,
+        }:
+            self._settings_widget.set_read_only(True)
         layout.addWidget(self._settings_widget)
 
         # propagations
@@ -112,7 +119,12 @@ class ActionPanel(QWidget):
         self._manager.notify_action_changed(self._action)
 
     def on_app_state_changed(self, state: AppState) -> None:
-        read_only = state not in {AppState.EDITING, AppState.PAUSED}
+        read_only = state not in {
+            AppState.EDITING,
+            AppState.PAUSED,
+            AppState.RELOADED,
+            AppState.FINISHED,
+        }
         self._settings_widget.set_read_only(read_only)
 
     def on_action_changed(self, action: Action) -> None:

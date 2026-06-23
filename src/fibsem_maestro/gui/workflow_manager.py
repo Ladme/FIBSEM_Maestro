@@ -1,7 +1,7 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
-from PyQt6.QtCore import QObject, QThread, pyqtSignal
+from PyQt6.QtCore import Q_ARG, QMetaObject, QObject, Qt, QThread, pyqtSignal
 
 from fibsem_maestro.action.action import Action
 from fibsem_maestro.gui.app_state import AppState
@@ -28,9 +28,9 @@ class WorkflowManager(QObject):
         self.workflow = workflow
 
         self._state = (
-            AppState.EDITING if self.workflow.ctx.slice == 0 else AppState.PAUSED
+            AppState.EDITING if self.workflow.ctx.slice == 0 else AppState.RELOADED
         )
-        self._thread = QThread(parent=self)
+        self._thread = QThread()
         self._worker = WorkflowWorker(workflow)
         self.workflow.set_callbacks(self._worker)
         self._worker.moveToThread(self._thread)
@@ -39,8 +39,9 @@ class WorkflowManager(QObject):
         self._worker.action_finished.connect(self.action_finished)
         self._worker.slice_finished.connect(self.slice_finished)
         self._worker.paused.connect(self._on_paused)
+        self._worker.finished.connect(self._on_finished)
 
-        self._thread.finished.connect(self._worker.deleteLater)
+        self._thread.start()
 
     @property
     def state(self) -> AppState:
@@ -63,8 +64,12 @@ class WorkflowManager(QObject):
         self.microscope_changed.emit(self.workflow.microscope)
 
     def start(self, n_slices: int) -> None:
-        self._thread.started.connect(lambda: self._worker.run(n_slices))
-        self._thread.start()
+        QMetaObject.invokeMethod(
+            self._worker,
+            "run",
+            Qt.ConnectionType.QueuedConnection,
+            Q_ARG(int, n_slices),
+        )
         self._set_state(AppState.RUNNING)
 
     def pause(self) -> None:
@@ -85,3 +90,8 @@ class WorkflowManager(QObject):
 
     def _on_action_ready(self, action: Action) -> None:
         _ = action
+
+    def _on_finished(self) -> None:
+        self._set_state(AppState.FINISHED)
+        self._thread.deleteLater()
+        self._worker.deleteLater()

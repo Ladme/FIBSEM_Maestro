@@ -110,14 +110,14 @@ class DiscriminatedUnionWidget(QWidget, WidgetWrapper):
         if disc_value not in self._discriminator_values:
             return
         index = self._discriminator_values.index(disc_value)
-        btn = self._button_group.button(index)
-        if btn:
-            btn.setChecked(True)
-        self._on_selection_changed(index)
         if index not in self._empty_indices:
             widget = self._variant_widgets[index]
             if isinstance(widget, WidgetWrapper):
                 widget.set_value(value)
+        btn = self._button_group.button(index)
+        if btn:
+            btn.setChecked(True)
+        self._on_selection_changed(index)
 
     def set_read_only(self, read_only: bool) -> None:
         # disable radio buttons

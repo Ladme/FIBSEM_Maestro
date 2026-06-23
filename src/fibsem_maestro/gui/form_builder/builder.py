@@ -409,6 +409,9 @@ class FormBuilder:
                     ),
                 )
                 group = GroupBoxWidget(union_widget)
+                if field_value is not None:
+                    union_widget.set_value(field_value)
+
                 if fi.optional:
                     result = OptionalWidget(
                         group,

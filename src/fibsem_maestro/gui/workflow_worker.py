@@ -3,7 +3,7 @@
 
 import threading
 
-from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 
 from fibsem_maestro.action.action import Action
 from fibsem_maestro.workflow.workflow import Workflow
@@ -13,6 +13,7 @@ class WorkflowWorker(QObject):
     action_finished = pyqtSignal(Action)
     slice_finished = pyqtSignal(int)
     paused = pyqtSignal()
+    finished = pyqtSignal()
 
     def __init__(self, workflow: Workflow, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -43,7 +44,8 @@ class WorkflowWorker(QObject):
         return self._pause_requested
 
     def wait_for_resume(self) -> None:
-        self._resume_event.wait()
+        while not self._resume_event.wait(timeout=0.1):
+            pass
 
     def pause(self) -> None:
         self._pause_requested = True
@@ -53,5 +55,11 @@ class WorkflowWorker(QObject):
         self._pause_requested = False
         self._resume_event.set()
 
+    @pyqtSlot(int)
     def run(self, n_slices: int) -> None:
-        self._workflow.run(n_slices)
+        """Runs the workflow. Executes on the worker thread via Qt slot dispatch."""
+        try:
+            self._workflow.set_callbacks(self)
+            self._workflow.run(n_slices)
+        finally:
+            self.finished.emit()

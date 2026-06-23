@@ -66,7 +66,7 @@ class TopBar(QWidget):
         self._run_btn.setIconSize(QSize(icon_size, icon_size))
         self._run_btn.setFixedSize(QSize(icon_size + 8, icon_size + 8))
         self._run_btn.clicked.connect(self._on_run)
-        self._run_btn.setEnabled(False)
+        self._run_btn.setEnabled(self._manager.state is not AppState.EDITING)
         layout.addWidget(self._run_btn)
 
         status_layout = QHBoxLayout()
@@ -165,13 +165,15 @@ class TopBar(QWidget):
 
     def _on_run(self) -> None:
         match self._manager.state:
-            case AppState.EDITING:
+            case AppState.EDITING | AppState.RELOADED:
                 self._manager.start(9000)
             case AppState.PAUSED:
                 self._manager.resume()
             case AppState.RUNNING:
                 self._manager.pause()
             case AppState.INTERRUPTED:
+                pass
+            case AppState.FINISHED:
                 pass
 
     def on_app_state_changed(self, state: AppState) -> None:
@@ -191,7 +193,7 @@ class TopBar(QWidget):
                 )
 
                 self._run_btn.setEnabled(True)
-            case AppState.PAUSED:
+            case AppState.PAUSED | AppState.FINISHED | AppState.RELOADED:
                 self._run_btn.setIcon(
                     style.standardIcon(QStyle.StandardPixmap.SP_MediaPlay)
                 )
@@ -244,7 +246,9 @@ class TopBar(QWidget):
                 return "#4caf50"
             case AppState.STOPPING:
                 return "#4caf50" if self._animation_frame % 2 == 0 else "#9e9e9e"
-            case AppState.PAUSED:
+            case AppState.PAUSED | AppState.RELOADED:
                 return "#9e9e9e"
             case AppState.INTERRUPTED:
                 return "#f44336"
+            case AppState.FINISHED:
+                return "#3734eb"

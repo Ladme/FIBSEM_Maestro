@@ -66,8 +66,16 @@ class RangePairWidget(QWidget, WidgetWrapper):
 
     def set_value(self, value: Any) -> None:
         low, high = value
+        # we disconnect the valueChanged signals to avoid emitting them during setValue
+        self._low.valueChanged.disconnect(self._on_low_changed)
+        self._high.valueChanged.disconnect(self._on_high_changed)
+        self._low.setMaximum(high)
+        self._high.setMinimum(low)
         self._low.setValue(low)
         self._high.setValue(high)
+        self._low.valueChanged.connect(self._on_low_changed)
+        self._high.valueChanged.connect(self._on_high_changed)
+        self._notify_changed()
 
     def set_read_only(self, read_only: bool) -> None:
         self._low.setReadOnly(read_only)

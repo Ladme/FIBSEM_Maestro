@@ -9,7 +9,9 @@ class AppState(Enum):
     RUNNING = "running"
     STOPPING = "stopping"
     PAUSED = "paused"
+    RELOADED = "reloaded"
     INTERRUPTED = "interrupted"
+    FINISHED = "finished"
 
     def __str__(self) -> str:
         return self.value
