@@ -14,6 +14,7 @@ class WorkflowWorker(QObject):
     slice_finished = pyqtSignal(int)
     paused = pyqtSignal()
     finished = pyqtSignal()
+    interrupted = pyqtSignal(str)
 
     def __init__(self, workflow: Workflow, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -61,5 +62,6 @@ class WorkflowWorker(QObject):
         try:
             self._workflow.set_callbacks(self)
             self._workflow.run(n_slices)
-        finally:
             self.finished.emit()
+        except Exception as e:
+            self.interrupted.emit(str(e))

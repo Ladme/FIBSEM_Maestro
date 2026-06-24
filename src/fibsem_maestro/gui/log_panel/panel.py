@@ -69,7 +69,7 @@ class LogPanel(QWidget):
         controls.addWidget(self._slice_combo)
 
         # action selector
-        controls.addWidget(bold_label("Sources"))
+        controls.addWidget(bold_label("Source"))
         self._source_combo = QComboBox()
         self._source_combo.setMinimumWidth(200)
         self._source_combo.currentIndexChanged.connect(self._refresh)

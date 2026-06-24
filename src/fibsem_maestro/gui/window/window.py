@@ -9,6 +9,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QCloseEvent
 from PyQt6.QtWidgets import (
     QMainWindow,
+    QMessageBox,
     QScrollArea,
     QSplitter,
     QStackedWidget,
@@ -134,6 +135,8 @@ class MainWindow(QMainWindow):
         self._manager.slice_finished.connect(self._log_panel.on_slice_changed)
         self._manager.actions_changed.connect(self._log_panel.on_actions_changed)
 
+        self._manager.workflow_interrupted.connect(self._on_workflow_interrupted)
+
     def _on_action_selected(self, action: Action) -> None:
         if action not in self._panels:
             panel = ActionPanel(
@@ -169,6 +172,9 @@ class MainWindow(QMainWindow):
                 for action in self._manager.workflow.actions
             )
         )
+
+    def _on_workflow_interrupted(self, error: str) -> None:
+        QMessageBox.critical(self, "Workflow error", error)
 
     def closeEvent(self, a0: QCloseEvent) -> None:
         _ = a0

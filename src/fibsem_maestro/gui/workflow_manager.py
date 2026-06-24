@@ -21,6 +21,7 @@ class WorkflowManager(QObject):
     slice_finished = pyqtSignal(int)
     app_state_changed = pyqtSignal(AppState)
     preparedness_changed = pyqtSignal(bool)
+    workflow_interrupted = pyqtSignal(str)
 
     def __init__(self, workflow: Workflow, parent: QObject | None = None):
         super().__init__(parent)
@@ -40,6 +41,7 @@ class WorkflowManager(QObject):
         self._worker.slice_finished.connect(self.slice_finished)
         self._worker.paused.connect(self._on_paused)
         self._worker.finished.connect(self._on_finished)
+        self._worker.interrupted.connect(self._on_interrupted)
 
         self._thread.start()
 
@@ -95,3 +97,7 @@ class WorkflowManager(QObject):
         self._set_state(AppState.FINISHED)
         self._thread.deleteLater()
         self._worker.deleteLater()
+
+    def _on_interrupted(self, error: str) -> None:
+        self._set_state(AppState.INTERRUPTED)
+        self.workflow_interrupted.emit(error)
