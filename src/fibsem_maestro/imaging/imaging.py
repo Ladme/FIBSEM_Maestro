@@ -176,11 +176,15 @@ class Imaging(Action[ImagingSettings, ImagingState]):
             or (self._ctx.slice - 1) % self._settings.execution_frequency != 0
         ):
             self._ctx.text_logger.info(
-                f"Skipping {self.name} for slice {self._ctx.slice}."
+                f"Skipping '{self.name}' for slice {self._ctx.slice}."
             )
             # even if imaging is skipped, we need to write properties for the next slice
             self.write_properties(self.read_properties(), self._ctx.props_store.next)
             return
+
+        self._ctx.text_logger.info(
+            f"Started '{self.name}' for slice {self._ctx.slice}."
+        )
 
         # set the properties of the microscope
         self.read_and_set_properties()
@@ -220,6 +224,10 @@ class Imaging(Action[ImagingSettings, ImagingState]):
             self._ctx.text_logger.debug(
                 f"Criterion is not configured for {self.name}. Image sharpness will not be calculated."
             )
+
+        self._ctx.text_logger.info(
+            f"Completed '{self.name}' for slice {self._ctx.slice}."
+        )
 
     @with_logging_context
     def test(self) -> None:

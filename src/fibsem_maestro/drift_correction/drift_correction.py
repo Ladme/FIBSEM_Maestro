@@ -139,13 +139,17 @@ class DriftCorrection(Action[DriftCorrectionSettings, DriftCorrectionState]):
             or (self._ctx.slice - 1) % self._settings.execution_frequency != 0
         ):
             self._ctx.text_logger.info(
-                f"Skipping {self.name} for slice {self._ctx.slice}."
+                f"Skipping '{self.name}' for slice {self._ctx.slice}."
             )
             # even if drift correction is skipped, we need to write properties for the next slice
             self.write_properties(self.read_properties(), self._ctx.props_store.next)
             # and potentially perform some other operations
             self._drift_calc.if_skipped(self._ctx.slice)
             return
+
+        self._ctx.text_logger.info(
+            f"Started '{self.name}' for slice {self._ctx.slice}."
+        )
 
         # set properties of the microscope
         self.read_and_set_properties()
@@ -174,6 +178,10 @@ class DriftCorrection(Action[DriftCorrectionSettings, DriftCorrectionState]):
 
         # collect and save the microscope properties for the next slice
         self.collect_and_write_properties(self._ctx.props_store.next)
+
+        self._ctx.text_logger.info(
+            f"Completed '{self.name}' for slice {self._ctx.slice}."
+        )
 
     def test(self) -> None:
         raise DriftCorrectionError(f"Testing is not implemented for {self.name}")

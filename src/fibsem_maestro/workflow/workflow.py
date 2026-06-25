@@ -3,6 +3,7 @@
 
 import re
 from pathlib import Path
+from time import sleep
 from typing import TYPE_CHECKING, Protocol, Self
 
 from fibsem_maestro.action.registry import ACTION_REGISTRY
@@ -247,6 +248,8 @@ class Workflow:
     def _run_slice(self) -> None:
         """Executes all actions for a single slice and performs synchronization."""
         self.ctx.text_logger.info(f"Starting slice {self.ctx.slice}.")
+        # sleep for 1 ms to avoid overlapping slice log messages
+        sleep(0.001)
         for i, action in enumerate(self.actions):
             # necessary when resuming an interrupted workflow
             # we need to skip actions that have already been executed for this slice

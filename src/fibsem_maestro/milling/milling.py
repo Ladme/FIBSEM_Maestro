@@ -118,11 +118,15 @@ class Milling(Action[MillingSettings, MillingState]):
             or (self._ctx.slice - 1) % self._settings.execution_frequency != 0
         ):
             self._ctx.text_logger.info(
-                f"Skipping {self.name} for slice {self._ctx.slice}."
+                f"Skipping '{self.name}' for slice {self._ctx.slice}."
             )
             # even if milling is skipped, we need to write properties for the next slice
             self.write_properties(self.read_properties(), self._ctx.props_store.next)
             return
+
+        self._ctx.text_logger.info(
+            f"Started '{self.name}' for slice {self._ctx.slice}."
+        )
 
         # set the properties of the microscope
         self.read_and_set_properties()
@@ -137,14 +141,14 @@ class Milling(Action[MillingSettings, MillingState]):
             )
 
         # perform the milling step
-        self._ctx.text_logger.info("Starting milling.")
+        self._ctx.text_logger.info("Starting the milling procedure.")
         self._microscope.beam.rectangle_milling(
             self._current_milling_area,
             self._settings.milling_depth,
             self._settings.milling_direction,
             self._settings.pattern_file,
         )
-        self._ctx.text_logger.info("Milling step completed.")
+        self._ctx.text_logger.info("Milling procedure completed.")
 
         # update the current milling area for the next slice
         self._current_milling_area = self._current_milling_area.shifted_in_direction(
@@ -155,6 +159,10 @@ class Milling(Action[MillingSettings, MillingState]):
         )
 
         self.collect_and_write_properties(self._ctx.props_store.next)
+
+        self._ctx.text_logger.info(
+            f"Completed '{self.name}' for slice {self._ctx.slice}."
+        )
 
     def test(self) -> None:
         raise MillingError(f"Testing is not implemented for {self.name}")

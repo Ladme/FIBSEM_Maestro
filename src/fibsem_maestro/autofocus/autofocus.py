@@ -207,6 +207,9 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
         # if we have a running autofocus, continue executing it
         if self._active_gen is not None:
             # mid-execution: keep going regardless of gating checks
+            self._ctx.text_logger.info(
+                f"Continuing '{self.name}' for slice {self._ctx.slice}."
+            )
             self._advance()
             if self._active_gen is not None:
                 self.write_properties(
@@ -246,6 +249,10 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
         if self._active_gen is not None:
             # mid-sweep - copy the props file to the next slice
             self.write_properties(self.read_properties(), self._ctx.props_store.next)
+
+        self._ctx.text_logger.info(
+            f"Completed '{self.name}' for slice {self._ctx.slice}."
+        )
 
     @with_logging_context
     def test(self) -> None:
@@ -330,7 +337,7 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
             and (slice_number - 1) % self._settings.execution_frequency == 0
         ):
             self._ctx.text_logger.info(
-                f"Executing {self.name}: slice {slice_number} matches execution frequency ({self._settings.execution_frequency})."
+                f"Started '{self.name}' for slice {slice_number}: slice {slice_number} matches execution frequency ({self._settings.execution_frequency})."
             )
             return True
 
@@ -340,11 +347,11 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
             and image_sharpness < self._settings.sharpness_limit
         ):
             self._ctx.text_logger.info(
-                f"Executing {self.name}: image sharpness ({image_sharpness:.4f}) is below the limit ({self._settings.sharpness_limit:.4f})."
+                f"Started '{self.name}' for slice {slice_number}: image sharpness ({image_sharpness:.4f}) is below the limit ({self._settings.sharpness_limit:.4f})."
             )
             return True
 
-        self._ctx.text_logger.info(f"Skipping {self.name}.")
+        self._ctx.text_logger.info(f"Skipping '{self.name}' for slice {slice_number}.")
         return False
 
     def _advance(self) -> None:
