@@ -67,6 +67,7 @@ class WorkflowManager(QObject):
         self.action_changed.emit(action)
 
     def notify_actions_changed(self) -> None:
+        self._on_actions_changed(self.workflow.actions)
         self.actions_changed.emit(self.workflow.actions)
 
     def notify_propagations_changed(self) -> None:
@@ -161,3 +162,18 @@ class WorkflowManager(QObject):
     def _on_interrupted(self, error: str) -> None:
         self._set_state(AppState.INTERRUPTED)
         self.workflow_interrupted.emit(error)
+
+    def _on_actions_changed(self, actions: Actions) -> None:
+        # loop through all propagations
+        for rule in self.workflow.propagations.rules[:]:
+            # remove those that do not correspond to any existing action
+            if not any(action.name == rule.parent_name for action in actions):
+                self.workflow.propagations.rules.remove(rule)
+                continue
+            # and remove dependents that no longer exist
+            for dependent in rule.dependent_names[:]:
+                if not any(action.name == dependent for action in actions):
+                    rule.dependent_names.remove(dependent)
+            # if the rule has no dependents, remove it
+            if not rule.dependent_names:
+                self.workflow.propagations.rules.remove(rule)
