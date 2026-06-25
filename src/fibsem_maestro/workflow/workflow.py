@@ -3,7 +3,7 @@
 
 import re
 from pathlib import Path
-from typing import Protocol, Self
+from typing import TYPE_CHECKING, Protocol, Self
 
 from fibsem_maestro.action.registry import ACTION_REGISTRY
 from fibsem_maestro.action.state import ActionState
@@ -16,6 +16,9 @@ from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
 from fibsem_maestro.workflow.actions import Actions
 from fibsem_maestro.workflow.error import WorkflowError
 from fibsem_maestro.workflow.propagations import PropagationRule, Propagations
+
+if TYPE_CHECKING:
+    from fibsem_maestro.action.action import Action
 
 
 class WorkflowState(ActionState):
@@ -68,46 +71,89 @@ class Workflow:
     def import_from_dir(
         cls, dir: Path, microscope: Microscope, current_workflow_dir: Path
     ) -> Self:
-        # find the latest slice of the workflow
-        if not (result := find_subdir_with_largest_int(dir / "workflow", "slice_*")):
+        # collect all available workflow slices, sorted descending
+        workflow_dir = dir / "workflow"
+        if not workflow_dir.is_dir():
+            raise WorkflowError("No workflow directory found")
+
+        workflow_slice_dirs = sorted(
+            [
+                (int(m.group(1)), p)
+                for p in workflow_dir.glob("slice_*")
+                if p.is_dir() and (m := re.search(r"(\d+)", p.name))
+            ],
+            reverse=True,
+        )
+
+        if not workflow_slice_dirs:
             raise WorkflowError("No workflow slice found in directory")
-        workflow_path, _ = result
 
-        # load the workflow state
-        workflow_state = WorkflowState.from_file(workflow_path / "state.yaml")
+        # retry workflow slices until one loads successfully
+        workflow_state: WorkflowState | None = None
+        for _, workflow_path in workflow_slice_dirs:
+            try:
+                workflow_state = WorkflowState.from_file(workflow_path / "state.yaml")
+                break
+            except Exception:
+                continue
 
-        # construct the workflow context
+        if workflow_state is None:
+            raise WorkflowError(
+                "Failed to load workflow state from any available slice"
+            )
+
         workflow_ctx = FileActionContext(current_workflow_dir / "workflow", "workflow")
 
-        # load the settings of actions and construct them
+        # load actions - each retries its own slices independently
         actions = Actions()
         for name, type in zip(workflow_state.action_names, workflow_state.action_types):
-            # find the latest slice of the action
             name_with_underscores = name.replace(" ", "_")
-            if not (
-                result := find_subdir_with_largest_int(
-                    dir / name_with_underscores, "slice_*"
-                )
-            ):
+
+            # collect all available action slices, sorted descending
+            action_subdir = dir / name_with_underscores
+            if not action_subdir.is_dir():
+                raise WorkflowError(f"No directory found for action {name}")
+
+            action_slice_dirs = sorted(
+                [
+                    (int(m.group(1)), p)
+                    for p in action_subdir.glob("slice_*")
+                    if p.is_dir() and (m := re.search(r"(\d+)", p.name))
+                ],
+                reverse=True,
+            )
+
+            if not action_slice_dirs:
                 raise WorkflowError(f"No slice found for action {name}")
-            action_slice_path, _ = result
 
-            # load the action settings and construct the action
-            ActionCls = ACTION_REGISTRY.get(type)
-            action_settings = ActionCls.settings_cls().from_file(
-                action_slice_path / "settings.yaml"
-            )
-            action_ctx = FileActionContext(
-                current_workflow_dir / name_with_underscores,
-                name,
-            )
-            actions.append(
-                ActionCls(name, microscope, action_settings, action_ctx, actions)
-            )
+            last_error: Exception | None = None
+            action: Action | None = None
+            for _, action_slice_path in action_slice_dirs:
+                try:
+                    ActionCls = ACTION_REGISTRY.get(type)
+                    action_settings = ActionCls.settings_cls().from_file(
+                        action_slice_path / "settings.yaml"
+                    )
+                    action_ctx = FileActionContext(
+                        current_workflow_dir / name_with_underscores,
+                        name,
+                    )
+                    action = ActionCls(
+                        name, microscope, action_settings, action_ctx, actions
+                    )
+                    break
+                except Exception as e:
+                    last_error = e
+                    continue
 
-        # build the propagations
+            if action is None:
+                raise WorkflowError(
+                    f"Failed to load action '{name}' from any available slice: {last_error}"
+                )
+
+            actions.append(action)
+
         propagations = Propagations.from_rules(workflow_state.propagations)
-
         return cls(microscope, actions, propagations, workflow_ctx)
 
     @classmethod
