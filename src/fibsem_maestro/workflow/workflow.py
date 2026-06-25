@@ -228,9 +228,18 @@ class Workflow:
         with logging_context(self.ctx.text_logger):
             if self.ctx.slice == 0:
                 # if this is slice 0, initialize all actions
-                for action in self.actions:
-                    action.initialize_first_slice()
                 self.ctx.advance()
+
+                for action in self.actions:
+                    try:
+                        action.initialize_first_slice()
+                    except Exception as e:
+                        # log all exceptions raised during the initialization of the action
+                        # and re-raise them to interrupt the workflow
+                        action.ctx.text_logger.error(
+                            f"Failed to initialize action '{action.name}': {e}"
+                        )
+                        raise
 
             for _ in range(n_slices):
                 self._run_slice()
@@ -248,7 +257,13 @@ class Workflow:
                 continue
 
             # execute the action
-            action.execute()
+            try:
+                action.execute()
+            except Exception as e:
+                # log all exceptions raised during the execution of the action
+                # and re-raise them to interrupt the workflow
+                action.ctx.text_logger.error(f"Action '{action.name}' failed: {e}")
+                raise
 
             # store the state and the current settings of the action
             action.ctx.state_store.next.write("state.yaml", action.state)
