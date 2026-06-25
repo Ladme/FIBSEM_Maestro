@@ -156,6 +156,9 @@ class Milling(Action[MillingSettings, MillingState]):
 
         self.collect_and_write_properties(self._ctx.props_store.next)
 
+    def test(self) -> None:
+        raise MillingError(f"Testing is not implemented for {self.name}")
+
     def wait_for_background_threads(self) -> None:
         # no background threads to wait for
         pass

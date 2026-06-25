@@ -74,6 +74,23 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
         self._ctx = ctx
         self._actions = actions
 
+        self._jobs = JobsManager(
+            executor=ThreadPoolExecutor(self._settings.max_workers),
+        )
+
+        self._active_gen: Generator[None, None, None] | None = None
+
+        self._sweep_base_value: Any | None = None
+        self._current_step_index = 0
+
+        # build mode/sweeping/context from current settings
+        self._rebuild()
+
+        # rebuild whenever the settings change
+        self._settings.on_change(lambda _: self._rebuild())
+
+    def _rebuild(self) -> None:
+        """Rebuild mode, sweeping, and autofocus context from current settings."""
         self._mode = AUTOFOCUS_MODES.get(self._settings.mode.type)()
 
         if isinstance(self._settings.mode, AutoscriptMode):
@@ -96,15 +113,6 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
             self._settings,
             self._ctx,
         )
-
-        self._jobs = JobsManager(
-            executor=ThreadPoolExecutor(self._settings.max_workers),
-        )
-
-        self._active_gen: Generator[None, None, None] | None = None
-
-        self._sweep_base_value: Any | None = None
-        self._current_step_index = 0
 
     @classmethod
     def settings_cls(cls) -> type[AutofocusSettings]:
@@ -240,7 +248,7 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
             self.write_properties(self.read_properties(), self._ctx.props_store.next)
 
     @with_logging_context
-    def test_autofocus(self) -> None:
+    def test(self) -> None:
         """
         Run the autofocus pipeline once and apply the best sweep value.
 
@@ -251,31 +259,38 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
         Step mode is not supported since it spreads execution across multiple
         slices and cannot be run in a single call.
         """
+        self._ctx.text_logger.info(f"Started test for {self.name}.")
         # clear any existing jobs
         self._jobs.wait_and_clear()
 
         if isinstance(self._mode, StepMode):
-            raise AutofocusError("Autofocus test is not supported for step mode.")
+            raise AutofocusError("Test is not supported for step mode")
 
-        # get the current sweep base value
-        self._sweep_base_value: float | None = (
-            self._sweeping.get_attribute_value() if self._sweeping is not None else None
-        )
+        # external properties for the action are temporarily set
+        with self._microscope.set_temporary_properties(self._settings.external_props):
+            # get the current sweep base value
+            self._sweep_base_value: float | None = (
+                self._sweeping.get_attribute_value()
+                if self._sweeping is not None
+                else None
+            )
 
-        # we provide `None` instead of imaging; imaging is only needed for step mode which is not testable
-        for _ in self._mode.execute(self._autofocus_ctx, self._jobs, None):
-            self._jobs.wait()
+            # we provide `None` instead of imaging; imaging is only needed for step mode which is not testable
+            for _ in self._mode.execute(self._autofocus_ctx, self._jobs, None):
+                self._jobs.wait()
 
-        results = self._jobs.wait_and_collect()
-        if self._sweeping is not None:
-            best = self._sweeping.evaluate_best_sweep(results)
-            self._ctx.text_logger.info(f"Best sweep attribute value: {best}.")
-            self._sweeping.set_attribute_value(best)
+            results = self._jobs.wait_and_collect()
+            if self._sweeping is not None:
+                best = self._sweeping.evaluate_best_sweep(results)
+                self._ctx.text_logger.info(f"Best sweep attribute value: {best}.")
+                self._sweeping.set_attribute_value(best)
 
-            # log images
-            self._log_af_curve(results, best, self._sweep_base_value)
-            if isinstance(self._mode, LineMode):
-                self._log_line_focus_image(results)
+                # log images
+                self._log_af_curve(results, best, self._sweep_base_value)
+                if isinstance(self._mode, LineMode):
+                    self._log_line_focus_image(results)
+
+        self._ctx.text_logger.info(f"Completed test for {self.name}.")
 
     def wait_for_background_threads(self) -> None:
         self._jobs.wait()

@@ -145,6 +145,9 @@ class PostMillingCorrection(
         # update the microscope properties for the next frame
         self.collect_and_write_properties(self._ctx.props_store.next)
 
+    def test(self) -> None:
+        raise PostMillingCorrectionError(f"Testing is not implemented for {self.name}")
+
     def _resolve_milling(self) -> Milling:
         milling = self._actions.named(self._settings.linked_milling)
         if not isinstance(milling, Milling):

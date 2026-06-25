@@ -1,8 +1,10 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
+from PyQt6.QtCore import QThread
 from PyQt6.QtWidgets import (
     QFrame,
+    QHBoxLayout,
     QLabel,
     QPushButton,
     QScrollArea,
@@ -12,6 +14,7 @@ from PyQt6.QtWidgets import (
 )
 
 from fibsem_maestro.action.action import Action
+from fibsem_maestro.gui.action_panel._action_test_worker import ActionTestWorker
 from fibsem_maestro.gui.action_panel._propagations_widget import PropagationsWidget
 from fibsem_maestro.gui.app_state import AppState
 from fibsem_maestro.gui.common import class_name_to_label
@@ -41,6 +44,9 @@ class ActionPanel(QWidget):
         self._manager = workflow_manager
         self._microscope = self._manager.workflow.microscope
         self._form_builder = form_builder
+
+        self._test_thread: QThread | None = None
+        self._test_worker: ActionTestWorker | None = None
 
         outer_layout = QVBoxLayout(self)
         outer_layout.setContentsMargins(0, 0, 0, 0)
@@ -110,13 +116,45 @@ class ActionPanel(QWidget):
         collect_btn = QPushButton("Collect properties")
         collect_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         collect_btn.clicked.connect(self._collect_properties)
-        layout.addWidget(collect_btn)
+
+        # test button
+        test_btn = QPushButton("Test action")
+        test_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        test_btn.clicked.connect(self._test_action)
+
+        # place buttons side by side
+        btn_layout = QHBoxLayout()
+        btn_layout.addWidget(collect_btn)
+        btn_layout.addWidget(test_btn)
+        btn_layout.addStretch()
+        layout.addLayout(btn_layout)
 
         layout.addStretch()
 
     def _collect_properties(self) -> None:
         self._action.collect_and_write_properties()
         self._manager.notify_action_changed(self._action)
+
+    def _test_action(self) -> None:
+        # prevent overlapping runs
+        if self._test_thread is not None and self._test_thread.isRunning():
+            return
+
+        self._test_thread = QThread()
+        self._test_worker = ActionTestWorker(self._action)
+        self._test_worker.moveToThread(self._test_thread)
+
+        self._test_thread.started.connect(self._test_worker.run)
+        self._test_worker.finished.connect(self._test_thread.quit)
+        self._test_worker.finished.connect(self._test_worker.deleteLater)
+        self._test_worker.finished.connect(lambda: setattr(self, "_test_worker", None))
+        self._test_thread.finished.connect(self._test_thread.deleteLater)
+        self._test_thread.finished.connect(lambda: setattr(self, "_test_thread", None))
+        self._test_worker.error.connect(
+            lambda e: self._action.ctx.text_logger.error(f"Test failed: {e}")
+        )
+
+        self._test_thread.start()
 
     def on_app_state_changed(self, state: AppState) -> None:
         read_only = state not in {

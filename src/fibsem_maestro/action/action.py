@@ -70,6 +70,12 @@ class Action(ABC, Generic[TSettings, TState]):
         """
 
     @abstractmethod
+    def test(self) -> None:
+        """
+        Test the action.
+        """
+
+    @abstractmethod
     def wait_for_background_threads(self) -> None:
         """
         Wait for ALL background threads spawned by this action to complete.

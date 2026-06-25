@@ -7,6 +7,7 @@ from fibsem_maestro.action.action import Action
 from fibsem_maestro.action.registry import ACTION_REGISTRY
 from fibsem_maestro.action.state import ActionState
 from fibsem_maestro.action_context.action_context import ActionContext
+from fibsem_maestro.adjust.error import AdjustPropsError
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.logging.logging import with_logging_context
 from fibsem_maestro.microscope.microscope import Microscope
@@ -138,6 +139,9 @@ class AdjustProps(Action[AdjustPropsSettings, AdjustPropsState]):
 
         # update the microscope properties for the next frame
         self.collect_and_write_properties(self._ctx.props_store.next)
+
+    def test(self) -> None:
+        raise AdjustPropsError(f"Testing is not implemented for {self.name}")
 
     def wait_for_background_threads(self) -> None:
         # no background threads to wait for

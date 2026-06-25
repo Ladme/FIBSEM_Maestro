@@ -4,6 +4,8 @@
 
 import contextvars
 import threading
+from contextlib import nullcontext
+from pathlib import Path
 
 from fibsem_maestro.action.action import Action
 from fibsem_maestro.action.registry import ACTION_REGISTRY
@@ -12,6 +14,7 @@ from fibsem_maestro.action_context.action_context import ActionContext
 from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
+from fibsem_maestro.core.format import ImageFormat
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.criterion.criterion import Criterion
 from fibsem_maestro.imaging.error import ImagingError
@@ -219,6 +222,40 @@ class Imaging(Action[ImagingSettings, ImagingState]):
             )
 
     @with_logging_context
+    def test(self) -> None:
+        self._ctx.text_logger.info(f"Started test for {self.name}.")
+
+        try:
+            scanning_area = self._settings.scanning_area[0]
+        except IndexError:
+            scanning_area = None
+
+        # we need to temporarily set the external action properties
+        # to the microscope and the scanning area from settings
+        with (
+            self._microscope.set_temporary_beam_property(
+                "scanning_area",
+                scanning_area,
+                self._settings.beam_type,
+                # only set the scanning area if it is not None
+            )
+            if scanning_area is not None
+            else nullcontext(),
+            self._microscope.set_temporary_properties(self.external_props),
+        ):
+            image = self._microscope.beam.grab_frame()
+            # we store the image manually with the `test` suffix so that it does not block
+            # acquisition of more images for the given slice
+            output_path = Path(str(self._ctx.frame_store.path())).with_suffix(
+                ".test.tif"
+            )
+            image.save(output_path, ImageFormat.TIF)
+
+        self._ctx.text_logger.info(
+            f"Completed test for {self.name}. Acquired image saved as {output_path}."
+        )
+
+    @with_logging_context
     def collect_and_write_properties(
         self,
         store: PropsStore | None = None,
@@ -238,7 +275,7 @@ class Imaging(Action[ImagingSettings, ImagingState]):
         try:
             scanning_area = self._settings.scanning_area[0]
         except IndexError:
-            scanning_area = RelativeArea.full()
+            scanning_area = None
 
         # set scanning area from the settings and set external microscope properties
         # there are actually up to three ways to set a scanning area for imaging - inside the microscope's GUI
@@ -249,8 +286,13 @@ class Imaging(Action[ImagingSettings, ImagingState]):
         # when using extended resolution, the scanning area must always be set via scanning_area property in settings
         with (
             self._microscope.set_temporary_beam_property(
-                "scanning_area", scanning_area, self._settings.beam_type
-            ),
+                "scanning_area",
+                scanning_area,
+                self._settings.beam_type,
+                # only set the scanning area if it is not None
+            )
+            if scanning_area is not None
+            else nullcontext(),
             self._microscope.set_temporary_properties(self.external_props),
         ):
             match self._settings.resolution_mode:
@@ -258,7 +300,7 @@ class Imaging(Action[ImagingSettings, ImagingState]):
                     pass
                 case ExtendedResolution() as mode:
                     self._set_extended_resolution_props(
-                        scanning_area,
+                        scanning_area or self._microscope.beam.scanning_area,
                         mode.pixel_size,
                     )
 
