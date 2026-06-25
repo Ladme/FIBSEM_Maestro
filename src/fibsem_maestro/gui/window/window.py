@@ -168,7 +168,9 @@ class MainWindow(QMainWindow):
 
     def _check_workflow_ready(self, _: Any) -> None:
         self._manager.preparedness_changed.emit(
-            all(
+            # there must be at least one action and all props must exist
+            len(self._manager.workflow.actions) > 0
+            and all(
                 action.ctx.props_store.exists("props.yaml")
                 for action in self._manager.workflow.actions
             )

@@ -242,6 +242,11 @@ class ActionListPanel(QWidget):
             else QAbstractItemView.DragDropMode.NoDragDrop
         )
 
+        # if the workflow has started running,
+        # draw the indicator arrow next to the first action
+        if state == AppState.RUNNING:
+            self._on_action_finished(self._manager.workflow.actions[0])
+
     def _on_action_finished(self, action: Action) -> None:
         for i in range(self._list.count()):
             w = self._item_widget(i)

@@ -64,7 +64,6 @@ class ActionItemWidget(QWidget):
         # state indicator: dot when editing, arrow when running
         self._indicator = IndicatorWidget()
         layout.addWidget(self._indicator)
-        self._manager.app_state_changed.connect(self._on_app_state_changed)
 
         # vertical group: name row + subtitle
         text_layout = QVBoxLayout()
@@ -190,7 +189,8 @@ class ActionItemWidget(QWidget):
                 if self._action_is_prepared()
                 else IndicatorMode.NONE
             )
-        else:
+        # the indicator should be kept unchanged when the workflow is paused or interrupted
+        elif self._manager.state in (AppState.RUNNING, AppState.FINISHED):
             self._indicator.set_mode(
                 IndicatorMode.ARROW if active else IndicatorMode.NONE
             )
