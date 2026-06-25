@@ -9,6 +9,12 @@ from fibsem_maestro.action.action import Action
 from fibsem_maestro.workflow.workflow import Workflow
 
 
+class AbortedError(Exception):
+    """Indicates that the workflow was aborted before completion."""
+
+    pass
+
+
 class WorkflowWorker(QObject):
     action_finished = pyqtSignal(Action)
     slice_finished = pyqtSignal(int)
@@ -23,6 +29,8 @@ class WorkflowWorker(QObject):
         self._resume_event = threading.Event()
         # start in resumed state
         self._resume_event.set()
+
+        self._aborted = False
 
     def notify_action_finished(self, finished_action_index: int) -> None:
         self.action_finished.emit(
@@ -48,12 +56,20 @@ class WorkflowWorker(QObject):
         while not self._resume_event.wait(timeout=0.1):
             pass
 
+        if self._aborted:
+            raise AbortedError()
+
     def pause(self) -> None:
         self._pause_requested = True
         self._resume_event.clear()
 
     def resume(self) -> None:
         self._pause_requested = False
+        self._resume_event.set()
+
+    def abort(self) -> None:
+        self._aborted = True
+        # unblock wait_for_resume
         self._resume_event.set()
 
     @pyqtSlot(int)
@@ -63,5 +79,8 @@ class WorkflowWorker(QObject):
             self._workflow.set_callbacks(self)
             self._workflow.run(n_slices)
             self.finished.emit()
+        except AbortedError:
+            # clean exit
+            pass
         except Exception as e:
             self.interrupted.emit(str(e))

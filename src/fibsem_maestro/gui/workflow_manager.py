@@ -107,8 +107,13 @@ class WorkflowManager(QObject):
 
     def reset(self) -> None:
         # stop the worker thread
-        if self._thread is not None and self._thread.isRunning():
-            self._thread.terminate()
+        if (
+            self._thread is not None
+            and self._worker is not None
+            and self._thread.isRunning()
+        ):
+            self._worker.abort()
+            self._thread.quit()
             self._thread.wait()
 
         for action in self.workflow.actions:
