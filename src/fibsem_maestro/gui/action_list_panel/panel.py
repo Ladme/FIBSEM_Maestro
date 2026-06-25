@@ -37,7 +37,7 @@ class ActionListPanel(QWidget):
     or reordered. Emits action_selected when the user clicks an action.
     """
 
-    action_selected = pyqtSignal(object)  # emits Action
+    action_selected = pyqtSignal(object)  # Action or None
 
     def __init__(
         self,
@@ -167,8 +167,7 @@ class ActionListPanel(QWidget):
 
     def _on_selection_changed(self, row: int) -> None:
         widget = self._item_widget(row)
-        if widget is not None:
-            self.action_selected.emit(widget.action)
+        self.action_selected.emit(widget.action if widget is not None else None)
 
     def _on_rows_moved(
         self,

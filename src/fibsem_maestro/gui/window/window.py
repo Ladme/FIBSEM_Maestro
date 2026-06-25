@@ -97,6 +97,9 @@ class MainWindow(QMainWindow):
 
         # form panel
         self._stack = QStackedWidget()
+        self._empty_panel = QWidget()
+        self._stack.addWidget(self._empty_panel)
+        self._stack.setCurrentWidget(self._empty_panel)
         h_splitter.addWidget(self._stack)
 
         # splitter proportions
@@ -138,7 +141,12 @@ class MainWindow(QMainWindow):
 
         self._manager.workflow_interrupted.connect(self._on_workflow_interrupted)
 
-    def _on_action_selected(self, action: Action) -> None:
+    def _on_action_selected(self, action: Action | None) -> None:
+        if action is None:
+            # set empty action panel
+            self._stack.setCurrentWidget(self._empty_panel)
+            return
+
         if action not in self._panels:
             panel = ActionPanel(
                 action=action,
