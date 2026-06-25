@@ -121,9 +121,22 @@ class ConnectionScreen(QDialog):
             return
 
         self.workflow_dir = Path(path)
+
+        # warn if directory is not empty
+        if any(self.workflow_dir.iterdir()):
+            answer = QMessageBox.warning(
+                self,
+                "Directory not empty",
+                "The selected directory is not empty. Assigning it to a workflow will PERMANENTLY delete all its contents.\n\nAre you sure you want to continue?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Cancel,
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                return
+
         # clear the workflow directory
-        for dir in self.workflow_dir.iterdir():
-            shutil.rmtree(dir)
+        for item in self.workflow_dir.iterdir():
+            shutil.rmtree(item) if item.is_dir() else item.unlink()
 
         self._workflow_context = FileActionContext(
             action_dir=self.workflow_dir / "workflow", name="workflow"
