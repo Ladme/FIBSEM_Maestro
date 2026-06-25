@@ -62,6 +62,17 @@ class ActionContext(ABC):
         self._current_view = self._make_view(new_index)
         return self._current_view
 
+    def reset(self) -> SliceView:
+        """
+        Reset the slice counter to 0 and return the new `SliceView`.
+
+        Returns:
+            The `SliceView` for the current slice.
+        """
+        self._counter = SliceCounter(0)
+        self._current_view = self._make_view(self._counter.current)
+        return self._current_view
+
     @property
     def current_view(self) -> SliceView:
         """

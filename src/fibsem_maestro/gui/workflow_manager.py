@@ -1,6 +1,8 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
+import shutil
+
 from PyQt6.QtCore import Q_ARG, QMetaObject, QObject, Qt, QThread, pyqtSignal
 
 from fibsem_maestro.action.action import Action
@@ -22,6 +24,9 @@ class WorkflowManager(QObject):
     app_state_changed = pyqtSignal(AppState)
     preparedness_changed = pyqtSignal(bool)
     workflow_interrupted = pyqtSignal(str)
+    workflow_reset = pyqtSignal(
+        int
+    )  # slice number - needed for integration with log panel
 
     def __init__(self, workflow: Workflow, parent: QObject | None = None):
         super().__init__(parent)
@@ -31,8 +36,13 @@ class WorkflowManager(QObject):
         self._state = (
             AppState.EDITING if self.workflow.ctx.slice == 0 else AppState.RELOADED
         )
+        self._thread = None
+        self._worker = None
+        self._start_worker()
+
+    def _start_worker(self) -> None:
         self._thread = QThread()
-        self._worker = WorkflowWorker(workflow)
+        self._worker = WorkflowWorker(self.workflow)
         self.workflow.set_callbacks(self._worker)
         self._worker.moveToThread(self._thread)
 
@@ -65,7 +75,12 @@ class WorkflowManager(QObject):
     def notify_microscope_changed(self) -> None:
         self.microscope_changed.emit(self.workflow.microscope)
 
+    def notify_workflow_reset(self) -> None:
+        self.workflow_reset.emit(0)
+
     def start(self, n_slices: int) -> None:
+        assert self._worker
+
         QMetaObject.invokeMethod(
             self._worker,
             "run",
@@ -75,17 +90,55 @@ class WorkflowManager(QObject):
         self._set_state(AppState.RUNNING)
 
     def pause(self) -> None:
-        self._worker.pause()
+        if self._worker is not None:
+            self._worker.pause()
         self._set_state(AppState.STOPPING)
 
     def resume(self) -> None:
-        self._worker.resume()
+        if self._worker is not None:
+            self._worker.resume()
         self._set_state(AppState.RUNNING)
 
     def stop(self) -> None:
-        self._thread.quit()
-        self._thread.wait()
+        if self._thread is not None:
+            self._thread.quit()
+            self._thread.wait()
         self._set_state(AppState.PAUSED)
+
+    def reset(self) -> None:
+        # stop the worker thread
+        if self._thread is not None and self._thread.isRunning():
+            self._thread.terminate()
+            self._thread.wait()
+
+        for action in self.workflow.actions:
+            action.reset()
+            # delete the action's directory
+            if (action_dir := action.ctx.path_to_dir) is not None:
+                for item in action_dir.iterdir():
+                    shutil.rmtree(item) if item.is_dir() else item.unlink()
+
+            # then write the action's settings and state
+            action.ctx.state_store.write("state.yaml", action.state)
+            action.ctx.settings_store.write("settings.yaml", action.settings)
+
+        self.workflow.ctx.reset()
+        if (workflow_dir := self.workflow.ctx.path_to_dir) is not None:
+            for item in workflow_dir.iterdir():
+                shutil.rmtree(item) if item.is_dir() else item.unlink()
+
+            # then write the workflow's state and microscope settings
+            self.workflow.ctx.state_store.write("state.yaml", self.workflow.state)
+            self.workflow.ctx.settings_store.write(
+                "microscope_settings.yaml", self.workflow.microscope.settings
+            )
+
+        # restart the worker thread
+        self._start_worker()
+
+        self._set_state(AppState.EDITING)
+        self.notify_workflow_reset()
+        self.preparedness_changed.emit(False)
 
     def _on_paused(self) -> None:
         self._set_state(AppState.PAUSED)
@@ -95,8 +148,10 @@ class WorkflowManager(QObject):
 
     def _on_finished(self) -> None:
         self._set_state(AppState.FINISHED)
-        self._thread.deleteLater()
-        self._worker.deleteLater()
+        if self._thread is not None:
+            self._thread.deleteLater()
+        if self._worker is not None:
+            self._worker.deleteLater()
 
     def _on_interrupted(self, error: str) -> None:
         self._set_state(AppState.INTERRUPTED)

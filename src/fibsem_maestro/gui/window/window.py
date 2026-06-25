@@ -133,6 +133,7 @@ class MainWindow(QMainWindow):
         self._manager.action_changed.connect(self._check_workflow_ready)
 
         self._manager.slice_finished.connect(self._log_panel.on_slice_changed)
+        self._manager.workflow_reset.connect(self._log_panel.on_slice_changed)
         self._manager.actions_changed.connect(self._log_panel.on_actions_changed)
 
         self._manager.workflow_interrupted.connect(self._on_workflow_interrupted)

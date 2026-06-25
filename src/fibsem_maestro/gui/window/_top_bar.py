@@ -49,6 +49,11 @@ class TopBar(QWidget):
         self._import_btn.clicked.connect(self._on_import_workflow)
         layout.addWidget(self._import_btn)
 
+        # reset workflow
+        self._reset_btn = QPushButton("Reset workflow")
+        self._reset_btn.clicked.connect(self._on_reset_workflow)
+        layout.addWidget(self._reset_btn)
+
         self._separator(layout)
 
         # microscope settings
@@ -153,6 +158,19 @@ class TopBar(QWidget):
 
         self._manager.notify_actions_changed()
 
+    def _on_reset_workflow(self) -> None:
+        answer = QMessageBox.warning(
+            self,
+            "Data will be lost!",
+            "Resetting the workflow will PERMANENTLY delete all data from all completed slices!\n\nAre you sure you want to continue?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Cancel,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+
+        self._manager.reset()
+
     def _on_microscope_settings(self) -> None:
         """Opens the microscope settings dialog."""
         dialog = MicroscopeSettingsDialog(
@@ -179,6 +197,7 @@ class TopBar(QWidget):
     def on_app_state_changed(self, state: AppState) -> None:
         self._update_status()
         self._import_btn.setEnabled(state == AppState.EDITING)
+        self._reset_btn.setEnabled(state not in (AppState.RUNNING, AppState.STOPPING))
         style = self._run_btn.style()
         match state:
             case AppState.EDITING:

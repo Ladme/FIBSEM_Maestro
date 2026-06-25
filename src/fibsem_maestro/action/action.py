@@ -75,6 +75,14 @@ class Action(ABC, Generic[TSettings, TState]):
         Test the action.
         """
 
+    def reset(self) -> None:
+        """
+        Reset the action to its initial state.
+        """
+        self.ctx.reset()
+        # use the default state object associated with the action
+        self.set_state(self.state_cls()())
+
     @abstractmethod
     def wait_for_background_threads(self) -> None:
         """
