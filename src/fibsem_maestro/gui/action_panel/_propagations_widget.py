@@ -68,3 +68,7 @@ class PropagationsWidget(QGroupBox):
         widget.deleteLater()
         self._rule_widgets.remove(widget)
         self._manager.notify_propagations_changed()
+
+    def set_read_only(self, read_only: bool) -> None:
+        for widget in self._rule_widgets:
+            widget.set_read_only(read_only)

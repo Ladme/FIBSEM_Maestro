@@ -162,3 +162,7 @@ class PropagationRuleWidget(QFrame):
             if item is not None and item.data(Qt.ItemDataRole.UserRole) is action:
                 item.setText(action.name)
                 break
+
+    def set_read_only(self, read_only: bool) -> None:
+        self._dep_list.setDisabled(read_only)
+        self._props_widget.setDisabled(read_only)

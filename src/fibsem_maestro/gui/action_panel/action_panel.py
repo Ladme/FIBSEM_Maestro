@@ -164,6 +164,7 @@ class ActionPanel(QWidget):
             AppState.FINISHED,
         }
         self._settings_widget.set_read_only(read_only)
+        self._propagations_widget.set_read_only(read_only)
 
     def on_action_changed(self, action: Action) -> None:
         if self._action is action:
