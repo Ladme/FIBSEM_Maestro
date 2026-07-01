@@ -1,0 +1,44 @@
+# Released under MIT License.
+# Copyright (c) 2024-2025 CEMCOF
+
+
+from typing import Annotated
+
+from pydantic import AfterValidator, Field
+
+from fibsem_maestro.microscope.microscope import MICROSCOPE_CONTROLS
+from fibsem_maestro.settings.base_settings import BaseSettings
+from fibsem_maestro.settings.form_utils import FieldUnit, FormHint, WidgetType
+
+MicroscopeControlName = Annotated[
+    str,
+    AfterValidator(MICROSCOPE_CONTROLS.validate),
+    FormHint(widget=WidgetType.DROPDOWN, choices=lambda: list(MICROSCOPE_CONTROLS)),
+]
+
+
+class MicroscopeSettings(BaseSettings):
+    control: MicroscopeControlName = Field(description="Type of microscope control.")
+    ip_address: str = Field(description="Microscope server address.")
+    port: str = Field(
+        default="",
+        description="Microscope port to connect to. Leave empty to connect to the default port.",
+    )
+    beam_shift_tolerance: Annotated[float, FieldUnit(suffix="nm")] = Field(
+        default=50, description="Maximal allowed beam shift error."
+    )
+    stage_tolerance: Annotated[float, FieldUnit(suffix="nm")] = Field(
+        default=100, description="Maximal allowed stage error."
+    )
+    stage_trials: int = Field(
+        default=3,
+        description="Number of trials to reach the goal position before raising an error.",
+    )
+    beam_shift_to_stage_move_electron: tuple[float, float] = Field(
+        default=(-1.0, -1.0),
+        description="Per-axis factor for converting beam shift in the electron beam to stage move.",
+    )
+    beam_shift_to_stage_move_ion: tuple[float, float] = Field(
+        default=(-1.0, -1.0),
+        description="Per-axis factor for converting beam shift in the ion beam to stage move.",
+    )

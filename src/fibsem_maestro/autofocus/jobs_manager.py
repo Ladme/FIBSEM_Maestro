@@ -1,0 +1,127 @@
+# Released under MIT License.
+# Copyright (c) 2024-2025 CEMCOF
+
+
+import contextlib
+import threading
+from collections.abc import Callable
+from concurrent.futures import Executor, Future, ThreadPoolExecutor
+from typing import Self
+
+from fibsem_maestro.autofocus.result import AutofocusResult
+
+
+class JobsManager:
+    """
+    Manages concurrent resolution calculation jobs during an autofocus sweep.
+
+    Submits resolution calculations to a thread pool as images are acquired,
+    collects results asynchronously, and returns them once all jobs complete.
+
+    Args:
+        executor: Optional external executor. If omitted, an internal
+            ThreadPoolExecutor is created and owned by this instance.
+    """
+
+    def __init__(
+        self,
+        executor: Executor | None = None,
+    ) -> None:
+        self._own_executor = executor is None
+        self._executor: Executor = executor or ThreadPoolExecutor()
+
+        self._pending: list[Future[AutofocusResult]] = []
+        self._pending_lock = threading.Lock()
+        self._results: list[AutofocusResult] = []
+        self._results_lock = threading.Lock()
+
+    def submit(self, fn: Callable[[], AutofocusResult]) -> None:
+        """
+        Submit a callable for asynchronous resolution calculation.
+
+        The callable is executed in the thread pool. Its result is collected
+        automatically upon completion. Exceptions raised by the callable are
+        silently discarded.
+
+        Args:
+            fn: A zero-argument callable returning an AutofocusResult.
+        """
+        future = self._executor.submit(fn)
+
+        def _on_done(f: Future[AutofocusResult]) -> None:
+            try:
+                self._results.append(f.result())
+            except Exception:
+                return
+
+        future.add_done_callback(_on_done)
+
+        with self._pending_lock:
+            self._pending.append(future)
+
+    def wait_and_collect(self) -> list[AutofocusResult]:
+        """
+        Block until all submitted jobs finish and return the results.
+
+        Returns:
+            All successfully computed AutofocusResult instances, in completion
+            order. Failed jobs are silently excluded.
+        """
+        self._drain()
+        with self._results_lock:
+            return list(self._results)
+
+    def collect_completed(self) -> list[AutofocusResult]:
+        """
+        Return results from already-finished jobs without waiting or clearing.
+
+        Unlike `wait_and_collect`, this method does not block - it only
+        returns results that have already been computed and stored by the
+        done callback. Pending jobs are left untouched.
+
+        Returns:
+            All AutofocusResult instances computed so far, in completion order.
+        """
+        with self._results_lock:
+            return list(self._results)
+
+    def wait(self) -> None:
+        """
+        Block until all submitted jobs finish, but do not return their results.
+        """
+        self._drain()
+
+    def wait_and_clear(self) -> None:
+        """
+        Block until all pending jobs finish, then discard all results.
+        """
+        self._drain()
+        with self._results_lock:
+            self._results = []
+
+    def _drain(self) -> None:
+        """
+        Wait for all pending futures to complete.
+
+        Drains the pending queue in batches until no futures remain.
+        Exceptions are suppressed here as they are already handled in the
+        done callback registered in submit.
+        """
+        while True:
+            with self._pending_lock:
+                if not self._pending:
+                    return
+                pending, self._pending = self._pending, []
+
+            for future in pending:
+                with contextlib.suppress(Exception):
+                    future.result()  # errors already handled in callback
+
+    def __enter__(self) -> Self:
+        """Enter the context manager, returning this instance."""
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        """Exit the context manager, shutting down the executor if owned."""
+        if self._own_executor:
+            self._executor.shutdown(wait=True)

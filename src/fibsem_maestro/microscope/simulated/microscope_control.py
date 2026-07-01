@@ -1,0 +1,191 @@
+# Released under MIT License.
+# Copyright (c) 2024-2025 CEMCOF
+
+from typing import Any
+
+import numpy as np
+
+from fibsem_maestro.core.stage_position import StagePosition
+from fibsem_maestro.logging.text.text_logger import TextLogger
+from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
+from fibsem_maestro.microscope.abstract_control.microscope_control import (
+    MicroscopeControl,
+)
+from fibsem_maestro.microscope.error import MicroscopeError
+from fibsem_maestro.microscope.registry import MICROSCOPE_CONTROLS
+from fibsem_maestro.microscope.simulated.beam_control import (
+    SimulatedElectronBeamControl,
+    SimulatedIonBeamControl,
+)
+from fibsem_maestro.microscope.simulated.sample import SimulatedSample
+
+
+@MICROSCOPE_CONTROLS.register("simulated")
+class SimulatedMicroscopeControl(MicroscopeControl):
+    """
+    Simulated microscope controller.
+
+    This class provides an in-memory simulation of a microscope stage and two beams
+    (electron and ion).
+    """
+
+    def __init__(
+        self,
+        ip_address: str,
+        port: str,
+        txt_log: TextLogger,
+        *,
+        sample_width: int = 200,
+        sample_height: int = 200,
+        seed: int = 0,
+    ):
+        """
+        Initialize the simulated microscope.
+
+        Args:
+            ip_address: Address string for compatibility with real controllers.
+            port: Port string for compatibility with real controllers.
+            txt_log: Text logger.
+            seed: Seed for deterministic noise. Defaults to 0.
+        """
+        self._txt_log = txt_log
+        self._txt_log.info("Initializing a simulated microscope.")
+
+        self.ip_address = ip_address
+        self.port = port
+        self._rng = np.random.default_rng(seed)
+
+        self._stage_position = StagePosition(
+            x=0.0, y=0.0, z=0.0, rotation=0.0, tilt=0.0
+        )
+
+        self._sample = SimulatedSample(self._rng, sample_width, sample_height)
+
+        self._manufacturer_properties: dict[str, Any] = {
+            "microscope.custom_parameter": 1.0,
+            "microscope.inner.parameter": 0.5,
+        }
+
+        self._electron_beam = SimulatedElectronBeamControl(
+            name="electron",
+            stage_position=self._stage_position,
+            sample=self._sample,
+            txt_log=self._txt_log.derive("electron_beam"),
+            rng=self._rng,
+        )
+        self._ion_beam = SimulatedIonBeamControl(
+            name="ion",
+            stage_position=self._stage_position,
+            sample=self._sample,
+            txt_log=self._txt_log.derive("ion_beam"),
+            rng=self._rng,
+        )
+
+    @property
+    def stage_position(self) -> StagePosition:
+        """
+        Return the current simulated stage position.
+
+        Returns:
+            StagePosition: The current (actual) stage position maintained by the simulator.
+        """
+        return StagePosition(**self._stage_position.__dict__)
+
+    @property
+    def electron_beam(self) -> BeamControl:
+        """
+        Return the simulated electron beam controller.
+
+        Returns:
+            BeamControl: Beam controller implementing the electron beam behavior.
+        """
+        return self._electron_beam
+
+    @electron_beam.setter
+    def electron_beam(self, beam: BeamControl) -> None:
+        self._electron_beam = beam
+
+    @property
+    def ion_beam(self) -> BeamControl:
+        """Return the simulated ion beam controller.
+
+        Returns:
+            BeamControl: Beam controller implementing the ion beam behavior.
+        """
+        return self._ion_beam
+
+    @ion_beam.setter
+    def ion_beam(self, beam: BeamControl) -> None:
+        self._ion_beam = beam
+
+    def manufacturer_prop(self, name: str) -> Any:
+        try:
+            value = self._manufacturer_properties[name]
+            self._txt_log.debug(f"Getting manufacturer property '{name}': {value}.")
+            return value
+        except KeyError as e:
+            raise MicroscopeError(
+                f"Manufacturer property '{name}' does not exist."
+            ) from e
+
+    def set_manufacturer_prop(self, name: str, value: Any) -> Any:
+        self._txt_log.debug(f"Setting manufacturer property '{name}': {value}.")
+        self._manufacturer_properties[name] = value
+
+    @property
+    def manufacturer_prop_names(self) -> list[str]:
+        return list(self._manufacturer_properties.keys())
+
+    def try_set_stage_position(self, pos: StagePosition) -> StagePosition:
+        """
+        Attempt to set the stage position.
+
+        This method may fail to reach the requested position exactly. The simulator
+        applies a small random error (noise) and returns the actual stage position.
+
+        Args:
+            pos (StagePosition): Desired absolute stage position.
+
+        Returns:
+            StagePosition: The actual stage position after the attempted move.
+        """
+        self._txt_log.debug(f"Setting stage position to {pos}.")
+        noise_xyz = self._rng.normal(0.0, 0.0001, size=3)  # nm
+        noise_ang = self._rng.normal(0.0, 0.0001, size=2)  # degrees
+
+        self._stage_position.x = pos.x + float(noise_xyz[0])
+        self._stage_position.y = pos.y + float(noise_xyz[1])
+        self._stage_position.z = pos.z + float(noise_xyz[2])
+        self._stage_position.rotation = pos.rotation + float(noise_ang[0])
+        self._stage_position.tilt = pos.tilt + float(noise_ang[1])
+
+        self._txt_log.debug(f"Current stage position is {self.stage_position}.")
+        return self.stage_position
+
+    def try_move_stage_position(self, delta: StagePosition) -> StagePosition:
+        """
+        Attempt to move the stage position by a delta.
+
+        This method performs a relative move (`current + delta`) but **may land
+        approximately**. The returned value is always the simulator's *actual* position.
+
+        Args:
+            delta (StagePosition): Relative movement to apply.
+
+        Returns:
+            StagePosition: The actual stage position after the attempted move.
+        """
+        self._txt_log.debug(f"Moving stage position by {delta}.")
+        cur = self._stage_position
+        target = StagePosition(
+            x=cur.x + delta.x,
+            y=cur.y + delta.y,
+            z=cur.z + delta.z,
+            rotation=cur.rotation + delta.rotation,
+            tilt=cur.tilt + delta.tilt,
+        )
+        return self.try_set_stage_position(target)
+
+    @property
+    def txt_log(self) -> TextLogger:
+        return self._txt_log
