@@ -22,10 +22,10 @@ class FieldLabel(QLabel):
         self._refresh_style(self._paired)
         super().enterEvent(event)
 
-    def leaveEvent(self, event) -> None:  # ty:ignore[invalid-method-override]
+    def leaveEvent(self, a0) -> None:
         self._paired.setProperty("highlighted", False)
         self._refresh_style(self._paired)
-        super().leaveEvent(event)
+        super().leaveEvent(a0)
 
     @staticmethod
     def _refresh_style(widget: QWidget) -> None:

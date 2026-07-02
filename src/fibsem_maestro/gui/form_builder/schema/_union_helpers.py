@@ -5,9 +5,9 @@
 from functools import cache
 from typing import Literal, get_args, get_origin, get_type_hints
 
-from fibsem_maestro.gui.new_form_builder.schema._annotated import split_annotated
-from fibsem_maestro.gui.new_form_builder.schema._extraction import get_raw_fields
-from fibsem_maestro.gui.new_form_builder.schema.field_type import (
+from fibsem_maestro.gui.form_builder.schema._annotated import split_annotated
+from fibsem_maestro.gui.form_builder.schema._extraction import get_raw_fields
+from fibsem_maestro.gui.form_builder.schema.field_type import (
     DiscriminatedUnionType,
     UnionVariant,
 )

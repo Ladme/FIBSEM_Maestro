@@ -10,7 +10,7 @@ from fibsem_maestro.gui.connection._common import (
     save_last_microscope_profile,
 )
 from fibsem_maestro.gui.form_builder.builder import FormBuilder
-from fibsem_maestro.gui.form_builder.utils import get_field_infos
+from fibsem_maestro.gui.form_builder.schema.schema import get_field_infos
 from fibsem_maestro.gui.workflow_manager import WorkflowManager
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
 

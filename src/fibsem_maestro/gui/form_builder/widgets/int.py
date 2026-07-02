@@ -2,16 +2,14 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
-from typing import Any
-
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QHBoxLayout, QLabel, QWidget
 
 from fibsem_maestro.gui.form_builder.widgets._no_scroll import NoScrollSpinBox
-from fibsem_maestro.gui.form_builder.widgets.wrapper import WidgetWrapper
+from fibsem_maestro.gui.form_builder.widgets.base import BaseWidget
 
 
-class IntWidget(QWidget, WidgetWrapper):
+class IntWidget(QWidget, BaseWidget[int]):
     def __init__(
         self,
         default: int = 0,
@@ -21,7 +19,7 @@ class IntWidget(QWidget, WidgetWrapper):
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
-        WidgetWrapper.__init__(self)
+        BaseWidget.__init__(self)
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
@@ -29,10 +27,10 @@ class IntWidget(QWidget, WidgetWrapper):
         # use large sentinels for 'no limit'
         self._spin.setMinimum(int(minimum) if minimum is not None else -2_147_483_648)
         self._spin.setMaximum(int(maximum) if maximum is not None else 2_147_483_647)
-        self._spin.setValue(int(default))
         self._spin.setFixedWidth(200)
         self._spin.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-        self._spin.valueChanged.connect(lambda _: self._notify_changed())
+        self._spin.setValue(int(default))
+        self._spin.valueChanged.connect(lambda _: self._emit())
         layout.addWidget(self._spin)
         if suffix:
             layout.addWidget(QLabel(suffix))
@@ -41,7 +39,7 @@ class IntWidget(QWidget, WidgetWrapper):
     def get_value(self) -> int:
         return self._spin.value()
 
-    def set_value(self, value: Any) -> None:
+    def set_value(self, value: int) -> None:
         self._spin.setValue(int(value))
 
     def set_read_only(self, read_only: bool) -> None:

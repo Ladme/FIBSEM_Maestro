@@ -1,9 +1,6 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
-
-from typing import Any
-
 from PyQt6.QtCore import QRectF, Qt
 from PyQt6.QtGui import QImage, QPainter, QPixmap
 from PyQt6.QtWidgets import (
@@ -20,28 +17,26 @@ from PyQt6.QtWidgets import (
 from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.point import RelativePoint
-from fibsem_maestro.gui.form_builder.widgets.area_selector._rectangle import (
+from fibsem_maestro.gui.form_builder.widgets.area_select._rectangle import (
     ResizableRect,
 )
-from fibsem_maestro.gui.form_builder.widgets.area_selector._viewer import _AreaViewer
-from fibsem_maestro.gui.form_builder.widgets.wrapper import WidgetWrapper
+from fibsem_maestro.gui.form_builder.widgets.area_select._viewer import AreaViewer
+from fibsem_maestro.gui.form_builder.widgets.base import BaseWidget
 from fibsem_maestro.microscope.microscope import Microscope
 
 
-class AreaSelectWidget(QWidget, WidgetWrapper):
+class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
     """
-    Accordion-style area selector widget.
+    Accordion-style selector for rectangular acquisition areas.
 
-    Collapsed state: shows a thumbnail of the last acquired image (or a
-    placeholder if none), a region count, and an expand button.
-
-    Expanded state: shows the full interactive viewer with acquire, clear,
-    fit-view buttons and a status bar. Clicking the header collapses it back.
+    Collapsed, it shows a thumbnail with a region overlay.
+    Expanded, it shows an interactive viewer for drawing, moving, resizing,
+    and deleting areas over the last acquired image.
 
     Args:
-        microscope: Microscope instance.
-        max_areas: Maximum number of areas. None means unlimited.
-        default: Pre-populated list of RelativeArea areas.
+        microscope: Microscope instance used to acquire images, or None.
+        max_areas: Maximum number of areas, or None for unlimited.
+        default: Pre-populated areas, applied once an image is available.
         parent: Parent widget.
     """
 
@@ -57,7 +52,7 @@ class AreaSelectWidget(QWidget, WidgetWrapper):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
-        WidgetWrapper.__init__(self)
+        BaseWidget.__init__(self)
 
         self._microscope = microscope
         self._max_areas = max_areas
@@ -110,7 +105,6 @@ class AreaSelectWidget(QWidget, WidgetWrapper):
         viewer_layout.setContentsMargins(0, 4, 0, 0)
         viewer_layout.setSpacing(4)
 
-        # toolbar
         status_box = QHBoxLayout()
         status_box.addStretch()
         self._status_label = QLabel("")
@@ -118,11 +112,16 @@ class AreaSelectWidget(QWidget, WidgetWrapper):
         status_box.addWidget(self._status_label)
         viewer_layout.addLayout(status_box)
 
-        # the actual viewer
         self._scene = QGraphicsScene()
+        # scene.changed drives ONLY the thumbnail
+        # committing changes is done via the viewer's edit-finished callback,
+        # so a drag does not spam writes
         self._scene.changed.connect(self._on_scene_changed)
-        self._viewer = _AreaViewer(
-            self._scene, self._status_label.setText, self._max_areas
+        self._viewer = AreaViewer(
+            self._scene,
+            self._status_label.setText,
+            self._max_areas,
+            on_edit_finished=self._emit,
         )
         self._viewer.setFixedHeight(self._EXPANDED_HEIGHT)
         self._viewer.setSizePolicy(
@@ -132,12 +131,14 @@ class AreaSelectWidget(QWidget, WidgetWrapper):
         outer.addWidget(self._viewer_container)
 
     def _toggle(self) -> None:
+        """Toggle between the collapsed thumbnail and the expanded viewer."""
         self._expanded = not self._expanded
         self._thumbnail_label.setVisible(not self._expanded)
         self._viewer_container.setVisible(self._expanded)
         self._toggle_btn.setText("▲ Collapse" if self._expanded else "▼ Expand")
 
     def _load_image(self) -> None:
+        """Acquire an image from the microscope and display it."""
         self._load_btn.setEnabled(False)
         self._status_label.setText("Loading image...")
         try:
@@ -151,7 +152,12 @@ class AreaSelectWidget(QWidget, WidgetWrapper):
             self._load_btn.setEnabled(True)
 
     def convert_image(self, image: Image) -> None:
-        """Convert and display an image. Preserves any existing rectangles."""
+        """
+        Display an image, preserving existing areas and realizing pending ones.
+
+        Args:
+            image: The image to display beneath the area overlay.
+        """
         arr = image.to_8bit()
         h, w = arr.shape[:2]
         self._image_size = (w, h)
@@ -163,7 +169,7 @@ class AreaSelectWidget(QWidget, WidgetWrapper):
 
         self._last_pixmap = QPixmap.fromImage(q_image)
 
-        # update scene - remove old pixmap, keep rectangles
+        # replace the background pixmap, keep the area rectangles
         for item in list(self._scene.items()):
             if not isinstance(item, (ResizableRect, QGraphicsEllipseItem)):
                 self._scene.removeItem(item)
@@ -173,10 +179,9 @@ class AreaSelectWidget(QWidget, WidgetWrapper):
         self._scene.setSceneRect(QRectF(0, 0, w, h))
         self._viewer.reset_zoom()
 
-        # update thumbnail
         self._update_thumbnail()
 
-        # apply pending regions
+        # realize any regions deferred while no image was available
         for area in self._pending_regions:
             self._add_relative_area(area)
         self._pending_regions = []
@@ -184,15 +189,18 @@ class AreaSelectWidget(QWidget, WidgetWrapper):
         self._viewer.set_image_loaded()
         self._status_label.setText(f"Image: {w}×{h} px")
 
+        # probably not strictly necessary
+        self._emit()
+
     def _on_scene_changed(self, _) -> None:
+        """Refresh the thumbnail on any scene change."""
         self._update_thumbnail()
-        self._notify_changed()
 
     def _update_thumbnail(self) -> None:
+        """Render the current scene into the collapsed thumbnail."""
         if self._last_pixmap is None:
             return
 
-        # render the full scene into a pixmap at thumbnail scale
         scene_rect = self._scene.sceneRect()
         aspect = (
             scene_rect.width() / scene_rect.height() if scene_rect.height() > 0 else 1.0
@@ -212,6 +220,12 @@ class AreaSelectWidget(QWidget, WidgetWrapper):
         self._thumbnail_label.setPixmap(thumbnail)
 
     def _add_relative_area(self, area: RelativeArea) -> None:
+        """
+        Add one relative area to the scene as an interactive rectangle.
+
+        Args:
+            area: The area to add, in image-relative fractions.
+        """
         if self._image_size is None:
             return
         w, h = self._image_size
@@ -221,15 +235,32 @@ class AreaSelectWidget(QWidget, WidgetWrapper):
             area.width * w,
             area.height * h,
         )
-        self._scene.addItem(ResizableRect(rect))
+        self._scene.addItem(ResizableRect(rect, on_edit_finished=self._emit))
+        self._update_thumbnail()
+
+    def _clear_rects(self) -> None:
+        """Remove all area rectangles from the scene."""
+        for item in list(self._scene.items()):
+            if isinstance(item, ResizableRect):
+                self._scene.removeItem(item)
         self._update_thumbnail()
 
     def get_value(self) -> list[RelativeArea]:
+        """
+        Return the current areas as image-relative fractions.
+
+        Before an image is loaded, returns the pending regions unchanged.
+        Coordinates are clamped to the unit square.
+
+        Returns:
+            The areas currently defined, in scene draw order.
+        """
         if self._image_size is None:
             return self._pending_regions
         w, h = self._image_size
-        result = []
-        # reversing list to ensure correct order in reloaded workflows
+        result: list[RelativeArea] = []
+
+        # reversed so reloaded workflows keep the original ordering
         for item in reversed(list(self._scene.items())):
             if isinstance(item, ResizableRect):
                 sr = item.scene_rect()
@@ -245,14 +276,16 @@ class AreaSelectWidget(QWidget, WidgetWrapper):
                 )
         return result
 
-    def _clear_rects(self) -> None:
-        for item in list(self._scene.items()):
-            if isinstance(item, ResizableRect):
-                self._scene.removeItem(item)
+    def set_value(self, value: list[RelativeArea]) -> None:
+        """
+        Replace the current areas (no change emitted).
 
-        self._update_thumbnail()
+        If no image is loaded yet, the areas are stored as pending and realized
+        on the next `convert_image`.
 
-    def set_value(self, value: Any) -> None:
+        Args:
+            value: The areas to display, or empty list to clear.
+        """
         self._clear_rects()
         regions = value or []
         if self._image_size is None:
@@ -262,6 +295,12 @@ class AreaSelectWidget(QWidget, WidgetWrapper):
                 self._add_relative_area(area)
 
     def set_read_only(self, read_only: bool) -> None:
+        """
+        Enable or disable all editing controls.
+
+        Args:
+            read_only: True to block loading and area editing.
+        """
         self._load_btn.setEnabled(not read_only)
         self._toggle_btn.setEnabled(not read_only)
         self._viewer.set_read_only(read_only)

@@ -4,10 +4,10 @@
 
 from PyQt6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QWidget
 
-from fibsem_maestro.gui.form_builder.widgets.wrapper import WidgetWrapper
+from fibsem_maestro.gui.form_builder.widgets.base import BaseWidget
 
 
-class StringWidget(QWidget, WidgetWrapper):
+class StringWidget(QWidget, BaseWidget[str | None]):
     def __init__(
         self,
         default: str = "",
@@ -15,7 +15,7 @@ class StringWidget(QWidget, WidgetWrapper):
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
-        WidgetWrapper.__init__(self)
+        BaseWidget.__init__(self)
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -23,7 +23,7 @@ class StringWidget(QWidget, WidgetWrapper):
         self._edit = QLineEdit()
         self._edit.setText(str(default) if default else "")
         self._edit.setFixedWidth(200)
-        self._edit.textChanged.connect(lambda _: self._notify_changed())
+        self._edit.textChanged.connect(lambda _: self._emit())
         layout.addWidget(self._edit)
         if suffix:
             layout.addWidget(QLabel(suffix))

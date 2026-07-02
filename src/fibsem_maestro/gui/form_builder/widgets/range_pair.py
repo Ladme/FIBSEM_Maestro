@@ -2,15 +2,14 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
-from typing import Any
-
+from PyQt6.QtCore import QSignalBlocker
 from PyQt6.QtWidgets import QHBoxLayout, QLabel, QWidget
 
 from fibsem_maestro.gui.form_builder.widgets._no_scroll import NoScrollDoubleSpinBox
-from fibsem_maestro.gui.form_builder.widgets.wrapper import WidgetWrapper
+from fibsem_maestro.gui.form_builder.widgets.base import BaseWidget
 
 
-class RangePairWidget(QWidget, WidgetWrapper):
+class RangePairWidget(QWidget, BaseWidget[tuple[float, float]]):
     """Two float spinners enforcing low <= high at all times."""
 
     def __init__(
@@ -22,7 +21,7 @@ class RangePairWidget(QWidget, WidgetWrapper):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
-        WidgetWrapper.__init__(self)
+        BaseWidget.__init__(self)
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
@@ -55,28 +54,22 @@ class RangePairWidget(QWidget, WidgetWrapper):
 
     def _on_low_changed(self, value: float) -> None:
         self._high.setMinimum(value)
-        self._notify_changed()
+        self._emit()
 
     def _on_high_changed(self, value: float) -> None:
         self._low.setMaximum(value)
-        self._notify_changed()
+        self._emit()
 
     def get_value(self) -> tuple[float, float]:
         return (self._low.value(), self._high.value())
 
-    def set_value(self, value: Any) -> None:
+    def set_value(self, value: tuple[float, float]) -> None:
         low, high = value
-        # we disconnect the valueChanged signals to avoid emitting them during setValue
-        self._low.valueChanged.disconnect(self._on_low_changed)
-        self._high.valueChanged.disconnect(self._on_high_changed)
-        self._low.setMaximum(high)
-        self._high.setMinimum(low)
-        self._low.setValue(low)
-        self._high.setValue(high)
-        self._low.valueChanged.connect(self._on_low_changed)
-        self._high.valueChanged.connect(self._on_high_changed)
-        self._notify_changed()
-
-    def set_read_only(self, read_only: bool) -> None:
-        self._low.setReadOnly(read_only)
-        self._high.setReadOnly(read_only)
+        # apply both values atomically so the interlocking min/max handlers
+        # don't fire and rewrite each other mid-update
+        with QSignalBlocker(self._low), QSignalBlocker(self._high):
+            self._low.setMaximum(high)
+            self._high.setMinimum(low)
+            self._low.setValue(low)
+            self._high.setValue(high)
+        self._emit()

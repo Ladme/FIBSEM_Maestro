@@ -10,8 +10,8 @@ from typing import Any, Union, get_args, get_origin, get_type_hints
 
 from pydantic_core import PydanticUndefined
 
-from fibsem_maestro.gui.new_form_builder.schema._predicates import is_pydantic_model
-from fibsem_maestro.gui.new_form_builder.schema._raw_field import RawField
+from fibsem_maestro.gui.form_builder.schema._predicates import is_pydantic_model
+from fibsem_maestro.gui.form_builder.schema._raw_field import RawField
 
 
 @cache

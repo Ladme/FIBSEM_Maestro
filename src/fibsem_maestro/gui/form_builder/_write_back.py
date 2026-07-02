@@ -3,8 +3,8 @@
 
 
 from fibsem_maestro.action.action import Action
-from fibsem_maestro.gui.new_form_builder.schema.field_info import FieldInfo
-from fibsem_maestro.gui.new_form_builder.widgets.base import BaseWidget
+from fibsem_maestro.gui.form_builder.schema.field_info import FieldInfo
+from fibsem_maestro.gui.form_builder.widgets.base import BaseWidget
 from fibsem_maestro.gui.workflow_manager import WorkflowManager
 from fibsem_maestro.settings.base_settings import BaseSettings
 
@@ -26,7 +26,7 @@ class WriteBack:
         self,
         settings: BaseSettings,
         fi: FieldInfo,
-        manager: WorkflowManager,
+        manager: WorkflowManager | None,
         action: Action | None,
     ) -> None:
         self._settings = settings
@@ -51,5 +51,5 @@ class WriteBack:
             return
 
         # exactly one write per edit, so the side effect also fires once
-        if self._action is not None:
+        if self._action is not None and self._manager is not None:
             self._manager.action_changed.emit(self._action)

@@ -8,9 +8,9 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QMouseEvent, QResizeEvent
 from PyQt6.QtWidgets import QGroupBox, QLabel, QSizePolicy, QVBoxLayout, QWidget
 
-from fibsem_maestro.gui.new_form_builder.widgets.base import BaseWidget
-from fibsem_maestro.gui.new_form_builder.widgets.object import ObjectWidget
-from fibsem_maestro.gui.new_form_builder.widgets.union import DiscriminatedUnionWidget
+from fibsem_maestro.gui.form_builder.widgets.base import BaseWidget
+from fibsem_maestro.gui.form_builder.widgets.object import ObjectWidget
+from fibsem_maestro.gui.form_builder.widgets.union import DiscriminatedUnionWidget
 
 T = TypeVar("T")
 

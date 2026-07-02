@@ -14,6 +14,7 @@ from fibsem_maestro.gui.new_form_builder.schema.schema import get_field_infos
 from fibsem_maestro.settings.autofocus_settings import AutofocusSettings
 from fibsem_maestro.settings.base_settings import BaseSettings
 from fibsem_maestro.settings.imaging_settings import ExtendedResolution, ImagingSettings
+from fibsem_maestro.settings.milling_settings import MillingSettings
 
 
 # --------------------------------------------------------------------------- #
@@ -91,7 +92,7 @@ class FakeManager(QObject):
 def main() -> None:
     app = QApplication(sys.argv)
 
-    settings = AutofocusSettings()
+    settings = MillingSettings()
     settings.on_change(lambda s: print("CHANGED ->", s.model_dump()))
 
     form = FormBuilder().build_form(settings, FakeManager())

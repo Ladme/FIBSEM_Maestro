@@ -3,9 +3,9 @@
 
 from dataclasses import dataclass
 
-from fibsem_maestro.gui.new_form_builder.schema.constraints import NumericBounds
-from fibsem_maestro.gui.new_form_builder.schema.default import Default
-from fibsem_maestro.gui.new_form_builder.schema.field_type import FieldType
+from fibsem_maestro.gui.form_builder.schema.constraints import NumericBounds
+from fibsem_maestro.gui.form_builder.schema.default import Default
+from fibsem_maestro.gui.form_builder.schema.field_type import FieldType
 from fibsem_maestro.settings.form_utils import FieldUnit, FormHint
 
 

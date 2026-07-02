@@ -22,7 +22,7 @@ from PyQt6.QtWidgets import (
 from fibsem_maestro.action.action import Action
 from fibsem_maestro.gui.form_builder.builder import FormBuilder
 from fibsem_maestro.gui.form_builder.widgets.field_label import FieldLabel
-from fibsem_maestro.gui.form_builder.widgets.group_box import GroupBoxWidget
+from fibsem_maestro.gui.form_builder.widgets.group_wrapper import GroupWrapper
 from fibsem_maestro.gui.workflow_manager import WorkflowManager
 from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.workflow.actions import Actions
@@ -105,7 +105,7 @@ class PropagationRuleWidget(QFrame):
         grid.addWidget(self._dep_list, 0, 1)
 
         # properties
-        self._props_widget = GroupBoxWidget(
+        self._props_widget = GroupWrapper(
             FormBuilder().build_form(PropertyNames(), self._manager)
         )
         prop_label = FieldLabel("properties", self._props_widget)

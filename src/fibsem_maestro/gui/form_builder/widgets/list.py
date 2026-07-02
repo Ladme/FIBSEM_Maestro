@@ -3,7 +3,7 @@
 
 
 from collections.abc import Callable
-from typing import Any, cast
+from typing import TypeVar, cast
 
 from PyQt6.QtWidgets import (
     QGroupBox,
@@ -14,29 +14,31 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from fibsem_maestro.gui.form_builder.widgets.wrapper import WidgetWrapper
+from fibsem_maestro.gui.form_builder.widgets.base import BaseWidget
+
+T = TypeVar("T")
 
 
-class ListWidget(QWidget, WidgetWrapper):
+class ListWidget(QWidget, BaseWidget[list[T]]):
     """
     A vertical list of same-type widgets with add and remove controls.
 
     Args:
-        item_factory: Callable that returns a new WidgetWrapper for each item.
+        item_factory: Callable that returns a new BaseWidget for each item.
         default: Initial list of values to pre-populate.
         parent: Parent widget.
     """
 
     def __init__(
         self,
-        item_factory: Callable[[], WidgetWrapper],
-        default: list[Any] | None = None,
+        item_factory: Callable[[], BaseWidget[T]],
+        default: list[T] | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
-        WidgetWrapper.__init__(self)
+        BaseWidget.__init__(self)
         self._item_factory = item_factory
-        self._items: list[WidgetWrapper] = []
+        self._items: list[BaseWidget[T]] = []
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -60,9 +62,8 @@ class ListWidget(QWidget, WidgetWrapper):
         for value in default or []:
             self._add_item(value)
 
-    def _add_item(self, value: Any = None) -> None:
+    def _add_item(self, value: T | None = None) -> None:
         widget = self._item_factory()
-        widget._parent = self
 
         row = QHBoxLayout()
         row.setContentsMargins(0, 0, 0, 0)
@@ -82,21 +83,21 @@ class ListWidget(QWidget, WidgetWrapper):
 
         if value is not None:
             widget.set_value(value)
-        self._notify_changed()
+        self._emit()
 
-    def _remove_item(self, row: QHBoxLayout, widget: WidgetWrapper) -> None:
+    def _remove_item(self, row: QHBoxLayout, widget: BaseWidget[T]) -> None:
         self._items.remove(widget)
         while row.count():
             item = row.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
         self._items_layout.removeItem(row)
-        self._notify_changed()
+        self._emit()
 
-    def get_value(self) -> list[Any]:
+    def get_value(self) -> list[T]:
         return [w.get_value() for w in self._items]
 
-    def set_value(self, value: Any) -> None:
+    def set_value(self, value: list[T] | None) -> None:
         while self._items:
             item = self._items[0]
             row = self._items_layout.itemAt(0)

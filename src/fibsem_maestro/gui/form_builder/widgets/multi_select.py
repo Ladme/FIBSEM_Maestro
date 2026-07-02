@@ -5,15 +5,15 @@
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QAbstractItemView, QListWidget
 
-from fibsem_maestro.gui.form_builder.widgets.wrapper import WidgetWrapper
+from fibsem_maestro.gui.form_builder.widgets.base import BaseWidget
 
 
-class MultiSelectWidget(QListWidget, WidgetWrapper):
+class MultiSelectWidget(QListWidget, BaseWidget[list[str]]):
     def __init__(
         self, choices: list[str], default: list[str] | None = None, parent=None
     ):
         super().__init__(parent)
-        WidgetWrapper.__init__(self)
+        BaseWidget.__init__(self)
         self.setSelectionMode(QAbstractItemView.SelectionMode.MultiSelection)
         self.setStyleSheet("""
             QListWidget::item:selected {
@@ -32,7 +32,7 @@ class MultiSelectWidget(QListWidget, WidgetWrapper):
             for item in items:
                 item.setSelected(True)
 
-        self.itemSelectionChanged.connect(self._notify_changed)
+        self.itemSelectionChanged.connect(self._emit)
 
     def get_value(self) -> list[str]:
         return [item.text() for item in self.selectedItems()]

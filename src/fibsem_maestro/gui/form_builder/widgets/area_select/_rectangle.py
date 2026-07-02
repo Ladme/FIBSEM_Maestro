@@ -2,11 +2,20 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
-from PyQt6.QtCore import QPointF, QRectF, Qt
-from PyQt6.QtGui import QBrush, QCursor, QPen
-from PyQt6.QtWidgets import QGraphicsEllipseItem, QGraphicsItem, QGraphicsRectItem
+from collections.abc import Callable
 
-from fibsem_maestro.gui.form_builder.widgets.area_selector._constants import (
+from PyQt6.QtCore import QPointF, QRectF, Qt
+from PyQt6.QtGui import QBrush, QCursor, QPainter, QPen
+from PyQt6.QtWidgets import (
+    QGraphicsEllipseItem,
+    QGraphicsItem,
+    QGraphicsRectItem,
+    QGraphicsSceneMouseEvent,
+    QStyleOptionGraphicsItem,
+    QWidget,
+)
+
+from fibsem_maestro.gui.form_builder.widgets.area_select._constants import (
     HANDLE_BORDER,
     HANDLE_COLOR,
     HANDLE_RADIUS,
@@ -14,7 +23,7 @@ from fibsem_maestro.gui.form_builder.widgets.area_selector._constants import (
     RECT_PEN_NORMAL,
     RECT_PEN_SELECTED,
 )
-from fibsem_maestro.gui.form_builder.widgets.area_selector._handle import (
+from fibsem_maestro.gui.form_builder.widgets.area_select._handle import (
     HANDLE_CURSORS,
     Handle,
     apply_handle_drag,
@@ -23,14 +32,22 @@ from fibsem_maestro.gui.form_builder.widgets.area_selector._handle import (
 
 class ResizableRect(QGraphicsRectItem):
     """
-    A rectangle with 8 resize handles and a movable body.
+    A rectangle with eight resize handles and a movable body.
 
-    Dragging the body moves the rectangle.
-    Dragging a handle resizes from that anchor point.
+    Args:
+        rect: Initial geometry, in scene coordinates.
+        on_edit_finished: Called once when a move or resize gesture completes.
+        parent: Parent graphics item.
     """
 
-    def __init__(self, rect: QRectF, parent: QGraphicsRectItem | None = None) -> None:
+    def __init__(
+        self,
+        rect: QRectF,
+        on_edit_finished: Callable[[], None] | None = None,
+        parent: QGraphicsRectItem | None = None,
+    ) -> None:
         super().__init__(rect, parent)
+        self._on_edit_finished = on_edit_finished
         self.setPen(RECT_PEN_NORMAL)
         self.setBrush(RECT_FILL)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable)
@@ -42,8 +59,9 @@ class ResizableRect(QGraphicsRectItem):
         self._drag_start_rect: QRectF | None = None
         self._body_drag_start: QPointF | None = None
         self._body_drag_origin: QPointF | None = None
+        self._moved_during_drag = False
 
-        # create one ellipse item per handle, parented to this rect
+        # one ellipse item per handle, parented to this rect
         self._handles: dict[Handle, QGraphicsEllipseItem] = {}
         for h in Handle:
             ellipse = QGraphicsEllipseItem(
@@ -62,17 +80,31 @@ class ResizableRect(QGraphicsRectItem):
         self._update_handle_positions()
 
     def _update_handle_positions(self) -> None:
+        """Reposition all handle ellipses to match the current rectangle."""
         r = self.rect()
         for h, ellipse in self._handles.items():
-            pos = h.position(r)
-            ellipse.setPos(pos)
+            ellipse.setPos(h.position(r))
 
     def set_rect(self, rect: QRectF) -> None:
+        """
+        Set the rectangle geometry and refresh handle positions.
+
+        Args:
+            rect: The new geometry, in the item's local coordinates.
+        """
         self.setRect(rect)
         self._update_handle_positions()
 
     def _handle_at(self, pos: QPointF) -> Handle | None:
-        """Return which handle (if any) is under the given item-local position."""
+        """
+        Return the handle under a local position, or None.
+
+        Args:
+            pos: A point in the item's local coordinate space.
+
+        Returns:
+            The handle within grab distance of `pos`, or None.
+        """
         for h in self._handles:
             hp = h.position(self.rect())
             dx = pos.x() - hp.x()
@@ -81,17 +113,25 @@ class ResizableRect(QGraphicsRectItem):
                 return h
         return None
 
-    def paint(self, painter, option, widget=None) -> None:
+    def paint(
+        self,
+        painter: QPainter,
+        option: QStyleOptionGraphicsItem,
+        widget: QWidget | None = None,
+    ) -> None:
+        """Paint the rectangle, styling its border by selection state."""
         self.setPen(RECT_PEN_SELECTED if self.isSelected() else RECT_PEN_NORMAL)
         super().paint(painter, option, widget)
 
-    def mousePressEvent(self, event) -> None:
+    def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
+        """Begin a handle-resize or body-move gesture."""
         if event.button() != Qt.MouseButton.LeftButton:
             super().mousePressEvent(event)
             return
 
         pos = event.pos()
         handle = self._handle_at(pos)
+        self._moved_during_drag = False
 
         if handle is not None:
             self._drag_handle = handle
@@ -104,33 +144,48 @@ class ResizableRect(QGraphicsRectItem):
         self.setSelected(True)
         event.accept()
 
-    def mouseMoveEvent(self, event) -> None:
+    def mouseMoveEvent(self, event: QGraphicsSceneMouseEvent) -> None:
+        """Apply an in-progress resize or move."""
         if self._drag_handle is not None and self._drag_start_scene is not None:
-            delta = event.scenePos() - self._drag_start_scene
+            delta = event.scenePos() - self._drag_start_scene  # type: ignore
             assert self._drag_start_rect is not None
             new_rect = apply_handle_drag(
                 self._drag_start_rect, self._drag_handle, delta
             )
             self.set_rect(new_rect)
+            self._moved_during_drag = True
             event.accept()
             return
 
         if self._body_drag_start is not None and self._body_drag_origin is not None:
-            delta = event.scenePos() - self._body_drag_start
+            delta = event.scenePos() - self._body_drag_start  # type: ignore
             self.setPos(self._body_drag_origin + delta)
+            self._moved_during_drag = True
             event.accept()
             return
 
         super().mouseMoveEvent(event)
 
-    def mouseReleaseEvent(self, event) -> None:
+    def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent) -> None:
+        """End the gesture and notify once if the geometry actually changed."""
+        moved = self._moved_during_drag and (
+            self._drag_handle is not None or self._body_drag_start is not None
+        )
         self._drag_handle = None
         self._drag_start_scene = None
         self._drag_start_rect = None
         self._body_drag_start = None
         self._body_drag_origin = None
+        self._moved_during_drag = False
         super().mouseReleaseEvent(event)
+        if moved and self._on_edit_finished is not None:
+            self._on_edit_finished()
 
     def scene_rect(self) -> QRectF:
-        """Return the rect in scene coordinates, accounting for any body drag offset."""
+        """
+        Return the rectangle in scene coordinates, including any move offset.
+
+        Returns:
+            The bounding rectangle of this item mapped into the scene.
+        """
         return self.mapToScene(self.rect()).boundingRect()

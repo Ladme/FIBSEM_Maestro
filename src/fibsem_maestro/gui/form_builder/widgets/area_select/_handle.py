@@ -6,10 +6,14 @@ from enum import Enum
 
 from PyQt6.QtCore import QPointF, QRectF, Qt
 
-from fibsem_maestro.gui.form_builder.widgets.area_selector._constants import MIN_RECT_PX
+from fibsem_maestro.gui.form_builder.widgets.area_select._constants import (
+    MIN_RECT_PX,
+)
 
 
 class Handle(Enum):
+    """One of the eight resize handles on a rectangle."""
+
     TOP_LEFT = "top_left"
     TOP = "top"
     TOP_RIGHT = "top_right"
@@ -20,7 +24,15 @@ class Handle(Enum):
     LEFT = "left"
 
     def position(self, rect: QRectF) -> QPointF:
-        """Return the scene position of a handle of a given rectangle."""
+        """
+        Return the position of this handle for a given rectangle.
+
+        Args:
+            rect: The rectangle whose handle position is requested.
+
+        Returns:
+            The handle's position in the rectangle's coordinate space.
+        """
         cx = rect.center().x()
         cy = rect.center().y()
         match self:
@@ -55,7 +67,20 @@ HANDLE_CURSORS: dict[Handle, Qt.CursorShape] = {
 
 
 def apply_handle_drag(rect: QRectF, handle: Handle, delta: QPointF) -> QRectF:
-    """Return a new QRectF after moving `handle` by `delta`."""
+    """
+    Return a new rectangle after dragging one handle by a delta.
+
+    The opposite edge stays anchored, and a minimum size of `MIN_RECT_PX` is
+    enforced by pushing back the moved edge if the rectangle would collapse.
+
+    Args:
+        rect: The rectangle before the drag.
+        handle: The handle being dragged.
+        delta: The drag displacement, in the same coordinate space as `rect`.
+
+    Returns:
+        The resized rectangle.
+    """
     left, top, right, bottom = rect.left(), rect.top(), rect.right(), rect.bottom()
     dx, dy = delta.x(), delta.y()
 
@@ -81,7 +106,7 @@ def apply_handle_drag(rect: QRectF, handle: Handle, delta: QPointF) -> QRectF:
         case Handle.LEFT:
             left += dx
 
-    # enforce minimum size
+    # enforce minimum size, keeping the anchored edge fixed
     if right - left < MIN_RECT_PX:
         if handle in (Handle.LEFT, Handle.TOP_LEFT, Handle.BOTTOM_LEFT):
             left = right - MIN_RECT_PX

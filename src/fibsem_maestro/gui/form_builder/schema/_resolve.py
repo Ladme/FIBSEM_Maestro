@@ -4,8 +4,8 @@
 
 import dataclasses
 
-from fibsem_maestro.gui.new_form_builder.schema._raw_field import RawField
-from fibsem_maestro.gui.new_form_builder.schema.default import Default
+from fibsem_maestro.gui.form_builder.schema._raw_field import RawField
+from fibsem_maestro.gui.form_builder.schema.default import Default
 
 
 def pydantic_discriminator(extras: tuple) -> str | None:

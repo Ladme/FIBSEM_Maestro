@@ -6,7 +6,6 @@ from PyQt6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
 from fibsem_maestro.gui.connection._common import CONNECTION_FIELDS
 from fibsem_maestro.gui.form_builder.builder import FormBuilder
-from fibsem_maestro.gui.form_builder.utils import get_field_infos
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
 
 
@@ -37,13 +36,13 @@ class NewWorkflowScreen(QWidget):
 
         layout.addWidget(QLabel("Microscope connection"))
 
-        all_infos = get_field_infos(MicroscopeSettings)
-        connection_infos = [fi for fi in all_infos if fi.name in CONNECTION_FIELDS]
-
-        self._form = form_builder._build_object(
-            MicroscopeSettings, last_microscope_profile, connection_infos
+        self._form = form_builder.build_fields(
+            MicroscopeSettings, fields=list(CONNECTION_FIELDS)
         )
         layout.addWidget(self._form)
+
+        if last_microscope_profile is not None:
+            self._form.set_value(last_microscope_profile)
 
         # pre-fill from last profile
         if last_microscope_profile is not None:

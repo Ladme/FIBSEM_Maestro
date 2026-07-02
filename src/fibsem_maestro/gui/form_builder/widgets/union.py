@@ -14,19 +14,19 @@ from PyQt6.QtWidgets import (
 )
 
 from fibsem_maestro.gui.common import class_name_to_label
-from fibsem_maestro.gui.form_builder.utils import FieldInfo
+from fibsem_maestro.gui.form_builder.schema.field_info import FieldInfo
+from fibsem_maestro.gui.form_builder.widgets.base import BaseWidget
 from fibsem_maestro.gui.form_builder.widgets.object import ObjectWidget
-from fibsem_maestro.gui.form_builder.widgets.wrapper import WidgetWrapper
 
 
 def _get_field_infos_for_variant(cls: type):
     # import get_field_infos locally to avoid circular imports
-    from fibsem_maestro.gui.form_builder.utils import get_field_infos
+    from fibsem_maestro.gui.form_builder.schema.schema import get_field_infos
 
     return get_field_infos(cls)
 
 
-class DiscriminatedUnionWidget(QWidget, WidgetWrapper):
+class DiscriminatedUnionWidget(QWidget, BaseWidget[Any]):
     """
     Radio buttons + QStackedWidget for discriminated unions.
 
@@ -39,10 +39,11 @@ class DiscriminatedUnionWidget(QWidget, WidgetWrapper):
         self,
         variants: list[tuple[str, type]],
         discriminator_key: str,
-        build_object: Callable[[type, list[FieldInfo] | None], ObjectWidget],
+        build_object: Callable[[type, list[FieldInfo] | None], ObjectWidget[Any]],
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
+        BaseWidget.__init__(self)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
@@ -71,7 +72,6 @@ class DiscriminatedUnionWidget(QWidget, WidgetWrapper):
 
             if extra_field_infos:
                 variant_widget = build_object(variant_cls, extra_field_infos)
-                variant_widget._parent = self
             else:
                 variant_widget = QWidget()
                 self._empty_indices.add(i)
@@ -93,7 +93,7 @@ class DiscriminatedUnionWidget(QWidget, WidgetWrapper):
     def _on_selection_changed(self, index: int) -> None:
         for i, widget in enumerate(self._variant_widgets):
             widget.setVisible(i == index and index not in self._empty_indices)
-        self._notify_changed()
+        self._emit()
 
     def get_value(self) -> Any:
         index = self._button_group.checkedId()
@@ -101,8 +101,8 @@ class DiscriminatedUnionWidget(QWidget, WidgetWrapper):
         data = {self._discriminator_key: self._discriminator_values[index]}
         if index not in self._empty_indices:
             widget = self._variant_widgets[index]
-            if isinstance(widget, WidgetWrapper):
-                data.update(widget.get_value())
+            if isinstance(widget, ObjectWidget):
+                data.update(widget.values_dict())
         return variant_cls(**data)
 
     def set_value(self, value: Any) -> None:
@@ -112,7 +112,7 @@ class DiscriminatedUnionWidget(QWidget, WidgetWrapper):
         index = self._discriminator_values.index(disc_value)
         if index not in self._empty_indices:
             widget = self._variant_widgets[index]
-            if isinstance(widget, WidgetWrapper):
+            if isinstance(widget, BaseWidget):
                 widget.set_value(value)
         btn = self._button_group.button(index)
         if btn:
@@ -123,7 +123,8 @@ class DiscriminatedUnionWidget(QWidget, WidgetWrapper):
         # disable radio buttons
         for btn in self._button_group.buttons():
             btn.setEnabled(not read_only)
+
         # propagate to all variant widgets
         for widget in self._variant_widgets:
-            if isinstance(widget, WidgetWrapper):
+            if isinstance(widget, BaseWidget):
                 widget.set_read_only(read_only)

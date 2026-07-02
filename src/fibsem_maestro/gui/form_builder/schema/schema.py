@@ -9,27 +9,27 @@ from types import NoneType
 from typing import Any, Literal, Union, get_args, get_origin
 
 from fibsem_maestro.gui.common import field_name_to_label
-from fibsem_maestro.gui.new_form_builder.schema._annotated import split_annotated
-from fibsem_maestro.gui.new_form_builder.schema._extraction import (
+from fibsem_maestro.gui.form_builder.schema._annotated import split_annotated
+from fibsem_maestro.gui.form_builder.schema._extraction import (
     get_raw_fields,
     unwrap_optional,
 )
-from fibsem_maestro.gui.new_form_builder.schema._predicates import (
+from fibsem_maestro.gui.form_builder.schema._predicates import (
     is_float_tuple,
     is_model,
 )
-from fibsem_maestro.gui.new_form_builder.schema._resolve import (
+from fibsem_maestro.gui.form_builder.schema._resolve import (
     pydantic_discriminator,
     resolve_default,
     resolve_description,
 )
-from fibsem_maestro.gui.new_form_builder.schema._union_helpers import (
+from fibsem_maestro.gui.form_builder.schema._union_helpers import (
     get_discriminator_key,
     make_union,
 )
-from fibsem_maestro.gui.new_form_builder.schema.constraints import extract_bounds
-from fibsem_maestro.gui.new_form_builder.schema.field_info import FieldInfo
-from fibsem_maestro.gui.new_form_builder.schema.field_type import (
+from fibsem_maestro.gui.form_builder.schema.constraints import extract_bounds
+from fibsem_maestro.gui.form_builder.schema.field_info import FieldInfo
+from fibsem_maestro.gui.form_builder.schema.field_type import (
     BoolType,
     DataclassType,
     EnumType,
