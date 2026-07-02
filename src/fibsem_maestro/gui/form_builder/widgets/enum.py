@@ -35,6 +35,7 @@ class EnumWidget(NoScrollComboBox, BaseWidget[T | None]):
                 choice.value if isinstance(choice, Enum) else str(choice),
                 userData=choice,
             )
+            self._values.append(choice)
 
         if default is not None and default in self._values:
             self.setCurrentIndex(self._values.index(default))

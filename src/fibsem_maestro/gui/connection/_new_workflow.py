@@ -44,16 +44,6 @@ class NewWorkflowScreen(QWidget):
         if last_microscope_profile is not None:
             self._form.set_value(last_microscope_profile)
 
-        # pre-fill from last profile
-        if last_microscope_profile is not None:
-            self._form.set_value(
-                {
-                    "control": last_microscope_profile.control,
-                    "ip_address": last_microscope_profile.ip_address,
-                    "port": last_microscope_profile.port,
-                }
-            )
-
         layout.addStretch()
 
     def get_microscope_settings(self) -> MicroscopeSettings:

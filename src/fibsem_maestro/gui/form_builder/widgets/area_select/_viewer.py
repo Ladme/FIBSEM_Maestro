@@ -9,7 +9,7 @@ from PyQt6.QtGui import QKeyEvent, QMouseEvent, QPainter, QWheelEvent
 from PyQt6.QtWidgets import QGraphicsEllipseItem, QGraphicsScene, QGraphicsView
 
 from fibsem_maestro.gui.form_builder.widgets.area_select._constants import (
-    MIN_RECT_PX,
+    MIN_DRAW_PX,
 )
 from fibsem_maestro.gui.form_builder.widgets.area_select._rectangle import (
     ResizableRect,
@@ -105,9 +105,6 @@ class AreaViewer(QGraphicsView):
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         """Start panning, forward to an item, or begin drawing a new rect."""
-        if self._read_only:
-            return
-
         if event.button() == Qt.MouseButton.RightButton:
             self._panning = True
             self._pan_start = event.position()
@@ -115,33 +112,27 @@ class AreaViewer(QGraphicsView):
             event.accept()
             return
 
-        # let existing rects and their handles handle their own presses
+        # clicking an existing rect/handle: forward so the item can select;
+        # the item itself refuses edits when read-only
         item = self.itemAt(event.pos())
-        if isinstance(item, (ResizableRect, QGraphicsEllipseItem)):
+        if isinstance(item, QGraphicsEllipseItem):
+            item = item.parentItem()
+        if isinstance(item, ResizableRect):
             super().mousePressEvent(event)
             return
 
         if event.button() == Qt.MouseButton.LeftButton:
+            self.scene().clearSelection()
+            if self._read_only:
+                return
+
             if not self._image_loaded:
                 self._status_message_timed("Load an image first.")
                 return
 
-            if self._max_areas is not None and self._rect_count() >= self._max_areas:
-                self._status_message_timed(
-                    f"Maximum of {self._max_areas} area(s) reached."
-                )
-                return
-
-            for it in self.scene().selectedItems():
-                it.setSelected(False)
-
             self._drawing = True
             self._draw_origin = self.mapToScene(event.pos())
-            self._current_rect = ResizableRect(
-                QRectF(self._draw_origin, self._draw_origin),
-                on_edit_finished=self._on_edit_finished,
-            )
-            self.scene().addItem(self._current_rect)
+            # the rectangle is created lazily in mouseMoveEvent, once the drag clears MIN_DRAW_PX
             event.accept()
             return
 
@@ -161,12 +152,36 @@ class AreaViewer(QGraphicsView):
             event.accept()
             return
 
-        if self._drawing and self._current_rect is not None:
+        if self._drawing:
             pos = self.mapToScene(event.pos())
             rect = QRectF(self._draw_origin, pos).normalized()
-            self._current_rect.set_rect(rect)
+            scale = self.transform().m11()  # scene units -> viewport px
+
+            if self._current_rect is None:
+                if (
+                    rect.width() * scale >= MIN_DRAW_PX
+                    or rect.height() * scale >= MIN_DRAW_PX
+                ):
+                    # make sure we haven't exceeded the max number of areas
+                    if (
+                        self._max_areas is not None
+                        and self._rect_count() >= self._max_areas
+                    ):
+                        self._status_message_timed(
+                            f"Maximum of {self._max_areas} area(s) reached."
+                        )
+                        return
+
+                    self._current_rect = ResizableRect(
+                        rect, on_edit_finished=self._on_edit_finished
+                    )
+                    self.scene().addItem(self._current_rect)
+            else:
+                self._current_rect.set_rect(rect)
+
             if self._status_message is None:
                 self._status(f"Drawing: {rect.width():.0f} × {rect.height():.0f} px")
+
             event.accept()
             return
 
@@ -187,18 +202,13 @@ class AreaViewer(QGraphicsView):
 
         if event.button() == Qt.MouseButton.LeftButton and self._drawing:
             self._drawing = False
-            committed = False
-            if self._current_rect is not None:
+            committed = self._current_rect is not None
+            if committed:
                 r = self._current_rect.rect()
-                if r.width() < MIN_RECT_PX and r.height() < MIN_RECT_PX:
-                    # a click, not a drawn area -> discard
-                    self.scene().removeItem(self._current_rect)
-                else:
-                    committed = True
-                    self._status_message_timed(
-                        f"Area created: x={r.x():.0f} y={r.y():.0f} "
-                        f"w={r.width():.0f} h={r.height():.0f}",
-                    )
+                self._status_message_timed(
+                    f"Area created: x={r.x():.0f} y={r.y():.0f} "
+                    f"w={r.width():.0f} h={r.height():.0f}"
+                )
             self._current_rect = None
             event.accept()
             if committed:

@@ -73,3 +73,7 @@ class RangePairWidget(QWidget, BaseWidget[tuple[float, float]]):
             self._low.setValue(low)
             self._high.setValue(high)
         self._emit()
+
+    def set_read_only(self, read_only: bool) -> None:
+        for spinbox in (self._low, self._high):
+            spinbox.setReadOnly(read_only)

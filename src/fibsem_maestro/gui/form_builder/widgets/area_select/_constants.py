@@ -11,3 +11,5 @@ RECT_FILL = QBrush(QColor(0, 120, 255, 60))
 RECT_PEN_NORMAL = QPen(QColor(0, 120, 255), 2, Qt.PenStyle.SolidLine)
 RECT_PEN_SELECTED = QPen(QColor(255, 60, 60), 2, Qt.PenStyle.DashLine)
 MIN_RECT_PX = 8
+# minimum drag, in *viewport* pixels, before a rect is created
+MIN_DRAW_PX = 8

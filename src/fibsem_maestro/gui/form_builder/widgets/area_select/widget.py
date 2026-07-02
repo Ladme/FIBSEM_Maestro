@@ -1,6 +1,7 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
+import numpy as np
 from PyQt6.QtCore import QRectF, Qt
 from PyQt6.QtGui import QImage, QPainter, QPixmap
 from PyQt6.QtWidgets import (
@@ -137,6 +138,9 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         self._viewer_container.setVisible(self._expanded)
         self._toggle_btn.setText("▲ Collapse" if self._expanded else "▼ Expand")
 
+        if not self._expanded:
+            self._update_thumbnail()
+
     def _load_image(self) -> None:
         """Acquire an image from the microscope and display it."""
         self._load_btn.setEnabled(False)
@@ -158,14 +162,18 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         Args:
             image: The image to display beneath the area overlay.
         """
-        arr = image.to_8bit()
+        arr = np.ascontiguousarray(image.to_8bit())
         h, w = arr.shape[:2]
         self._image_size = (w, h)
 
         if arr.ndim == 2:
-            q_image = QImage(arr.data.tobytes(), w, h, QImage.Format.Format_Grayscale8)
+            q_image = QImage(
+                arr.tobytes(), w, h, arr.strides[0], QImage.Format.Format_Grayscale8
+            ).copy()
         else:
-            q_image = QImage(arr.data.tobytes(), w, h, QImage.Format.Format_RGB888)
+            q_image = QImage(
+                arr.tobytes(), w, h, arr.strides[0], QImage.Format.Format_RGB888
+            ).copy()
 
         self._last_pixmap = QPixmap.fromImage(q_image)
 
@@ -175,6 +183,8 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
                 self._scene.removeItem(item)
 
         pixmap_item = self._scene.addPixmap(self._last_pixmap)
+        # set smooth transformation to avoid visual artifacts in compressed images
+        pixmap_item.setTransformationMode(Qt.TransformationMode.SmoothTransformation)
         pixmap_item.setZValue(-1)
         self._scene.setSceneRect(QRectF(0, 0, w, h))
         self._viewer.reset_zoom()
@@ -194,7 +204,8 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
 
     def _on_scene_changed(self, _) -> None:
         """Refresh the thumbnail on any scene change."""
-        self._update_thumbnail()
+        if not self._expanded:
+            self._update_thumbnail()
 
     def _update_thumbnail(self) -> None:
         """Render the current scene into the collapsed thumbnail."""
@@ -208,15 +219,32 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         thumb_w = int(self._THUMBNAIL_HEIGHT * aspect)
         thumb_h = self._THUMBNAIL_HEIGHT
 
-        thumbnail = QPixmap(thumb_w, thumb_h)
-        thumbnail.fill(Qt.GlobalColor.black)
+        # render at a higher resolution, then downscale with a smoothing filter
+        supersample = 3
+        hi = QPixmap(thumb_w * supersample, thumb_h * supersample)
+        hi.fill(Qt.GlobalColor.black)
 
-        painter = QPainter(thumbnail)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-        self._scene.render(painter, QRectF(0, 0, thumb_w, thumb_h), scene_rect)
-        painter.end()
+        rects = [it for it in self._scene.items() if isinstance(it, ResizableRect)]
+        for r in rects:
+            r.set_handles_visible(False)
+        try:
+            painter = QPainter(hi)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+            self._scene.render(
+                painter, QRectF(0, 0, hi.width(), hi.height()), scene_rect
+            )
+            painter.end()
+        finally:
+            for r in rects:
+                r.restore_handles()
 
+        thumbnail = hi.scaled(
+            thumb_w,
+            thumb_h,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
         self._thumbnail_label.setPixmap(thumbnail)
 
     def _add_relative_area(self, area: RelativeArea) -> None:
@@ -296,11 +324,18 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
 
     def set_read_only(self, read_only: bool) -> None:
         """
-        Enable or disable all editing controls.
+        Freeze the areas while leaving navigation and collapse available.
+
+        In read-only mode the user can still expand/collapse, zoom, and pan, but
+        cannot load a new image, draw, delete, move, or resize areas. Resize
+        handles are hidden, since editing is disabled.
 
         Args:
-            read_only: True to block loading and area editing.
+            read_only: True to freeze area editing and image loading.
         """
         self._load_btn.setEnabled(not read_only)
-        self._toggle_btn.setEnabled(not read_only)
+        # toggle stays enabled: collapse/expand is navigation, not editing
         self._viewer.set_read_only(read_only)
+        for item in self._scene.items():
+            if isinstance(item, ResizableRect):
+                item.set_read_only(read_only)

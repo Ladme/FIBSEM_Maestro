@@ -61,6 +61,8 @@ class ResizableRect(QGraphicsRectItem):
         self._body_drag_origin: QPointF | None = None
         self._moved_during_drag = False
 
+        self._read_only = False
+
         # one ellipse item per handle, parented to this rect
         self._handles: dict[Handle, QGraphicsEllipseItem] = {}
         for h in Handle:
@@ -75,6 +77,9 @@ class ResizableRect(QGraphicsRectItem):
             ellipse.setPen(QPen(HANDLE_BORDER, 1.5))
             ellipse.setZValue(1)
             ellipse.setCursor(QCursor(HANDLE_CURSORS[h]))
+            ellipse.setFlag(
+                QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations, True
+            )
             self._handles[h] = ellipse
 
         self._update_handle_positions()
@@ -109,7 +114,9 @@ class ResizableRect(QGraphicsRectItem):
             hp = h.position(self.rect())
             dx = pos.x() - hp.x()
             dy = pos.y() - hp.y()
-            if (dx * dx + dy * dy) ** 0.5 <= HANDLE_RADIUS * 2:
+            scale = self._view_scale()
+            tol = (HANDLE_RADIUS * 2) / scale if scale else HANDLE_RADIUS * 2
+            if (dx * dx + dy * dy) ** 0.5 <= tol:
                 return h
         return None
 
@@ -125,6 +132,10 @@ class ResizableRect(QGraphicsRectItem):
 
     def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         """Begin a handle-resize or body-move gesture."""
+        if self._read_only:
+            event.ignore()
+            return
+
         if event.button() != Qt.MouseButton.LeftButton:
             super().mousePressEvent(event)
             return
@@ -140,6 +151,9 @@ class ResizableRect(QGraphicsRectItem):
         else:
             self._body_drag_start = event.scenePos()
             self._body_drag_origin = self.pos()
+
+        if not self.isSelected() and self.scene() is not None:
+            self.scene().clearSelection()
 
         self.setSelected(True)
         event.accept()
@@ -189,3 +203,41 @@ class ResizableRect(QGraphicsRectItem):
             The bounding rectangle of this item mapped into the scene.
         """
         return self.mapToScene(self.rect()).boundingRect()
+
+    def _view_scale(self) -> float:
+        """
+        Return the active view's scene-to-viewport scale factor.
+
+        Returns:
+            Pixels per scene unit for the first attached view, or 1.0 if none.
+        """
+        scene = self.scene()
+        views = scene.views() if scene is not None else []
+        return views[0].transform().m11() if views else 1.0
+
+    def set_handles_visible(self, visible: bool) -> None:
+        """
+        Show or hide all resize handles.
+
+        Args:
+            visible: True to show the handles, False to hide them.
+        """
+        for ellipse in self._handles.values():
+            ellipse.setVisible(visible)
+
+    def set_read_only(self, read_only: bool) -> None:
+        """
+        Enable or disable interactive editing of this rectangle.
+
+        Args:
+            read_only: True to block moving and resizing and hide the handles.
+        """
+        self._read_only = read_only
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, not read_only)
+        self.set_handles_visible(not read_only)
+
+    def restore_handles(self) -> None:
+        """
+        Restore handle visibility to match the current edit state.
+        """
+        self.set_handles_visible(not self._read_only)
