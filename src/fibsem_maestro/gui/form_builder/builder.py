@@ -5,7 +5,6 @@ from collections.abc import Callable
 from typing import Any
 
 from fibsem_maestro.action.action import Action
-from fibsem_maestro.core.direction import Direction
 from fibsem_maestro.gui.form_builder._write_back import WriteBack
 from fibsem_maestro.gui.form_builder.schema.constraints import NumericBounds
 from fibsem_maestro.gui.form_builder.schema.field_info import FieldInfo
