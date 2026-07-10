@@ -8,6 +8,7 @@ from PyQt6.QtCore import Q_ARG, QMetaObject, QObject, Qt, QThread, pyqtSignal
 from fibsem_maestro.action.action import Action
 from fibsem_maestro.gui.app_state import AppState
 from fibsem_maestro.gui.workflow_worker import WorkflowWorker
+from fibsem_maestro.logging.text.file import close_all_log_files
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.workflow.actions import Actions
 from fibsem_maestro.workflow.propagations import Propagations
@@ -116,6 +117,9 @@ class WorkflowManager(QObject):
             self._worker.abort()
             self._thread.quit()
             self._thread.wait()
+
+        # close all log file handles
+        close_all_log_files()
 
         for action in self.workflow.actions:
             action.reset()
