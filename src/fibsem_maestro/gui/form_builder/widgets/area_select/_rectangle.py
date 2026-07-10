@@ -28,6 +28,7 @@ from fibsem_maestro.gui.form_builder.widgets.area_select._handle import (
     Handle,
     apply_handle_drag,
 )
+from fibsem_maestro.gui.form_builder.widgets.area_select.overlay import AreaDecoration
 
 
 class ResizableRect(QGraphicsRectItem):
@@ -62,6 +63,7 @@ class ResizableRect(QGraphicsRectItem):
         self._moved_during_drag = False
 
         self._read_only = False
+        self._decoration: AreaDecoration | None = None
 
         # one ellipse item per handle, parented to this rect
         self._handles: dict[Handle, QGraphicsEllipseItem] = {}
@@ -99,6 +101,22 @@ class ResizableRect(QGraphicsRectItem):
         """
         self.setRect(rect)
         self._update_handle_positions()
+        if self._decoration is not None:
+            self._decoration.update(self)
+
+    def apply_decoration(self, decoration: AreaDecoration | None) -> None:
+        """
+        Replace this rectangle's decoration.
+
+        Args:
+            decoration: The decoration to attach, or None to remove the current one.
+        """
+        if self._decoration is not None:
+            self._decoration.detach()
+
+        self._decoration = decoration
+        if decoration is not None:
+            decoration.attach(self)
 
     def _handle_at(self, pos: QPointF) -> Handle | None:
         """

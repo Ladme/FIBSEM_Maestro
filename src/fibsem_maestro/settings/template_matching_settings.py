@@ -7,7 +7,12 @@ from pydantic import Field
 
 from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.settings.base_settings import BaseSettings
-from fibsem_maestro.settings.form_utils import FieldUnit, FormHint, WidgetType
+from fibsem_maestro.settings.form_utils import (
+    AreaOverlay,
+    FieldUnit,
+    FormHint,
+    WidgetType,
+)
 
 
 class StandardMode(BaseSettings):
@@ -65,7 +70,13 @@ class TemplateMatchingSettings(BaseSettings):
         description="The number of scans to perform when obtaining or updating templates. The final template will be the average of all scans.",
     )
     areas: Annotated[
-        list[RelativeArea], FormHint(widget=WidgetType.AREA_SELECT, max_areas=None)
+        list[RelativeArea],
+        FormHint(
+            widget=WidgetType.AREA_SELECT,
+            max_areas=None,
+            area_overlay=AreaOverlay.SHOW_MARGIN,
+            overlay_source="correction_margin",
+        ),
     ] = Field(
         default_factory=list,
         description="Areas of the image used for template matching.",

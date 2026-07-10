@@ -6,7 +6,11 @@ from collections.abc import Callable
 
 from PyQt6.QtCore import QPointF, QRectF, Qt, QTimer
 from PyQt6.QtGui import QKeyEvent, QMouseEvent, QPainter, QWheelEvent
-from PyQt6.QtWidgets import QGraphicsEllipseItem, QGraphicsScene, QGraphicsView
+from PyQt6.QtWidgets import (
+    QGraphicsItem,
+    QGraphicsScene,
+    QGraphicsView,
+)
 
 from fibsem_maestro.gui.form_builder.widgets.area_select._constants import (
     MIN_DRAW_PX,
@@ -112,12 +116,9 @@ class AreaViewer(QGraphicsView):
             event.accept()
             return
 
-        # clicking an existing rect/handle: forward so the item can select;
-        # the item itself refuses edits when read-only
-        item = self.itemAt(event.pos())
-        if isinstance(item, QGraphicsEllipseItem):
-            item = item.parentItem()
-        if isinstance(item, ResizableRect):
+        # clicking a rect, a handle, or one of its decoration items:
+        # forward so the item can select; it refuses edits when read-only
+        if _owning_rect(self.itemAt(event.pos())) is not None:
             super().mousePressEvent(event)
             return
 
@@ -243,3 +244,13 @@ class AreaViewer(QGraphicsView):
             read_only: True to block drawing, moving, resizing, and deleting.
         """
         self._read_only = read_only
+
+
+def _owning_rect(item: QGraphicsItem | None) -> ResizableRect | None:
+    """Return the ResizableRect owning `item` (itself or an ancestor), or None."""
+    while item is not None:
+        if isinstance(item, ResizableRect):
+            return item
+        item = item.parentItem()
+
+    return None

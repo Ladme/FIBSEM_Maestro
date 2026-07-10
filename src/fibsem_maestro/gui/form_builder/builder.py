@@ -5,6 +5,7 @@ from collections.abc import Callable
 from typing import Any
 
 from fibsem_maestro.action.action import Action
+from fibsem_maestro.core.direction import Direction
 from fibsem_maestro.gui.form_builder._write_back import WriteBack
 from fibsem_maestro.gui.form_builder.schema.constraints import NumericBounds
 from fibsem_maestro.gui.form_builder.schema.field_info import FieldInfo
@@ -25,6 +26,7 @@ from fibsem_maestro.gui.form_builder.schema.field_type import (
 )
 from fibsem_maestro.gui.form_builder.schema.schema import get_field_infos
 from fibsem_maestro.gui.form_builder.widgets.action_select import ActionSelectWidget
+from fibsem_maestro.gui.form_builder.widgets.area_select.overlay import OverlayData
 from fibsem_maestro.gui.form_builder.widgets.area_select.widget import (
     AreaSelectWidget,
 )
@@ -47,7 +49,7 @@ from fibsem_maestro.gui.form_builder.widgets.union import DiscriminatedUnionWidg
 from fibsem_maestro.gui.workflow_manager import WorkflowManager
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.settings.base_settings import BaseSettings
-from fibsem_maestro.settings.form_utils import WidgetType
+from fibsem_maestro.settings.form_utils import AreaOverlay, WidgetType
 
 
 class FormBuilder:
@@ -142,7 +144,8 @@ class FormBuilder:
         field_infos: list[FieldInfo] | None = None,
         on_change: OnChange = _noop,
     ) -> ObjectWidget:
-        """Build an `ObjectWidget` for `cls`.
+        """
+        Build an `ObjectWidget` for `cls`.
 
         There are two modes, distinguished by `settings`:
 
@@ -165,6 +168,7 @@ class FormBuilder:
         obj = ObjectWidget(cls=cls)
         infos = field_infos if field_infos is not None else get_field_infos(cls)
 
+        widgets: dict[str, BaseWidget] = {}
         for fi in infos:
             value = getattr(settings, fi.name, None) if settings is not None else None
 
@@ -180,7 +184,9 @@ class FormBuilder:
                 widget = self._build_field(fi, value, on_change)
 
             obj.add_field(fi.name, fi.label, widget, fi.description)
+            widgets[fi.name] = widget
 
+        self._wire_overlays(infos, widgets)
         return obj
 
     def _build_field(
@@ -247,6 +253,7 @@ class FormBuilder:
                     microscope=self._microscope,
                     max_areas=hint.max_areas if hint.max_areas else None,
                     default=default,
+                    overlay=hint.area_overlay,
                 )
 
             case WidgetType.RANGE_PAIR:
@@ -453,6 +460,67 @@ class FormBuilder:
         """Connect `on_change` to a leaf and return it (used by item factories)."""
         widget.on_change(on_change)
         return widget
+
+    def _wire_overlays(
+        self, infos: list[FieldInfo], widgets: dict[str, BaseWidget]
+    ) -> None:
+        """
+        Feed each area selector's overlay from a sibling field, reactively.
+
+        For every field whose hint requests an area overlay with a named source,
+        the source widget's current value is pushed into an `OverlayData` and a
+        subscription is added so later edits update the overlay live. Source and
+        area must be siblings in the same object; a source elsewhere in the tree
+        is not resolved and is skipped with a log message.
+
+        Args:
+            infos: Field infos for the object currently being built.
+            widgets: The built widgets for this object, keyed by field name.
+        """
+        for fi in infos:
+            hint = fi.hint
+            if hint is None or hint.area_overlay is None or hint.overlay_source is None:
+                continue
+
+            area = self._area_widget_of(widgets.get(fi.name))
+            source = widgets.get(hint.overlay_source)
+            if area is None or source is None:
+                self._txt_log.warning(
+                    f"Overlay source {hint.overlay_source!r} for field {fi.name!r} "
+                    "is not a sibling field; area overlay will stay static."
+                )
+                continue
+
+            push = self._overlay_updater(area, source, hint.area_overlay)
+            # react to later edits of the source
+            source.on_change(push)
+            # seed the current value now
+            push()
+
+    def _overlay_updater(
+        self,
+        area: AreaSelectWidget,
+        source: BaseWidget,
+        overlay: AreaOverlay,
+    ) -> Callable[[], None]:
+        """Return a callback that copies `source`'s value into `area`'s overlay."""
+
+        def push() -> None:
+            area.set_overlay_data(
+                OverlayData(**{overlay.data_field: source.get_value()})
+            )
+
+        return push
+
+    def _area_widget_of(self, widget: BaseWidget | None) -> AreaSelectWidget | None:
+        """Return the `AreaSelectWidget` inside `widget`, unwrapping an optional."""
+        if isinstance(widget, AreaSelectWidget):
+            return widget
+        if isinstance(widget, OptionalWidget):
+            inner = widget.inner  # type: ignore
+            if isinstance(inner, AreaSelectWidget):
+                return inner
+        return None
 
     def _maybe_optional(
         self, fi: FieldInfo, inner: BaseWidget, value: Any

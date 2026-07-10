@@ -20,6 +20,21 @@ class WidgetType(Enum):
     ACTION_SELECTOR = "action_selector"
 
 
+class AreaOverlay(Enum):
+    """Optional, display-only decoration drawn over every acquisition area."""
+
+    SHOW_MARGIN = "show_margin"
+    SHOW_DIRECTION = "show_direction"
+
+    @property
+    def data_field(self) -> str:
+        """Name of the `OverlayData` attribute this overlay reads from."""
+        return {
+            AreaOverlay.SHOW_MARGIN: "margin_nm",
+            AreaOverlay.SHOW_DIRECTION: "direction",
+        }[self]
+
+
 @dataclass
 class FormHint:
     widget: WidgetType
@@ -27,6 +42,9 @@ class FormHint:
     file_filter: str | None = None
     max_areas: int | None = None
     action_type_filter: list[type[Action]] = field(default_factory=list)
+    area_overlay: AreaOverlay | None = None
+    # sibling field name feeding the overlay
+    overlay_source: str | None = None
 
 
 @dataclass

@@ -13,3 +13,8 @@ RECT_PEN_SELECTED = QPen(QColor(255, 60, 60), 2, Qt.PenStyle.DashLine)
 MIN_RECT_PX = 8
 # minimum drag, in *viewport* pixels, before a rect is created
 MIN_DRAW_PX = 8
+
+MARGIN_FILL = QBrush(QColor(145, 145, 145, 60))
+MARGIN_PEN = QPen(QColor(30, 30, 35, 200), 1, Qt.PenStyle.DashLine)
+ARROW_COLOR = QColor(0, 30, 190, 120)
+ARROW_PEN = QPen(QColor(0, 30, 190, 120), 0)

@@ -1,11 +1,11 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
+
 import numpy as np
 from PyQt6.QtCore import QRectF, Qt
 from PyQt6.QtGui import QImage, QPainter, QPixmap
 from PyQt6.QtWidgets import (
-    QGraphicsEllipseItem,
     QGraphicsScene,
     QHBoxLayout,
     QLabel,
@@ -22,8 +22,13 @@ from fibsem_maestro.gui.form_builder.widgets.area_select._rectangle import (
     ResizableRect,
 )
 from fibsem_maestro.gui.form_builder.widgets.area_select._viewer import AreaViewer
+from fibsem_maestro.gui.form_builder.widgets.area_select.overlay import (
+    OverlayData,
+    build_decoration,
+)
 from fibsem_maestro.gui.form_builder.widgets.base import BaseWidget
 from fibsem_maestro.microscope.microscope import Microscope
+from fibsem_maestro.settings.form_utils import AreaOverlay
 
 
 class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
@@ -50,6 +55,7 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         microscope: Microscope | None,
         max_areas: int | None = None,
         default: list[RelativeArea] | None = None,
+        overlay: AreaOverlay | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -61,6 +67,10 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         self._last_pixmap: QPixmap | None = None
         self._pending_regions: list[RelativeArea] = default or []
         self._expanded = False
+
+        self._overlay = overlay
+        self._overlay_data: OverlayData | None = None
+        self._pixel_size: float | None = None
 
         self.setMinimumWidth(self._MINIMUM_WIDTH)
 
@@ -122,7 +132,7 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
             self._scene,
             self._status_label.setText,
             self._max_areas,
-            on_edit_finished=self._emit,
+            on_edit_finished=self._handle_edit_finished,
         )
         self._viewer.setFixedHeight(self._EXPANDED_HEIGHT)
         self._viewer.setSizePolicy(
@@ -165,6 +175,7 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         arr = np.ascontiguousarray(image.to_8bit())
         h, w = arr.shape[:2]
         self._image_size = (w, h)
+        self._pixel_size = image.pixel_size
 
         if arr.ndim == 2:
             q_image = QImage(
@@ -177,9 +188,9 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
 
         self._last_pixmap = QPixmap.fromImage(q_image)
 
-        # replace the background pixmap, keep the area rectangles
+        # replace the background pixmap, keep the area rectangles and all their children
         for item in list(self._scene.items()):
-            if not isinstance(item, (ResizableRect, QGraphicsEllipseItem)):
+            if item.parentItem() is None and not isinstance(item, ResizableRect):
                 self._scene.removeItem(item)
 
         pixmap_item = self._scene.addPixmap(self._last_pixmap)
@@ -196,6 +207,7 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
             self._add_relative_area(area)
         self._pending_regions = []
 
+        self._refresh_decorations()
         self._viewer.set_image_loaded()
         self._status_label.setText(f"Image: {w}×{h} px")
 
@@ -263,7 +275,9 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
             area.width * w,
             area.height * h,
         )
-        self._scene.addItem(ResizableRect(rect, on_edit_finished=self._emit))
+        self._scene.addItem(
+            ResizableRect(rect, on_edit_finished=self._handle_edit_finished)
+        )
         self._update_thumbnail()
 
     def _clear_rects(self) -> None:
@@ -272,6 +286,35 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
             if isinstance(item, ResizableRect):
                 self._scene.removeItem(item)
         self._update_thumbnail()
+
+    def _handle_edit_finished(self) -> None:
+        """Decorate any newly created areas, then emit the change."""
+        self._refresh_decorations()
+        self._emit()
+
+    def _refresh_decorations(self) -> None:
+        """Rebuild every rectangle's decoration from the current overlay state."""
+        if self._overlay_data is None:
+            return
+
+        for item in self._scene.items():
+            if isinstance(item, ResizableRect):
+                item.apply_decoration(
+                    build_decoration(
+                        self._overlay, self._overlay_data, self._pixel_size
+                    )
+                )
+        self._update_thumbnail()
+
+    def set_overlay_data(self, data: OverlayData) -> None:
+        """
+        Update the runtime values feeding the overlay and redraw it live.
+
+        Args:
+            data: The overlay values (e.g. margin in nm, arrow direction).
+        """
+        self._overlay_data = data
+        self._refresh_decorations()
 
     def get_value(self) -> list[RelativeArea]:
         """
@@ -321,6 +364,7 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         else:
             for area in regions:
                 self._add_relative_area(area)
+            self._refresh_decorations()
 
     def set_read_only(self, read_only: bool) -> None:
         """
