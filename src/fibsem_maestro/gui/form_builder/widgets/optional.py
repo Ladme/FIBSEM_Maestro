@@ -31,6 +31,7 @@ class OptionalWidget(QWidget, BaseWidget[T | None]):
     ):
         super().__init__(parent)
         BaseWidget.__init__(self)
+
         self._inner = cast("QWidget", inner)
 
         layout = QHBoxLayout(self) if inline else QVBoxLayout(self)
@@ -90,3 +91,7 @@ class OptionalWidget(QWidget, BaseWidget[T | None]):
         """
         self._checkbox.setEnabled(not read_only)
         cast("BaseWidget[T]", self._inner).set_read_only(read_only)
+
+    def highlight_target(self) -> QWidget:
+        """Highlight the gated inner editor, not the checkbox row."""
+        return self._inner

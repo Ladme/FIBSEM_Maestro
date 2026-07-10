@@ -2,7 +2,9 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 from collections.abc import Callable
-from typing import Generic, TypeVar
+from typing import Generic, TypeVar, cast
+
+from PyQt6.QtWidgets import QWidget
 
 OnChange = Callable[[], None]
 
@@ -79,3 +81,16 @@ class BaseWidget(Generic[T]):
         raise NotImplementedError(
             f"set_read_only not implemented for {type(self).__name__}"
         )
+
+    def highlight_target(self) -> QWidget:
+        """
+        Return the widget a paired `FieldLabel` should highlight on hover.
+
+        Defaults to this widget. Wrappers that gate a single inner editor
+        (e.g. `OptionalWidget`) override this to point at that editor, so the
+        highlight hugs the control instead of the full-width wrapper.
+
+        Returns:
+            The widget to receive the `highlighted` property on hover.
+        """
+        return cast("QWidget", self)

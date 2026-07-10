@@ -27,6 +27,9 @@ class ObjectWidget(QWidget, BaseWidget[T]):
         super().__init__(parent)
         BaseWidget.__init__(self)
 
+        # required to highlight selected box
+        self.setProperty("dataclass_form", True)
+
         self._cls = cls
         self._layout = QGridLayout(self)
         self._layout.setContentsMargins(0, 0, 0, 0)
@@ -48,7 +51,7 @@ class ObjectWidget(QWidget, BaseWidget[T]):
             description: Optional tooltip text for the label.
         """
 
-        label_widget = FieldLabel(label, cast("QWidget", widget))
+        label_widget = FieldLabel(label, widget.highlight_target())
         label_widget.setWordWrap(True)
         label_widget.setAlignment(
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter

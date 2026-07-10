@@ -6,6 +6,7 @@ from collections.abc import Callable
 from typing import cast
 
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QResizeEvent
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QFrame,
@@ -21,6 +22,7 @@ from PyQt6.QtWidgets import (
 
 from fibsem_maestro.action.action import Action
 from fibsem_maestro.gui.form_builder.builder import FormBuilder
+from fibsem_maestro.gui.form_builder.widgets.collapsible_box import ClickableLabel
 from fibsem_maestro.gui.form_builder.widgets.field_label import FieldLabel
 from fibsem_maestro.gui.form_builder.widgets.group_wrapper import GroupWrapper
 from fibsem_maestro.gui.workflow_manager import WorkflowManager
@@ -46,6 +48,7 @@ class PropagationRuleWidget(QFrame):
         self.rule = rule
         self._current_action = current_action
         self._manager = workflow_manager
+        self._collapsed = False
 
         self.setFrameShape(QFrame.Shape.StyledPanel)
         self.setProperty("dataclass_form", True)
@@ -63,14 +66,21 @@ class PropagationRuleWidget(QFrame):
         box_layout.setContentsMargins(8, 8, 8, 8)
         box_layout.setSpacing(4)
 
-        # number label
+        # rule label
         label = FieldLabel("propagation rule", box)
         label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         outer.addWidget(label)
         outer.addWidget(box, stretch=1)
 
-        # remove button
+        # header row: collapse toggle + remove button
         header = QHBoxLayout()
+        self._toggle = ClickableLabel("⯆", box)
+        self._toggle.setFixedSize(20, 20)
+        self._toggle.setStyleSheet(
+            "color: #8a8a8a; font-size: 12px; border: none; background: transparent;"
+        )
+        self._toggle.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._toggle.clicked.connect(self._on_toggle)
         header.addStretch()
         remove_btn = QPushButton("×")
         remove_btn.setFixedSize(22, 22)
@@ -78,18 +88,15 @@ class PropagationRuleWidget(QFrame):
         header.addWidget(remove_btn)
         box_layout.addLayout(header)
 
-        # grid layout matching form builder style
-        grid = QGridLayout()
+        # collapsible body: grid of fields
+        self._body = QWidget()
+        grid = QGridLayout(self._body)
         grid.setContentsMargins(0, 0, 0, 0)
         grid.setSpacing(4)
         grid.setColumnStretch(1, 1)
-        box_layout.addLayout(grid)
+        box_layout.addWidget(self._body)
 
         # dependents
-        dep_label = QLabel("dependents")
-        dep_label.setAlignment(
-            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
-        )
         self._dep_list = QListWidget()
         self._dep_list.setSelectionMode(QAbstractItemView.SelectionMode.MultiSelection)
         self._dep_list.setStyleSheet("""
@@ -101,6 +108,12 @@ class PropagationRuleWidget(QFrame):
         self._dep_list.setMaximumHeight(120)
         self._dep_list.itemSelectionChanged.connect(self._sync_dependents)
         self._populate_dep_list(self._manager.workflow.actions)
+
+        dep_label = FieldLabel("dependents", self._dep_list)
+        dep_label.setAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        )
+
         grid.addWidget(dep_label, 0, 0)
         grid.addWidget(self._dep_list, 0, 1)
 
@@ -120,10 +133,17 @@ class PropagationRuleWidget(QFrame):
             cast("QListWidget", child).itemSelectionChanged.connect(self._sync_props)
         grid.addWidget(prop_label, 1, 0)
         grid.addWidget(self._props_widget, 1, 1)
+        self._toggle.raise_()
 
         # wire manager signals
         self._manager.actions_changed.connect(self._populate_dep_list)
         self._manager.action_changed.connect(self.on_action_changed)
+
+    def _on_toggle(self) -> None:
+        """Collapse or expand the rule's fields, keeping the header visible."""
+        self._collapsed = not self._collapsed
+        self._toggle.setText("⯈" if self._collapsed else "⯆")
+        self._body.setVisible(not self._collapsed)
 
     def _sync_dependents(self) -> None:
         self.rule.dependent_names = [
@@ -168,3 +188,8 @@ class PropagationRuleWidget(QFrame):
     def set_read_only(self, read_only: bool) -> None:
         self._dep_list.setDisabled(read_only)
         self._props_widget.setDisabled(read_only)
+
+    def resizeEvent(self, a0: QResizeEvent) -> None:
+        """Keep the toggle pinned to the top-left corner of the rule box."""
+        self._toggle.move(-2, 0)
+        super().resizeEvent(a0)

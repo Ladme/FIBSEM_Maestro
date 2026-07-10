@@ -2,16 +2,17 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
-from PyQt6.QtWidgets import QGroupBox, QPushButton, QSizePolicy, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QPushButton, QSizePolicy, QVBoxLayout, QWidget
 
 from fibsem_maestro.action.action import Action
 from fibsem_maestro.gui.action_panel._rule_widget import PropagationRuleWidget
+from fibsem_maestro.gui.form_builder.widgets.collapsible_box import CollapsibleGroupBox
 from fibsem_maestro.gui.workflow_manager import WorkflowManager
 from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.workflow.propagations import PropagationRule
 
 
-class PropagationsWidget(QGroupBox):
+class PropagationsWidget(CollapsibleGroupBox):
     """
     Editable list of propagation rules for a single parent action.
     """
@@ -23,15 +24,21 @@ class PropagationsWidget(QGroupBox):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__("Propagations", parent)
+        self.setStyleSheet("QGroupBox::title { padding-left: 15px; }")
         self._manager = workflow_manager
         self._microscope = self._manager.workflow.microscope
         self._current_action = current_action
         self._rule_widgets: list[PropagationRuleWidget] = []
 
-        self._layout = QVBoxLayout(self)
+        # body container so the toggle can hide rules + button together
+        self._body = QWidget()
+        self._layout = QVBoxLayout(self._body)
         self._layout.setSpacing(10)
 
-        # populate existing rules for this action
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 20, 0, 0)
+        outer.addWidget(self._body)
+
         for rule in self._manager.workflow.propagations.rules:
             if rule.parent_name == self._current_action.name:
                 self._insert_rule_widget(rule)
@@ -40,6 +47,9 @@ class PropagationsWidget(QGroupBox):
         self._add_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._add_btn.clicked.connect(self._add_rule)
         self._layout.addWidget(self._add_btn)
+
+    def _collapse_body(self) -> QWidget:
+        return self._body
 
     def _insert_rule_widget(self, rule: PropagationRule) -> None:
         """Insert a rule widget before the Add button."""

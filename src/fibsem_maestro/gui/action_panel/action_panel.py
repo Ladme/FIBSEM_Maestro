@@ -55,7 +55,7 @@ class ActionPanel(QWidget):
         scroll.setWidgetResizable(True)
         scroll.setStyleSheet("""
                 QWidget[dataclass_form="true"] QWidget[highlighted="true"] {
-                    border: 1px solid #5a9fd4;
+                    border: 1px solid #346792;
                     border-radius: 3px;
                 }
             """)
