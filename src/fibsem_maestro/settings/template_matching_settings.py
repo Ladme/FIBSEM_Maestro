@@ -16,7 +16,7 @@ class StandardMode(BaseSettings):
 
 class SubpixelMode(BaseSettings):
     type: Literal["subpixel"] = "subpixel"
-    upsampling_factor: Annotated[float, Field(gt=1.0)] = Field(
+    upsampling_factor: Annotated[float, Field(ge=1.0)] = Field(
         default=1.0, description="How many times should the image be upsampled?"
     )
 

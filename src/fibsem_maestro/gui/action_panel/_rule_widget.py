@@ -106,7 +106,9 @@ class PropagationRuleWidget(QFrame):
 
         # properties
         self._props_widget = GroupWrapper(
-            FormBuilder().build_form(PropertyNames(), self._manager)
+            FormBuilder().build_form(
+                PropertyNames(), self._manager, self._manager.workflow.ctx.text_logger
+            )
         )
         prop_label = FieldLabel("properties", self._props_widget)
         prop_label.setAlignment(

@@ -45,6 +45,7 @@ from fibsem_maestro.gui.form_builder.widgets.string import StringWidget
 from fibsem_maestro.gui.form_builder.widgets.text_area import TextAreaWidget
 from fibsem_maestro.gui.form_builder.widgets.union import DiscriminatedUnionWidget
 from fibsem_maestro.gui.workflow_manager import WorkflowManager
+from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.settings.base_settings import BaseSettings
 from fibsem_maestro.settings.form_utils import WidgetType
 
@@ -56,6 +57,7 @@ class FormBuilder:
         self,
         settings: BaseSettings,
         workflow_manager: WorkflowManager,
+        txt_log: TextLogger,
         fields: list[str] | None = None,
         action: Action | None = None,
     ) -> ObjectWidget:
@@ -68,6 +70,7 @@ class FormBuilder:
         Args:
             settings: The live reactive settings instance.
             workflow_manager: Provides the microscope, action list, and signals.
+            txt_log: The text logger to use for logging.
             fields: Optional subset of top-level field names to include.
             action: If set, the action whose `action_changed` signal is
                 emitted after each successful write-back.
@@ -75,6 +78,7 @@ class FormBuilder:
         Returns:
             The populated, reactive top-level `ObjectWidget`.
         """
+        self._txt_log = txt_log
         self._configure(workflow_manager, action)
         return self._build_object(
             type(settings), settings, self._infos(type(settings), fields)
@@ -166,7 +170,9 @@ class FormBuilder:
 
             if settings is not None:
                 # top-level field: its own write-back drives the whole subtree
-                write_back = WriteBack(settings, fi, self._manager, self._action)
+                write_back = WriteBack(
+                    settings, fi, self._manager, self._action, self._txt_log
+                )
                 widget = self._build_field(fi, value, write_back)
                 write_back.bind(widget)
             else:

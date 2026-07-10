@@ -94,7 +94,11 @@ class ActionPanel(QWidget):
 
         # settings
         self._settings_widget = self._form_builder.build_form(
-            action.settings, self._manager, fields=None, action=self._action
+            action.settings,
+            self._manager,
+            txt_log=self._manager.workflow.ctx.text_logger,
+            fields=None,
+            action=self._action,
         )
         if self._manager.state not in {
             AppState.EDITING,
