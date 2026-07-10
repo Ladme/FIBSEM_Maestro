@@ -16,7 +16,14 @@ T = TypeVar("T")
 
 # this cannot be ABC due to some metaclass conflicts
 class BaseWidget(Generic[T]):
-    """Base interface for field widgets."""
+    """
+    Base interface for field widgets.
+
+    Provides a change-notification mechanism and defines the value and
+    read-only accessors that concrete widgets must implement.
+
+    Parameterized by the type `T` of the widget's value.
+    """
 
     def __init__(self) -> None:
         self._change_hooks: list[OnChange] = []
@@ -31,16 +38,44 @@ class BaseWidget(Generic[T]):
             hook()
 
     def get_value(self) -> T:
+        """
+        Return the widget's current value.
+
+        Returns:
+            The current value of type `T`.
+
+        Raises:
+            NotImplementedError: If the subclass does not override this method.
+        """
+
         raise NotImplementedError(
             f"get_value not implemented for {type(self).__name__}"
         )
 
     def set_value(self, value: T) -> None:
+        """
+        Set the widget's value.
+
+        Args:
+            value: The new value of type `T`.
+
+        Raises:
+            NotImplementedError: If the subclass does not override this method.
+        """
         raise NotImplementedError(
             f"set_value not implemented for {type(self).__name__}"
         )
 
     def set_read_only(self, read_only: bool) -> None:
+        """
+        Enable or disable read-only mode for the widget.
+
+        Args:
+            read_only: If True, the widget should prevent user edits.
+
+        Raises:
+            NotImplementedError: If the subclass does not override this method.
+        """
         raise NotImplementedError(
             f"set_read_only not implemented for {type(self).__name__}"
         )

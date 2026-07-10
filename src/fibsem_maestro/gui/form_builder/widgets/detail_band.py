@@ -10,7 +10,19 @@ from fibsem_maestro.gui.form_builder.widgets.range_pair import RangePairWidget
 
 
 class DetailBandWidget(QWidget, BaseWidget[DetailBand]):
-    """A range-pair editor that reads and writes DetailBand instances."""
+    """
+    A range-pair editor that reads and writes DetailBand instances.
+
+    Wraps a RangePairWidget and maps its low/high pair to and from a
+    DetailBand value.
+
+    Args:
+        default: The initial band; if None, the range starts empty.
+        minimum: The lowest value the range allows, if any.
+        maximum: The highest value the range allows, if any.
+        suffix: A unit suffix to display after each value, if any.
+        parent: The parent widget, if any.
+    """
 
     def __init__(
         self,
@@ -31,11 +43,31 @@ class DetailBandWidget(QWidget, BaseWidget[DetailBand]):
         layout.addWidget(self._range)
 
     def get_value(self) -> DetailBand:
+        """
+        Return the current band as a DetailBand.
+
+        Returns:
+            A DetailBand with the current low and high values.
+        """
+
         low, high = self._range.get_value()
         return DetailBand(low=low, high=high)
 
     def set_value(self, value: DetailBand) -> None:
+        """
+        Set the low and high values from a DetailBand.
+
+        Args:
+            value: The band whose low and high values to apply.
+        """
+
         self._range.set_value((value.low, value.high))
 
     def set_read_only(self, read_only: bool) -> None:
+        """
+        Enable or disable user interaction with the widget.
+
+        Args:
+            read_only: If True, prevent edits to the range.
+        """
         self._range.set_read_only(read_only)

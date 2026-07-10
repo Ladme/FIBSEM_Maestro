@@ -16,17 +16,34 @@ T = TypeVar("T")
 
 
 class ClickableLabel(QLabel):
-    """A QLabel that exposes a clicked signal."""
+    """
+    A QLabel that exposes a clicked signal.
+
+    Emits ``clicked`` on each mouse press.
+    """
 
     clicked = pyqtSignal()
 
     def mousePressEvent(self, ev: QMouseEvent) -> None:
+        """
+        Emit `clicked` and forward the event to the base class.
+
+        Args:
+            ev: The mouse press event.
+        """
+
         self.clicked.emit()
         super().mousePressEvent(ev)
 
 
 class GroupWrapper(QGroupBox, BaseWidget[T]):
-    """Plain (non-checkable) QGroupBox wrapping an ObjectWidget for required nested objects."""
+    """
+    Plain (non-checkable) QGroupBox wrapping an ObjectWidget for required nested objects.
+
+    Args:
+        inner: The nested object or discriminated-union widget to wrap.
+        parent: The parent widget, if any.
+    """
 
     def __init__(
         self,
@@ -58,15 +75,37 @@ class GroupWrapper(QGroupBox, BaseWidget[T]):
         super().resizeEvent(a0)
 
     def _on_click(self) -> None:
+        """Toggle the collapsed state, updating the arrow and inner visibility."""
+
         self._collapsed = not self._collapsed
         self._toggle.setText("⯈" if self._collapsed else "⯆")
         self._inner.setVisible(not self._collapsed)
 
     def get_value(self) -> T:
+        """
+        Return the inner widget's value.
+
+        Returns:
+            The value held by the wrapped widget.
+        """
+
         return self._inner.get_value()
 
     def set_value(self, value: T) -> None:
+        """
+        Set the inner widget's value.
+
+        Args:
+            value: The value to pass to the wrapped widget.
+        """
+
         self._inner.set_value(value)
 
     def set_read_only(self, read_only: bool) -> None:
+        """
+        Enable or disable editing of the inner widget.
+
+        Args:
+            read_only: If True, make the wrapped widget read-only.
+        """
         self._inner.set_read_only(read_only)

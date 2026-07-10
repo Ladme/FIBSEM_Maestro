@@ -14,6 +14,16 @@ T = TypeVar("T")
 
 
 class EnumWidget(NoScrollComboBox, BaseWidget[T | None]):
+    """
+    A combo box for selecting one value from a fixed set of choices.
+
+    Args:
+        choices: The selectable values.
+        default: The value to select initially, if any.
+        optional: If True, add a "(none)" entry allowing an empty selection.
+        parent: The parent widget, if any.
+    """
+
     def __init__(
         self,
         choices: list[T],
@@ -44,11 +54,31 @@ class EnumWidget(NoScrollComboBox, BaseWidget[T | None]):
         self.currentIndexChanged.connect(lambda _: self._emit())
 
     def get_value(self) -> T | None:
+        """
+        Return the currently selected value.
+
+        Returns:
+            The selected value, or None if "(none)" is selected.
+        """
+
         return self.currentData()
 
     def set_value(self, value: T | None) -> None:
+        """
+        Select the given value, if it is among the choices.
+
+        Args:
+            value: The value to select. Does nothing if not present.
+        """
+
         if value in self._values:
             self.setCurrentIndex(self._values.index(value))
 
     def set_read_only(self, read_only: bool) -> None:
+        """
+        Enable or disable user interaction with the widget.
+
+        Args:
+            read_only: If True, disable the widget to prevent changes.
+        """
         self.setEnabled(not read_only)

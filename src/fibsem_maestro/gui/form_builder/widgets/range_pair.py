@@ -10,7 +10,19 @@ from fibsem_maestro.gui.form_builder.widgets.base import BaseWidget
 
 
 class RangePairWidget(QWidget, BaseWidget[tuple[float, float]]):
-    """Two float spinners enforcing low <= high at all times."""
+    """
+    Two float spinners enforcing low <= high at all times.
+
+    Each spin box constrains the other's bound so the low value can never
+    exceed the high value. Supports optional outer bounds and a unit suffix.
+
+    Args:
+        default: The initial (low, high) pair; defaults to (0.0, 0.0).
+        minimum: The lowest value the low spinner allows; defaults to -1e12.
+        maximum: The highest value the high spinner allows; defaults to 1e12.
+        suffix: A unit label to display after the spinners, if any.
+        parent: The parent widget, if any.
+    """
 
     def __init__(
         self,
@@ -53,17 +65,45 @@ class RangePairWidget(QWidget, BaseWidget[tuple[float, float]]):
         layout.addStretch()
 
     def _on_low_changed(self, value: float) -> None:
+        """
+        Raise the high spinner's minimum to the new low value, then notify.
+
+        Args:
+            value: The new low value.
+        """
+
         self._high.setMinimum(value)
         self._emit()
 
     def _on_high_changed(self, value: float) -> None:
+        """
+        Lower the low spinner's maximum to the new high value, then notify.
+
+        Args:
+            value: The new high value.
+        """
+
         self._low.setMaximum(value)
         self._emit()
 
     def get_value(self) -> tuple[float, float]:
+        """
+        Return the current values as a tuple.
+
+        Returns:
+            The (low, high) values.
+        """
+
         return (self._low.value(), self._high.value())
 
     def set_value(self, value: tuple[float, float]) -> None:
+        """
+        Set both bounds atomically.
+
+        Args:
+            value: The (low, high) values to apply.
+        """
+
         low, high = value
         # apply both values atomically so the interlocking min/max handlers
         # don't fire and rewrite each other mid-update
@@ -75,5 +115,11 @@ class RangePairWidget(QWidget, BaseWidget[tuple[float, float]]):
         self._emit()
 
     def set_read_only(self, read_only: bool) -> None:
+        """
+        Enable or disable editing of both spinners.
+
+        Args:
+            read_only: If True, make both spinners read-only.
+        """
         for spinbox in (self._low, self._high):
             spinbox.setReadOnly(read_only)

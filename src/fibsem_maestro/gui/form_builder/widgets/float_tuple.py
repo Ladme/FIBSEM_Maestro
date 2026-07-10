@@ -10,7 +10,7 @@ from fibsem_maestro.gui.form_builder.widgets.base import BaseWidget
 
 class FloatTupleWidget(QWidget, BaseWidget[tuple[float, ...]]):
     """
-    A vertical stack of float spinboxes for editing a tuple of floats.
+    A horizontal stack of float spinboxes for editing a tuple of floats.
 
     Args:
         length: Number of elements in the tuple.
@@ -48,12 +48,35 @@ class FloatTupleWidget(QWidget, BaseWidget[tuple[float, ...]]):
             self._spinboxes.append(spinbox)
 
     def get_value(self) -> tuple[float, ...]:
+        """
+        Return the current values as a tuple.
+
+        Returns:
+            One float per spin box, in order.
+        """
+
         return tuple(s.value() for s in self._spinboxes)
 
     def set_value(self, value: tuple[float, ...]) -> None:
+        """
+        Set the spin boxes from a tuple of values.
+
+        Values are applied in order.
+        Extra spin boxes or extra values areignored.
+
+        Args:
+            value: The values to apply to the spin boxes.
+        """
+
         for spinbox, v in zip(self._spinboxes, value):
             spinbox.setValue(v)
 
     def set_read_only(self, read_only: bool) -> None:
+        """
+        Enable or disable editing of all values.
+
+        Args:
+            read_only: If True, make every spin box read-only.
+        """
         for spinbox in self._spinboxes:
             spinbox.setReadOnly(read_only)
