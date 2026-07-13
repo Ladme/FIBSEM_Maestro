@@ -87,7 +87,13 @@ class ActionListPanel(QWidget):
         # populate from existing workflow actions
         self._rebuild(self._manager.workflow.actions)
         self._manager.actions_changed.connect(self._rebuild)
+        self._manager.new_workflow.connect(self._on_new_workflow)
         self._manager.action_finished.connect(self._on_action_finished)
+
+    def _on_new_workflow(self, workflow_dir: Path) -> None:
+        """Update the action list if a new workflow is opened."""
+        self._workflow_dir = workflow_dir
+        self._rebuild(self._manager.workflow.actions)
 
     def _rebuild(self, actions: Actions) -> None:
         """Rebuild the list from the current workflow actions."""

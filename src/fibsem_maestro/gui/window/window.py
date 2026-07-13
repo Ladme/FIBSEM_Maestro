@@ -141,6 +141,8 @@ class MainWindow(QMainWindow):
 
         self._manager.workflow_interrupted.connect(self._on_workflow_interrupted)
 
+        self._manager.new_workflow.connect(self._on_new_workflow)
+
     def _on_action_selected(self, action: Action | None) -> None:
         if action is None:
             # set empty action panel
@@ -186,6 +188,20 @@ class MainWindow(QMainWindow):
 
     def _on_workflow_interrupted(self, error: str) -> None:
         QMessageBox.critical(self, "Workflow error", error)
+
+    def _on_new_workflow(self, new_workflow_dir: Path) -> None:
+        self._workflow_dir = new_workflow_dir
+
+        # set the empty panel as the current widget
+        self._stack.setCurrentWidget(self._empty_panel)
+
+        # remove all action forms
+        for index in reversed(range(self._stack.count())):
+            widget = self._stack.widget(index)
+            if widget is self._empty_panel:
+                continue
+            self._stack.removeWidget(widget)
+            widget.deleteLater()
 
     def closeEvent(self, a0: QCloseEvent) -> None:
         _ = a0

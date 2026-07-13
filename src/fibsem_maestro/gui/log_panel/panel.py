@@ -107,6 +107,8 @@ class LogPanel(QWidget):
         self._timer.timeout.connect(self._on_poll)
         self._timer.start()
 
+        self._manager.new_workflow.connect(self._on_new_workflow)
+
     def on_slice_changed(self, slice_index: int) -> None:
         """Called by WorkflowManager.slice_finished to update slice list."""
         _ = slice_index
@@ -117,6 +119,12 @@ class LogPanel(QWidget):
 
     def on_actions_changed(self) -> None:
         """Called when actions are added/removed."""
+        self._rebuild_sources()
+        self._refresh()
+
+    def _on_new_workflow(self, workflow_dir: Path) -> None:
+        """Update the log panel when a new workflow is opened."""
+        self._workflow_dir = workflow_dir
         self._rebuild_sources()
         self._refresh()
 

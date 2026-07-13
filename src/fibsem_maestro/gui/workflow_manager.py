@@ -2,6 +2,7 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 import shutil
+from pathlib import Path
 
 from PyQt6.QtCore import Q_ARG, QMetaObject, QObject, Qt, QThread, pyqtSignal
 
@@ -28,6 +29,7 @@ class WorkflowManager(QObject):
     workflow_reset = pyqtSignal(
         int
     )  # slice number - needed for integration with log panel
+    new_workflow = pyqtSignal(Path)  # new workflow directory
 
     def __init__(self, workflow: Workflow, parent: QObject | None = None):
         super().__init__(parent)
@@ -79,6 +81,19 @@ class WorkflowManager(QObject):
 
     def notify_workflow_reset(self) -> None:
         self.workflow_reset.emit(0)
+
+    def notify_new_workflow(self, path: Path) -> None:
+        # abort the current worker and thread, if any
+        if self._thread is not None and self._worker is not None:
+            self._worker.abort()
+            self._thread.quit()
+            self._thread.wait()
+
+        # start a new worker and thread
+        self._start_worker()
+
+        self._set_state(AppState.EDITING)
+        self.new_workflow.emit(path)
 
     def start(self, n_slices: int) -> None:
         assert self._worker

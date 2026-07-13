@@ -15,10 +15,13 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from fibsem_maestro.action_context.file import FileActionContext
 from fibsem_maestro.gui.app_state import AppState
 from fibsem_maestro.gui.form_builder.builder import FormBuilder
 from fibsem_maestro.gui.window._microscope_dialog import MicroscopeSettingsDialog
 from fibsem_maestro.gui.workflow_manager import WorkflowManager
+from fibsem_maestro.workflow.actions import Actions
+from fibsem_maestro.workflow.propagations import Propagations
 from fibsem_maestro.workflow.workflow import Workflow
 
 
@@ -43,6 +46,11 @@ class TopBar(QWidget):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(8, 4, 8, 4)
         layout.setSpacing(8)
+
+        # new workflow
+        self._new_btn = QPushButton("New workflow")
+        self._new_btn.clicked.connect(self._on_new_workflow)
+        layout.addWidget(self._new_btn)
 
         # import workflow
         self._import_btn = QPushButton("Import workflow")
@@ -158,6 +166,51 @@ class TopBar(QWidget):
 
         self._manager.notify_actions_changed()
 
+    def _on_new_workflow(self) -> None:
+        # ask for save directory
+        path = QFileDialog.getExistingDirectory(self, "Choose workflow save directory")
+        if not path:
+            return
+
+        new_workflow_dir = Path(path)
+
+        # warn if directory is not empty
+        if any(new_workflow_dir.iterdir()):
+            answer = QMessageBox.warning(
+                self,
+                "Directory not empty",
+                "The selected directory is not empty. Assigning it to a workflow will PERMANENTLY delete all its contents.\n\nAre you sure you want to continue?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Cancel,
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                return
+
+        # clear the new workflow directory
+        for item in new_workflow_dir.iterdir():
+            shutil.rmtree(item) if item.is_dir() else item.unlink()
+
+        # create new workflow
+        workflow = Workflow(
+            microscope=self._microscope,
+            actions=Actions(),
+            propagations=Propagations(),
+            context=FileActionContext(
+                action_dir=new_workflow_dir / "workflow", name="workflow"
+            ),
+        )
+
+        self._manager.workflow = workflow
+        self._workflow_dir = new_workflow_dir
+
+        self._manager.notify_new_workflow(new_workflow_dir)
+
+        # update the display workflow directory
+        self._dir_label.setText(str(new_workflow_dir))
+
+        # update the preparedness
+        self._on_preparedness_changed(False)
+
     def _on_reset_workflow(self) -> None:
         answer = QMessageBox.warning(
             self,
@@ -198,6 +251,7 @@ class TopBar(QWidget):
         self._update_status()
         self._import_btn.setEnabled(state == AppState.EDITING)
         self._reset_btn.setEnabled(state not in (AppState.RUNNING, AppState.STOPPING))
+        self._new_btn.setEnabled(state not in (AppState.RUNNING, AppState.STOPPING))
         style = self._run_btn.style()
         match state:
             case AppState.EDITING:
