@@ -5,17 +5,19 @@
 from collections.abc import Callable
 
 from PyQt6.QtCore import QPointF, QRectF, Qt
-from PyQt6.QtGui import QBrush, QCursor, QPainter, QPen
+from PyQt6.QtGui import QBrush, QCursor, QPainter, QPainterPath, QPen
 from PyQt6.QtWidgets import (
     QGraphicsEllipseItem,
     QGraphicsItem,
     QGraphicsRectItem,
     QGraphicsSceneMouseEvent,
+    QStyle,
     QStyleOptionGraphicsItem,
     QWidget,
 )
 
 from fibsem_maestro.gui.form_builder.widgets.area_select._constants import (
+    GRAB_FACTOR,
     HANDLE_BORDER,
     HANDLE_COLOR,
     HANDLE_RADIUS,
@@ -133,7 +135,11 @@ class ResizableRect(QGraphicsRectItem):
             dx = pos.x() - hp.x()
             dy = pos.y() - hp.y()
             scale = self._view_scale()
-            tol = (HANDLE_RADIUS * 2) / scale if scale else HANDLE_RADIUS * 2
+            tol = (
+                (HANDLE_RADIUS * GRAB_FACTOR) / scale
+                if scale
+                else HANDLE_RADIUS * GRAB_FACTOR
+            )
             if (dx * dx + dy * dy) ** 0.5 <= tol:
                 return h
         return None
@@ -146,7 +152,10 @@ class ResizableRect(QGraphicsRectItem):
     ) -> None:
         """Paint the rectangle, styling its border by selection state."""
         self.setPen(RECT_PEN_SELECTED if self.isSelected() else RECT_PEN_NORMAL)
-        super().paint(painter, option, widget)
+
+        styled = QStyleOptionGraphicsItem(option)
+        styled.state &= ~QStyle.StateFlag.State_Selected
+        super().paint(painter, styled, widget)
 
     def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         """Begin a handle-resize or body-move gesture."""
@@ -259,3 +268,45 @@ class ResizableRect(QGraphicsRectItem):
         Restore handle visibility to match the current edit state.
         """
         self.set_handles_visible(not self._read_only)
+
+    def boundingRect(self) -> QRectF:
+        """
+        Return the item's bounding rectangle, padded for the handle grab area.
+
+        Returns:
+            The rectangle geometry expanded by the current grab margin, so that
+            handles straddling the border remain inside the item's bounds.
+        """
+        margin = self._grab_margin()
+        return self.rect().adjusted(-margin, -margin, margin, margin)
+
+    def shape(self) -> QPainterPath:
+        """
+        Return the clickable shape, including the handle grab area.
+
+        Returns:
+            A path covering the rectangle plus a margin wide enough to contain
+            the handles, which are drawn at a fixed screen size and therefore
+            extend beyond the rectangle's border.
+        """
+        path = QPainterPath()
+        path.addRect(self.boundingRect())
+        return path
+
+    def _grab_margin(self) -> float:
+        """
+        Return the handle grab radius in local coordinates.
+
+        The handles ignore view transformations, so their screen size is
+        constant and the equivalent size in scene units grows as the view is
+        zoomed out.
+
+        Returns:
+            The grab radius, in the item's local coordinate space.
+        """
+        scale = self._view_scale()
+        return (
+            (HANDLE_RADIUS * GRAB_FACTOR) / scale
+            if scale
+            else HANDLE_RADIUS * GRAB_FACTOR
+        )

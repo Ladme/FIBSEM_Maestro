@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QBrush, QPainterPath, QTransform
-from PyQt6.QtWidgets import QGraphicsPathItem, QGraphicsRectItem
+from PyQt6.QtWidgets import QGraphicsItem, QGraphicsPathItem, QGraphicsRectItem
 
 from fibsem_maestro.core.direction import Direction
 from fibsem_maestro.gui.form_builder.widgets.area_select._constants import (
@@ -80,7 +80,7 @@ class MarginDecoration(AreaDecoration):
         item.setBrush(MARGIN_FILL)
         item.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
         # draws behind the parent
-        item.setZValue(-1)
+        item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemStacksBehindParent, True)
         self._item = item
         self.update(rect)
 
