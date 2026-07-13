@@ -47,12 +47,15 @@ class MicroscopeSettingsDialog(QDialog):
         layout.setContentsMargins(16, 16, 16, 16)
         # only allow changing the fields which do not affect connection
         non_connection_infos = [
-            field
+            field.name
             for field in get_field_infos(MicroscopeSettings)
             if field.name not in CONNECTION_FIELDS
         ]
-        self._form = form_builder._build_object(
-            MicroscopeSettings, self._microscope.settings, non_connection_infos
+        self._form = form_builder.build_form(
+            self._microscope.settings,
+            self._manager,
+            self._manager.workflow.ctx.text_logger,
+            non_connection_infos,
         )
         self._form.set_value(self._microscope.settings.model_dump())
 
