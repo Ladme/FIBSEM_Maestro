@@ -8,8 +8,8 @@ from PyQt6.QtWidgets import (
     QDialog,
     QHBoxLayout,
     QLabel,
-    QPlainTextEdit,
     QPushButton,
+    QStyle,
     QVBoxLayout,
     QWidget,
 )
@@ -43,9 +43,10 @@ class ActionErrorDialog(QDialog):
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle("Action failed" if action_name else "Workflow error")
-        self.setModal(True)
         self.setMinimumWidth(480)
+        # not modal: the user can still browse logs and panels while deciding
         self.setWindowModality(Qt.WindowModality.NonModal)
+        # no close button: the user must pick one of the buttons explicitly
         self.setWindowFlags(
             Qt.WindowType.Dialog
             | Qt.WindowType.CustomizeWindowHint
@@ -54,9 +55,24 @@ class ActionErrorDialog(QDialog):
 
         self._choice = ErrorChoice.TERMINATE
 
+        style = self.style()
+        assert style is not None
+
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(10)
+
+        # header: critical icon + message
+        header_row = QHBoxLayout()
+        header_row.setSpacing(8)
+
+        icon_label = QLabel()
+        icon_label.setPixmap(
+            style.standardIcon(QStyle.StandardPixmap.SP_MessageBoxCritical).pixmap(
+                24, 24
+            )
+        )
+        header_row.addWidget(icon_label)
 
         header = QLabel(
             f"Action '{action_name}' failed."
@@ -64,31 +80,54 @@ class ActionErrorDialog(QDialog):
             else "The workflow encountered an error."
         )
         header.setStyleSheet("font-weight: bold;")
-        layout.addWidget(header)
+        header_row.addWidget(header)
 
-        self._error_view = QPlainTextEdit(message)
-        self._error_view.setReadOnly(True)
-        self._error_view.setStyleSheet(
-            "color: #e05252; font-family: monospace; font-size: 11px;"
+        header_row.addStretch()
+        layout.addLayout(header_row)
+
+        # error text
+        self._error_view = QLabel(message)
+        self._error_view.setWordWrap(True)
+        self._error_view.setStyleSheet("color: #e05252;")
+        self._error_view.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
         )
         layout.addWidget(self._error_view)
 
+        # buttons
         button_row = QHBoxLayout()
         button_row.setSpacing(6)
 
-        # restart/skip only make sense when a specific action failed
+        # retry/skip only make sense when a specific action failed
         if action_name is not None:
-            restart_btn = QPushButton("Retry action")
-            restart_btn.clicked.connect(lambda: self._choose(ErrorChoice.RETRY))
-            button_row.addWidget(restart_btn)
+            retry_btn = QPushButton("Retry action")
+            retry_btn.setIcon(
+                style.standardIcon(QStyle.StandardPixmap.SP_BrowserReload)
+            )
+            retry_btn.setToolTip(f"Run '{action_name}' for this slice again.")
+            retry_btn.clicked.connect(lambda: self._choose(ErrorChoice.RETRY))
+            button_row.addWidget(retry_btn)
 
             skip_btn = QPushButton("Skip action")
+            skip_btn.setIcon(
+                style.standardIcon(QStyle.StandardPixmap.SP_MediaSkipForward)
+            )
+            skip_btn.setToolTip(
+                f"Continue with the next action, leaving '{action_name}' unexecuted for this slice."
+            )
             skip_btn.clicked.connect(lambda: self._choose(ErrorChoice.SKIP))
             button_row.addWidget(skip_btn)
         else:
             button_row.addStretch()
 
         terminate_btn = QPushButton("Terminate workflow")
+        terminate_btn.setIcon(
+            style.standardIcon(QStyle.StandardPixmap.SP_DialogCancelButton)
+        )
+        terminate_btn.setStyleSheet("color: #e05252;")
+        terminate_btn.setToolTip(
+            "Abandon the run and close the application. Slices already acquired are kept."
+        )
         terminate_btn.clicked.connect(lambda: self._choose(ErrorChoice.TERMINATE))
         terminate_btn.setDefault(True)
         button_row.addWidget(terminate_btn)
