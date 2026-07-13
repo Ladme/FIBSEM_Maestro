@@ -271,14 +271,18 @@ class ResizableRect(QGraphicsRectItem):
 
     def boundingRect(self) -> QRectF:
         """
-        Return the item's bounding rectangle, padded for the handle grab area.
+        Return the item's bounds, padded for handles and unioned with any children.
 
         Returns:
-            The rectangle geometry expanded by the current grab margin, so that
-            handles straddling the border remain inside the item's bounds.
+            A rectangle covering the geometry, the handle grab area, and every
+            child item, so the scene invalidates the full painted region when this
+            item moves or resizes.
         """
         margin = self._grab_margin()
-        return self.rect().adjusted(-margin, -margin, margin, margin)
+        return (
+            self.rect().adjusted(-margin, -margin, margin, margin)
+            | self.childrenBoundingRect()
+        )
 
     def shape(self) -> QPainterPath:
         """
