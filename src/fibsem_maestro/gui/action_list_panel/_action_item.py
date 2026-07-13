@@ -78,6 +78,7 @@ class ActionItemWidget(QWidget):
         # name label (double-click to edit)
         self._name_label = DoubleClickLabel(action.name)
         self._name_label.setStyleSheet("font-weight: bold;")
+        self._name_label.setToolTip(f"slice number: {action.ctx.slice}")
         self._name_label.double_clicked.connect(self._start_name_edit)
         name_row.addWidget(self._name_label)
 
@@ -109,6 +110,7 @@ class ActionItemWidget(QWidget):
         self.update_propagation_badge(self._manager.workflow.propagations)
 
         self._manager.app_state_changed.connect(self._on_app_state_changed)
+        self._manager.slice_finished.connect(self._on_slice_finished)
 
     def _on_action_changed(self, action: Action) -> None:
         if self._action is action:
@@ -117,6 +119,9 @@ class ActionItemWidget(QWidget):
             )
 
             self._update_indicator()
+
+    def _on_slice_finished(self, _: int) -> None:
+        self._name_label.setToolTip(f"slice number: {self._action.ctx.slice}")
 
     def _on_propagations_changed(self, propagations: Propagations) -> None:
         self.update_propagation_badge(propagations)
