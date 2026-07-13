@@ -3,6 +3,7 @@
 
 
 from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QCloseEvent
 from PyQt6.QtWidgets import (
     QDialog,
     QHBoxLayout,
@@ -45,6 +46,11 @@ class ActionErrorDialog(QDialog):
         self.setModal(True)
         self.setMinimumWidth(480)
         self.setWindowModality(Qt.WindowModality.NonModal)
+        self.setWindowFlags(
+            Qt.WindowType.Dialog
+            | Qt.WindowType.CustomizeWindowHint
+            | Qt.WindowType.WindowTitleHint
+        )
 
         self._choice = ErrorChoice.TERMINATE
 
@@ -101,3 +107,8 @@ class ActionErrorDialog(QDialog):
         # closing with Esc or the window X is treated as terminate
         self.choice_made.emit(ErrorChoice.TERMINATE)
         super().reject()
+
+    def closeEvent(self, a0: QCloseEvent | None) -> None:
+        # the user must pick one of the buttons; ignore the window's X
+        if a0 is not None:
+            a0.ignore()
