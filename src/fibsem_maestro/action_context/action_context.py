@@ -62,17 +62,6 @@ class ActionContext(ABC):
         self._current_view = self._make_view(new_index)
         return self._current_view
 
-    def reset(self) -> SliceView:
-        """
-        Reset the slice counter to 0 and return the new `SliceView`.
-
-        Returns:
-            The `SliceView` for the current slice.
-        """
-        self._counter = SliceCounter(0)
-        self._current_view = self._make_view(self._counter.current)
-        return self._current_view
-
     @property
     def current_view(self) -> SliceView:
         """
@@ -187,3 +176,34 @@ class ActionContext(ABC):
         Args:
             dir: The new action directory path.
         """
+
+    def set_slice(self, slice_index: int) -> SliceView:
+        """
+        Set the slice counter to an explicit index.
+
+        All stores and loggers begin addressing the new slice on their next
+        call, so this changes which files the action reads and writes.
+
+        Args:
+            slice_index: The slice index to activate. Must not be negative.
+
+        Returns:
+            The `SliceView` for the newly activated slice.
+
+        Raises:
+            ValueError: If `slice_index` is negative.
+        """
+        if slice_index < 0:
+            raise ValueError(f"Slice index must not be negative, got {slice_index}.")
+        self._counter = SliceCounter(slice_index)
+        self._current_view = self._make_view(self._counter.current)
+        return self._current_view
+
+    def reset(self) -> SliceView:
+        """
+        Reset the slice counter to 0 and return the new `SliceView`.
+
+        Returns:
+            The `SliceView` for the current slice.
+        """
+        return self.set_slice(0)

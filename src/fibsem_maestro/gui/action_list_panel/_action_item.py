@@ -15,9 +15,9 @@ from PyQt6.QtWidgets import (
 )
 
 from fibsem_maestro.action.action import Action
-from fibsem_maestro.gui.action_list_panel._indicator_widget import (
-    IndicatorMode,
-    IndicatorWidget,
+from fibsem_maestro.gui.action_list_panel._indicator_widgets import (
+    ArrowWidget,
+    CheckWidget,
 )
 from fibsem_maestro.gui.app_state import AppState
 from fibsem_maestro.gui.common import class_name_to_label, validate_action_name
@@ -61,9 +61,14 @@ class ActionItemWidget(QWidget):
         layout.setContentsMargins(4, 2, 4, 2)
         layout.setSpacing(6)
 
-        # state indicator: dot when editing, arrow when running
-        self._indicator = IndicatorWidget()
-        layout.addWidget(self._indicator)
+        # state indicators: arrow when running, check when prepared
+        self._active = False
+
+        self._arrow = ArrowWidget()
+        layout.addWidget(self._arrow)
+
+        self._check = CheckWidget()
+        layout.addWidget(self._check)
 
         # vertical group: name row + subtitle
         text_layout = QVBoxLayout()
@@ -103,14 +108,16 @@ class ActionItemWidget(QWidget):
         )
         self._subtitle_label.setStyleSheet("color: #888888; font-size: 10px;")
         text_layout.addWidget(self._subtitle_label)
+
         self._manager.action_changed.connect(self._on_action_changed)
         self._manager.propagations_changed.connect(self._on_propagations_changed)
+        self._manager.app_state_changed.connect(self._on_app_state_changed)
+        self._manager.action_finished.connect(self._on_action_finished)
 
         layout.addLayout(text_layout)
         self.update_propagation_badge(self._manager.workflow.propagations)
 
-        self._manager.app_state_changed.connect(self._on_app_state_changed)
-        self._manager.slice_finished.connect(self._on_slice_finished)
+        self._update_indicators()
 
     def _on_action_changed(self, action: Action) -> None:
         if self._action is action:
@@ -118,10 +125,11 @@ class ActionItemWidget(QWidget):
                 f"{class_name_to_label(type(action).__name__)}  ·  {action.beam_type if action.beam_type is not None else '—'}"
             )
 
-            self._update_indicator()
+            self._update_indicators()
 
-    def _on_slice_finished(self, _: int) -> None:
-        self._name_label.setToolTip(f"slice number: {self._action.ctx.slice}")
+    def _on_action_finished(self, action: Action) -> None:
+        if action is self._action:
+            self._name_label.setToolTip(f"slice number: {self._action.ctx.slice}")
 
     def _on_propagations_changed(self, propagations: Propagations) -> None:
         self.update_propagation_badge(propagations)
@@ -185,20 +193,12 @@ class ActionItemWidget(QWidget):
         return self._action
 
     def _on_app_state_changed(self, _: AppState) -> None:
-        self._update_indicator()
+        self._update_indicators()
 
-    def _update_indicator(self, active: bool = False) -> None:
-        if self._manager.state == AppState.EDITING:
-            self._indicator.set_mode(
-                IndicatorMode.CHECK
-                if self._action_is_prepared()
-                else IndicatorMode.NONE
-            )
-        # the indicator should be kept unchanged when the workflow is paused or interrupted
-        elif self._manager.state in (AppState.RUNNING, AppState.FINISHED):
-            self._indicator.set_mode(
-                IndicatorMode.ARROW if active else IndicatorMode.NONE
-            )
+    def _update_indicators(self) -> None:
+        self._arrow.set_on(self._active)
+        self._check.set_on(self._action_is_prepared())
 
     def set_active(self, active: bool) -> None:
-        self._update_indicator(active=active)
+        self._active = active
+        self._update_indicators()

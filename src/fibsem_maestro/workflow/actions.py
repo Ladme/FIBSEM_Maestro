@@ -7,7 +7,7 @@ from collections import UserList
 from fibsem_maestro.action.action import Action
 
 
-class Actions(UserList):
+class Actions(UserList[Action]):
     def named(self, name: str) -> Action:
         for action in self.data:
             if action.name == name:

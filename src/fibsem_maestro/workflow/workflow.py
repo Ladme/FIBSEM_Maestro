@@ -251,7 +251,7 @@ class Workflow:
         # sleep for 1 ms to avoid overlapping slice log messages
         sleep(0.001)
         for i, action in enumerate(self.actions):
-            # necessary when resuming an interrupted workflow
+            # necessary when resuming a paused workflow
             # we need to skip actions that have already been executed for this slice
             if action.ctx.slice > self.ctx.slice:
                 self.ctx.text_logger.debug(

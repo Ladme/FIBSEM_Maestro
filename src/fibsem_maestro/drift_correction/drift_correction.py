@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
 
 class DriftCorrectionState(ActionState):
-    pass
+    is_initialized: bool
 
 
 @ACTION_REGISTRY.register("drift_correction")
@@ -51,6 +51,14 @@ class DriftCorrection(Action[DriftCorrectionSettings, DriftCorrectionState]):
         self._actions = actions
 
         # set up the drift calculation method
+        self._rebuild()
+
+        self._is_initialized = False
+
+        # rebuild whenever the settings change
+        self._settings.on_change(lambda _: self._rebuild())
+
+    def _rebuild(self) -> None:
         self._drift_calc_name = self._settings.drift_calculation_mode.type
         self._drift_calc: DriftCalculationMode = DRIFT_CALCULATION_MODES.get(
             self._drift_calc_name
@@ -104,17 +112,10 @@ class DriftCorrection(Action[DriftCorrectionSettings, DriftCorrectionState]):
 
     @property
     def state(self) -> DriftCorrectionState:
-        # drift correction has no persistent internal state
-        return DriftCorrectionState()
+        return DriftCorrectionState(is_initialized=self._is_initialized)
 
     def set_state(self, state: DriftCorrectionState) -> None:
-        _ = state
-
-    @with_logging_context
-    def initialize_first_slice(self) -> None:
-        super().initialize_first_slice()
-        # context has been advanced to slice 1 by the parent method
-        self._drift_calc.setup()
+        self._is_initialized = state.is_initialized
 
     @with_logging_context
     def execute(self) -> None:
@@ -133,6 +134,11 @@ class DriftCorrection(Action[DriftCorrectionSettings, DriftCorrectionState]):
             DriftCorrectionError: If drift calculation fails and
                 `settings.stop_at_failure` is `True`.
         """
+        if not self._is_initialized:
+            # initialize the drift calculation, if needed
+            self._drift_calc.setup()
+            self._is_initialized = True
+
         if (
             self._settings.execution_frequency is None
             # the first slice is 1, so we use slice_number - 1 to get the 0-indexed slice number
