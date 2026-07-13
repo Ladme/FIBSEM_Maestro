@@ -12,6 +12,8 @@ from fibsem_maestro.gui.workflow_worker import WorkflowWorker
 from fibsem_maestro.logging.text.file import close_all_log_files
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.workflow.actions import Actions
+from fibsem_maestro.workflow.error import ActionError
+from fibsem_maestro.workflow.error_choice import ErrorChoice
 from fibsem_maestro.workflow.propagations import Propagations
 from fibsem_maestro.workflow.workflow import Workflow
 
@@ -25,7 +27,8 @@ class WorkflowManager(QObject):
     slice_finished = pyqtSignal(int)
     app_state_changed = pyqtSignal(AppState)
     preparedness_changed = pyqtSignal(bool)
-    workflow_interrupted = pyqtSignal(str)
+    workflow_error = pyqtSignal(Exception)
+    action_error = pyqtSignal(ActionError)
     workflow_reset = pyqtSignal(
         int
     )  # slice number - needed for integration with log panel
@@ -54,7 +57,8 @@ class WorkflowManager(QObject):
         self._worker.slice_finished.connect(self.slice_finished)
         self._worker.paused.connect(self._on_paused)
         self._worker.finished.connect(self._on_finished)
-        self._worker.interrupted.connect(self._on_interrupted)
+        self._worker.workflow_error.connect(self._on_workflow_error)
+        self._worker.action_error.connect(self._on_action_error)
 
         self._thread.start()
 
@@ -178,9 +182,19 @@ class WorkflowManager(QObject):
         if self._worker is not None:
             self._worker.deleteLater()
 
-    def _on_interrupted(self, error: str) -> None:
+    def _on_workflow_error(self, error: Exception) -> None:
         self._set_state(AppState.INTERRUPTED)
-        self.workflow_interrupted.emit(error)
+        self.workflow_error.emit(error)
+
+    def _on_action_error(self, error: ActionError) -> None:
+        self._set_state(AppState.INTERRUPTED)
+        self.action_error.emit(error)
+
+    def submit_error_choice(self, choice: ErrorChoice) -> None:
+        assert self._worker
+        self._worker.submit_error_choice(choice)
+        if choice is not ErrorChoice.TERMINATE:
+            self._set_state(AppState.RUNNING)
 
     def _on_actions_changed(self, actions: Actions) -> None:
         # loop through all propagations

@@ -104,7 +104,7 @@ class AdjustProps(Action[AdjustPropsSettings, AdjustPropsState]):
                 f"Skipping '{self.name}' for slice {self._ctx.slice}."
             )
             # even if adjusting is skipped, we need to write properties for the next slice
-            self.write_properties(self.read_properties(), self._ctx.props_store.next)
+            self.propagate_to_next()
             return
 
         self._ctx.text_logger.info(

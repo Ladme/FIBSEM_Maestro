@@ -166,6 +166,7 @@ class ActionPanel(QWidget):
             AppState.PAUSED,
             AppState.RELOADED,
             AppState.FINISHED,
+            AppState.INTERRUPTED,
         }
         self._settings_widget.set_read_only(read_only)
         self._propagations_widget.set_read_only(read_only)

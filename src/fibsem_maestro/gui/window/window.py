@@ -9,7 +9,6 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QCloseEvent
 from PyQt6.QtWidgets import (
     QMainWindow,
-    QMessageBox,
     QScrollArea,
     QSplitter,
     QStackedWidget,
@@ -20,12 +19,15 @@ from PyQt6.QtWidgets import (
 from fibsem_maestro.action.action import Action
 from fibsem_maestro.gui.action_list_panel.panel import ActionListPanel
 from fibsem_maestro.gui.action_panel.action_panel import ActionPanel
+from fibsem_maestro.gui.error_dialog.error_dialog import ActionErrorDialog
 from fibsem_maestro.gui.form_builder.builder import FormBuilder
 from fibsem_maestro.gui.log_panel.panel import LogPanel
 from fibsem_maestro.gui.window._top_bar import TopBar
 from fibsem_maestro.gui.workflow_manager import WorkflowManager
+from fibsem_maestro.logging.text.file import close_all_log_files
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.workflow.actions import Actions
+from fibsem_maestro.workflow.error import ActionError
 from fibsem_maestro.workflow.workflow import Workflow
 
 
@@ -45,6 +47,7 @@ class MainWindow(QMainWindow):
         self._store_workflow_state(self._manager.workflow.actions)
 
         self._panels: dict[Action, QWidget] = {}
+        self._error_dialog: ActionErrorDialog | None = None
 
         self.setWindowTitle("FIBSEM Maestro")
         self.resize(1280, 800)
@@ -139,7 +142,8 @@ class MainWindow(QMainWindow):
         self._manager.workflow_reset.connect(self._log_panel.on_slice_changed)
         self._manager.actions_changed.connect(self._log_panel.on_actions_changed)
 
-        self._manager.workflow_interrupted.connect(self._on_workflow_interrupted)
+        self._manager.workflow_error.connect(self._on_workflow_error)
+        self._manager.action_error.connect(self._on_action_error)
 
         self._manager.new_workflow.connect(self._on_new_workflow)
 
@@ -186,8 +190,33 @@ class MainWindow(QMainWindow):
             )
         )
 
-    def _on_workflow_interrupted(self, error: str) -> None:
-        QMessageBox.critical(self, "Workflow error", error)
+    def _on_workflow_error(self, error: Exception) -> None:
+        if isinstance(error, ActionError):
+            # the user already answered this at the action error dialog
+            self._terminate()
+            return
+
+        dialog = ActionErrorDialog(str(error), None, parent=self)
+        # the only button is terminate, so any dismissal terminates
+        dialog.finished.connect(lambda _: self._terminate())
+        self._error_dialog = dialog
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
+
+    def _terminate(self) -> None:
+        self._manager.workflow.ctx.text_logger.warning("Terminating workflow.")
+        self._manager.stop()
+        close_all_log_files()
+        self.close()
+
+    def _on_action_error(self, error: ActionError) -> None:
+        """A specific action failed; offer retry / skip / terminate."""
+        dialog = ActionErrorDialog(error.message, error.action.name, parent=self)
+        dialog.choice_made.connect(self._manager.submit_error_choice)
+        dialog.finished.connect(dialog.deleteLater)
+        self._error_dialog = dialog
+        dialog.show()
 
     def _on_new_workflow(self, new_workflow_dir: Path) -> None:
         self._workflow_dir = new_workflow_dir

@@ -213,9 +213,7 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
             )
             self._advance()
             if self._active_gen is not None:
-                self.write_properties(
-                    self.read_properties(), self._ctx.props_store.next
-                )
+                self.propagate_to_next()
             return
 
         # remove the jobs and results from previous slice
@@ -227,7 +225,7 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
         # evaluate whether the autofocus should be performed based on the sharpness of the image from the previous slice
         if not self._should_execute(self._ctx.slice, image_sharpness):
             # if the autofocus should not be run, we still need to copy the props file to the next slice
-            self.write_properties(self.read_properties(), self._ctx.props_store.next)
+            self.propagate_to_next()
             return
 
         # read the microscope properties for autofocus from a file and set them
@@ -249,7 +247,7 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
         # the microscope properties for the autofocus to the next slice
         if self._active_gen is not None:
             # mid-sweep - copy the props file to the next slice
-            self.write_properties(self.read_properties(), self._ctx.props_store.next)
+            self.propagate_to_next()
 
         self._ctx.text_logger.info(
             f"Completed '{self.name}' for slice {self._ctx.slice}."

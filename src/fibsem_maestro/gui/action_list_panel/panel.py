@@ -84,8 +84,7 @@ class ActionListPanel(QWidget):
         self._add_btn = QPushButton("+ Add action")
         self._add_btn.clicked.connect(self._on_add)
         self._add_btn.setEnabled(
-            self._app_state
-            not in {AppState.RUNNING, AppState.STOPPING, AppState.INTERRUPTED}
+            self._app_state not in {AppState.RUNNING, AppState.STOPPING}
         )
         outer.addWidget(self._add_btn)
 
@@ -251,7 +250,6 @@ class ActionListPanel(QWidget):
         is_editable = self._app_state not in {
             AppState.RUNNING,
             AppState.STOPPING,
-            AppState.INTERRUPTED,
         }
         remove_action = menu.addAction("Remove")
         remove_action.setEnabled(is_editable)
@@ -291,7 +289,6 @@ class ActionListPanel(QWidget):
         is_editable = state not in {
             AppState.RUNNING,
             AppState.STOPPING,
-            AppState.INTERRUPTED,
         }
         self._add_btn.setEnabled(is_editable)
 

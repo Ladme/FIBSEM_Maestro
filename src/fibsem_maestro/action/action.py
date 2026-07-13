@@ -89,6 +89,14 @@ class Action(ABC, Generic[TSettings, TState]):
         Wait for ALL background threads spawned by this action to complete.
         """
 
+    def propagate_to_next(self) -> None:
+        """
+        Propagate the props of this action to the next slice.
+
+        Can be overriden to propagate other files as well.
+        """
+        self.write_properties(self.read_properties(), self.ctx.props_store.next)
+
     @with_logging_context
     def initialize_first_slice(self) -> None:
         """

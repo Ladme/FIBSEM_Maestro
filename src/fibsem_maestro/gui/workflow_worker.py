@@ -6,6 +6,8 @@ import threading
 from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 
 from fibsem_maestro.action.action import Action
+from fibsem_maestro.workflow.error import ActionError
+from fibsem_maestro.workflow.error_choice import ErrorChoice
 from fibsem_maestro.workflow.workflow import Workflow
 
 
@@ -20,7 +22,8 @@ class WorkflowWorker(QObject):
     slice_finished = pyqtSignal(int)
     paused = pyqtSignal()
     finished = pyqtSignal()
-    interrupted = pyqtSignal(str)
+    workflow_error = pyqtSignal(Exception)
+    action_error = pyqtSignal(Exception)
 
     def __init__(self, workflow: Workflow, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -29,6 +32,9 @@ class WorkflowWorker(QObject):
         self._resume_event = threading.Event()
         # start in resumed state
         self._resume_event.set()
+
+        self._error_event = threading.Event()
+        self._error_choice: ErrorChoice | None = None
 
         self._aborted = False
 
@@ -59,6 +65,31 @@ class WorkflowWorker(QObject):
         if self._aborted:
             raise AbortedError()
 
+    def request_error_choice(self, error: ActionError) -> ErrorChoice:
+        """
+        Ask the GUI how to handle a failed action.
+
+        Called on the worker thread. Blocks until the GUI thread answers via
+        submit_error_choice, or the workflow is aborted.
+        """
+        self._error_choice = None
+        self._error_event.clear()
+        self.action_error.emit(error)
+
+        while not self._error_event.wait(timeout=0.1):
+            pass
+
+        if self._aborted:
+            raise AbortedError()
+
+        assert self._error_choice is not None
+        return self._error_choice
+
+    def submit_error_choice(self, choice: ErrorChoice) -> None:
+        """Called on the GUI thread to unblock request_error_choice."""
+        self._error_choice = choice
+        self._error_event.set()
+
     def pause(self) -> None:
         self._pause_requested = True
         self._resume_event.clear()
@@ -71,6 +102,7 @@ class WorkflowWorker(QObject):
         self._aborted = True
         # unblock wait_for_resume
         self._resume_event.set()
+        self._error_event.set()
 
     @pyqtSlot(int)
     def run(self, n_slices: int) -> None:
@@ -83,4 +115,4 @@ class WorkflowWorker(QObject):
             # clean exit
             pass
         except Exception as e:
-            self.interrupted.emit(str(e))
+            self.workflow_error.emit(e)

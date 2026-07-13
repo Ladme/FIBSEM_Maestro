@@ -59,6 +59,9 @@ class DriftCorrection(Action[DriftCorrectionSettings, DriftCorrectionState]):
         self._settings.on_change(lambda _: self._rebuild())
 
     def _rebuild(self) -> None:
+        # TODO: we should probably only re-initialize if the template matching areas change
+        self._is_initialized = False
+
         self._drift_calc_name = self._settings.drift_calculation_mode.type
         self._drift_calc: DriftCalculationMode = DRIFT_CALCULATION_MODES.get(
             self._drift_calc_name
@@ -117,6 +120,10 @@ class DriftCorrection(Action[DriftCorrectionSettings, DriftCorrectionState]):
     def set_state(self, state: DriftCorrectionState) -> None:
         self._is_initialized = state.is_initialized
 
+    def propagate_to_next(self) -> None:
+        super().propagate_to_next()
+        self._drift_calc.if_skipped(self._ctx.slice)
+
     @with_logging_context
     def execute(self) -> None:
         """
@@ -147,10 +154,7 @@ class DriftCorrection(Action[DriftCorrectionSettings, DriftCorrectionState]):
             self._ctx.text_logger.info(
                 f"Skipping '{self.name}' for slice {self._ctx.slice}."
             )
-            # even if drift correction is skipped, we need to write properties for the next slice
-            self.write_properties(self.read_properties(), self._ctx.props_store.next)
-            # and potentially perform some other operations
-            self._drift_calc.if_skipped(self._ctx.slice)
+            self.propagate_to_next()
             return
 
         self._ctx.text_logger.info(
