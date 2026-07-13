@@ -4,8 +4,6 @@
 import os
 import sys
 
-from fibsem_maestro.core.resolution import Resolution
-
 # fix Qt plugin path on Windows
 if sys.platform == "win32":
     from pathlib import Path
