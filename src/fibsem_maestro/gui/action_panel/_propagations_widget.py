@@ -82,3 +82,5 @@ class PropagationsWidget(CollapsibleGroupBox):
     def set_read_only(self, read_only: bool) -> None:
         for widget in self._rule_widgets:
             widget.set_read_only(read_only)
+
+        self._add_btn.setDisabled(read_only)

@@ -81,10 +81,11 @@ class PropagationRuleWidget(QFrame):
         self._toggle.setCursor(Qt.CursorShape.PointingHandCursor)
         self._toggle.clicked.connect(self._on_toggle)
         header.addStretch()
-        remove_btn = QPushButton("×")
-        remove_btn.setFixedSize(22, 22)
-        remove_btn.clicked.connect(lambda: on_remove(self))
-        header.addWidget(remove_btn)
+
+        self._remove_btn = QPushButton("×")
+        self._remove_btn.setFixedSize(22, 22)
+        self._remove_btn.clicked.connect(lambda: on_remove(self))
+        header.addWidget(self._remove_btn)
         box_layout.addLayout(header)
 
         # collapsible body: grid of fields
@@ -187,6 +188,7 @@ class PropagationRuleWidget(QFrame):
     def set_read_only(self, read_only: bool) -> None:
         self._dep_list.setDisabled(read_only)
         self._props_widget.setDisabled(read_only)
+        self._remove_btn.setDisabled(read_only)
 
     def resizeEvent(self, a0: QResizeEvent) -> None:
         """Keep the toggle pinned to the top-left corner of the rule box."""
