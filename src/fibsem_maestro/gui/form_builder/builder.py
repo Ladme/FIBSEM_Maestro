@@ -352,7 +352,7 @@ class FormBuilder:
             case DataclassType(model=model):
                 # value-only recursion: thread the same write-back to children
                 inner_obj = self._build_object(
-                    model, settings=None, on_change=on_change
+                    model, settings=value, on_change=on_change
                 )
                 if fi.optional:
                     # toggling None <-> instance is a change to the parent field
