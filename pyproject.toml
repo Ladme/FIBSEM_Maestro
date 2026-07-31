@@ -56,3 +56,6 @@ ignore = ["E501"]
 
 [tool.ty.src]
 exclude = ["src/fibsem_maestro_original", "src/criterion_playground.py"]
+
+[tool.setuptools.package-data]
+"fibsem_maestro.resources" = ["*.ico"]

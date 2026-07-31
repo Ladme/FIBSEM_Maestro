@@ -1,8 +1,12 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
+import ctypes
 import os
 import sys
+from importlib.resources import as_file, files
+
+from PyQt6.QtGui import QIcon
 
 from _version import get_version
 
@@ -25,8 +29,23 @@ from fibsem_maestro.gui.window.window import MainWindow
 __version__: str = get_version()
 
 
+def load_app_icon() -> QIcon:
+    """
+    Load the application icon bundled with the package.
+    """
+    resource = files("fibsem_maestro.resources").joinpath("icon.svg")
+    with as_file(resource) as path:
+        return QIcon(str(path))
+
+
 def main() -> None:
+    if sys.platform == "win32":
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+            "CEMCOF.FibsemMaestro.Main"
+        )
+
     app = QApplication(sys.argv)
+    app.setWindowIcon(load_app_icon())
 
     app.setStyleSheet(qdarkstyle.load_stylesheet(qt_api="pyqt6"))
 
