@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from fibsem_maestro.action.action import Action
 from fibsem_maestro.gui.log_panel._common import (
     LEVEL_COLORS,
     LEVELS,
@@ -119,6 +120,11 @@ class LogPanel(QWidget):
 
     def on_actions_changed(self) -> None:
         """Called when actions are added/removed."""
+        self._rebuild_sources()
+        self._refresh()
+
+    def on_action_renamed(self, action: Action) -> None:
+        _ = action
         self._rebuild_sources()
         self._refresh()
 

@@ -20,6 +20,7 @@ from fibsem_maestro.workflow.workflow import Workflow
 
 class WorkflowManager(QObject):
     action_changed = pyqtSignal(Action)
+    action_renamed = pyqtSignal(Action)
     actions_changed = pyqtSignal(Actions)
     propagations_changed = pyqtSignal(Propagations)
     microscope_changed = pyqtSignal(Microscope)

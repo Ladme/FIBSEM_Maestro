@@ -22,6 +22,7 @@ from fibsem_maestro.gui.action_list_panel._indicator_widgets import (
 from fibsem_maestro.gui.app_state import AppState
 from fibsem_maestro.gui.common import class_name_to_label, validate_action_name
 from fibsem_maestro.gui.workflow_manager import WorkflowManager
+from fibsem_maestro.logging.text.file import close_all_log_files
 from fibsem_maestro.workflow.propagations import Propagations
 
 
@@ -149,6 +150,9 @@ class ActionItemWidget(QWidget):
         old_name = self._name_label.text()
 
         if new_name != old_name:
+            # close all open log files
+            close_all_log_files()
+
             existing_names = {
                 action.name
                 for action in self._manager.workflow.actions
@@ -167,6 +171,7 @@ class ActionItemWidget(QWidget):
                 )
 
                 self._manager.action_changed.emit(self._action)
+                self._manager.action_renamed.emit(self._action)
 
         self._name_edit.hide()
         self._name_label.show()

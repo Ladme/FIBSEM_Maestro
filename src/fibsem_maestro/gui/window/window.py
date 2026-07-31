@@ -141,6 +141,7 @@ class MainWindow(QMainWindow):
         self._manager.slice_finished.connect(self._log_panel.on_slice_changed)
         self._manager.workflow_reset.connect(self._log_panel.on_slice_changed)
         self._manager.actions_changed.connect(self._log_panel.on_actions_changed)
+        self._manager.action_renamed.connect(self._log_panel.on_action_renamed)
 
         self._manager.workflow_error.connect(self._on_workflow_error)
         self._manager.action_error.connect(self._on_action_error)

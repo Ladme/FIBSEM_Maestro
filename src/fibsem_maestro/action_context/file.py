@@ -2,7 +2,6 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 import logging
-import shutil
 from pathlib import Path
 from typing import Any, TypeVar
 
@@ -128,6 +127,9 @@ class FileActionContext(ActionContext):
         )
 
     def change_action_dir(self, dir: Path) -> None:
-        shutil.move(self._action_dir, dir)
+        if dir.exists():
+            raise FileExistsError(f"Target action directory already exists: {dir}")
+
+        self._action_dir.rename(dir)
         self._action_dir = dir
         self._current_view = self._make_view(self._current_view.slice_index)
