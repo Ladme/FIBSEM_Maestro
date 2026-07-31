@@ -1,6 +1,6 @@
 [project]
 name = "fibsem-maestro"
-version = "0.1.0"
+version = "2.0.0-beta.1"
 description = "Software for (cryo) volume-EM acquisition."
 readme = "README.md"
 requires-python = "==3.11.13"

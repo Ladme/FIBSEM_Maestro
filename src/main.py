@@ -4,6 +4,8 @@
 import os
 import sys
 
+from _version import get_version
+
 # fix Qt plugin path on Windows
 if sys.platform == "win32":
     from pathlib import Path
@@ -14,12 +16,13 @@ if sys.platform == "win32":
     assert qt_plugins.exists(), f"Qt plugins path not found: {qt_plugins}"
     os.environ["QT_PLUGIN_PATH"] = str(qt_plugins)
 
-
 import qdarkstyle
 from PyQt6.QtWidgets import QApplication, QDialog
 
 from fibsem_maestro.gui.connection.screen import ConnectionScreen
 from fibsem_maestro.gui.window.window import MainWindow
+
+__version__: str = get_version()
 
 
 def main() -> None:
@@ -35,6 +38,7 @@ def main() -> None:
     assert workflow is not None, "Workflow not initialized"
 
     window = MainWindow(workflow, screen.workflow_dir or Path())
+    window.setWindowTitle(f"FIBSEM Maestro v{__version__}")
 
     window.show()
     sys.exit(app.exec())
