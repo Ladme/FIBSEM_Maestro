@@ -24,9 +24,11 @@ jobs:
         run: uv sync --group dev
 
       - name: Build the wheel
+        run: |
+          export SETUPTOOLS_SCM_PRETEND_VERSION="${TAG#v}"
+          uv build --wheel
         env:
-          SETUPTOOLS_SCM_PRETEND_VERSION: ${{ github.event.release.tag_name }}
-        run: uv build --wheel
+          TAG: ${{ github.event.release.tag_name }}
 
       - name: Attach the wheel to the release
         uses: softprops/action-gh-release@v3
