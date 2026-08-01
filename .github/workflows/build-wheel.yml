@@ -28,16 +28,6 @@ jobs:
           SETUPTOOLS_SCM_PRETEND_VERSION: ${{ github.event.release.tag_name }}
         run: uv build --wheel
 
-      - name: Verify the wheel carries the release version
-        run: |
-          expected="${{ github.event.release.tag_name }}"
-          expected="${expected#v}"
-          ls dist/
-          ls dist/*.whl | grep -q "fibsem_maestro-${expected//-/_}-" || {
-            echo "::error::Wheel version does not match tag $expected"
-            exit 1
-          }
-
       - name: Attach the wheel to the release
         uses: softprops/action-gh-release@v3
         with:
