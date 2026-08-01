@@ -81,7 +81,7 @@ Use this if the microscope computer has no internet access. You will need a seco
 
 **On the microscope computer:**
 
-5. Copy both files from the USB drive into the same folder, for example `C:\Users\<you>\Downloads\fibsem-maestro\`.
+5. Copy both files from the USB drive into the same folder, for example `C:\Users\<you>\Downloads\maestro\`.
 
 6. Right-click `fibsem-maestro-bundle-windows-x86_64.tar.gz` and extract it **into that same folder**. You should end up with:
 
