@@ -8,7 +8,7 @@ from importlib.resources import as_file, files
 
 from PyQt6.QtGui import QIcon
 
-from _version import get_version
+from ._version import __version__
 
 # fix Qt plugin path on Windows
 if sys.platform == "win32":
@@ -26,8 +26,6 @@ from PyQt6.QtWidgets import QApplication, QDialog
 from fibsem_maestro.gui.connection.screen import ConnectionScreen
 from fibsem_maestro.gui.window.window import MainWindow
 
-__version__: str = get_version()
-
 
 def load_app_icon() -> QIcon:
     """
@@ -39,6 +37,7 @@ def load_app_icon() -> QIcon:
 
 
 def main() -> None:
+    # set the Windows App User Model ID so the app uses its own taskbar icon
     if sys.platform == "win32":
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
             "CEMCOF.FibsemMaestro.Main"

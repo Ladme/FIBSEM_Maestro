@@ -194,8 +194,7 @@ wheels = [
 
 [[package]]
 name = "fibsem-maestro"
-version = "2.0.0b1"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "colorama" },
     { name = "keyring" },

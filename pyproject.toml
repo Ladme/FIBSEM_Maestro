@@ -1,6 +1,9 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "fibsem-maestro"
-version = "2.0.0-beta.1"
 description = "Software for (cryo) volume-EM acquisition."
 readme = "README.md"
 requires-python = "==3.11.13"
@@ -20,6 +23,7 @@ dependencies = [
     "qdarkstyle>=3.2.3",
     "platformdirs>=4.10.0",
 ]
+dynamic = ["version"]
 
 [dependency-groups]
 dev = [
@@ -29,6 +33,9 @@ dev = [
     "ruff>=0.14.6",
     "ty>=0.0.34",
 ]
+
+[tool.setuptools_scm]
+write_to = "src/fibsem_maestro/_version.py"
 
 [tool.ruff]
 exclude = ["src/fibsem_maestro_original", "src/criterion_playground.py"]
@@ -57,5 +64,8 @@ ignore = ["E501"]
 [tool.ty.src]
 exclude = ["src/fibsem_maestro_original", "src/criterion_playground.py"]
 
-[tool.setuptools.package-data]
-"fibsem_maestro.resources" = ["*.ico"]
+[tool.uv]
+package = true
+
+[project.gui-scripts]
+fibsem-maestro = "fibsem_maestro.main:main"
