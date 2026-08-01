@@ -112,7 +112,7 @@ Use this if the computer has internet access.
 
 ```bash
    curl -L -o fibsem-maestro-installer \
-     https://github.com/cemcof/fibsem_maestro_installer/releases/latest/download/fibsem-maestro-installer-linux-x86_64
+     https://github.com/Ladme/fibsem_maestro_installer/releases/latest/download/fibsem-maestro-installer-linux-x86_64
    chmod +x fibsem-maestro-installer
 ```
 
@@ -145,10 +145,10 @@ Use this if the microscope computer has no internet access. You will need a seco
    mkdir maestro && cd maestro
 
    curl -L -o fibsem-maestro-installer \
-     https://github.com/cemcof/fibsem_maestro_installer/releases/latest/download/fibsem-maestro-installer-linux-x86_64
+     https://github.com/Ladme/fibsem_maestro_installer/releases/latest/download/fibsem-maestro-installer-linux-x86_64
 
    curl -L -O \
-     https://github.com/cemcof/fibsem_maestro/releases/latest/download/fibsem-maestro-bundle-linux-x86_64.tar.gz
+     https://github.com/Ladme/fibsem_maestro/releases/latest/download/fibsem-maestro-bundle-linux-x86_64.tar.gz
 ```
 
 2. Copy the whole `maestro` folder to the USB drive.
