@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "fibsem-maestro"
 description = "Software for (cryo) volume-EM acquisition."
 readme = "README.md"
-requires-python = "==3.11.13"
+requires-python = ">=3.11"
 dependencies = [
     "colorama>=0.4.6",
     "keyring>=25.7.0",
