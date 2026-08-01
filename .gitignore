@@ -19,3 +19,6 @@ docs/
 
 # Version file
 src/fibsem_maestro/_version.py
+
+# Dev config file
+config.toml
