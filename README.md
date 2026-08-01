@@ -96,7 +96,7 @@ Use this if the microscope computer has no internet access. You will need a seco
 
    > The `bundle` folder must sit next to the `.exe`, not inside another folder!
 
-7. Double-click the installer. It will say that an **offline bundle was detected** and that no internet connection is required.
+7. Double-click the installer. The wizard will say that the installation will proceed using an offline bundle.
 
 8. Follow the wizard as in the online instructions.
 
@@ -183,7 +183,7 @@ Use this if the microscope computer has no internet access. You will need a seco
    ./fibsem-maestro-installer
 ```
 
-   It will say that an **offline bundle was detected** and that no internet connection is required.
+   The wizard will say that the installation will proceed using an offline bundle.
 
 5. Follow the wizard as in the online instructions.
 
