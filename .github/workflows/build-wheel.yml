@@ -13,6 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
+          ref: ${{ github.event.release.tag_name }}
           fetch-depth: 0
 
       - uses: astral-sh/setup-uv@v7
@@ -24,6 +25,16 @@ jobs:
 
       - name: Build the wheel
         run: uv build --wheel
+
+      - name: Verify the wheel carries the release version
+        run: |
+          expected="${{ github.event.release.tag_name }}"
+          expected="${expected#v}"
+          ls dist/
+          ls dist/*.whl | grep -q "fibsem_maestro-${expected//-/_}-" || {
+            echo "::error::Wheel version does not match tag $expected"
+            exit 1
+          }
 
       - name: Attach the wheel to the release
         uses: softprops/action-gh-release@v3
