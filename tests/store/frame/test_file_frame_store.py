@@ -6,9 +6,9 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from fibsem_maestro.core.slice import SliceContext
 
 from fibsem_maestro.core.image import Image
-from fibsem_maestro.core.slice import SliceContext
 from fibsem_maestro.store.frame.file import FileFrameStore
 
 

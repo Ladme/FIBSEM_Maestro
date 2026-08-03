@@ -4,12 +4,15 @@
 
 import shutil
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
+    QCheckBox,
     QDialog,
     QFileDialog,
     QHBoxLayout,
+    QLabel,
     QMessageBox,
     QPushButton,
     QStackedWidget,
@@ -19,17 +22,25 @@ from PyQt6.QtWidgets import (
 
 from fibsem_maestro.action_context.file import FileActionContext
 from fibsem_maestro.gui.connection._common import (
+    load_last_email_settings,
     load_last_microscope_profile,
+    save_last_email_settings,
     save_last_microscope_profile,
 )
+from fibsem_maestro.gui.connection._email_setup import EmailSetupDialog
 from fibsem_maestro.gui.connection._new_workflow import NewWorkflowScreen
 from fibsem_maestro.gui.connection._resume_workflow import ResumeWorkflowScreen
 from fibsem_maestro.gui.form_builder.builder import FormBuilder
 from fibsem_maestro.logging.text.contextual import ContextualTextLogger
 from fibsem_maestro.microscope.microscope import Microscope
+from fibsem_maestro.notifications.email_notifier import SMTPEmailNotifier
+from fibsem_maestro.notifications.null_notifier import NullNotifier
 from fibsem_maestro.workflow.actions import Actions
 from fibsem_maestro.workflow.propagations import Propagations
 from fibsem_maestro.workflow.workflow import Workflow
+
+if TYPE_CHECKING:
+    from fibsem_maestro.settings.notification_settings import SMTPEmailSettings
 
 
 class ConnectionScreen(QDialog):
@@ -90,6 +101,18 @@ class ConnectionScreen(QDialog):
 
         outer.addWidget(self._stack)
 
+        # e-mail notifications
+        self.email_settings: SMTPEmailSettings | None = None
+
+        self._email_check = QCheckBox("E-mail me if a run fails")
+        self._email_check.toggled.connect(self._on_email_toggled)
+        outer.addWidget(self._email_check)
+
+        self._email_summary = QLabel()
+        self._email_summary.setWordWrap(True)
+        self._email_summary.setVisible(False)
+        outer.addWidget(self._email_summary)
+
         # connect button
         self._connect_btn = QPushButton("Connect")
         self._connect_btn.setDefault(True)
@@ -139,7 +162,8 @@ class ConnectionScreen(QDialog):
             shutil.rmtree(item) if item.is_dir() else item.unlink()
 
         self._workflow_context = FileActionContext(
-            action_dir=self.workflow_dir / "workflow", name="workflow"
+            action_dir=self.workflow_dir / "workflow",
+            name="workflow",
         )
 
         # attempt to connect to the microscope
@@ -156,6 +180,9 @@ class ConnectionScreen(QDialog):
                 Actions(),
                 Propagations(),
                 self._workflow_context,
+                notifier=SMTPEmailNotifier(self.email_settings)
+                if self.email_settings is not None
+                else NullNotifier(),
             )
             save_last_microscope_profile(microscope.settings)
             self._connect_btn.setEnabled(True)
@@ -175,10 +202,40 @@ class ConnectionScreen(QDialog):
         self._connect_btn.setEnabled(False)
 
         try:
-            self.workflow = Workflow.import_from_dir_with_state(workflow_dir)
+            self.workflow = Workflow.import_from_dir_with_state(
+                workflow_dir,
+                notifier=SMTPEmailNotifier(self.email_settings)
+                if self.email_settings is not None
+                else NullNotifier(),
+            )
             save_last_microscope_profile(self.workflow.microscope.settings)
             self._connect_btn.setEnabled(True)
             self.accept()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Loading failed: {str(e)}")
             self._connect_btn.setEnabled(True)
+
+    def _on_email_toggled(self, checked: bool) -> None:
+        """
+        Open the setup dialog when enabled, clear the settings when not.
+
+        Args:
+            checked: New state of the checkbox.
+        """
+        if not checked:
+            self.email_settings = None
+            self._email_summary.setVisible(False)
+            return
+
+        dialog = EmailSetupDialog(self, previous=load_last_email_settings())
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            self._email_check.setChecked(False)
+            return
+
+        self.email_settings = dialog.settings
+        assert self.email_settings is not None
+        save_last_email_settings(self.email_settings)
+        self._email_summary.setText(
+            "E-mails will be sent to " + ", ".join(self.email_settings.recipients)
+        )
+        self._email_summary.setVisible(True)

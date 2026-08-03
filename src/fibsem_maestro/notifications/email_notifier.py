@@ -5,7 +5,6 @@ import smtplib
 from email.message import EmailMessage
 
 from fibsem_maestro.notifications.notification_service import NotificationService
-from fibsem_maestro.notifications.secrets import SecretStore
 from fibsem_maestro.settings.notification_settings import SMTPEmailSettings
 
 
@@ -15,11 +14,9 @@ class SMTPEmailNotifier(NotificationService):
 
     This implementation sends notification messages via an SMTP server
     using STARTTLS authentication.
-
-    SMTP credentials are retrieved at send time from a `SecretStore`.
     """
 
-    def __init__(self, settings: SMTPEmailSettings, secrets: SecretStore):
+    def __init__(self, settings: SMTPEmailSettings):
         """
         Initialize the SMTP email notifier.
 
@@ -28,12 +25,8 @@ class SMTPEmailNotifier(NotificationService):
                 Non-secret SMTP configuration, including server host,
                 port, username, sender address, recipients, and a
                 reference to the stored password.
-            secrets (SecretStore):
-                Secret store used to retrieve the SMTP password at
-                notification time.
         """
         self._settings = settings
-        self._secrets = secrets
 
     def notify(self, subject: str, body: str) -> None:
         """
@@ -57,8 +50,6 @@ class SMTPEmailNotifier(NotificationService):
                 If an error occurs while connecting to the SMTP server,
                 authenticating, or sending the message.
         """
-        password = self._secrets.get(self._settings.password_ref)
-
         msg = EmailMessage()
         msg["From"] = self._settings.sender
         msg["To"] = ", ".join(self._settings.recipients)
@@ -67,5 +58,5 @@ class SMTPEmailNotifier(NotificationService):
 
         with smtplib.SMTP(self._settings.host, self._settings.port) as server:
             server.starttls()
-            server.login(self._settings.username, password)
+            server.login(self._settings.username, self._settings.password)
             server.send_message(msg)

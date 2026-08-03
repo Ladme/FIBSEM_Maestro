@@ -14,6 +14,8 @@ from fibsem_maestro.action_context.file import FileActionContext
 from fibsem_maestro.logging.logging import logging_context
 from fibsem_maestro.logging.text.contextual import ContextualTextLogger
 from fibsem_maestro.microscope.microscope import Microscope
+from fibsem_maestro.notifications.notification_service import NotificationService
+from fibsem_maestro.notifications.null_notifier import NullNotifier
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
 from fibsem_maestro.workflow.actions import Actions
 from fibsem_maestro.workflow.error import ActionError, WorkflowError
@@ -44,6 +46,7 @@ class Workflow:
         actions: Actions,
         propagations: Propagations,
         context: ActionContext,
+        notifier: NotificationService = NullNotifier(),
     ):
         """
         Orchestrates sequential execution of actions across multiple slices.
@@ -57,12 +60,14 @@ class Workflow:
             actions: The sequence of actions to execute each slice.
             propagations: The synchronization rules for property propagation.
             context: The action context for managing slice state.
+            notifier: The service for sending notifications.
         """
 
         self.microscope = microscope
         self.actions = actions
         self.propagations = propagations
         self.ctx = context
+        self.notifier = notifier
         self.callbacks: WorkflowCallbacks | None = None
 
     def set_callbacks(self, callbacks: WorkflowCallbacks) -> None:
@@ -70,7 +75,11 @@ class Workflow:
 
     @classmethod
     def import_from_dir(
-        cls, dir: Path, microscope: Microscope, current_workflow_dir: Path
+        cls,
+        dir: Path,
+        microscope: Microscope,
+        current_workflow_dir: Path,
+        notifier: NotificationService,
     ) -> Self:
         # collect all available workflow slices, sorted descending
         workflow_dir = dir / "workflow"
@@ -155,10 +164,12 @@ class Workflow:
             actions.append(action)
 
         propagations = Propagations.from_rules(workflow_state.propagations)
-        return cls(microscope, actions, propagations, workflow_ctx)
+        return cls(microscope, actions, propagations, workflow_ctx, notifier)
 
     @classmethod
-    def import_from_dir_with_state(cls, dir: Path) -> Self:
+    def import_from_dir_with_state(
+        cls, dir: Path, notifier: NotificationService
+    ) -> Self:
         # find the latest slice of the workflow
         if not (result := find_subdir_with_largest_int(dir / "workflow", "slice_*")):
             raise WorkflowError("No workflow slice found in directory")
@@ -167,7 +178,9 @@ class Workflow:
         # load the workflow state and construct the workflow context
         workflow_state = WorkflowState.from_file(workflow_path / "state.yaml")
         workflow_ctx = FileActionContext(
-            dir / "workflow", "workflow", slice=workflow_slice_number
+            dir / "workflow",
+            "workflow",
+            slice=workflow_slice_number,
         )
 
         # load the microscope settings and construct the microscope
@@ -217,7 +230,7 @@ class Workflow:
         # build the propagations
         propagations = Propagations.from_rules(workflow_state.propagations)
 
-        return cls(microscope, actions, propagations, workflow_ctx)
+        return cls(microscope, actions, propagations, workflow_ctx, notifier)
 
     def run(self, n_slices: int) -> None:
         """
@@ -323,6 +336,14 @@ class Workflow:
                 return True
             except Exception as e:
                 action.ctx.text_logger.error(f"Action '{action.name}' failed: {e}")
+
+                try:
+                    self.notifier.notify(
+                        "FIBSEM Maestro Error", f"Action '{action.name}' failed: {e}"
+                    )
+                except Exception as notify_error:
+                    action.ctx.text_logger.error(f"Failed to notify: {notify_error}")
+
                 error = ActionError(action, str(e))
 
                 if self.callbacks is None:

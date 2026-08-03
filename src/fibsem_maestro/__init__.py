@@ -13,9 +13,7 @@ def _configure_autoscript() -> None:
 
     config = Path(sys.prefix).parent / "config.toml"
     if not config.is_file():
-        raise RuntimeError(
-            f"No configuration found at {config}."
-        )
+        raise RuntimeError(f"No configuration found at {config}.")
 
     with config.open("rb") as handle:
         data = tomllib.load(handle)
@@ -23,6 +21,7 @@ def _configure_autoscript() -> None:
     path = data.get("autoscript", {}).get("path")
     if path:
         sys.path.insert(0, path)
+
 
 def _import_all_modules() -> None:
     """Auto-imports all modules in this package recursively to trigger class registration."""

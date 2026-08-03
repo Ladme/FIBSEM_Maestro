@@ -5,9 +5,9 @@
 from pathlib import Path
 
 import numpy as np
+from fibsem_maestro.core.slice import SliceContext
 
 from fibsem_maestro.core.image import Image
-from fibsem_maestro.core.slice import SliceContext
 from fibsem_maestro.store.image.file import FileImageStore
 from fibsem_maestro.store.image.image_store import normalize_tif
 

@@ -6,6 +6,8 @@ from collections.abc import Sequence
 
 import numpy as np
 import pytest
+from fibsem_maestro.criterion.criterion_registry import CriterionRegistry
+from fibsem_maestro.criterion.reductors_registry import ReductorsRegistry
 from numpy.typing import NDArray
 
 from fibsem_maestro.core.area import PixelArea, RelativeArea
@@ -14,9 +16,7 @@ from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.point import PixelPoint, RelativePoint
 from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.criterion.criterion import Criterion
-from fibsem_maestro.criterion.criterion_registry import CriterionRegistry
 from fibsem_maestro.criterion.error import CriterionError
-from fibsem_maestro.criterion.reductors_registry import ReductorsRegistry
 from fibsem_maestro.criterion.result import SharpnessMap
 from fibsem_maestro.logging.image.memory import MemoryImageLogger
 from fibsem_maestro.logging.image.overlay import Overlay, RectangleOverlay

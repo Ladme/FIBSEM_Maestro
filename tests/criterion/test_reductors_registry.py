@@ -4,12 +4,12 @@
 
 import numpy as np
 import pytest
-
-from fibsem_maestro.criterion.error import CriterionError
 from fibsem_maestro.criterion.reductors_registry import (
     ReductorsRegistry,
     has_numpy_reduction_signature,
 )
+
+from fibsem_maestro.criterion.error import CriterionError
 
 
 def test_has_numpy_reduction_signature_returns_true_for_reduction_function():
@@ -17,7 +17,7 @@ def test_has_numpy_reduction_signature_returns_true_for_reduction_function():
 
 
 def test_has_numpy_reduction_signature_returns_false_for_private_function():
-    def _private(a):  # type: ignore
+    def _private(a):
         return a
 
     assert has_numpy_reduction_signature(_private) is False
@@ -27,11 +27,11 @@ def test_has_numpy_reduction_signature_returns_false_for_no_parameter_function()
     def no_params():
         pass
 
-    assert has_numpy_reduction_signature(no_params) is False  # type: ignore
+    assert has_numpy_reduction_signature(no_params) is False
 
 
 def test_has_numpy_reduction_signature_returns_false_for_non_callable():
-    assert has_numpy_reduction_signature(42) is False  # type: ignore
+    assert has_numpy_reduction_signature(42) is False
 
 
 def test_registry_get_returns_correct_numpy_function():

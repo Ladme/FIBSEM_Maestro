@@ -4,10 +4,10 @@
 from pathlib import Path
 
 import numpy as np
-
 from fibsem_maestro.core.action import Action
-from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.slice import SliceContext
+
+from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.logging.text.memory import MemoryTextLogger
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope import Microscope
@@ -68,8 +68,8 @@ def _make_global_properties() -> GlobalProperties:
             pixel_size=2.0,
             detector_brightness=0.5,
             detector_contrast=0.5,
-        )  # type: ignore
-    )  # type: ignore
+        )
+    )
 
 
 def _make_action() -> ConcreteAction:

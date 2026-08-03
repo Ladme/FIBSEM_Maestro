@@ -7,6 +7,11 @@ from typing import Any
 
 import numpy as np
 import pytest
+from fibsem_maestro.core.slice import SliceContext
+from fibsem_maestro.drift_correction.result import TemplateMatchResult
+from fibsem_maestro.drift_correction.template_matching import (
+    TemplateMatchingDriftCorrection,
+)
 from numpy._typing import NDArray
 
 from fibsem_maestro.core.area import RelativeArea
@@ -14,12 +19,7 @@ from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.image import Image8Bit
 from fibsem_maestro.core.point import PixelPoint, RelativePoint
-from fibsem_maestro.core.slice import SliceContext
 from fibsem_maestro.drift_correction.error import DriftCorrectionError
-from fibsem_maestro.drift_correction.result import TemplateMatchResult
-from fibsem_maestro.drift_correction.template_matching import (
-    TemplateMatchingDriftCorrection,
-)
 from fibsem_maestro.logging.image.memory import MemoryImageLogger
 from fibsem_maestro.logging.image.overlay import Overlay
 from fibsem_maestro.logging.text.memory import MemoryTextLogger
@@ -872,7 +872,7 @@ def test_matches_to_beam_shift_applies_image_to_beam_shift_factor():
     # MockBeamControl.image_to_beam_shift = (1.0, 1.0) by default
     # manually set to (-2.0, 3.0) to verify scaling
     dc = _make_drift_correction(settings=TemplateMatchingSettings(min_confidence=0.5))
-    dc._microscope.beam._image_to_beam_shift = (-2.0, 3.0)  # type: ignore
+    dc._microscope.beam._image_to_beam_shift = (-2.0, 3.0)
     matches = [
         TemplateMatchResult(
             dx=5, dy=5, confidence=0.9, heatmap=np.zeros((8, 8), dtype=np.float32)
@@ -968,7 +968,7 @@ def test_correct_drift_logs_acquiring_image():
     dc._calculate_correction_beam_shift = lambda _: (
         BeamShift(0.0, 0.0),
         _make_dummy_matches(),
-    )  # type: ignore
+    )
 
     dc.correct_drift()
 
@@ -984,7 +984,7 @@ def test_correct_drift_applies_beam_shift():
     dc._calculate_correction_beam_shift = lambda _: (
         BeamShift(10.0, 20.0),
         _make_dummy_matches(),
-    )  # type: ignore
+    )
 
     dc.correct_drift()
 
@@ -1011,7 +1011,7 @@ def test_correct_drift_writes_properties_for_next_slice():
     dc._calculate_correction_beam_shift = lambda _: (
         BeamShift(0.0, 0.0),
         _make_dummy_matches(),
-    )  # type: ignore
+    )
 
     dc.correct_drift()
 
@@ -1033,7 +1033,7 @@ def test_correct_drift_updates_templates():
     dc._calculate_correction_beam_shift = lambda _: (
         BeamShift(0.0, 0.0),
         _make_dummy_matches(),
-    )  # type: ignore
+    )
 
     dc.correct_drift()
 
@@ -1051,7 +1051,7 @@ def test_correct_drift_logs_fine_tuning_when_beam_shift_fails():
     dc._calculate_correction_beam_shift = lambda _: (
         BeamShift(10.0, 20.0),
         _make_dummy_matches(),
-    )  # type: ignore
+    )
 
     original_type = type(dc._microscope.beam)
     original_property = original_type.beam_shift
@@ -1061,14 +1061,14 @@ def test_correct_drift_logs_fine_tuning_when_beam_shift_fails():
         call_count[0] += 1
         if call_count[0] == 1:
             raise RuntimeError("Beam shift out of range")
-        original_property.fset(self_inner, value)  # type: ignore
+        original_property.fset(self_inner, value)
 
-    original_type.beam_shift = property(original_property.fget, raising_on_first_set)  # type: ignore
+    original_type.beam_shift = property(original_property.fget, raising_on_first_set)
 
     try:
         dc.correct_drift()
     finally:
-        original_type.beam_shift = original_property  # type: ignore
+        original_type.beam_shift = original_property
 
     assert any("Fine-tuning" in r.message for r in txt_log.records)
 
@@ -1084,7 +1084,7 @@ def test_correct_drift_does_not_log_fine_tuning_when_beam_shift_succeeds():
     dc._calculate_correction_beam_shift = lambda _: (
         BeamShift(10.0, 20.0),
         _make_dummy_matches(),
-    )  # type: ignore
+    )
 
     dc.correct_drift()
 

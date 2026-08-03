@@ -6,10 +6,6 @@ import os
 import sys
 from importlib.resources import as_file, files
 
-from PyQt6.QtGui import QIcon
-
-from ._version import __version__
-
 # fix Qt plugin path on Windows
 if sys.platform == "win32":
     from pathlib import Path
@@ -20,11 +16,10 @@ if sys.platform == "win32":
     assert qt_plugins.exists(), f"Qt plugins path not found: {qt_plugins}"
     os.environ["QT_PLUGIN_PATH"] = str(qt_plugins)
 
-import qdarkstyle
-from PyQt6.QtWidgets import QApplication, QDialog
 
-from fibsem_maestro.gui.connection.screen import ConnectionScreen
-from fibsem_maestro.gui.window.window import MainWindow
+from PyQt6.QtGui import QIcon
+
+from ._version import __version__
 
 
 def load_app_icon() -> QIcon:
@@ -42,6 +37,12 @@ def main() -> None:
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
             "CEMCOF.FibsemMaestro.Main"
         )
+
+    import qdarkstyle
+    from PyQt6.QtWidgets import QApplication, QDialog
+
+    from fibsem_maestro.gui.connection.screen import ConnectionScreen
+    from fibsem_maestro.gui.window.window import MainWindow
 
     app = QApplication(sys.argv)
     app.setWindowIcon(load_app_icon())

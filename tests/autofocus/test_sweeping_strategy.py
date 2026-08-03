@@ -4,12 +4,12 @@
 
 import numpy as np
 import pytest
+from fibsem_maestro.autofocus.sweeping_registry import SweepingRegistry
 from numpy.typing import NDArray
 
 from fibsem_maestro.autofocus.error import AutofocusError
 from fibsem_maestro.autofocus.result import AutofocusResult
 from fibsem_maestro.autofocus.sweep_step import SweepStep
-from fibsem_maestro.autofocus.sweeping_registry import SweepingRegistry
 from fibsem_maestro.autofocus.sweeping_strategy import (
     BasicSweepingStrategy,
     InterleavedSweepingStrategy,

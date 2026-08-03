@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from fibsem_maestro.core.slice import SliceContext
 
 from fibsem_maestro.autofocus.autofocus import Autofocus
 from fibsem_maestro.autofocus.autofocus_context import AutofocusContext
@@ -16,7 +17,6 @@ from fibsem_maestro.autofocus.sweep_step import SweepStep
 from fibsem_maestro.autofocus.sweeping import Sweeping
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.detail_band import DetailBand
-from fibsem_maestro.core.slice import SliceContext
 from fibsem_maestro.criterion.criterion import Criterion
 from fibsem_maestro.imaging.imaging import Imaging
 from fibsem_maestro.logging.image.memory import MemoryImageLogger

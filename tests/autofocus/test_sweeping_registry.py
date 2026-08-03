@@ -3,11 +3,11 @@
 
 import numpy as np
 import pytest
+from fibsem_maestro.autofocus.sweeping_registry import SweepingRegistry
 from numpy.typing import NDArray
 
 from fibsem_maestro.autofocus.error import AutofocusError
 from fibsem_maestro.autofocus.result import AutofocusResult
-from fibsem_maestro.autofocus.sweeping_registry import SweepingRegistry
 from fibsem_maestro.autofocus.sweeping_strategy import SweepingStrategy
 from fibsem_maestro.settings.sweeping_settings import (
     BasicStrategySettings,
@@ -64,7 +64,7 @@ def test_get_raises_for_missing_name():
 
 def test_register_raises_on_duplicate_name():
     @SweepingRegistry.register("dup")
-    class Sweep1(SweepingStrategy):  # type: ignore
+    class Sweep1(SweepingStrategy):
         def __init__(self, settings: SweepingStrategySettings):
             self.settings = settings
 
@@ -84,7 +84,7 @@ def test_register_raises_on_duplicate_name():
     with pytest.raises(AutofocusError, match=r"already registered"):
 
         @SweepingRegistry.register("dup")
-        class Sweep2(SweepingStrategy):  # type: ignore
+        class Sweep2(SweepingStrategy):
             def __init__(self, settings: SweepingStrategySettings):
                 self.settings = settings
 
@@ -129,7 +129,7 @@ def test_has_reflects_registration_state():
     assert SweepingRegistry.has("x") is False
 
     @SweepingRegistry.register("x")
-    class SweepX(SweepingStrategy):  # type: ignore
+    class SweepX(SweepingStrategy):
         def __init__(self, settings: SweepingStrategySettings):
             self.settings = settings
 
@@ -153,7 +153,7 @@ def test_allowed_lists_registered_names():
     assert SweepingRegistry.allowed() == []
 
     @SweepingRegistry.register("a")
-    class SweepA(SweepingStrategy):  # type: ignore
+    class SweepA(SweepingStrategy):
         def __init__(self, settings: SweepingStrategySettings):
             self.settings = settings
 
@@ -171,7 +171,7 @@ def test_allowed_lists_registered_names():
             return float(results[0].value)  # type: ignore[attr-defined]
 
     @SweepingRegistry.register("b")
-    class SweepB(SweepingStrategy):  # type: ignore
+    class SweepB(SweepingStrategy):
         def __init__(self, settings: SweepingStrategySettings):
             self.settings = settings
 

@@ -234,7 +234,7 @@ def test_set_beam_shift_with_verification_returns_false_when_actual_shift_is_ina
     try:
         result = microscope.set_beam_shift_with_verification(requested)
     finally:
-        original_type.beam_shift = original_property  # type: ignore
+        original_type.beam_shift = original_property
 
     assert result is False
 
@@ -251,14 +251,14 @@ def test_set_beam_shift_with_verification_returns_false_when_setter_raises():
         call_count[0] += 1
         if call_count[0] == 1:
             raise RuntimeError("Beam shift out of range")
-        original_property.fset(self_inner, value)  # type: ignore
+        original_property.fset(self_inner, value)
 
     original_type.beam_shift = property(original_property.fget, raising_on_first_set)  # type: ignore
 
     try:
         result = microscope.set_beam_shift_with_verification(BeamShift(10.0, 20.0))
     finally:
-        original_type.beam_shift = original_property  # type: ignore
+        original_type.beam_shift = original_property
 
     assert result is False
 
@@ -275,14 +275,14 @@ def test_set_beam_shift_with_verification_logs_warning_on_fallback():
         call_count[0] += 1
         if call_count[0] == 1:
             raise RuntimeError("Beam shift out of range")
-        original_property.fset(self_inner, value)  # type: ignore
+        original_property.fset(self_inner, value)
 
     original_type.beam_shift = property(original_property.fget, raising_on_first_set)  # type: ignore
 
     try:
         microscope.set_beam_shift_with_verification(BeamShift(10.0, 20.0))
     finally:
-        original_type.beam_shift = original_property  # type: ignore
+        original_type.beam_shift = original_property
 
     assert any(r.level == "warning" for r in txt_log.records)
     assert any("Beam shift error" in r.message for r in txt_log.records)
@@ -299,14 +299,14 @@ def test_set_beam_shift_with_verification_resets_beam_shift_to_zero_on_fallback(
         call_count[0] += 1
         if call_count[0] == 1:
             raise RuntimeError("Beam shift out of range")
-        original_property.fset(self_inner, value)  # type: ignore
+        original_property.fset(self_inner, value)
 
     original_type.beam_shift = property(original_property.fget, raising_on_first_set)  # type: ignore
 
     try:
         microscope.set_beam_shift_with_verification(BeamShift(10.0, 20.0))
     finally:
-        original_type.beam_shift = original_property  # type: ignore
+        original_type.beam_shift = original_property
 
     assert np.isclose(microscope.beam.beam_shift.x, 0.0)
     assert np.isclose(microscope.beam.beam_shift.y, 0.0)
@@ -324,14 +324,14 @@ def test_set_beam_shift_with_verification_moves_stage_on_fallback():
         call_count[0] += 1
         if call_count[0] == 1:
             raise RuntimeError("Beam shift out of range")
-        original_property.fset(self_inner, value)  # type: ignore
+        original_property.fset(self_inner, value)
 
     original_type.beam_shift = property(original_property.fget, raising_on_first_set)  # type: ignore
 
     try:
         microscope.set_beam_shift_with_verification(BeamShift(10.0, 20.0))
     finally:
-        original_type.beam_shift = original_property  # type: ignore
+        original_type.beam_shift = original_property
 
     final_position = microscope._control.stage_position
     assert not np.isclose(final_position.x, initial_position.x) or not np.isclose(

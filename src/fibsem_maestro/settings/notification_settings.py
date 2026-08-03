@@ -5,7 +5,6 @@ from typing import Annotated, Literal
 
 from pydantic import Field
 
-from fibsem_maestro.notifications.secrets import SecretRef
 from fibsem_maestro.settings.base_settings import BaseSettings
 
 
@@ -37,14 +36,6 @@ class SMTPEmailSettings(BaseSettings):
             "Often an email address."
         ),
     ]
-    password_ref: Annotated[
-        SecretRef,
-        Field(
-            description="Reference to the SMTP password stored in the system "
-            "keychain. The password itself is retrieved at runtime "
-            "using this reference."
-        ),
-    ]
     sender: Annotated[
         str,
         Field(
@@ -58,6 +49,10 @@ class SMTPEmailSettings(BaseSettings):
             description="Tuple of recipient email addresses that will receive "
             "notification emails."
         ),
+    ]
+    password: Annotated[
+        str,
+        Field(description="Password to authenticate with the SMTP server.", repr=False),
     ]
 
 

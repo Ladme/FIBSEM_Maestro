@@ -144,7 +144,10 @@ class TopBar(QWidget):
 
         try:
             imported = Workflow.import_from_dir(
-                Path(path), self._manager.workflow.microscope, self._workflow_dir
+                Path(path),
+                self._manager.workflow.microscope,
+                self._workflow_dir,
+                self._manager.workflow.notifier,
             )
 
             # delete all directories in the original workflow_dir, except for the workflow directory
