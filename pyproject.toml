@@ -9,7 +9,6 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "colorama>=0.4.6",
-    "keyring>=25.7.0",
     "matplotlib>=3.8.1",
     "numpy==2.2.5",
     "opencv-python-headless>=4.13.0.92",
