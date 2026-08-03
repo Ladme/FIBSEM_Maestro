@@ -52,7 +52,7 @@ class MultiTileMode(BaseSettings):
         description="Numpy method for calculating final criterion from all tiles.",
     )
     tile_size: Annotated[float, Field(gt=0), FieldUnit(suffix="nm")] = Field(
-        default=0.0, description="Tile size for criterion calculation."
+        default=1.0, description="Tile size for criterion calculation."
     )
     relative_overlap: Annotated[float, Field(ge=0, le=1)] = Field(
         default=0.0, description="Relative overlap between the tiles."

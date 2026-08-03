@@ -4,8 +4,9 @@
 import re
 from pathlib import Path
 from time import sleep
-from typing import TYPE_CHECKING, Protocol, Self
+from typing import Protocol, Self
 
+from fibsem_maestro.action.action import Action
 from fibsem_maestro.action.registry import ACTION_REGISTRY
 from fibsem_maestro.action.state import ActionState
 from fibsem_maestro.action_context.action_context import ActionContext
@@ -15,11 +16,9 @@ from fibsem_maestro.logging.text.contextual import ContextualTextLogger
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
 from fibsem_maestro.workflow.actions import Actions
-from fibsem_maestro.workflow.error import WorkflowError
+from fibsem_maestro.workflow.error import ActionError, WorkflowError
+from fibsem_maestro.workflow.error_choice import ErrorChoice
 from fibsem_maestro.workflow.propagations import PropagationRule, Propagations
-
-if TYPE_CHECKING:
-    from fibsem_maestro.action.action import Action
 
 
 class WorkflowState(ActionState):
@@ -35,6 +34,7 @@ class WorkflowCallbacks(Protocol):
     def notify_is_paused(self) -> None: ...
     def is_pause_requested(self) -> bool: ...
     def wait_for_resume(self) -> None: ...
+    def request_error_choice(self, error: ActionError) -> ErrorChoice: ...
 
 
 class Workflow:
@@ -240,7 +240,7 @@ class Workflow:
                         action.ctx.text_logger.error(
                             f"Failed to initialize action '{action.name}': {e}"
                         )
-                        raise
+                        raise WorkflowError(e) from e
 
             for _ in range(n_slices):
                 self._run_slice()
@@ -251,7 +251,7 @@ class Workflow:
         # sleep for 1 ms to avoid overlapping slice log messages
         sleep(0.001)
         for i, action in enumerate(self.actions):
-            # necessary when resuming an interrupted workflow
+            # necessary when resuming a paused workflow
             # we need to skip actions that have already been executed for this slice
             if action.ctx.slice > self.ctx.slice:
                 self.ctx.text_logger.debug(
@@ -260,20 +260,15 @@ class Workflow:
                 continue
 
             # execute the action
-            try:
-                action.execute()
-            except Exception as e:
-                # log all exceptions raised during the execution of the action
-                # and re-raise them to interrupt the workflow
-                action.ctx.text_logger.error(f"Action '{action.name}' failed: {e}")
-                raise
+            executed = self._execute_with_recovery(action)
 
             # store the state and the current settings of the action
             action.ctx.state_store.next.write("state.yaml", action.state)
             action.ctx.settings_store.next.write("settings.yaml", action.settings)
 
-            # propagate properties to other actions
-            self.propagations.propagate(action, self.actions, self.ctx.text_logger)
+            # propagate properties to other actions, if the action was executed
+            if executed:
+                self.propagations.propagate(action, self.actions, self.ctx.text_logger)
 
             # advance the slice counter for the action
             self.ctx.text_logger.debug(
@@ -309,6 +304,45 @@ class Workflow:
 
         if self.callbacks:
             self.callbacks.notify_slice_finished()
+
+    def _execute_with_recovery(self, action: Action) -> bool:
+        """
+        Execute an action, offering the user recovery options if it fails.
+
+        Returns:
+            True if the action executed successfully, False if the user chose
+            to skip it.
+
+        Raises:
+            ActionError: If the user chose to terminate, or there is no GUI
+                to ask.
+        """
+        while True:
+            try:
+                action.execute()
+                return True
+            except Exception as e:
+                action.ctx.text_logger.error(f"Action '{action.name}' failed: {e}")
+                error = ActionError(action, str(e))
+
+                if self.callbacks is None:
+                    raise error from e
+
+                match self.callbacks.request_error_choice(error):
+                    case ErrorChoice.RETRY:
+                        action.ctx.text_logger.warning(
+                            f"Retrying action '{action.name}'."
+                        )
+                        continue
+                    case ErrorChoice.SKIP:
+                        action.ctx.text_logger.warning(
+                            f"Skipping failed action '{action.name}'."
+                        )
+                        # copy properties to the next slice
+                        action.propagate_to_next()
+                        return False
+                    case ErrorChoice.TERMINATE:
+                        raise error from e
 
     @property
     def state(self) -> WorkflowState:

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import logging
+import weakref
 from logging import FileHandler
 from typing import TYPE_CHECKING, Self
 
@@ -149,6 +150,10 @@ class FileTextLogger(TextLogger):
     def slice(self) -> int:
         return self._view_provider().slice_index
 
+    def close(self) -> None:
+        """Close this logger's file handler (shared by all derived loggers)."""
+        self._root.close()
+
 
 class _FileTextLoggerRoot:
     """
@@ -168,6 +173,11 @@ class _FileTextLoggerRoot:
 
     _FORMAT = "%(asctime)s [%(name)s] %(levelname)s: %(message)s"
 
+    # registry of all live roots, so close_all() can release every open file handle at once
+    # weak refs let unused roots (e.g. throwaway ones from at()/next)
+    # be garbage-collected normally instead of being pinned here
+    _instances: weakref.WeakSet[_FileTextLoggerRoot] = weakref.WeakSet()
+
     def __init__(
         self,
         view_provider: Callable[[], SliceView],
@@ -179,6 +189,7 @@ class _FileTextLoggerRoot:
         self._level = level
         self._active_path: Path | None = None
         self._active_handler: logging.FileHandler | None = None
+        _FileTextLoggerRoot._instances.add(self)
 
     def get_handler(self) -> FileHandler:
         """
@@ -200,6 +211,29 @@ class _FileTextLoggerRoot:
         # it has either been set in this method or has been set previously
         assert self._active_handler
         return self._active_handler
+
+    def close(self) -> None:
+        """
+        Close the open file handler, releasing its OS file handle.
+
+        The next log call reopens a handler for the then-current slice, so
+        closing is safe at any time. It merely releases the file until the next write.
+        """
+        if self._active_handler is not None:
+            self._active_handler.close()
+        self._active_handler = None
+        self._active_path = None
+
+    @classmethod
+    def close_all(cls) -> None:
+        """
+        Close every live per-slice file handler across all logger roots.
+
+        Snapshots the registry first so handlers reopening during iteration do
+        not disturb the sweep. Handlers reopen lazily on the next log call.
+        """
+        for root in list(cls._instances):
+            root.close()
 
 
 class _PrefixStrippingFormatter(logging.Formatter):
@@ -230,3 +264,14 @@ class _PrefixStrippingFormatter(logging.Formatter):
         record = logging.makeLogRecord(record.__dict__)
         record.name = record.name.removeprefix(self._prefix) or "root"
         return super().format(record)
+
+
+def close_all_log_files() -> None:
+    """
+    Close all open per-slice log file handles.
+
+    Call before deleting or moving slice directories (e.g. on workflow reset)
+    so no open handle blocks removal on Windows. Handlers reopen automatically
+    on the next log write.
+    """
+    _FileTextLoggerRoot.close_all()

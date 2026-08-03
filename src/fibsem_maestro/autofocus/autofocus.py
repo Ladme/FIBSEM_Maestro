@@ -4,6 +4,7 @@
 
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import ExitStack
 from dataclasses import field
 from typing import TYPE_CHECKING, Any
 
@@ -212,9 +213,7 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
             )
             self._advance()
             if self._active_gen is not None:
-                self.write_properties(
-                    self.read_properties(), self._ctx.props_store.next
-                )
+                self.propagate_to_next()
             return
 
         # remove the jobs and results from previous slice
@@ -226,7 +225,7 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
         # evaluate whether the autofocus should be performed based on the sharpness of the image from the previous slice
         if not self._should_execute(self._ctx.slice, image_sharpness):
             # if the autofocus should not be run, we still need to copy the props file to the next slice
-            self.write_properties(self.read_properties(), self._ctx.props_store.next)
+            self.propagate_to_next()
             return
 
         # read the microscope properties for autofocus from a file and set them
@@ -248,7 +247,7 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
         # the microscope properties for the autofocus to the next slice
         if self._active_gen is not None:
             # mid-sweep - copy the props file to the next slice
-            self.write_properties(self.read_properties(), self._ctx.props_store.next)
+            self.propagate_to_next()
 
         self._ctx.text_logger.info(
             f"Completed '{self.name}' for slice {self._ctx.slice}."
@@ -259,45 +258,65 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
         """
         Run the autofocus pipeline once and apply the best sweep value.
 
-        Intended for manual testing and diagnostics outside the normal acquisition
-        loop. Unlike `perform_autofocus`, this method bypasses all gating
-        conditions and does not interact with the props store.
+        Intended for manual testing and diagnostics outside the normal
+        acquisition loop.
 
-        Step mode is not supported since it spreads execution across multiple
-        slices and cannot be run in a single call.
+        Raises:
+            AutofocusError: If the configured mode is a step mode, which spreads
+                execution across multiple slices and cannot be run in a single call.
         """
+        if isinstance(self._mode, StepMode):
+            raise AutofocusError("Test is not supported for step mode")
+
         self._ctx.text_logger.info(f"Started test for {self.name}.")
         # clear any existing jobs
         self._jobs.wait_and_clear()
 
-        if isinstance(self._mode, StepMode):
-            raise AutofocusError("Test is not supported for step mode")
+        with ExitStack() as stack:
+            if self._ctx.props_store.exists("props.yaml"):
+                self._ctx.text_logger.info("Loading saved microscope properties.")
+                self.read_and_set_properties()
+            else:
+                self._ctx.text_logger.info("No saved microscope properties found.")
+                # external properties for the action are temporarily set
+                stack.enter_context(
+                    self._microscope.set_temporary_properties(
+                        self._settings.external_props
+                    )
+                )
 
-        # external properties for the action are temporarily set
-        with self._microscope.set_temporary_properties(self._settings.external_props):
-            # get the current sweep base value
-            self._sweep_base_value: float | None = (
-                self._sweeping.get_attribute_value()
-                if self._sweeping is not None
-                else None
-            )
-
-            # we provide `None` instead of imaging; imaging is only needed for step mode which is not testable
-            for _ in self._mode.execute(self._autofocus_ctx, self._jobs, None):
-                self._jobs.wait()
-
-            results = self._jobs.wait_and_collect()
-            if self._sweeping is not None:
-                best = self._sweeping.evaluate_best_sweep(results)
-                self._ctx.text_logger.info(f"Best sweep attribute value: {best}.")
-                self._sweeping.set_attribute_value(best)
-
-                # log images
-                self._log_af_curve(results, best, self._sweep_base_value)
-                if isinstance(self._mode, LineMode):
-                    self._log_line_focus_image(results)
+            self._run_sweep_and_apply_best()
 
         self._ctx.text_logger.info(f"Completed test for {self.name}.")
+
+    def _run_sweep_and_apply_best(self) -> None:
+        """
+        Execute the autofocus mode once and apply the best sweep value.
+
+        Records the current sweep attribute value as the base value, runs the
+        mode to completion, then evaluates the collected results, applies the
+        best value to the microscope and logs the focus curve. Does nothing
+        beyond executing the mode if no sweeping is configured.
+        """
+        self._sweep_base_value = (
+            self._sweeping.get_attribute_value() if self._sweeping is not None else None
+        )
+
+        # imaging is only needed for step mode, which is not testable, so we pass `None`
+        for _ in self._mode.execute(self._autofocus_ctx, self._jobs, None):
+            self._jobs.wait()
+
+        results = self._jobs.wait_and_collect()
+        if self._sweeping is None:
+            return
+
+        best = self._sweeping.evaluate_best_sweep(results)
+        self._ctx.text_logger.info(f"Best sweep attribute value: {best}.")
+        self._sweeping.set_attribute_value(best)
+
+        self._log_af_curve(results, best, self._sweep_base_value)
+        if isinstance(self._mode, LineMode):
+            self._log_line_focus_image(results)
 
     def wait_for_background_threads(self) -> None:
         self._jobs.wait()

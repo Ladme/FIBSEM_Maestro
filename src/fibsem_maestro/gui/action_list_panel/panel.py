@@ -52,6 +52,8 @@ class ActionListPanel(QWidget):
         self._microscope = self._manager.workflow.microscope
         self._app_state = app_state
 
+        self._active_action: Action | None = None
+
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
@@ -81,13 +83,21 @@ class ActionListPanel(QWidget):
         # add button
         self._add_btn = QPushButton("+ Add action")
         self._add_btn.clicked.connect(self._on_add)
-        self._add_btn.setEnabled(self._app_state == AppState.EDITING)
+        self._add_btn.setEnabled(
+            self._app_state not in {AppState.RUNNING, AppState.STOPPING}
+        )
         outer.addWidget(self._add_btn)
 
         # populate from existing workflow actions
         self._rebuild(self._manager.workflow.actions)
         self._manager.actions_changed.connect(self._rebuild)
+        self._manager.new_workflow.connect(self._on_new_workflow)
         self._manager.action_finished.connect(self._on_action_finished)
+
+    def _on_new_workflow(self, workflow_dir: Path) -> None:
+        """Update the action list if a new workflow is opened."""
+        self._workflow_dir = workflow_dir
+        self._rebuild(self._manager.workflow.actions)
 
     def _rebuild(self, actions: Actions) -> None:
         """Rebuild the list from the current workflow actions."""
@@ -96,6 +106,12 @@ class ActionListPanel(QWidget):
         for action in actions:
             self._append_item(action)
         self._list.setCurrentRow(current_row)
+
+        if self._active_action is not None:
+            for i in range(self._list.count()):
+                w = self._item_widget(i)
+                if w is not None:
+                    w.set_active(w.action is self._active_action)
 
     def _append_item(self, action: Action) -> QListWidgetItem:
         """Create and append a list item for the given action."""
@@ -117,7 +133,7 @@ class ActionListPanel(QWidget):
             if (item := self._item_widget(i)) is not None
         }
 
-    def _build_action(self, type_key: str, name: str) -> Action:
+    def _build_action(self, type_key: str, name: str, slice_number: int) -> Action:
         """Construct a new Action from the registry with default settings."""
         action_cls = ACTION_REGISTRY.get(type_key)
         settings_cls = action_cls.settings_cls()
@@ -130,6 +146,7 @@ class ActionListPanel(QWidget):
             ctx=FileActionContext(
                 action_dir=self._workflow_dir / name.replace(" ", "_"),
                 name=name.replace(" ", "_"),
+                slice=slice_number,
             ),
             actions=self._manager.workflow.actions,
         )
@@ -158,7 +175,12 @@ class ActionListPanel(QWidget):
         )
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
-        action = self._build_action(dialog.selected_type_key(), dialog.selected_name())
+        action = self._build_action(
+            dialog.selected_type_key(),
+            dialog.selected_name(),
+            # use the workflow context slice number
+            self._manager.workflow.ctx.slice,
+        )
         self._manager.workflow.actions.append(action)
         item = self._append_item(action)
         self._list.setCurrentItem(item)
@@ -178,15 +200,42 @@ class ActionListPanel(QWidget):
         row: int,
     ) -> None:
         """Sync workflow action order after a drag-reorder."""
-        _ = parent, start, end, dest, row
-        actions = []
-        for i in range(self._list.count()):
-            widget = self._item_widget(i)
-            if widget is not None:
-                actions.append(widget.action)
+        _ = parent, dest
+
+        # row is the destination index before the source rows are removed,
+        # so it overshoots by the block size when the item is dragged downwards
+        moved_count = end - start + 1
+        final_row = row - moved_count if row > start else row
+
+        actions = [
+            widget.action
+            for i in range(self._list.count())
+            if (widget := self._item_widget(i)) is not None
+        ]
         self._manager.workflow.actions.clear()
         self._manager.workflow.actions.extend(actions)
+
+        self._reconcile_slices(final_row, moved_count)
         self._manager.notify_actions_changed()
+
+    def _reconcile_slices(self, first_row: int, count: int) -> None:
+        """
+        Clamp the slices of the moved actions to satisfy their new neighbours.
+
+        Args:
+            first_row: Index of the first moved action in its new position.
+            count: Number of contiguous actions that were moved.
+        """
+        actions = self._manager.workflow.actions
+        last_row = first_row + count - 1
+
+        above = actions[first_row - 1].ctx.slice if first_row > 0 else None
+        below = actions[last_row + 1].ctx.slice if last_row + 1 < len(actions) else None
+
+        for action in actions[first_row : last_row + 1]:
+            new_slice = clamp_slice(action.ctx.slice, above, below)
+            if new_slice != action.ctx.slice:
+                action.ctx.set_slice(new_slice)
 
     def _on_context_menu(self, pos) -> None:
         item = self._list.itemAt(pos)
@@ -198,11 +247,14 @@ class ActionListPanel(QWidget):
             return
 
         menu = QMenu(self)
-        is_editing = self._app_state == AppState.EDITING
+        is_editable = self._app_state not in {
+            AppState.RUNNING,
+            AppState.STOPPING,
+        }
         remove_action = menu.addAction("Remove")
-        remove_action.setEnabled(is_editing)
+        remove_action.setEnabled(is_editable)
         duplicate_action = menu.addAction("Duplicate")
-        duplicate_action.setEnabled(is_editing)
+        duplicate_action.setEnabled(is_editable)
 
         chosen = menu.exec(self._list.mapToGlobal(pos))
 
@@ -224,7 +276,9 @@ class ActionListPanel(QWidget):
         type_key = next(
             key for key in ACTION_REGISTRY if ACTION_REGISTRY.get(key) is type(action)
         )
-        new_action = self._build_action(type_key, new_name)
+        new_action = self._build_action(
+            type_key, new_name, self._manager.workflow.ctx.slice
+        )
         self._manager.workflow.actions.append(new_action)
         self._append_item(new_action)
         self._manager.notify_actions_changed()
@@ -232,12 +286,15 @@ class ActionListPanel(QWidget):
     def on_app_state_changed(self, state: AppState) -> None:
         """Called by MainWindow when the application state changes."""
         self._app_state = state
-        is_editing = state == AppState.EDITING
-        self._add_btn.setEnabled(is_editing)
+        is_editable = state not in {
+            AppState.RUNNING,
+            AppState.STOPPING,
+        }
+        self._add_btn.setEnabled(is_editable)
 
         self._list.setDragDropMode(
             QAbstractItemView.DragDropMode.InternalMove
-            if is_editing
+            if is_editable
             else QAbstractItemView.DragDropMode.NoDragDrop
         )
 
@@ -247,7 +304,34 @@ class ActionListPanel(QWidget):
             self._on_action_finished(self._manager.workflow.actions[0])
 
     def _on_action_finished(self, action: Action) -> None:
+        self._active_action = action
         for i in range(self._list.count()):
             w = self._item_widget(i)
             if w is not None:
                 w.set_active(w.action is action)
+
+
+def clamp_slice(current: int, above: int | None, below: int | None) -> int:
+    """
+    Clamp a slice index to the range permitted by its neighbours.
+
+    Slice indices are non-increasing down the action list: an action must
+    have a slice no greater than the action above it and no less than the
+    action below it.
+
+    Args:
+        current: The moved action's slice index.
+        above: The slice index of the action directly above, or None if the
+            moved action is now first.
+        below: The slice index of the action directly below, or None if the
+            moved action is now last.
+
+    Returns:
+        The clamped slice index, unchanged if it already satisfies both bounds.
+    """
+    clamped = current
+    if below is not None:
+        clamped = max(clamped, below)
+    if above is not None:
+        clamped = min(clamped, above)
+    return clamped

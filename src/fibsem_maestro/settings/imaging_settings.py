@@ -21,7 +21,7 @@ class StandardResolution(BaseSettings):
 class ExtendedResolution(BaseSettings):
     type: Literal["extended"] = "extended"
     pixel_size: Annotated[float, Field(gt=0), FieldUnit(suffix="nm")] = Field(
-        description="Requested size of each pixel."
+        default=1.0, description="Requested size of each pixel."
     )
 
 

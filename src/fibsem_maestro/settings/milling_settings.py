@@ -11,13 +11,24 @@ from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.direction import Direction
 from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.base_settings import BaseSettings
-from fibsem_maestro.settings.form_utils import FieldUnit, FormHint, WidgetType
+from fibsem_maestro.settings.form_utils import (
+    AreaOverlay,
+    FieldUnit,
+    FormHint,
+    WidgetType,
+)
 from fibsem_maestro.settings.property_names import PropertyNames
 
 
 class MillingSettings(BaseSettings):
     milling_area: Annotated[
-        list[RelativeArea], FormHint(widget=WidgetType.AREA_SELECT, max_areas=1)
+        list[RelativeArea],
+        FormHint(
+            widget=WidgetType.AREA_SELECT,
+            max_areas=1,
+            area_overlay=AreaOverlay.SHOW_DIRECTION,
+            overlay_source="milling_direction",
+        ),
     ] = Field(
         default_factory=list,
         description="Area in which milling will be performed.",

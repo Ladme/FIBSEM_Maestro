@@ -2,19 +2,15 @@
 # Copyright (c) 2024-2025 CEMCOF
 
 
-from typing import Any
-
 from PyQt6.QtWidgets import QHBoxLayout, QWidget
 
-from fibsem_maestro.gui.form_builder.widgets._no_scroll import (
-    NoScrollDoubleSpinBox,
-)
-from fibsem_maestro.gui.form_builder.widgets.wrapper import WidgetWrapper
+from fibsem_maestro.gui.form_builder.widgets._no_scroll import NoScrollDoubleSpinBox
+from fibsem_maestro.gui.form_builder.widgets.base import BaseWidget
 
 
-class FloatTupleWidget(QWidget, WidgetWrapper):
+class FloatTupleWidget(QWidget, BaseWidget[tuple[float, ...]]):
     """
-    A vertical stack of float spinboxes for editing a tuple of floats.
+    A horizontal stack of float spinboxes for editing a tuple of floats.
 
     Args:
         length: Number of elements in the tuple.
@@ -33,7 +29,8 @@ class FloatTupleWidget(QWidget, WidgetWrapper):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
-        WidgetWrapper.__init__(self)
+        BaseWidget.__init__(self)
+
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(4)
@@ -46,30 +43,40 @@ class FloatTupleWidget(QWidget, WidgetWrapper):
             spinbox.setMinimum(minimum if minimum is not None else -1e12)
             spinbox.setMaximum(maximum if maximum is not None else 1e12)
             spinbox.setValue(value)
-            spinbox.valueChanged.connect(lambda _: self._notify_changed())
+            spinbox.valueChanged.connect(lambda _: self._emit())
             layout.addWidget(spinbox)
             self._spinboxes.append(spinbox)
 
     def get_value(self) -> tuple[float, ...]:
-        """Returns the current values as a tuple of ints."""
+        """
+        Return the current values as a tuple.
+
+        Returns:
+            One float per spin box, in order.
+        """
+
         return tuple(s.value() for s in self._spinboxes)
 
-    def set_value(self, value: Any) -> None:
+    def set_value(self, value: tuple[float, ...]) -> None:
         """
-        Sets the spinbox values from a tuple.
+        Set the spin boxes from a tuple of values.
+
+        Values are applied in order.
+        Extra spin boxes or extra values areignored.
 
         Args:
-            value: A tuple of ints with the same length as this widget.
+            value: The values to apply to the spin boxes.
         """
+
         for spinbox, v in zip(self._spinboxes, value):
             spinbox.setValue(v)
 
     def set_read_only(self, read_only: bool) -> None:
         """
-        Sets all spinboxes to read-only or editable.
+        Enable or disable editing of all values.
 
         Args:
-            read_only: Whether the spinboxes should be read-only.
+            read_only: If True, make every spin box read-only.
         """
         for spinbox in self._spinboxes:
             spinbox.setReadOnly(read_only)

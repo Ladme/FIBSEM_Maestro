@@ -10,7 +10,7 @@ from fibsem_maestro.gui.connection._common import (
     save_last_microscope_profile,
 )
 from fibsem_maestro.gui.form_builder.builder import FormBuilder
-from fibsem_maestro.gui.form_builder.utils import get_field_infos
+from fibsem_maestro.gui.form_builder.schema.schema import get_field_infos
 from fibsem_maestro.gui.workflow_manager import WorkflowManager
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
 
@@ -47,12 +47,15 @@ class MicroscopeSettingsDialog(QDialog):
         layout.setContentsMargins(16, 16, 16, 16)
         # only allow changing the fields which do not affect connection
         non_connection_infos = [
-            field
+            field.name
             for field in get_field_infos(MicroscopeSettings)
             if field.name not in CONNECTION_FIELDS
         ]
-        self._form = form_builder._build_object(
-            MicroscopeSettings, self._microscope.settings, non_connection_infos
+        self._form = form_builder.build_form(
+            self._microscope.settings,
+            self._manager,
+            self._manager.workflow.ctx.text_logger,
+            non_connection_infos,
         )
         self._form.set_value(self._microscope.settings.model_dump())
 

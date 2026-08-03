@@ -4,7 +4,7 @@
 
 import contextvars
 import threading
-from contextlib import nullcontext
+from contextlib import ExitStack, nullcontext
 from pathlib import Path
 
 from fibsem_maestro.action.action import Action
@@ -179,7 +179,7 @@ class Imaging(Action[ImagingSettings, ImagingState]):
                 f"Skipping '{self.name}' for slice {self._ctx.slice}."
             )
             # even if imaging is skipped, we need to write properties for the next slice
-            self.write_properties(self.read_properties(), self._ctx.props_store.next)
+            self.propagate_to_next()
             return
 
         self._ctx.text_logger.info(
@@ -231,37 +231,68 @@ class Imaging(Action[ImagingSettings, ImagingState]):
 
     @with_logging_context
     def test(self) -> None:
+        """
+        Acquire a single test frame and save it alongside the slice frames.
+
+        If persisted properties exist they are read and applied to the
+        microscope; otherwise the external action properties and the first
+        configured scanning area are applied temporarily for the duration of
+        the acquisition.
+        """
         self._ctx.text_logger.info(f"Started test for {self.name}.")
 
-        try:
-            scanning_area = self._settings.scanning_area[0]
-        except IndexError:
-            scanning_area = None
+        with ExitStack() as stack:
+            if self._ctx.props_store.exists("props.yaml"):
+                self._ctx.text_logger.info("Loading saved microscope properties.")
+                self.read_and_set_properties()
+            else:
+                self._ctx.text_logger.info("No saved microscope properties found.")
+                # the external action properties and the scanning area from
+                # settings must be applied to the microscope only for the
+                # duration of this acquisition.
+                if (scanning_area := self._first_scanning_area()) is not None:
+                    stack.enter_context(
+                        self._microscope.set_temporary_beam_property(
+                            "scanning_area",
+                            scanning_area,
+                            self._settings.beam_type,
+                        )
+                    )
+                stack.enter_context(
+                    self._microscope.set_temporary_properties(self.external_props)
+                )
 
-        # we need to temporarily set the external action properties
-        # to the microscope and the scanning area from settings
-        with (
-            self._microscope.set_temporary_beam_property(
-                "scanning_area",
-                scanning_area,
-                self._settings.beam_type,
-                # only set the scanning area if it is not None
-            )
-            if scanning_area is not None
-            else nullcontext(),
-            self._microscope.set_temporary_properties(self.external_props),
-        ):
-            image = self._microscope.beam.grab_frame()
-            # we store the image manually with the `test` suffix so that it does not block
-            # acquisition of more images for the given slice
-            output_path = Path(str(self._ctx.frame_store.path())).with_suffix(
-                ".test.tif"
-            )
-            image.save(output_path, ImageFormat.TIF)
+            output_path = self._grab_test_frame()
 
         self._ctx.text_logger.info(
             f"Completed test for {self.name}. Acquired image saved as {output_path}."
         )
+
+    def _first_scanning_area(self) -> RelativeArea | None:
+        """
+        Return the configured scanning area, if any.
+
+        Returns:
+            The first scanning area from the settings,
+            or `None` when no scanning area is configured.
+        """
+        return next(iter(self._settings.scanning_area), None)
+
+    def _grab_test_frame(self) -> Path:
+        """
+        Grab a frame and save it with the `.test.tif` suffix.
+
+        The frame is stored manually rather than through the frame store so
+        that it does not block acquisition of further images for the current
+        slice.
+
+        Returns:
+            The path the acquired image was written to.
+        """
+        image = self._microscope.beam.grab_frame()
+        output_path = Path(str(self._ctx.frame_store.path())).with_suffix(".test.tif")
+        image.save(output_path, ImageFormat.TIF)
+        return output_path
 
     @with_logging_context
     def collect_and_write_properties(

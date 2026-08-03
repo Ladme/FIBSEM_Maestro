@@ -1,526 +1,579 @@
 # Released under MIT License.
 # Copyright (c) 2024-2025 CEMCOF
 
-
-import contextlib
-import dataclasses
 from collections.abc import Callable
-from typing import Any, get_args
+from typing import Any
 
 from fibsem_maestro.action.action import Action
-from fibsem_maestro.gui.error import GUIError
-from fibsem_maestro.gui.form_builder.utils import (
-    FieldInfo,
-    TypeKind,
-    classify_type,
-    get_field_infos,
+from fibsem_maestro.gui.form_builder._write_back import WriteBack
+from fibsem_maestro.gui.form_builder.schema.constraints import NumericBounds
+from fibsem_maestro.gui.form_builder.schema.field_info import FieldInfo
+from fibsem_maestro.gui.form_builder.schema.field_type import (
+    BoolType,
+    DataclassType,
+    DiscriminatedUnionType,
+    EnumType,
+    FieldType,
+    FloatTupleType,
+    FloatType,
+    IntType,
+    ListType,
+    LiteralType,
+    StrType,
+    UnknownType,
+    is_scalar,
 )
+from fibsem_maestro.gui.form_builder.schema.schema import get_field_infos
 from fibsem_maestro.gui.form_builder.widgets.action_select import ActionSelectWidget
-from fibsem_maestro.gui.form_builder.widgets.area_selector.widget import (
+from fibsem_maestro.gui.form_builder.widgets.area_select.overlay import OverlayData
+from fibsem_maestro.gui.form_builder.widgets.area_select.widget import (
     AreaSelectWidget,
 )
+from fibsem_maestro.gui.form_builder.widgets.base import BaseWidget, OnChange, _noop
 from fibsem_maestro.gui.form_builder.widgets.bool import BoolWidget
 from fibsem_maestro.gui.form_builder.widgets.detail_band import DetailBandWidget
 from fibsem_maestro.gui.form_builder.widgets.enum import EnumWidget
 from fibsem_maestro.gui.form_builder.widgets.float import FloatWidget
 from fibsem_maestro.gui.form_builder.widgets.float_tuple import FloatTupleWidget
-from fibsem_maestro.gui.form_builder.widgets.group_box import GroupBoxWidget
+from fibsem_maestro.gui.form_builder.widgets.group_wrapper import GroupWrapper
 from fibsem_maestro.gui.form_builder.widgets.int import IntWidget
 from fibsem_maestro.gui.form_builder.widgets.list import ListWidget
 from fibsem_maestro.gui.form_builder.widgets.multi_select import MultiSelectWidget
 from fibsem_maestro.gui.form_builder.widgets.object import ObjectWidget
 from fibsem_maestro.gui.form_builder.widgets.optional import OptionalWidget
-from fibsem_maestro.gui.form_builder.widgets.optional_group import OptionalGroupWidget
 from fibsem_maestro.gui.form_builder.widgets.range_pair import RangePairWidget
 from fibsem_maestro.gui.form_builder.widgets.string import StringWidget
 from fibsem_maestro.gui.form_builder.widgets.text_area import TextAreaWidget
 from fibsem_maestro.gui.form_builder.widgets.union import DiscriminatedUnionWidget
-from fibsem_maestro.gui.form_builder.widgets.wrapper import WidgetWrapper
 from fibsem_maestro.gui.workflow_manager import WorkflowManager
+from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.settings.base_settings import BaseSettings
-from fibsem_maestro.settings.form_utils import WidgetType
-
-SCALAR_KINDS = {
-    TypeKind.BOOL,
-    TypeKind.INT,
-    TypeKind.FLOAT,
-    TypeKind.STR,
-    TypeKind.ENUM,
-    TypeKind.LITERAL,
-}
+from fibsem_maestro.settings.form_utils import AreaOverlay, WidgetType
 
 
 class FormBuilder:
-    """
-    Builds a PyQt form from a live BaseSettings instance.
-
-    The form is pre-populated with the current values of the settings instance.
-    Every change in the form is immediately written back to the settings instance,
-    triggering its reactive hooks.
-    """
+    """Builds a reactive PyQt form from a live reactive settings instance."""
 
     def build_form(
         self,
         settings: BaseSettings,
         workflow_manager: WorkflowManager,
+        txt_log: TextLogger,
         fields: list[str] | None = None,
         action: Action | None = None,
     ) -> ObjectWidget:
         """
-        Build a form for a live settings instance.
+        Build a form bound to a live settings instance.
 
-        The form is pre-populated with current values and writes back
-        reactively on every change.
+        The form is pre-populated with current values and writes each top-level
+        field back to `settings` reactively on every change.
+
+        Args:
+            settings: The live reactive settings instance.
+            workflow_manager: Provides the microscope, action list, and signals.
+            txt_log: The text logger to use for logging.
+            fields: Optional subset of top-level field names to include.
+            action: If set, the action whose `action_changed` signal is
+                emitted after each successful write-back.
+
+        Returns:
+            The populated, reactive top-level `ObjectWidget`.
+        """
+        self._txt_log = txt_log
+        self._configure(workflow_manager, action)
+        return self._build_object(
+            type(settings), settings, self._infos(type(settings), fields)
+        )
+
+    def build_fields(
+        self,
+        cls: type,
+        fields: list[str] | None = None,
+        workflow_manager: WorkflowManager | None = None,
+    ) -> ObjectWidget:
+        """
+        Build a non-reactive form for a class, or a subset of its fields.
+
+        Unlike `build_form`, this binds to no live instance; the caller reads
+        values back via the returned widget's `get_value()`. Use it for one-shot
+        forms where no settings object exists yet.
+
+        Args:
+            cls: The dataclass or model class to build a form for.
+            fields: Optional subset of field names to include.
+            workflow_manager: Only required if an included field uses a
+                manager-dependent widget (property/area/action selectors); may be
+                None otherwise.
+
+        Returns:
+            A populated, value-only `ObjectWidget`.
+        """
+
+        self._configure(workflow_manager, action=None)
+        return self._build_object(
+            cls, settings=None, field_infos=self._infos(cls, fields)
+        )
+
+    def _configure(
+        self, workflow_manager: WorkflowManager | None, action: Action | None
+    ) -> None:
+        """
+        Resolve manager-derived state for the current build.
         """
         self._manager = workflow_manager
-        self._microscope = self._manager.workflow.microscope
-        self._manufacturer_properties = self._microscope.control.manufacturer_prop_names
+        self._microscope = (
+            workflow_manager.workflow.microscope if workflow_manager else None
+        )
+        self._manufacturer_properties = (
+            self._microscope.control.manufacturer_prop_names if self._microscope else []
+        )
         self._action = action
 
-        field_infos = None
+    def _infos(self, cls: type, fields: list[str] | None) -> list[FieldInfo]:
+        """Return field infos for `cls`, optionally filtered to `fields`."""
+        infos = get_field_infos(cls)
         if fields is not None:
-            all_infos = get_field_infos(type(settings))
-            field_infos = [fi for fi in all_infos if fi.name in fields]
-
-        return self._build_object(type(settings), settings, field_infos)
+            infos = [fi for fi in infos if fi.name in fields]
+        return infos
 
     def _build_object(
         self,
         cls: type,
-        settings: BaseSettings | None = None,
+        settings: BaseSettings | None,
         field_infos: list[FieldInfo] | None = None,
+        on_change: OnChange = _noop,
     ) -> ObjectWidget:
         """
-        Build an ObjectWidget for the given class, bound to a settings instance.
+        Build an `ObjectWidget` for `cls`.
+
+        There are two modes, distinguished by `settings`:
+
+        - Live root (`settings` is not None): this is the top level, so
+            each field gets its own write-back, threaded through that field's
+            subtree as `on_change`.
+        - Value-only (`settings` is None): a nested composite or union
+            preview. No write-backs are created; the inherited `on_change` is
+            threaded down, so edits still reach the one top-level write-back.
 
         Args:
-            cls: The dataclass or Pydantic model class to introspect.
-            settings: The live settings instance to pre-populate from and bind to.
-                      None when building a sub-form with no live instance (e.g.
-                      inside a DiscriminatedUnionWidget variant preview).
+            cls: The dataclass or model class to introspect.
+            settings: The live root instance, or None for a value-only subtree.
             field_infos: Pre-computed field infos, or None to compute from cls.
+            on_change: The callback threaded down in value-only mode.
 
         Returns:
-            A populated, reactive ObjectWidget.
+            A populated `ObjectWidget`.
         """
         obj = ObjectWidget(cls=cls)
-        obj.setProperty("dataclass_form", True)
         infos = field_infos if field_infos is not None else get_field_infos(cls)
 
+        widgets: dict[str, BaseWidget] = {}
         for fi in infos:
-            # get the live nested value for this field
-            field_value = (
-                getattr(settings, fi.name, None) if settings is not None else None
-            )
+            value = getattr(settings, fi.name, None) if settings is not None else None
 
-            widget = self._build_field(fi, field_value, settings)
-
-            # pre-populate scalar fields from the live value
-            if field_value is not None and fi.kind in SCALAR_KINDS:
-                with contextlib.suppress(Exception):
-                    widget.set_value(field_value)
+            if settings is not None:
+                # top-level field: its own write-back drives the whole subtree
+                write_back = WriteBack(
+                    settings, fi, self._manager, self._action, self._txt_log
+                )
+                widget = self._build_field(fi, value, write_back)
+                write_back.bind(widget)
+            else:
+                # nested: reuse the inherited top-level write-back
+                widget = self._build_field(fi, value, on_change)
 
             obj.add_field(fi.name, fi.label, widget, fi.description)
+            widgets[fi.name] = widget
 
+        self._wire_overlays(infos, widgets)
         return obj
 
     def _build_field(
-        self,
-        fi: FieldInfo,
-        field_value: Any,
-        settings: BaseSettings | None,
-    ) -> WidgetWrapper:
+        self, fi: FieldInfo, value: Any, on_change: OnChange
+    ) -> BaseWidget:
         """
-        Dispatch a single FieldInfo to the appropriate widget and wire reactivity.
+        Dispatch a single field to a widget and wire `on_change`.
 
-        Args:
-            fi: Field metadata.
-            field_value: Current value of this field from the live settings instance.
-            settings: The parent settings instance to write back to on change.
+        A field with a `FormHint` takes the hinted path; otherwise it is
+        dispatched purely based on its `FieldType` descriptor.
         """
         if fi.hint is not None:
-            # build unconnected - we connect after any optional-wrapping below,
-            # so write-back fires on the outermost widget (the one whose
-            # checkbox/value actually changes when the user interacts with it)
-            inner = self._build_hinted_widget(fi, field_value, settings, connect=False)
-            result: WidgetWrapper = inner
+            inner = self._build_hinted_widget(fi, value)
+            result: BaseWidget = inner
             if fi.optional:
-                enabled = field_value is not None
-                result = OptionalWidget(inner, inline=True, enabled_by_default=enabled)
-            if settings is not None:
-                self._connect_widget(result, fi, settings)
+                result = OptionalWidget(
+                    inner, inline=True, enabled_by_default=value is not None
+                )
+
+            # connect the value editor and, if wrapped, the optional toggle
+            inner.on_change(on_change)
+            if result is not inner:
+                result.on_change(on_change)
             return result
 
-        return self._build_typed_widget(fi, field_value, settings)
+        return self._build_typed_widget(fi, value, on_change)
 
-    def _build_hinted_widget(
-        self,
-        fi: FieldInfo,
-        field_value: Any,
-        settings: BaseSettings | None,
-        connect: bool = True,
-    ) -> WidgetWrapper:
-        """Build the widget specified by fi.hint, pre-populated and reactive.
-
-        Args:
-            connect: Whether to connect write-back here. Pass False when the
-                     caller will wrap this widget further (e.g. in an
-                     OptionalWidget) and connect the wrapper instead.
+    def _build_hinted_widget(self, fi: FieldInfo, value: Any) -> BaseWidget:
         """
-        if (hint := fi.hint) is None:
-            raise GUIError(f"Could not get hint for FieldInfo: {fi.name}.")
+        Build the widget specified by `fi.hint` (unconnected).
+
+        `on_change` is connected by `_build_field` after any optional-wrapping,
+        so the outermost changing widget is wired.
+        """
+        hint = fi.hint
+        if hint is None:
+            raise ValueError(f"no hint for field {fi.name!r}")
 
         suffix = fi.unit.suffix if fi.unit else None
-        default = (
-            field_value
-            if field_value is not None
-            else (fi.default if fi.default is not dataclasses.MISSING else None)
-        )
+        default = self._resolve_default(fi, value)
+        min_val, max_val = self._float_bounds(fi.bounds)
 
         match hint.widget:
             case WidgetType.DROPDOWN:
                 choices = hint.choices() if hint.choices else []
-                widget = EnumWidget(
-                    choices,
-                    default=default,
-                    optional=fi.optional,
-                )
+                return EnumWidget(choices, default=default, optional=fi.optional)
 
             case WidgetType.PROPERTY_SELECTOR:
                 properties = hint.choices() if hint.choices else []
-                manufacturer_properties = self._manufacturer_properties or []
-                widget = EnumWidget(
-                    properties + manufacturer_properties,
-                    default=default,
-                    optional=fi.optional,
-                )
+                properties = properties + (self._manufacturer_properties or [])
+                return EnumWidget(properties, default=default, optional=fi.optional)
 
             case WidgetType.MULTI_SELECT:
                 choices = hint.choices() if hint.choices else []
-                widget = MultiSelectWidget(choices, default=default)
+                return MultiSelectWidget(choices, default=default)
 
             case WidgetType.MULTI_PROPERTY_SELECTOR:
                 properties = hint.choices() if hint.choices else []
-                manufacturer_properties = self._manufacturer_properties or []
-                widget = MultiSelectWidget(
-                    properties + manufacturer_properties,
-                    default=default,
-                )
+                properties = properties + (self._manufacturer_properties or [])
+                return MultiSelectWidget(properties, default=default)
 
             case WidgetType.AREA_SELECT:
-                widget = AreaSelectWidget(
+                return AreaSelectWidget(
                     microscope=self._microscope,
                     max_areas=hint.max_areas if hint.max_areas else None,
                     default=default,
+                    overlay=hint.area_overlay,
                 )
 
             case WidgetType.RANGE_PAIR:
-                widget = RangePairWidget(
-                    default=default,
-                    minimum=fi.minimum,
-                    maximum=fi.maximum,
-                    suffix=suffix,
+                return RangePairWidget(
+                    default=default, minimum=min_val, maximum=max_val, suffix=suffix
                 )
 
             case WidgetType.DETAIL_BAND:
-                widget = DetailBandWidget(
-                    default=(default.low, default.high)
-                    if default is not None
-                    else None,
+                return DetailBandWidget(
+                    default=default,
                     minimum=0.0,  # manual override
-                    maximum=fi.maximum,
-                    suffix=fi.unit.suffix if fi.unit else None,
+                    maximum=max_val,
+                    suffix=suffix,
                 )
 
             case WidgetType.ACTION_SELECTOR:
-                type_filter = fi.hint.action_type_filter if fi.hint is not None else []
+                if self._manager is None:
+                    raise ValueError(
+                        f"field {fi.name!r} needs a workflow_manager, but none was given"
+                    )
+
                 widget = ActionSelectWidget(
                     actions=self._manager.workflow.actions,
-                    type_filter=type_filter,
-                    default=fi.default,
+                    type_filter=hint.action_type_filter,
+                    default=default,
                     optional=fi.optional,
                 )
-                # if an action is added or removed, we need to rebuild the dropdown
+                # rebuild the dropdown when actions are added/removed or renamed
                 self._manager.actions_changed.connect(widget.on_actions_changed)
-                # we also need to update the dropdown, if a name of an action changed
                 self._manager.action_changed.connect(widget.on_action_changed)
+                return widget
 
             case _:
-                widget = TextAreaWidget(default=default)
-
-        if settings is not None and connect:
-            self._connect_widget(widget, fi, settings)
-
-        return widget
+                return TextAreaWidget(self._fallback_type(fi.type), default=default)
 
     def _build_typed_widget(
-        self,
-        fi: FieldInfo,
-        field_value: Any,
-        settings: BaseSettings | None,
-    ) -> WidgetWrapper:
+        self, fi: FieldInfo, value: Any, on_change: OnChange
+    ) -> BaseWidget:
         """
-        Build a widget based purely on the field's TypeKind.
+        Build a widget from the field's `FieldType` descriptor.
 
-        Scalar fields are connected reactively to the settings instance.
-        Nested dataclass fields recurse into _build_object with the nested
-        settings instance, so each level binds independently.
-
-        Write-back is always connected to the outermost widget returned
-        (after any optional-wrapping), since that's the widget whose value
-        actually changes from the user's perspective.
-
-        Args:
-            fi: Field metadata.
-            field_value: Current value from the live settings instance.
-            settings: Parent settings instance to write back to.
+        Scalars and dynamic wrappers (optional, list, union) get `on_change`
+        connected. Nested composites thread `on_change` to their children and
+        need no connection of their own.
         """
+        default = self._resolve_default(fi, value)
         suffix = fi.unit.suffix if fi.unit else None
-        default = (
-            field_value
-            if field_value is not None
-            else (fi.default if fi.default is not dataclasses.MISSING else None)
-        )
 
-        match fi.kind:
-            case TypeKind.BOOL:
+        match fi.type:
+            case BoolType():
                 widget = BoolWidget(
                     default=bool(default) if default is not None else False
                 )
-                result = self._maybe_optional(fi, widget, field_value)
-                if settings is not None:
-                    self._connect_widget(result, fi, settings)
-                return result
+                return self._finish_leaf(fi, widget, value, on_change)
 
-            case TypeKind.INT:
-                min_val = (
-                    int(fi.minimum) + (1 if fi.minimum_exclusive else 0)
-                    if fi.minimum is not None
-                    else None
-                )
-                max_val = (
-                    int(fi.maximum) - (1 if fi.maximum_exclusive else 0)
-                    if fi.maximum is not None
-                    else None
-                )
+            case IntType():
+                min_val, max_val = self._int_bounds(fi.bounds)
                 widget = IntWidget(
                     default=int(default) if default is not None else 0,
                     minimum=min_val,
                     maximum=max_val,
                     suffix=suffix,
                 )
-                result = self._maybe_optional(fi, widget, field_value)
-                if settings is not None:
-                    self._connect_widget(result, fi, settings)
-                return result
+                return self._finish_leaf(fi, widget, value, on_change)
 
-            case TypeKind.FLOAT:
+            case FloatType():
+                min_val, max_val = self._float_bounds(fi.bounds)
                 widget = FloatWidget(
                     default=float(default) if default is not None else 0.0,
-                    minimum=fi.minimum,
-                    maximum=fi.maximum,
+                    minimum=min_val,
+                    maximum=max_val,
                     suffix=suffix,
                 )
-                result = self._maybe_optional(fi, widget, field_value)
-                if settings is not None:
-                    self._connect_widget(result, fi, settings)
-                return result
+                return self._finish_leaf(fi, widget, value, on_change)
 
-            case TypeKind.STR:
+            case StrType():
                 widget = StringWidget(
-                    default=str(default) if default is not None else "",
-                    suffix=suffix,
+                    default=str(default) if default is not None else "", suffix=suffix
                 )
-                result = self._maybe_optional(fi, widget, field_value)
-                if settings is not None:
-                    self._connect_widget(result, fi, settings)
-                return result
+                return self._finish_leaf(fi, widget, value, on_change)
 
-            case TypeKind.ENUM:
-                # optional is handled internally by EnumWidget (adds a "(none)" entry),
-                # so no _maybe_optional wrapping needed here
+            case EnumType(enum_type=enum_cls):
+                # optionality handled inside EnumWidget (adds a "(none)" entry)
                 widget = EnumWidget(
-                    list(fi.inner_type),  # type: ignore
-                    default=default,
-                    optional=fi.optional,
+                    list(enum_cls), default=default, optional=fi.optional
                 )
-                if settings is not None:
-                    self._connect_widget(widget, fi, settings)
+                widget.on_change(on_change)
                 return widget
 
-            case TypeKind.LITERAL:
-                # optional is handled internally by EnumWidget, same as ENUM above
+            case LiteralType(choices=choices):
                 widget = EnumWidget(
-                    fi.literal_choices or [],
-                    default=default,
-                    optional=fi.optional,
+                    list(choices), default=default, optional=fi.optional
                 )
-                if settings is not None:
-                    self._connect_widget(widget, fi, settings)
+                widget.on_change(on_change)
                 return widget
 
-            case TypeKind.DATACLASS:
-                if fi.inner_type is None:
-                    raise GUIError(
-                        f"Expected inner type for dataclass field {fi.name}, got None"
-                    )
-                # recurse with the nested settings instance - no write-back needed
-                # at this level since the nested object mutates itself reactively
-                nested_settings = (
-                    field_value if isinstance(field_value, fi.inner_type) else None
+            case DataclassType(model=model):
+                # value-only recursion: thread the same write-back to children
+                inner_obj = self._build_object(
+                    model, settings=value, on_change=on_change
                 )
-                inner_obj = self._build_object(fi.inner_type, nested_settings)
                 if fi.optional:
-                    # unlike the required case below, toggling between None and the
-                    # nested object IS a change to the parent's own field value, so
-                    # this needs its own write-back connection
-                    group = OptionalGroupWidget(
-                        inner_obj, enabled_by_default=nested_settings is not None
+                    # toggling None <-> instance is a change to the parent field
+                    group = OptionalWidget(
+                        GroupWrapper(inner_obj),
+                        inline=False,
+                        enabled_by_default=value is not None,
                     )
-                    if settings is not None:
-                        self._connect_widget(group, fi, settings)
+                    group.on_change(on_change)
                     return group
-                return GroupBoxWidget(inner_obj)
+                return GroupWrapper(inner_obj)
 
-            case TypeKind.DISCRIMINATED_UNION:
-                from fibsem_maestro.gui.form_builder.utils import (
-                    _get_discriminator_key,
-                )
-
-                if (union_variants := fi.union_variants) is None:
-                    raise GUIError(
-                        f"Expected union variants for field {fi.name}, got None"
-                    )
-
-                variant_types = [vt for _, vt in union_variants]
-
-                if (discriminator_key := _get_discriminator_key(variant_types)) is None:
-                    raise GUIError(
-                        f"Could not determine discriminator key for field {fi.name}"
-                    )
-
+            case DiscriminatedUnionType(discriminator_key=key, variants=variants):
                 union_widget = DiscriminatedUnionWidget(
-                    variants=union_variants,
-                    discriminator_key=discriminator_key,
+                    variants=[
+                        (v.discriminator_value, v.variant_type) for v in variants
+                    ],
+                    discriminator_key=key,
                     build_object=lambda cls, infos: self._build_object(
-                        cls,
-                        field_value if isinstance(field_value, cls) else None,
-                        infos,
+                        cls, settings=None, field_infos=infos, on_change=on_change
                     ),
                 )
-                group = GroupBoxWidget(union_widget)
-                if field_value is not None:
-                    union_widget.set_value(field_value)
 
+                # switching variants is a change
+                union_widget.on_change(on_change)
+                if value is not None:
+                    union_widget.set_value(value)
+
+                group = GroupWrapper(union_widget)
                 if fi.optional:
                     result = OptionalWidget(
-                        group,
-                        inline=False,
-                        enabled_by_default=field_value is not None,
+                        group, inline=False, enabled_by_default=value is not None
                     )
-                    if settings is not None:
-                        self._connect_widget(result, fi, settings)
+                    result.on_change(on_change)
                     return result
-                if settings is not None:
-                    self._connect_widget(group, fi, settings)
+
                 return group
 
-            case TypeKind.LIST:
-                args = get_args(fi.inner_type)
-                if args:
-                    inner_type = args[0]
-                    widget = ListWidget(
-                        item_factory=self._make_item_factory(inner_type),
-                        default=list(default) if default is not None else [],
-                    )
-                else:
-                    widget = TextAreaWidget(default=default)
-                result = self._maybe_optional(fi, widget, field_value)
-                if settings is not None:
-                    self._connect_widget(result, fi, settings)
-                return result
+            case ListType(item=item):
+                widget = ListWidget(
+                    item_factory=self._make_item_factory(item, on_change),
+                    default=list(default) if default is not None else [],
+                )
+                return self._finish_leaf(fi, widget, value, on_change)
 
-            case TypeKind.FLOAT_TUPLE:
-                args = get_args(fi.inner_type)
-                length = len(args)
+            case FloatTupleType(length=length):
                 widget = FloatTupleWidget(
                     length=length,
                     default=tuple(default) if default is not None else None,
                 )
-                result = self._maybe_optional(fi, widget, field_value)
-                if settings is not None:
-                    self._connect_widget(result, fi, settings)
-                return result
+                return self._finish_leaf(fi, widget, value, on_change)
 
-            case TypeKind.UNKNOWN:
-                widget = TextAreaWidget(default=default)
-                result = self._maybe_optional(fi, widget, field_value)
-                if settings is not None:
-                    self._connect_widget(result, fi, settings)
-                return result
+            case UnknownType(hint=target_type):
+                widget = TextAreaWidget(target_type, default=default)
+                return self._finish_leaf(fi, widget, value, on_change)
 
-    def _connect_widget(
-        self,
-        widget: WidgetWrapper,
-        fi: FieldInfo,
-        settings: BaseSettings,
+            case field_type:
+                raise ValueError(f"Unknown field type: {field_type}")
+
+    def _make_item_factory(
+        self, item: FieldType, on_change: OnChange
+    ) -> Callable[[], BaseWidget]:
+        """
+        Return a factory building a widget for a single list element.
+
+        The element's `on_change` is the same top-level write-back, so editing
+        any item reconstructs and reassigns the whole list field.
+        """
+        match item:
+            case BoolType():
+                return lambda: self._wire_leaf(BoolWidget(), on_change)
+            case IntType():
+                return lambda: self._wire_leaf(IntWidget(), on_change)
+            case FloatType():
+                return lambda: self._wire_leaf(FloatWidget(), on_change)
+            case StrType():
+                return lambda: self._wire_leaf(StringWidget(), on_change)
+            case EnumType(enum_type=enum_cls):
+                return lambda: self._wire_leaf(EnumWidget(list(enum_cls)), on_change)
+            case DataclassType(model=model):
+                return lambda: GroupWrapper(
+                    self._build_object(model, settings=None, on_change=on_change)
+                )
+            case _:
+                return lambda: self._wire_leaf(
+                    TextAreaWidget(self._fallback_type(item)), on_change
+                )
+
+    def _finish_leaf(
+        self, fi: FieldInfo, widget: BaseWidget, value: Any, on_change: OnChange
+    ) -> BaseWidget:
+        """
+        Optionally wrap a leaf, then connect `on_change` to the value editor and (if wrapped) the optional toggle.
+        """
+        result = self._maybe_optional(fi, widget, value)
+        widget.on_change(on_change)
+
+        if result is not widget:
+            result.on_change(on_change)
+
+        return result
+
+    def _wire_leaf(self, widget: BaseWidget, on_change: OnChange) -> BaseWidget:
+        """Connect `on_change` to a leaf and return it (used by item factories)."""
+        widget.on_change(on_change)
+        return widget
+
+    def _wire_overlays(
+        self, infos: list[FieldInfo], widgets: dict[str, BaseWidget]
     ) -> None:
         """
-        Connect a widget's change signal to write its value back to settings.
+        Feed each area selector's overlay from a sibling field, reactively.
+
+        For every field whose hint requests an area overlay with a named source,
+        the source widget's current value is pushed into an `OverlayData` and a
+        subscription is added so later edits update the overlay live. Source and
+        area must be siblings in the same object; a source elsewhere in the tree
+        is not resolved and is skipped with a log message.
 
         Args:
-            widget: The WidgetWrapper to connect.
-            fi: Field metadata identifying the settings attribute to write to.
-            settings: The live settings instance to write back to.
+            infos: Field infos for the object currently being built.
+            widgets: The built widgets for this object, keyed by field name.
         """
+        for fi in infos:
+            hint = fi.hint
+            if hint is None or hint.area_overlay is None or hint.overlay_source is None:
+                continue
 
-        def write_back() -> None:
-            with contextlib.suppress(Exception):
-                setattr(settings, fi.name, widget.get_value())
-                if self._action is not None:
-                    self._manager.action_changed.emit(self._action)
+            area = self._area_widget_of(widgets.get(fi.name))
+            source = widgets.get(hint.overlay_source)
+            if area is None or source is None:
+                self._txt_log.warning(
+                    f"Overlay source {hint.overlay_source!r} for field {fi.name!r} "
+                    "is not a sibling field; area overlay will stay static."
+                )
+                continue
 
-        widget.on_change(write_back)
+            push = self._overlay_updater(area, source, hint.area_overlay)
+            # react to later edits of the source
+            source.on_change(push)
+            # seed the current value now
+            push()
+
+    def _overlay_updater(
+        self,
+        area: AreaSelectWidget,
+        source: BaseWidget,
+        overlay: AreaOverlay,
+    ) -> Callable[[], None]:
+        """Return a callback that copies `source`'s value into `area`'s overlay."""
+
+        def push() -> None:
+            area.set_overlay_data(
+                OverlayData(**{overlay.data_field: source.get_value()})
+            )
+
+        return push
+
+    def _area_widget_of(self, widget: BaseWidget | None) -> AreaSelectWidget | None:
+        """Return the `AreaSelectWidget` inside `widget`, unwrapping an optional."""
+        if isinstance(widget, AreaSelectWidget):
+            return widget
+        if isinstance(widget, OptionalWidget):
+            inner = widget.inner  # type: ignore
+            if isinstance(inner, AreaSelectWidget):
+                return inner
+        return None
 
     def _maybe_optional(
-        self,
-        fi: FieldInfo,
-        inner: WidgetWrapper,
-        field_value: Any,
-    ) -> WidgetWrapper:
-        """
-        Wrap inner in an OptionalWidget if the field is optional.
-
-        Args:
-            fi: Field metadata.
-            inner: The widget to optionally wrap.
-            field_value: Current live value, used to determine enabled state.
-        """
+        self, fi: FieldInfo, inner: BaseWidget, value: Any
+    ) -> BaseWidget:
+        """Wrap `inner` in an `OptionalWidget` when the field is optional."""
         if not fi.optional:
             return inner
-        inline = fi.kind in SCALAR_KINDS
         return OptionalWidget(
-            inner,
-            inline=inline,
-            enabled_by_default=field_value is not None,
+            inner, inline=is_scalar(fi.type), enabled_by_default=value is not None
         )
 
-    def _make_item_factory(self, inner_type: type) -> Callable[[], WidgetWrapper]:
-        """Return a factory that creates a widget for a single list item."""
-        kind = classify_type(inner_type)
+    def _resolve_default(self, fi: FieldInfo, value: Any) -> Any:
+        """Prefer the live value, else the field's declared default, else None."""
+        if value is not None:
+            return value
+        if fi.default is not None:
+            return fi.default.value
+        return None
 
-        match kind:
-            case TypeKind.BOOL:
-                return lambda: BoolWidget()
-            case TypeKind.INT:
-                return lambda: IntWidget()
-            case TypeKind.FLOAT:
-                return lambda: FloatWidget()
-            case TypeKind.STR:
-                return lambda: StringWidget()
-            case TypeKind.ENUM:
-                return lambda: EnumWidget(list(inner_type))  # type: ignore
-            case TypeKind.DATACLASS:
-                return lambda: GroupBoxWidget(self._build_object(inner_type, None))
-            case _:
-                return lambda: TextAreaWidget()
+    def _int_bounds(
+        self, bounds: NumericBounds | None
+    ) -> tuple[int | None, int | None]:
+        """Convert numeric bounds to inclusive integer min/max for a spin box."""
+        if bounds is None:
+            return None, None
+
+        minimum = (
+            None
+            if bounds.minimum is None
+            else int(bounds.minimum.value) + (1 if bounds.minimum.exclusive else 0)
+        )
+
+        maximum = (
+            None
+            if bounds.maximum is None
+            else int(bounds.maximum.value) - (1 if bounds.maximum.exclusive else 0)
+        )
+
+        return minimum, maximum
+
+    def _float_bounds(
+        self, bounds: NumericBounds | None
+    ) -> tuple[float | None, float | None]:
+        """Return raw float min/max (exclusivity is not represented for floats)."""
+        if bounds is None:
+            return None, None
+        minimum = None if bounds.minimum is None else bounds.minimum.value
+        maximum = None if bounds.maximum is None else bounds.maximum.value
+        return minimum, maximum
+
+    def _fallback_type(self, field_type: FieldType) -> Any:
+        """The type a YAML text-area fallback should load values into."""
+        if isinstance(field_type, UnknownType):
+            return field_type.hint
+        if isinstance(field_type, DataclassType):
+            return field_type.model
+        return Any

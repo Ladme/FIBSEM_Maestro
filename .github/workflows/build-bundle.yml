@@ -1,0 +1,91 @@
+name: Build offline bundle
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  bundle:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            name: fibsem-maestro-bundle-linux-x86_64
+          - os: windows-latest
+            name: fibsem-maestro-bundle-windows-x86_64
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v7
+
+      - name: Build the application wheel
+        run: uv build --wheel
+
+      - name: Add uv to the bundle
+        run: |
+          mkdir -p bundle
+          cp "$(which uv)" bundle/
+
+      - name: Add the Python interpreter
+        run: |
+          uv python install "$PYTHON_VERSION" \
+            --install-dir python-staging --no-bin --no-registry
+          mkdir -p bundle/python
+          real=$(find python-staging -maxdepth 1 -type d -name 'cpython-*' | head -1)
+          test -n "$real" || { echo "::error::No interpreter installed"; exit 1; }
+          tar -czf bundle/python/python.tar.gz \
+            -C "$(dirname "$real")" "$(basename "$real")"
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            echo "BUNDLED_PYTHON=$real/python.exe" >> "$GITHUB_ENV"
+          else
+            echo "BUNDLED_PYTHON=$real/bin/python3" >> "$GITHUB_ENV"
+          fi
+
+      - name: Add the wheels
+        run: |
+          mkdir -p bundle/wheels
+          wheel=$(ls dist/*.whl | head -1)
+          "$BUNDLED_PYTHON" -m pip download "$wheel" \
+            --dest bundle/wheels --only-binary=:all:
+          cp "$wheel" bundle/wheels/
+
+      - name: Record what is in the bundle
+        run: |
+          cat > bundle/manifest.json <<JSON
+          {
+            "platform": "${{ runner.os }}",
+            "python_version": "$PYTHON_VERSION",
+            "app_wheel": "$(basename $(ls dist/*.whl | head -1))",
+            "built_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          JSON
+          ls -la bundle bundle/wheels
+
+      - name: Package it
+        run: |
+          tar -czf "${{ matrix.name }}.tar.gz" bundle
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: ${{ matrix.name }}
+          path: ${{ matrix.name }}.tar.gz
+          if-no-files-found: error
+
+      - name: Attach to the release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v3
+        with:
+          files: ${{ matrix.name }}.tar.gz

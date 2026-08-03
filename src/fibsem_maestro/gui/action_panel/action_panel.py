@@ -55,7 +55,7 @@ class ActionPanel(QWidget):
         scroll.setWidgetResizable(True)
         scroll.setStyleSheet("""
                 QWidget[dataclass_form="true"] QWidget[highlighted="true"] {
-                    border: 1px solid #5a9fd4;
+                    border: 1px solid #346792;
                     border-radius: 3px;
                 }
             """)
@@ -94,13 +94,18 @@ class ActionPanel(QWidget):
 
         # settings
         self._settings_widget = self._form_builder.build_form(
-            action.settings, self._manager, fields=None, action=self._action
+            action.settings,
+            self._manager,
+            txt_log=self._manager.workflow.ctx.text_logger,
+            fields=None,
+            action=self._action,
         )
         if self._manager.state not in {
             AppState.EDITING,
             AppState.PAUSED,
             AppState.RELOADED,
             AppState.FINISHED,
+            AppState.INTERRUPTED,
         }:
             self._settings_widget.set_read_only(True)
         layout.addWidget(self._settings_widget)
@@ -162,6 +167,7 @@ class ActionPanel(QWidget):
             AppState.PAUSED,
             AppState.RELOADED,
             AppState.FINISHED,
+            AppState.INTERRUPTED,
         }
         self._settings_widget.set_read_only(read_only)
         self._propagations_widget.set_read_only(read_only)
