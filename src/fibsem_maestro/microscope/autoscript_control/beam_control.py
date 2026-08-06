@@ -175,7 +175,16 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
     def get_image(self, crop_to_scanning_area: bool = False) -> Image:
         self.select_modality()
         self._txt_log.debug(f"Getting an image ({self._modality}).")
-        image = Image.from_autoscript(self._microscope.imaging.get_image())
+
+        adorned_image = self._microscope.imaging.get_image()
+        raw = adorned_image.data
+        self._txt_log.debug(
+            f"AdornedImage: {adorned_image.width}x{adorned_image.height} "
+            f"bit_depth={adorned_image.bit_depth} encoding={adorned_image.encoding} | "
+            f"raw data: shape={raw.shape} dtype={raw.dtype} "
+            f"min={raw.min()} max={raw.max()}"
+        )
+        image = Image.from_autoscript(adorned_image)
 
         if crop_to_scanning_area and not self.scanning_area.is_full_frame():
             return image.crop(self.scanning_area)
