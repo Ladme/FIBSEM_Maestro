@@ -32,7 +32,8 @@ ResolutionMode = Annotated[
 
 class ImagingSettings(BaseSettings):
     scanning_area: Annotated[
-        list[RelativeArea], FormHint(widget=WidgetType.AREA_SELECT, max_areas=1)
+        list[RelativeArea],
+        FormHint(widget=WidgetType.AREA_SELECT, max_areas=1, beam_source="beam_type"),
     ] = Field(
         default_factory=list,
         description="Area that should be imaged.",

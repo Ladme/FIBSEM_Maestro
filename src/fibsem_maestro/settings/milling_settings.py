@@ -28,6 +28,7 @@ class MillingSettings(BaseSettings):
             max_areas=1,
             area_overlay=AreaOverlay.SHOW_DIRECTION,
             overlay_source="milling_direction",
+            beam_source="beam_type",
         ),
     ] = Field(
         default_factory=list,

@@ -2,6 +2,8 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
+from collections.abc import Callable
+
 import numpy as np
 from PyQt6.QtCore import QRectF, Qt
 from PyQt6.QtGui import QImage, QPainter, QPixmap
@@ -17,6 +19,7 @@ from PyQt6.QtWidgets import (
 )
 
 from fibsem_maestro.core.area import RelativeArea
+from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.point import RelativePoint
 from fibsem_maestro.gui.form_builder.widgets.area_select._rectangle import (
@@ -44,6 +47,9 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         microscope: Microscope instance used to acquire images, or None.
         max_areas: Maximum number of areas, or None for unlimited.
         default: Pre-populated areas, applied once an image is available.
+        overlay: Decoration overlay drawn over the selected area.
+        beam_provider: Called just before each acquisition to decide which beam
+            to image with. Returning None leaves the active beam untouched.
         parent: Parent widget.
     """
 
@@ -57,6 +63,7 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         max_areas: int | None = None,
         default: list[RelativeArea] | None = None,
         overlay: AreaOverlay | None = None,
+        beam_provider: Callable[[], BeamType | None] | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -72,6 +79,7 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         self._overlay = overlay
         self._overlay_data: OverlayData | None = None
         self._pixel_size: float | None = None
+        self._beam_provider = beam_provider
 
         self.setMinimumWidth(self._MINIMUM_WIDTH)
 
@@ -168,7 +176,18 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         try:
             if self._microscope is None:
                 raise ValueError("FIBSEM Maestro is not connected to a microscope.")
-            image = self._microscope.beam.get_image()
+
+            # get image using the correct beam
+            beam = self._beam_provider() if self._beam_provider is not None else None
+            match beam:
+                case BeamType.ELECTRON:
+                    image = self._microscope.electron_beam.get_image()
+                case BeamType.ION:
+                    image = self._microscope.ion_beam.get_image()
+                case None:
+                    # use the current active beam
+                    image = self._microscope.beam.get_image()
+
             self.convert_image(image)
         except Exception as e:
             self._status_label.setText(f"Acquisition failed: {e}")

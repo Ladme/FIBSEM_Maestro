@@ -1,10 +1,11 @@
 # Released under MIT License.
 # Copyright (c) 2024-2026 CEMCOF
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import Any
 
 from fibsem_maestro.action.action import Action
+from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.gui.form_builder._write_back import WriteBack
 from fibsem_maestro.gui.form_builder.schema.constraints import NumericBounds
 from fibsem_maestro.gui.form_builder.schema.field_info import FieldInfo
@@ -142,6 +143,7 @@ class FormBuilder:
         settings: BaseSettings | None,
         field_infos: list[FieldInfo] | None = None,
         on_change: OnChange = _noop,
+        parents: tuple[Any, ...] = (),
     ) -> ObjectWidget:
         """
         Build an `ObjectWidget` for `cls`.
@@ -164,6 +166,9 @@ class FormBuilder:
         Returns:
             A populated `ObjectWidget`.
         """
+        # live instances enclosing this object, outermost first
+        chain = (*parents, settings) if settings is not None else parents
+
         obj = ObjectWidget(cls=cls)
         infos = field_infos if field_infos is not None else get_field_infos(cls)
 
@@ -176,11 +181,11 @@ class FormBuilder:
                 write_back = WriteBack(
                     settings, fi, self._manager, self._action, self._txt_log
                 )
-                widget = self._build_field(fi, value, write_back)
+                widget = self._build_field(fi, value, write_back, chain)
                 write_back.bind(widget)
             else:
                 # nested: reuse the inherited top-level write-back
-                widget = self._build_field(fi, value, on_change)
+                widget = self._build_field(fi, value, on_change, chain)
 
             obj.add_field(fi.name, fi.label, widget, fi.description)
             widgets[fi.name] = widget
@@ -189,7 +194,7 @@ class FormBuilder:
         return obj
 
     def _build_field(
-        self, fi: FieldInfo, value: Any, on_change: OnChange
+        self, fi: FieldInfo, value: Any, on_change: OnChange, chain: tuple[Any, ...]
     ) -> BaseWidget:
         """
         Dispatch a single field to a widget and wire `on_change`.
@@ -198,7 +203,7 @@ class FormBuilder:
         dispatched purely based on its `FieldType` descriptor.
         """
         if fi.hint is not None:
-            inner = self._build_hinted_widget(fi, value)
+            inner = self._build_hinted_widget(fi, value, chain)
             result: BaseWidget = inner
             if fi.optional:
                 result = OptionalWidget(
@@ -211,9 +216,11 @@ class FormBuilder:
                 result.on_change(on_change)
             return result
 
-        return self._build_typed_widget(fi, value, on_change)
+        return self._build_typed_widget(fi, value, on_change, chain)
 
-    def _build_hinted_widget(self, fi: FieldInfo, value: Any) -> BaseWidget:
+    def _build_hinted_widget(
+        self, fi: FieldInfo, value: Any, chain: tuple[Any, ...]
+    ) -> BaseWidget:
         """
         Build the widget specified by `fi.hint` (unconnected).
 
@@ -248,11 +255,24 @@ class FormBuilder:
                 return MultiSelectWidget(properties, default=default)
 
             case WidgetType.AREA_SELECT:
+                provider = None
+                if beam_source := hint.beam_source:
+                    if not chain:
+                        self._txt_log.warning(
+                            f"Field {fi.name!r} requests beam {beam_source!r} but "
+                            "is not bound to live settings; the active beam is used."
+                        )
+                    else:
+
+                        def provider():
+                            return resolve_beam(chain, beam_source)
+
                 return AreaSelectWidget(
                     microscope=self._microscope,
                     max_areas=hint.max_areas if hint.max_areas else None,
                     default=default,
                     overlay=hint.area_overlay,
+                    beam_provider=provider,
                 )
 
             case WidgetType.RANGE_PAIR:
@@ -289,7 +309,7 @@ class FormBuilder:
                 return TextAreaWidget(self._fallback_type(fi.type), default=default)
 
     def _build_typed_widget(
-        self, fi: FieldInfo, value: Any, on_change: OnChange
+        self, fi: FieldInfo, value: Any, on_change: OnChange, chain: tuple[Any, ...]
     ) -> BaseWidget:
         """
         Build a widget from the field's `FieldType` descriptor.
@@ -352,7 +372,7 @@ class FormBuilder:
             case DataclassType(model=model):
                 # value-only recursion: thread the same write-back to children
                 inner_obj = self._build_object(
-                    model, settings=value, on_change=on_change
+                    model, settings=value, on_change=on_change, parents=chain
                 )
                 if fi.optional:
                     # toggling None <-> instance is a change to the parent field
@@ -372,7 +392,11 @@ class FormBuilder:
                     ],
                     discriminator_key=key,
                     build_object=lambda cls, infos: self._build_object(
-                        cls, settings=None, field_infos=infos, on_change=on_change
+                        cls,
+                        settings=None,
+                        field_infos=infos,
+                        on_change=on_change,
+                        parents=chain,
                     ),
                 )
 
@@ -393,7 +417,7 @@ class FormBuilder:
 
             case ListType(item=item):
                 widget = ListWidget(
-                    item_factory=self._make_item_factory(item, on_change),
+                    item_factory=self._make_item_factory(item, on_change, chain),
                     default=list(default) if default is not None else [],
                 )
                 return self._finish_leaf(fi, widget, value, on_change)
@@ -413,7 +437,7 @@ class FormBuilder:
                 raise ValueError(f"Unknown field type: {field_type}")
 
     def _make_item_factory(
-        self, item: FieldType, on_change: OnChange
+        self, item: FieldType, on_change: OnChange, chain: tuple[Any, ...]
     ) -> Callable[[], BaseWidget]:
         """
         Return a factory building a widget for a single list element.
@@ -434,7 +458,9 @@ class FormBuilder:
                 return lambda: self._wire_leaf(EnumWidget(list(enum_cls)), on_change)
             case DataclassType(model=model):
                 return lambda: GroupWrapper(
-                    self._build_object(model, settings=None, on_change=on_change)
+                    self._build_object(
+                        model, settings=None, on_change=on_change, parents=chain
+                    )
                 )
             case _:
                 return lambda: self._wire_leaf(
@@ -577,3 +603,27 @@ class FormBuilder:
         if isinstance(field_type, DataclassType):
             return field_type.model
         return Any
+
+
+def resolve_beam(chain: Sequence[Any], path: str) -> BeamType | None:
+    """
+    Look up a beam on the innermost settings object that defines it.
+
+    Args:
+        chain: Live settings instances from the root outwards.
+        path: Dotted attribute path relative to a chain member, e.g. `"beam"` or `"imaging.beam"`.
+
+    Returns:
+        The first non-None beam found, or None if no ancestor defines one.
+    """
+    parts = path.split(".")
+    for obj in reversed(chain):
+        current: Any = obj
+        for part in parts:
+            current = getattr(current, part, None)
+            if current is None:
+                break
+        if isinstance(current, BeamType):
+            return current
+
+    return None

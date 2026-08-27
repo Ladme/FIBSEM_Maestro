@@ -45,6 +45,8 @@ class FormHint:
     area_overlay: AreaOverlay | None = None
     # sibling field name feeding the overlay
     overlay_source: str | None = None
+    # field name feeding the beam source
+    beam_source: str | None = None
 
 
 @dataclass
