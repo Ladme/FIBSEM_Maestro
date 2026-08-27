@@ -243,6 +243,10 @@ class Workflow:
             if self.ctx.slice == 0:
                 # if this is slice 0, initialize all actions
                 self.ctx.advance()
+                self.ctx.state_store.write("state.yaml", self.state)
+                self.ctx.settings_store.write(
+                    "microscope_settings.yaml", self.microscope.settings
+                )
 
                 for action in self.actions:
                     try:
