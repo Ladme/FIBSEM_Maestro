@@ -653,21 +653,23 @@ class AutoscriptIonBeamControl(AutoscriptBeamControl[IonBeamAs]):
 
     @property
     def lens_alignment(self) -> LensAlignment:
-        raise MicroscopeError("Lens alignment is not defined for an ion beam.")
+        self._txt_log.warning("Lens alignment is not defined for an ion beam.")
+        return LensAlignment(x=0.0, y=0.0)
 
     @lens_alignment.setter
     def lens_alignment(self, value: LensAlignment):
         _ = value
-        raise MicroscopeError("Lens alignment is not defined for an ion beam.")
+        self._txt_log.warning("Lens alignment is not defined for an ion beam.")
 
     @property
     def source_tilt(self) -> SourceTilt:
-        raise MicroscopeError("Source tilt is not defined for an ion beam.")
+        self._txt_log.warning("Source tilt is not defined for an ion beam.")
+        return SourceTilt(x=0.0, y=0.0)
 
     @source_tilt.setter
     def source_tilt(self, value: SourceTilt) -> None:
         _ = value
-        raise MicroscopeError("Source tilt is not defined for an ion beam.")
+        self._txt_log.warning("Source tilt is not defined for an ion beam.")
 
     @property
     def image_to_beam_shift(self) -> tuple[int, int]:
