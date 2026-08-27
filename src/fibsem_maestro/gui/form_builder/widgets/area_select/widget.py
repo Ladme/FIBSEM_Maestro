@@ -6,6 +6,7 @@ import numpy as np
 from PyQt6.QtCore import QRectF, Qt
 from PyQt6.QtGui import QImage, QPainter, QPixmap
 from PyQt6.QtWidgets import (
+    QApplication,
     QGraphicsScene,
     QHBoxLayout,
     QLabel,
@@ -94,6 +95,15 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         self._toggle_btn.setFixedWidth(80)
         self._toggle_btn.clicked.connect(self._toggle)
         header_layout.addWidget(self._toggle_btn)
+
+        # Temporary diagnostics button
+        # <<<<<<<<<<<<<<<<<<<<<<<<<<<<
+        self._diag_btn = QPushButton("Capture")
+        self._diag_btn.setFixedWidth(80)
+        self._diag_btn.setToolTip("Save a diagnostic bundle for the frame on screen")
+        self._diag_btn.clicked.connect(self._capture_diagnostics)
+        header_layout.addWidget(self._diag_btn)
+        # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
         outer.addWidget(header)
 
@@ -383,3 +393,29 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         for item in self._scene.items():
             if isinstance(item, ResizableRect):
                 item.set_read_only(read_only)
+
+    # Temporary
+    # <<<<<<<<<<<<<<<<<<<<<<<<<<<<
+    def _capture_diagnostics(self) -> None:
+        """Write a diagnostic bundle for the frame currently on screen."""
+        if self._microscope is None or self._last_pixmap is None:
+            self._status_label.setText("Nothing to capture: no image loaded.")
+            return
+
+        self._diag_btn.setEnabled(False)
+        self._diag_btn.setText("Saving...")
+        QApplication.processEvents()
+        try:
+            from fibsem_maestro.diagnostics import capture_diagnostics
+
+            folder = capture_diagnostics(self._microscope._control, self)  # ty:ignore[invalid-argument-type]
+            message = f"Diagnostics saved to {folder}"
+        except Exception as e:
+            message = f"Diagnostic capture failed: {e}"
+        finally:
+            self._diag_btn.setText("Capture")
+            self._diag_btn.setEnabled(True)
+
+        self._status_label.setText(message)
+
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>
