@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
 
 class DriftCorrectionState(ActionState):
-    is_initialized: bool
+    is_initialized: bool = False
 
 
 @ACTION_REGISTRY.register("drift_correction")
