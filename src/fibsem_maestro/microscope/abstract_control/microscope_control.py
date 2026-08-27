@@ -3,8 +3,10 @@
 
 
 from abc import ABC, abstractmethod
+from functools import cached_property
 from typing import Any
 
+from fibsem_maestro.core.pattern_type import PatternType
 from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
@@ -118,3 +120,8 @@ class MicroscopeControl(ABC):
             The actual stage position after the operation, which may differ
             from the expected position due to hardware limitations.
         """
+
+    @cached_property
+    @abstractmethod
+    def available_patterns(self) -> list[PatternType]:
+        """List of available pattern types for milling."""

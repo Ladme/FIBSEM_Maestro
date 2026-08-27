@@ -2,8 +2,10 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
+from functools import cached_property
 from typing import Any
 
+from fibsem_maestro.core.pattern_type import PatternType
 from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
@@ -87,3 +89,7 @@ class MockMicroscopeControl(MicroscopeControl):
     @property
     def txt_log(self) -> TextLogger:
         return self._txt_log
+
+    @cached_property
+    def available_patterns(self) -> list[PatternType]:
+        return [PatternType("Si-ccs"), PatternType("Si-rcs")]

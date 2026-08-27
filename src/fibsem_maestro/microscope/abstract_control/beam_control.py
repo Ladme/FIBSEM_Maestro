@@ -4,7 +4,6 @@
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from contextlib import contextmanager
-from pathlib import Path
 from typing import Any
 
 from fibsem_maestro.core.area import NMArea, RelativeArea
@@ -13,6 +12,7 @@ from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.direction import Direction
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
+from fibsem_maestro.core.pattern_type import PatternType
 from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
@@ -245,7 +245,7 @@ class BeamControl(ABC):
         milling_area: NMArea,
         milling_depth: float,
         direction: Direction,
-        pattern_file: Path | str,
+        pattern_type: PatternType,
     ) -> None:
         """Perform milling in a rectangular area."""
 

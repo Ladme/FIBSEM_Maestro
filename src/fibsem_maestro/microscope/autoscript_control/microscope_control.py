@@ -1,10 +1,12 @@
 # Released under MIT License.
 # Copyright (c) 2024-2026 CEMCOF
 
+from functools import cached_property
 from typing import Any
 
 from autoscript_sdb_microscope_client.sdb_microscope_client import SdbMicroscopeClient
 
+from fibsem_maestro.core.pattern_type import PatternType
 from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
@@ -113,3 +115,10 @@ class AutoscriptMicroscopeControl(MicroscopeControl):
     @property
     def txt_log(self) -> TextLogger:
         return self._txt_log
+
+    @cached_property
+    def available_patterns(self) -> list[PatternType]:
+        return [
+            PatternType(x)
+            for x in self._microscope.patterning.list_all_application_files()
+        ]

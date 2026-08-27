@@ -2,7 +2,6 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
-from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -14,6 +13,7 @@ from fibsem_maestro.core.direction import Direction
 from fibsem_maestro.core.format import ImageFormat
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
+from fibsem_maestro.core.pattern_type import PatternType
 from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
@@ -222,7 +222,7 @@ class MockBeamControl(BeamControl):
         milling_area: NMArea,
         milling_depth: float,
         direction: Direction,
-        pattern_file: Path | str,
+        pattern_type: PatternType,
     ) -> None:
         raise NotImplementedError()
 

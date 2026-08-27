@@ -18,6 +18,7 @@ class WidgetType(Enum):
     DETAIL_BAND = "detail_band"
     STRING = "string"
     ACTION_SELECTOR = "action_selector"
+    PATTERN_TYPE_SELECTOR = "pattern_type_selector"
 
 
 class AreaOverlay(Enum):

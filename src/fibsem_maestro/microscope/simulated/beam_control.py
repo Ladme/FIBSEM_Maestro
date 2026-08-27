@@ -3,7 +3,6 @@
 
 
 import math
-from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -15,6 +14,7 @@ from fibsem_maestro.core.direction import Direction
 from fibsem_maestro.core.format import ImageFormat
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
+from fibsem_maestro.core.pattern_type import PatternType
 from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stage_position import StagePosition
@@ -311,13 +311,13 @@ class SimulatedBeamControl(BeamControl):
         milling_area: NMArea,
         milling_depth: float,
         direction: Direction,
-        pattern_file: Path | str,
+        pattern_type: PatternType,
     ) -> None:
         self._txt_log.info(
             f"Fake milling in area {milling_area} with depth of {milling_depth} nm."
         )
         self._txt_log.info(
-            f"Fake milling has direction {direction} and uses pattern {pattern_file}."
+            f"Fake milling has direction {direction} and uses pattern {str(pattern_type)}."
         )
 
     @property

@@ -2,7 +2,7 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 from collections.abc import Callable, Sequence
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fibsem_maestro.action.action import Action
 from fibsem_maestro.core.beam_type import BeamType
@@ -50,6 +50,9 @@ from fibsem_maestro.gui.workflow_manager import WorkflowManager
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.settings.base_settings import BaseSettings
 from fibsem_maestro.settings.form_utils import AreaOverlay, WidgetType
+
+if TYPE_CHECKING:
+    from fibsem_maestro.core.pattern_type import PatternType
 
 
 class FormBuilder:
@@ -244,6 +247,18 @@ class FormBuilder:
                 properties = hint.choices() if hint.choices else []
                 properties = properties + (self._manufacturer_properties or [])
                 return EnumWidget(properties, default=default, optional=fi.optional)
+
+            case WidgetType.PATTERN_TYPE_SELECTOR:
+                choices: list[PatternType] = (
+                    self._microscope.control.available_patterns
+                    if self._microscope is not None
+                    else []
+                )
+                return EnumWidget(
+                    choices,
+                    default=default,
+                    optional=fi.optional,
+                )
 
             case WidgetType.MULTI_SELECT:
                 choices = hint.choices() if hint.choices else []

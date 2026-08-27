@@ -27,6 +27,7 @@ from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.direction import Direction
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
+from fibsem_maestro.core.pattern_type import PatternType
 from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
@@ -250,7 +251,7 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         milling_area: NMArea,
         milling_depth: float,
         direction: Direction,
-        pattern_file: Path | str,
+        pattern_type: PatternType,
     ) -> None:
         milling_area_m = milling_area.to_meters()
         milling_depth_m = milling_depth * 1e-9
@@ -267,20 +268,22 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
             f"Milling area in patterning coordinates: center = [{center_x}, {center_y}], width = {milling_area_m.width}, height = {milling_area_m.height}"
         )
 
-        if "ccs" in str(pattern_file):
+        if "ccs" in str(pattern_type):
             self._txt_log.debug("Using cleaning cross section pattern.")
             pattern_fn = self._microscope.patterning.create_cleaning_cross_section
-        elif "rcs" in str(pattern_file):
+        elif "rcs" in str(pattern_type):
             self._txt_log.debug("Using regular cross section pattern.")
             pattern_fn = self._microscope.patterning.create_regular_cross_section
         else:
-            self._txt_log.debug("Using rectangle pattern.")
+            self._txt_log.debug(
+                f"Pattern type {str(pattern_type)} not recognized, using rectangle pattern."
+            )
             pattern_fn = self._microscope.patterning.create_rectangle
 
         self.select_modality()
         self._microscope.patterning.clear_patterns()
         self._microscope.patterning.set_default_beam_type(int(self.beam_type()))
-        self._microscope.patterning.set_default_application_file(str(pattern_file))
+        self._microscope.patterning.set_default_application_file(str(pattern_type))
 
         time.sleep(1)
 
