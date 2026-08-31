@@ -1,6 +1,7 @@
 # Released under MIT License.
 # Copyright (c) 2024-2026 CEMCOF
 
+import math
 import time
 from abc import abstractmethod
 from pathlib import Path
@@ -457,14 +458,14 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
 
     @property
     def scan_rotation(self) -> float:
-        value = self._beam.scanning.rotation.value
-        self._txt_log.debug(f"Getting scanning rotation ({self._modality}): {value}.")
+        value = math.degrees(self._beam.scanning.rotation.value)
+        self._txt_log.debug(f"Getting scanning rotation ({self._modality}): {value}°.")
         return value
 
     @scan_rotation.setter
     def scan_rotation(self, value: float) -> None:
-        self._txt_log.debug(f"Setting scanning rotation ({self._modality}): {value}.")
-        self._beam.scanning.rotation.value = value
+        self._txt_log.debug(f"Setting scanning rotation ({self._modality}): {value}°.")
+        self._beam.scanning.rotation.value = math.radians(value)
 
     @property
     def scanning_area(self) -> RelativeArea:

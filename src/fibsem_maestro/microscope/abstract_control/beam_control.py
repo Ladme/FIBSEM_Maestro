@@ -197,6 +197,21 @@ class BeamControl(ABC):
             value: New source tilt values in degrees.
         """
 
+    @property
+    @abstractmethod
+    def scan_rotation(self) -> float:
+        """Rotation of the scan in degrees."""
+
+    @scan_rotation.setter
+    @abstractmethod
+    def scan_rotation(self, value: float) -> None:
+        """
+        Set the scan rotation in degrees.
+
+        Args:
+            value: New scan rotation value in degrees.
+        """
+
     @abstractmethod
     def blank(self) -> None:
         """Blank the beam, stopping it from reaching the sample."""

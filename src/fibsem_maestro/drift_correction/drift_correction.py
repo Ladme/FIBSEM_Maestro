@@ -167,6 +167,12 @@ class DriftCorrection(Action[DriftCorrectionSettings, DriftCorrectionState]):
         # prepare drift calculation
         self._drift_calc.before_calculate_drift(self._ctx.slice)
 
+        # check that scan rotation is zero
+        if self._microscope.beam.scan_rotation != 0:
+            raise DriftCorrectionError(
+                "Scan rotation must be zero for drift correction."
+            )
+
         # calculate drift and get beam shift to compensate for it
         beam_shift = self._calculate_correcting_beam_shift()
 

@@ -39,6 +39,7 @@ class MockBeamControl(BeamControl):
         self._detector_contrast: float = 0.0
         self._detector_brightness: float = 0.0
         self._source_tilt = SourceTilt(0.0, 0.0)
+        self._scan_rotation: float = 0.0
 
         self._line_integration: int = 1
         self._dwell_time: float = 0.0
@@ -120,6 +121,14 @@ class MockBeamControl(BeamControl):
     @source_tilt.setter
     def source_tilt(self, value: SourceTilt) -> None:
         self._source_tilt = value
+
+    @property
+    def scan_rotation(self) -> float:
+        return self._scan_rotation
+
+    @scan_rotation.setter
+    def scan_rotation(self, value: float) -> None:
+        self._scan_rotation = value
 
     @property
     def line_integration(self) -> int:

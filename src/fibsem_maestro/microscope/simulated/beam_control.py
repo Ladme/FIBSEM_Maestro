@@ -53,6 +53,7 @@ class SimulatedBeamControl(BeamControl):
         self._detector_contrast = 0.5
         self._detector_brightness = 0.5
         self._source_tilt = SourceTilt(x=0.0, y=0.0)  # degrees
+        self._scan_rotation = 0.0  # degrees
 
         self._blanked = False
         self._acquiring = False
@@ -184,6 +185,17 @@ class SimulatedBeamControl(BeamControl):
     def source_tilt(self, value: SourceTilt) -> None:
         self._txt_log.debug(f"Setting source tilt: {value}.")
         self._source_tilt = value
+
+    @property
+    def scan_rotation(self) -> float:
+        value = self._scan_rotation
+        self._txt_log.debug(f"Getting scan rotation: {value}.")
+        return value
+
+    @scan_rotation.setter
+    def scan_rotation(self, value: float) -> None:
+        self._txt_log.debug(f"Setting scan rotation: {value}.")
+        self._scan_rotation = value
 
     def blank(self) -> None:
         self._txt_log.debug("Blanking.")
