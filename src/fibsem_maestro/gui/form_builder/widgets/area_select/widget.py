@@ -33,7 +33,9 @@ from fibsem_maestro.gui.form_builder.widgets.area_select.overlay import (
 from fibsem_maestro.gui.form_builder.widgets.base import BaseWidget
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.form_utils import AreaOverlay
-
+from fibsem_maestro.gui.form_builder.widgets.area_select._mipmap import (
+    MipmapPixmapItem,
+)
 
 class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
     """
@@ -222,10 +224,13 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
             if item.parentItem() is None and not isinstance(item, ResizableRect):
                 self._scene.removeItem(item)
 
-        pixmap_item = self._scene.addPixmap(self._last_pixmap)
-        # set smooth transformation to avoid visual artifacts in compressed images
-        pixmap_item.setTransformationMode(Qt.TransformationMode.SmoothTransformation)
+        # a mipmapped item: Qt's bilinear filter only reads a 2x2 neighbourhood
+        # however far the image is minified, so a 6144x4096 frame in an 885 px
+        # viewport carries pixel noise through at full amplitude instead of
+        # averaging it away
+        pixmap_item = MipmapPixmapItem(self._last_pixmap)
         pixmap_item.setZValue(-1)
+        self._scene.addItem(pixmap_item)
         self._scene.setSceneRect(QRectF(0, 0, w, h))
         self._viewer.reset_zoom()
 
@@ -261,7 +266,7 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         thumb_h = self._THUMBNAIL_HEIGHT
 
         # render at a higher resolution, then downscale with a smoothing filter
-        supersample = 3
+        supersample = 2
         hi = QPixmap(thumb_w * supersample, thumb_h * supersample)
         hi.fill(Qt.GlobalColor.black)
 
@@ -427,7 +432,7 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         try:
             from fibsem_maestro.diagnostics import capture_diagnostics
 
-            folder = capture_diagnostics(self._microscope._control, self)  # ty:ignore[invalid-argument-type]
+            folder = capture_diagnostics(self._microscope._control._microscope, self)  # ty:ignore[invalid-argument-type]
             message = f"Diagnostics saved to {folder}"
         except Exception as e:
             message = f"Diagnostic capture failed: {e}"

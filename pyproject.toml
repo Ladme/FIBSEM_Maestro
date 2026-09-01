@@ -68,3 +68,6 @@ package = true
 
 [project.gui-scripts]
 fibsem-maestro = "fibsem_maestro.main:main"
+
+[project.scripts]
+fibsem-maestro-dev = "fibsem_maestro.main:main"
