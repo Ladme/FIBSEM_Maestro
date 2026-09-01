@@ -147,6 +147,7 @@ class Milling(Action[MillingSettings, MillingState]):
             self._settings.milling_depth,
             self._settings.milling_direction,
             self._settings.pattern_type,
+            self._settings.do_not_mill,
         )
         self._ctx.text_logger.info("Milling procedure completed.")
 

@@ -63,6 +63,10 @@ class MillingSettings(BaseSettings):
     ] = Field(
         default=Direction.DOWN, description="Direction in which the slicing progresses."
     )
+    do_not_mill: bool = Field(
+        default=False,
+        description="Prepare everything for milling but skip the actual milling process instead of performing it. Debug option.",
+    )
     properties_to_collect: PropertyNames = Field(
         default_factory=PropertyNames,
         description="Properties of the microscope and the beam relevant for milling.",

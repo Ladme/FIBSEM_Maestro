@@ -324,6 +324,7 @@ class SimulatedBeamControl(BeamControl):
         milling_depth: float,
         direction: Direction,
         pattern_type: PatternType,
+        do_not_mill: bool,
     ) -> None:
         self._txt_log.info(
             f"Fake milling in area {milling_area} with depth of {milling_depth} nm."
@@ -331,6 +332,10 @@ class SimulatedBeamControl(BeamControl):
         self._txt_log.info(
             f"Fake milling has direction {direction} and uses pattern {str(pattern_type)}."
         )
+        if do_not_mill:
+            self._txt_log.warning(
+                "Actual milling would not be performed because do_not_mill is True."
+            )
 
     @property
     def line_integration(self) -> int:

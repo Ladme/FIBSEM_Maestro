@@ -232,6 +232,7 @@ class MockBeamControl(BeamControl):
         milling_depth: float,
         direction: Direction,
         pattern_type: PatternType,
+        do_not_mill: bool,
     ) -> None:
         raise NotImplementedError()
 

@@ -261,6 +261,7 @@ class BeamControl(ABC):
         milling_depth: float,
         direction: Direction,
         pattern_type: PatternType,
+        do_not_mill: bool,
     ) -> None:
         """Perform milling in a rectangular area."""
 

@@ -253,6 +253,7 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         milling_depth: float,
         direction: Direction,
         pattern_type: PatternType,
+        do_not_mill: bool,
     ) -> None:
         milling_area_m = milling_area.to_meters()
         milling_depth_m = milling_depth * 1e-9
@@ -309,7 +310,12 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
             f"y = {pattern.center_y}, width = {pattern.width}, "
             f"height = {pattern.height}, direction = {pattern.scan_direction}]."
         )
-        self._microscope.patterning.run()
+
+        if do_not_mill:
+            self._txt_log.warning("Skipping milling - `do_not_mill` option is True.")
+        else:
+            self._microscope.patterning.run()
+
         self._microscope.patterning.clear_patterns()
 
     @property
