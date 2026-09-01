@@ -9,7 +9,6 @@ from pydantic import Field
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.imaging.imaging import Imaging
 from fibsem_maestro.properties.beam_properties import BeamProperties
-from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.base_settings import BaseSettings
 from fibsem_maestro.settings.criterion_settings import CriterionSettings
 from fibsem_maestro.settings.form_utils import FieldUnit, FormHint, WidgetType
@@ -128,8 +127,4 @@ class AutofocusSettings(BaseSettings):
     properties_to_collect: PropertyNames = Field(
         default_factory=PropertyNames,
         description="Selection of microscope and beam properties relevant for this action.",
-    )
-    external_props: GlobalProperties = Field(
-        default=GlobalProperties(),
-        description="External properties of the microscope to use for this action. These properties will overwrite any current microscope properties.",
     )

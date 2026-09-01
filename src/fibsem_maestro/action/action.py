@@ -158,13 +158,6 @@ class Action(ABC, Generic[TSettings, TState]):
 
     @property
     @abstractmethod
-    def external_props(self) -> GlobalProperties:
-        """
-        External properties of the microscope to use for this action.
-        """
-
-    @property
-    @abstractmethod
     def settings(self) -> BaseSettings:
         """
         Settings for the action.
@@ -185,52 +178,39 @@ class Action(ABC, Generic[TSettings, TState]):
         return self.name.replace(" ", "_")
 
     @with_logging_context
-    def read_and_set_properties(self, store: PropsStore | None = None) -> None:
-        # default: current frame
+    def read_properties(self, store: PropsStore | None = None) -> GlobalProperties:
+        """
+        Read properties of the microscope from the properties file.
+        """
         store = store or self.ctx.props_store
 
-        self.ctx.text_logger.debug(
-            f"Reading and setting microscope properties for {self.name}."
-        )
-        # read properties
-        props = store.read("props.yaml")
+        self.ctx.text_logger.debug(f"Reading microscope properties for {self.name}.")
+
+        return store.read("props.yaml")
+
+    @with_logging_context
+    def read_and_set_properties(self, store: PropsStore | None = None) -> None:
+        props = self.read_properties(store)
 
         # select the beam used for this action
         if self.beam_type is not None:
             self.microscope.set_beam(self.beam_type)
 
         # set properties to the microscope
+        self.ctx.text_logger.debug(f"Setting microscope properties for {self.name}.")
         self.microscope.set_properties(props, beam=self.beam_type)
 
     @with_logging_context
-    def collect_and_write_properties(
-        self,
-        store: PropsStore | None = None,
-    ) -> None:
+    def collect_properties(self, store: PropsStore | None = None) -> GlobalProperties:
         """
-        Collect and write the properties of the microscope.
+        Collect the properties of the microscope.
         """
         # default: current frame
         store = store or self.ctx.props_store
 
-        self.ctx.text_logger.debug(
-            f"Collecting and saving microscope properties for {self.name}."
-        )
+        self.ctx.text_logger.debug(f"Collecting microscope properties for {self.name}.")
 
-        # collect the properties from the microscope while respecting external props
-        with self.microscope.set_temporary_properties(self.external_props):
-            props = self.microscope.collect_properties(self.props_to_collect)
-
-        # write the properties
-        store.write("props.yaml", props)
-
-    @with_logging_context
-    def read_properties(self, store: PropsStore | None = None) -> GlobalProperties:
-        """
-        Read properties of the microscope from the properties file.
-        """
-        store = store or self.ctx.props_store
-        return store.read("props.yaml")
+        return self.microscope.collect_properties(self.props_to_collect)
 
     @with_logging_context
     def write_properties(
@@ -240,4 +220,7 @@ class Action(ABC, Generic[TSettings, TState]):
         Write properties of the microscope to the properties file.
         """
         store = store or self.ctx.props_store
+
+        self.ctx.text_logger.debug(f"Writing microscope properties for {self.name}.")
+
         store.write("props.yaml", props)

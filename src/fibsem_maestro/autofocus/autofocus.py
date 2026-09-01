@@ -4,7 +4,6 @@
 
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import ExitStack
 from dataclasses import field
 from typing import TYPE_CHECKING, Any
 
@@ -27,7 +26,6 @@ from fibsem_maestro.logging.image.overlay import PolylineOverlay
 from fibsem_maestro.logging.image.plot_element import Curve, PlotElement, VerticalLine
 from fibsem_maestro.logging.logging import with_logging_context
 from fibsem_maestro.microscope.microscope import Microscope
-from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.autofocus_settings import (
     AutofocusSettings,
     AutoscriptMode,
@@ -156,10 +154,6 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
         return self._settings
 
     @property
-    def external_props(self) -> GlobalProperties:
-        return self._settings.external_props
-
-    @property
     def state(self) -> AutofocusState:
         return AutofocusState(
             sweep_base_value=self._sweep_base_value,
@@ -272,20 +266,13 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
         # clear any existing jobs
         self._jobs.wait_and_clear()
 
-        with ExitStack() as stack:
-            if self._ctx.props_store.exists("props.yaml"):
-                self._ctx.text_logger.info("Loading saved microscope properties.")
-                self.read_and_set_properties()
-            else:
-                self._ctx.text_logger.info("No saved microscope properties found.")
-                # external properties for the action are temporarily set
-                stack.enter_context(
-                    self._microscope.set_temporary_properties(
-                        self._settings.external_props
-                    )
-                )
+        if self._ctx.props_store.exists("props.yaml"):
+            self._ctx.text_logger.info("Loading saved microscope properties.")
+            self.read_and_set_properties()
+        else:
+            self._ctx.text_logger.info("No saved microscope properties found.")
 
-            self._run_sweep_and_apply_best()
+        self._run_sweep_and_apply_best()
 
         self._ctx.text_logger.info(f"Completed test for {self.name}.")
 
@@ -414,7 +401,8 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
 
             self._active_gen = None
             # sweep finished: record the new best value for the next slice
-            self.collect_and_write_properties(self._ctx.props_store.next)
+            props = self.collect_properties()
+            self.write_properties(props, self._ctx.props_store.next)
             self._current_step_index = 0
         except Exception:
             self._active_gen.close()

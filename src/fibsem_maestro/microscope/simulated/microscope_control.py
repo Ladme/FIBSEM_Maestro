@@ -58,7 +58,7 @@ class SimulatedMicroscopeControl(MicroscopeControl):
         self._rng = np.random.default_rng(seed)
 
         self._stage_position = StagePosition(
-            x=0.0, y=0.0, z=0.0, rotation=0.0, tilt=0.0
+            x=0.0, y=0.0, z=5_000_000.0, rotation=0.0, tilt=0.0
         )
 
         self._sample = SimulatedSample(self._rng, sample_width, sample_height)

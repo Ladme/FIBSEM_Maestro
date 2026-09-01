@@ -15,7 +15,6 @@ from fibsem_maestro.logging.logging import with_logging_context
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.milling.milling import Milling
 from fibsem_maestro.post_milling_correction.error import PostMillingCorrectionError
-from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.milling_settings import MillingSettings
 from fibsem_maestro.settings.post_milling_correction_settings import (
     DynamicFocusMode,
@@ -87,10 +86,6 @@ class PostMillingCorrection(
         return self._microscope
 
     @property
-    def external_props(self) -> GlobalProperties:
-        return self._settings.external_props
-
-    @property
     def settings(self) -> PostMillingCorrectionSettings:
         return self._settings
 
@@ -147,7 +142,8 @@ class PostMillingCorrection(
                 self._perform_automatic_correction(milling_settings)
 
         # update the microscope properties for the next frame
-        self.collect_and_write_properties(self._ctx.props_store.next)
+        props = self.collect_properties()
+        self.write_properties(props, self._ctx.props_store.next)
 
         self._ctx.text_logger.info(
             f"Completed '{self.name}' for slice {self._ctx.slice}."

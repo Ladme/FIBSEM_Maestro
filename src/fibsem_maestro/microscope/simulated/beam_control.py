@@ -62,7 +62,7 @@ class SimulatedBeamControl(BeamControl):
         self._dwell_time = 1e-6  # seconds
         self._bit_depth = 8
         self._resolution = Resolution(1024, 768)
-        self._horizontal_field_width = 20_000.0
+        self._horizontal_field_width = 2000.0
         self._scanning_area = RelativeArea.full()
 
         self._image_to_beam_shift = (-1, 1)

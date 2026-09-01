@@ -9,7 +9,6 @@ from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.direction import Direction
 from fibsem_maestro.core.pattern_type import PatternType
-from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.base_settings import BaseSettings
 from fibsem_maestro.settings.form_utils import (
     AreaOverlay,
@@ -70,10 +69,6 @@ class MillingSettings(BaseSettings):
     properties_to_collect: PropertyNames = Field(
         default_factory=PropertyNames,
         description="Properties of the microscope and the beam relevant for milling.",
-    )
-    external_props: GlobalProperties = Field(
-        default=GlobalProperties(),
-        description="External properties of the microscope to use for milling. These properties will overwrite any current microscope properties.",
     )
 
     @field_validator("milling_direction")

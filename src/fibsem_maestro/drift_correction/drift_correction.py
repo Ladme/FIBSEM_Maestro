@@ -15,7 +15,6 @@ from fibsem_maestro.drift_correction import DRIFT_CALCULATION_MODES
 from fibsem_maestro.drift_correction.error import DriftCorrectionError
 from fibsem_maestro.logging.logging import with_logging_context
 from fibsem_maestro.microscope.microscope import Microscope
-from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.drift_correction_settings import DriftCorrectionSettings
 from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.workflow.actions import Actions
@@ -106,10 +105,6 @@ class DriftCorrection(Action[DriftCorrectionSettings, DriftCorrectionState]):
         return self._settings
 
     @property
-    def external_props(self) -> GlobalProperties:
-        return self._settings.external_props
-
-    @property
     def ctx(self) -> ActionContext:
         return self._ctx
 
@@ -193,7 +188,8 @@ class DriftCorrection(Action[DriftCorrectionSettings, DriftCorrectionState]):
         self._drift_calc.after_calculate_drift(self._ctx.slice)
 
         # collect and save the microscope properties for the next slice
-        self.collect_and_write_properties(self._ctx.props_store.next)
+        props = self.collect_properties()
+        self.write_properties(props, self._ctx.props_store.next)
 
         self._ctx.text_logger.info(
             f"Completed '{self.name}' for slice {self._ctx.slice}."

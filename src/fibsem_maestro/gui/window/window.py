@@ -50,7 +50,7 @@ class MainWindow(QMainWindow):
         self._error_dialog: ActionErrorDialog | None = None
 
         self.setWindowTitle("FIBSEM Maestro")
-        self.resize(1280, 800)
+        self.setGeometry(self.screen().availableGeometry())
 
         # root layout
         root = QWidget()

@@ -28,7 +28,6 @@ from fibsem_maestro.settings.imaging_settings import (
 )
 from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.slice.slice_view import SliceView
-from fibsem_maestro.store.props.props_store import PropsStore
 from fibsem_maestro.workflow.actions import Actions
 
 
@@ -103,11 +102,6 @@ class Imaging(Action[ImagingSettings, ImagingState]):
     @property
     def settings(self) -> ImagingSettings:
         return self._settings
-
-    @property
-    def external_props(self) -> GlobalProperties:
-        """External properties to use for this imaging action."""
-        return self._settings.external_props
 
     @property
     def ctx(self) -> ActionContext:
@@ -201,7 +195,8 @@ class Imaging(Action[ImagingSettings, ImagingState]):
         )
 
         # update the saved microscope properties for the next frame
-        self.collect_and_write_properties(self._ctx.props_store.next)
+        props = self.collect_properties()
+        self.write_properties(props, self._ctx.props_store.next)
 
         # calculate image sharpness in a separate thread
         self._image_sharpness = None
@@ -258,9 +253,6 @@ class Imaging(Action[ImagingSettings, ImagingState]):
                             self._settings.beam_type,
                         )
                     )
-                stack.enter_context(
-                    self._microscope.set_temporary_properties(self.external_props)
-                )
 
             output_path = self._grab_test_frame()
 
@@ -295,20 +287,21 @@ class Imaging(Action[ImagingSettings, ImagingState]):
         return output_path
 
     @with_logging_context
-    def collect_and_write_properties(
-        self,
-        store: PropsStore | None = None,
-    ) -> None:
+    def collect_properties(self) -> GlobalProperties:
         """
-        Collect and save the relevant properties of the microscope.
+        Collect the relevant properties of the microscope.
+
+        Overrides the default implementation.
 
         Args:
             store: Store to write properties to. If `None`, the current slice's store is used.
-        """
-        store = store or self._ctx.props_store
-        self._ctx.text_logger.debug("Saving microscope properties for imaging.")
 
-        self._microscope.set_beam(self._settings.beam_type)
+        Returns:
+            The collected properties.
+        """
+        self._ctx.text_logger.debug(
+            f"Collecting microscope properties for {self.name}."
+        )
 
         # get scanning area from the settings
         try:
@@ -316,12 +309,12 @@ class Imaging(Action[ImagingSettings, ImagingState]):
         except IndexError:
             scanning_area = None
 
-        # set scanning area from the settings and set external microscope properties
-        # there are actually up to three ways to set a scanning area for imaging - inside the microscope's GUI
-        # (if available there), via the scanning_area property of the imaging settings, or via
-        # external microscope properties
-        # scanning area in external props overrides scanning_area property in settings
-        # and scanning_area property in settings overrides the scanning area set in the microscope's GUI
+        if scanning_area:
+            self._ctx.text_logger.debug(
+                f"Scanning area specified in FIBSEM Maestro: {scanning_area}."
+            )
+
+        # scanning area from the settings should override the scanning area set in the microscope's GUI
         # when using extended resolution, the scanning area must always be set via scanning_area property in settings
         with (
             self._microscope.set_temporary_beam_property(
@@ -332,7 +325,6 @@ class Imaging(Action[ImagingSettings, ImagingState]):
             )
             if scanning_area is not None
             else nullcontext(),
-            self._microscope.set_temporary_properties(self.external_props),
         ):
             match self._settings.resolution_mode:
                 case StandardResolution():
@@ -344,12 +336,9 @@ class Imaging(Action[ImagingSettings, ImagingState]):
                     )
 
             # collect the microscope properties
-            props = self._microscope.collect_properties(
+            return self._microscope.collect_properties(
                 self._settings.properties_to_collect
             )
-
-            # save the properties to a file
-            store.write("props.yaml", props)
 
     def wait_for_sharpness(self) -> float | None:
         """

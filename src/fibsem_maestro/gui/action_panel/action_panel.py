@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import (
 from fibsem_maestro.action.action import Action
 from fibsem_maestro.gui.action_panel._action_test_worker import ActionTestWorker
 from fibsem_maestro.gui.action_panel._propagations_widget import PropagationsWidget
+from fibsem_maestro.gui.action_panel._props_dialog import PropertiesDialog
 from fibsem_maestro.gui.app_state import AppState
 from fibsem_maestro.gui.common import class_name_to_label
 from fibsem_maestro.gui.form_builder.builder import FormBuilder
@@ -43,6 +44,7 @@ class ActionPanel(QWidget):
         self._action = action
         self._manager = workflow_manager
         self._microscope = self._manager.workflow.microscope
+        self._txt_log = self._manager.workflow.ctx.text_logger
         self._form_builder = form_builder
 
         self._test_thread: QThread | None = None
@@ -96,7 +98,7 @@ class ActionPanel(QWidget):
         self._settings_widget = self._form_builder.build_form(
             action.settings,
             self._manager,
-            txt_log=self._manager.workflow.ctx.text_logger,
+            txt_log=self._txt_log,
             fields=None,
             action=self._action,
         )
@@ -137,7 +139,23 @@ class ActionPanel(QWidget):
         layout.addStretch()
 
     def _collect_properties(self) -> None:
-        self._action.collect_and_write_properties()
+        try:
+            props = self._action.collect_properties()
+        except Exception as e:
+            self._txt_log.error(f"Collecting properties failed: {e}")
+            return
+
+        edited = PropertiesDialog.review(
+            properties=props,
+            workflow_manager=self._manager,
+            txt_log=self._txt_log,
+            parent=self,
+        )
+
+        if edited is None:
+            return
+
+        self._action.write_properties(props)
         self._manager.notify_action_changed(self._action)
 
     def _test_action(self) -> None:
