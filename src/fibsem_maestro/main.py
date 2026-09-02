@@ -6,6 +6,8 @@ import os
 import sys
 from importlib.resources import as_file, files
 
+import fibsem_maestro.pillow_config  # noqa: F401
+
 # fix Qt plugin path on Windows
 if sys.platform == "win32":
     from pathlib import Path
