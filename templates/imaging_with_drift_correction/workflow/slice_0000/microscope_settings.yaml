@@ -1,0 +1,12 @@
+beam_shift_to_stage_move_electron:
+  - -1.0
+  - -1.0
+beam_shift_to_stage_move_ion:
+  - -1.0
+  - -1.0
+beam_shift_tolerance: 50.0
+control: autoscript
+ip_address: 192.168.0.1
+port: ""
+stage_tolerance: 100.0
+stage_trials: 3

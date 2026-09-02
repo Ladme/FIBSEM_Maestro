@@ -1,0 +1,23 @@
+beam_type: ion
+execution_frequency: 1
+milling_area: []
+milling_depth: 0.0
+milling_direction: down
+pattern_type: "Si-css"
+properties_to_collect:
+  electron_beam: []
+  ion_beam:
+    - stigmator
+    - beam_shift
+    - detector_contrast
+    - detector_brightness
+    - line_integration
+    - dwell_time
+    - bit_depth
+    - resolution
+    - horizontal_field_width
+    - working_distance
+    - scanning_area
+  microscope:
+    - stage_position
+slice_distance: 0.0
