@@ -2,6 +2,7 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 import shutil
+import sys
 from pathlib import Path
 
 from PyQt6.QtCore import QSize, Qt, QTimer
@@ -225,7 +226,17 @@ class TopBar(QWidget):
         if answer != QMessageBox.StandardButton.Yes:
             return
 
-        self._manager.reset()
+        try:
+            self._manager.reset()
+        except Exception as e:
+            hint = (
+                " The workflow directory may be in use by another process - close it and try again."
+                if sys.platform == "win32"
+                else ""
+            )
+            QMessageBox.critical(
+                self, "Error", f"Could not reset the workflow: {e}.{hint}"
+            )
 
     def _on_microscope_settings(self) -> None:
         """Opens the microscope settings dialog."""

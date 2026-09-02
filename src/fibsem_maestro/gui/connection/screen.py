@@ -3,6 +3,7 @@
 
 
 import shutil
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -157,9 +158,7 @@ class ConnectionScreen(QDialog):
             if answer != QMessageBox.StandardButton.Yes:
                 return
 
-        # clear the workflow directory
-        for item in self.workflow_dir.iterdir():
-            shutil.rmtree(item) if item.is_dir() else item.unlink()
+        self._clear_workflow_directory()
 
         self._workflow_context = FileActionContext(
             action_dir=self.workflow_dir / "workflow",
@@ -190,6 +189,33 @@ class ConnectionScreen(QDialog):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Connection failed: {str(e)}")
             self._connect_btn.setEnabled(True)
+
+    def _clear_workflow_directory(self) -> None:
+        """Delete all files and subdirectories inside the workflow directory."""
+        assert self.workflow_dir is not None
+
+        failures: list[tuple[Path, OSError]] = []
+        for item in self.workflow_dir.iterdir():
+            try:
+                if item.is_dir():
+                    shutil.rmtree(item)
+                else:
+                    item.unlink()
+            except OSError as exc:
+                failures.append((item, exc))
+
+        if failures:
+            details = "\n".join(f"- {path.name}: {exc}" for path, exc in failures)
+            hint = (
+                " The directory may be in use by another process - close it and try again."
+                if sys.platform == "win32"
+                else ""
+            )
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Could not fully clear the workflow directory.{hint}\n\n{details}",
+            )
 
     def _connect_resume(self) -> None:
         """Load workflow and attempt connection to the microscope."""
