@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+
 class MipmapPixmapItem(QGraphicsPixmapItem):
     """
     A pixmap item that low-pass filters before minifying.
@@ -25,10 +26,10 @@ class MipmapPixmapItem(QGraphicsPixmapItem):
     """
 
     def __init__(
-            self,
-            pixmap: QPixmap,
-            min_level_size: int = 64,
-            parent: QGraphicsItem | None = None,
+        self,
+        pixmap: QPixmap,
+        min_level_size: int = 64,
+        parent: QGraphicsItem | None = None,
     ) -> None:
         super().__init__(pixmap, parent)
         # QGraphicsPixmapItem defaults to FastTransformation, and the base
@@ -48,8 +49,8 @@ class MipmapPixmapItem(QGraphicsPixmapItem):
         """
         current = self._levels[0]
         while (
-                current.width() // 2 >= self._min_level_size
-                and current.height() // 2 >= self._min_level_size
+            current.width() // 2 >= self._min_level_size
+            and current.height() // 2 >= self._min_level_size
         ):
             current = current.scaled(
                 current.width() // 2,
@@ -88,10 +89,10 @@ class MipmapPixmapItem(QGraphicsPixmapItem):
         return self._levels[max(0, min(index, len(self._levels) - 1))]
 
     def paint(
-            self,
-            painter: QPainter,
-            option: QStyleOptionGraphicsItem,
-            widget: QWidget | None = None,
+        self,
+        painter: QPainter,
+        option: QStyleOptionGraphicsItem,
+        widget: QWidget,
     ) -> None:
         """Paint the appropriate pyramid level over the item's full rectangle."""
         scale = option.levelOfDetailFromTransform(painter.worldTransform())
