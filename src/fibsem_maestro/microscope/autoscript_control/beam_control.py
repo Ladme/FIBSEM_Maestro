@@ -312,7 +312,10 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         )
 
         if do_not_mill:
-            self._txt_log.warning("Skipping milling - `do_not_mill` option is True.")
+            self._txt_log.warning(
+                "Skipping milling - `do_not_mill` option is True. Sleeping for 20 seconds..."
+            )
+            time.sleep(20)
         else:
             self._microscope.patterning.run()
 
