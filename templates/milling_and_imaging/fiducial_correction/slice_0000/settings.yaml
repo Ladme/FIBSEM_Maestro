@@ -1,0 +1,29 @@
+beam_type: ion
+drift_calculation_mode:
+  areas: []
+  correction_margin: 0.0
+  frame_grabbing_mode:
+    dummy_scans: 0
+    type: full_frame
+  matching_mode:
+    type: standard
+  template_scans: 1
+  type: template_matching
+execution_frequency: 1
+properties_to_collect:
+  electron_beam: []
+  ion_beam:
+    - stigmator
+    - beam_shift
+    - detector_contrast
+    - detector_brightness
+    - line_integration
+    - dwell_time
+    - bit_depth
+    - resolution
+    - horizontal_field_width
+    - scanning_area
+    - working_distance
+  microscope:
+    - stage_position
+stop_at_failure: true

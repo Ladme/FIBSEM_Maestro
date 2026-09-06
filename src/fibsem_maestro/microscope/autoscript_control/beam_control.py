@@ -1,6 +1,7 @@
 # Released under MIT License.
-# Copyright (c) 2024-2025 CEMCOF
+# Copyright (c) 2024-2026 CEMCOF
 
+import math
 import time
 from abc import abstractmethod
 from pathlib import Path
@@ -27,6 +28,7 @@ from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.direction import Direction
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
+from fibsem_maestro.core.pattern_type import PatternType
 from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
@@ -175,7 +177,16 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
     def get_image(self, crop_to_scanning_area: bool = False) -> Image:
         self.select_modality()
         self._txt_log.debug(f"Getting an image ({self._modality}).")
-        image = Image.from_autoscript(self._microscope.imaging.get_image())
+
+        adorned_image = self._microscope.imaging.get_image()
+        raw = adorned_image.data
+        self._txt_log.debug(
+            f"AdornedImage: {adorned_image.width}x{adorned_image.height} "
+            f"bit_depth={adorned_image.bit_depth} encoding={adorned_image.encoding} | "
+            f"raw data: shape={raw.shape} dtype={raw.dtype} "
+            f"min={raw.min()} max={raw.max()}"
+        )
+        image = Image.from_autoscript(adorned_image)
 
         if crop_to_scanning_area and not self.scanning_area.is_full_frame():
             return image.crop(self.scanning_area)
@@ -241,7 +252,8 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         milling_area: NMArea,
         milling_depth: float,
         direction: Direction,
-        pattern_file: Path | str,
+        pattern_type: PatternType,
+        do_not_mill: bool,
     ) -> None:
         milling_area_m = milling_area.to_meters()
         milling_depth_m = milling_depth * 1e-9
@@ -258,20 +270,22 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
             f"Milling area in patterning coordinates: center = [{center_x}, {center_y}], width = {milling_area_m.width}, height = {milling_area_m.height}"
         )
 
-        if "ccs" in str(pattern_file):
+        if "ccs" in str(pattern_type):
             self._txt_log.debug("Using cleaning cross section pattern.")
             pattern_fn = self._microscope.patterning.create_cleaning_cross_section
-        elif "rcs" in str(pattern_file):
+        elif "rcs" in str(pattern_type):
             self._txt_log.debug("Using regular cross section pattern.")
             pattern_fn = self._microscope.patterning.create_regular_cross_section
         else:
-            self._txt_log.debug("Using rectangle pattern.")
+            self._txt_log.debug(
+                f"Pattern type {str(pattern_type)} not recognized, using rectangle pattern."
+            )
             pattern_fn = self._microscope.patterning.create_rectangle
 
         self.select_modality()
         self._microscope.patterning.clear_patterns()
         self._microscope.patterning.set_default_beam_type(int(self.beam_type()))
-        self._microscope.patterning.set_default_application_file(str(pattern_file))
+        self._microscope.patterning.set_default_application_file(str(pattern_type))
 
         time.sleep(1)
 
@@ -296,7 +310,15 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
             f"y = {pattern.center_y}, width = {pattern.width}, "
             f"height = {pattern.height}, direction = {pattern.scan_direction}]."
         )
-        self._microscope.patterning.run()
+
+        if do_not_mill:
+            self._txt_log.warning(
+                "Skipping milling - `do_not_mill` option is True. Sleeping for 20 seconds..."
+            )
+            time.sleep(20)
+        else:
+            self._microscope.patterning.run()
+
         self._microscope.patterning.clear_patterns()
 
     @property
@@ -445,14 +467,14 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
 
     @property
     def scan_rotation(self) -> float:
-        value = self._beam.scanning.rotation.value
-        self._txt_log.debug(f"Getting scanning rotation ({self._modality}): {value}.")
+        value = math.degrees(self._beam.scanning.rotation.value)
+        self._txt_log.debug(f"Getting scanning rotation ({self._modality}): {value}°.")
         return value
 
     @scan_rotation.setter
     def scan_rotation(self, value: float) -> None:
-        self._txt_log.debug(f"Setting scanning rotation ({self._modality}): {value}.")
-        self._beam.scanning.rotation.value = value
+        self._txt_log.debug(f"Setting scanning rotation ({self._modality}): {value}°.")
+        self._beam.scanning.rotation.value = math.radians(value)
 
     @property
     def scanning_area(self) -> RelativeArea:
@@ -644,21 +666,23 @@ class AutoscriptIonBeamControl(AutoscriptBeamControl[IonBeamAs]):
 
     @property
     def lens_alignment(self) -> LensAlignment:
-        raise MicroscopeError("Lens alignment is not defined for an ion beam.")
+        self._txt_log.warning("Lens alignment is not defined for an ion beam.")
+        return LensAlignment(x=0.0, y=0.0)
 
     @lens_alignment.setter
     def lens_alignment(self, value: LensAlignment):
         _ = value
-        raise MicroscopeError("Lens alignment is not defined for an ion beam.")
+        self._txt_log.warning("Lens alignment is not defined for an ion beam.")
 
     @property
     def source_tilt(self) -> SourceTilt:
-        raise MicroscopeError("Source tilt is not defined for an ion beam.")
+        self._txt_log.warning("Source tilt is not defined for an ion beam.")
+        return SourceTilt(x=0.0, y=0.0)
 
     @source_tilt.setter
     def source_tilt(self, value: SourceTilt) -> None:
         _ = value
-        raise MicroscopeError("Source tilt is not defined for an ion beam.")
+        self._txt_log.warning("Source tilt is not defined for an ion beam.")
 
     @property
     def image_to_beam_shift(self) -> tuple[int, int]:

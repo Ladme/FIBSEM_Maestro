@@ -1,0 +1,40 @@
+beam_type: electron
+criterion:
+  area:
+    - height: 1.0
+      origin:
+        x: 0.0
+        y: 0.0
+      width: 1.0
+  calculation_mode:
+    type: basic
+  detail:
+    high: 1.0
+    low: 1.0
+  log_best_tile: false
+  log_sharpness_map: false
+  sharpness_metric_fn: bandpass
+  tiling_mode:
+    type: single
+execution_frequency: 1
+properties_to_collect:
+  electron_beam:
+    - stigmator
+    - lens_alignment
+    - beam_shift
+    - detector_contrast
+    - detector_brightness
+    - source_tilt
+    - line_integration
+    - dwell_time
+    - bit_depth
+    - resolution
+    - horizontal_field_width
+    - scanning_area
+    - working_distance
+  ion_beam: []
+  microscope:
+    - stage_position
+resolution_mode:
+  type: standard
+scanning_area: []

@@ -1,9 +1,8 @@
 # Released under MIT License.
-# Copyright (c) 2024-2025 CEMCOF
+# Copyright (c) 2024-2026 CEMCOF
 
 
 import math
-from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -15,6 +14,7 @@ from fibsem_maestro.core.direction import Direction
 from fibsem_maestro.core.format import ImageFormat
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
+from fibsem_maestro.core.pattern_type import PatternType
 from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stage_position import StagePosition
@@ -53,6 +53,7 @@ class SimulatedBeamControl(BeamControl):
         self._detector_contrast = 0.5
         self._detector_brightness = 0.5
         self._source_tilt = SourceTilt(x=0.0, y=0.0)  # degrees
+        self._scan_rotation = 0.0  # degrees
 
         self._blanked = False
         self._acquiring = False
@@ -61,7 +62,7 @@ class SimulatedBeamControl(BeamControl):
         self._dwell_time = 1e-6  # seconds
         self._bit_depth = 8
         self._resolution = Resolution(1024, 768)
-        self._horizontal_field_width = 20_000.0
+        self._horizontal_field_width = 2000.0
         self._scanning_area = RelativeArea.full()
 
         self._image_to_beam_shift = (-1, 1)
@@ -184,6 +185,17 @@ class SimulatedBeamControl(BeamControl):
     def source_tilt(self, value: SourceTilt) -> None:
         self._txt_log.debug(f"Setting source tilt: {value}.")
         self._source_tilt = value
+
+    @property
+    def scan_rotation(self) -> float:
+        value = self._scan_rotation
+        self._txt_log.debug(f"Getting scan rotation: {value}.")
+        return value
+
+    @scan_rotation.setter
+    def scan_rotation(self, value: float) -> None:
+        self._txt_log.debug(f"Setting scan rotation: {value}.")
+        self._scan_rotation = value
 
     def blank(self) -> None:
         self._txt_log.debug("Blanking.")
@@ -311,14 +323,19 @@ class SimulatedBeamControl(BeamControl):
         milling_area: NMArea,
         milling_depth: float,
         direction: Direction,
-        pattern_file: Path | str,
+        pattern_type: PatternType,
+        do_not_mill: bool,
     ) -> None:
         self._txt_log.info(
             f"Fake milling in area {milling_area} with depth of {milling_depth} nm."
         )
         self._txt_log.info(
-            f"Fake milling has direction {direction} and uses pattern {pattern_file}."
+            f"Fake milling has direction {direction} and uses pattern {str(pattern_type)}."
         )
+        if do_not_mill:
+            self._txt_log.warning(
+                "Actual milling would not be performed because do_not_mill is True."
+            )
 
     @property
     def line_integration(self) -> int:

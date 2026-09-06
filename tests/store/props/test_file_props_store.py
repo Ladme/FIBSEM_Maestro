@@ -1,10 +1,11 @@
 # Released under MIT License.
-# Copyright (c) 2024-2025 CEMCOF
+# Copyright (c) 2024-2026 CEMCOF
 
 
 from pathlib import Path
 
 from fibsem_maestro.core.slice import SliceContext
+
 from fibsem_maestro.properties.beam_properties import BeamProperties
 from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.store.props.file import FilePropsStore

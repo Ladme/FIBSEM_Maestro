@@ -1,5 +1,5 @@
 # Released under MIT License.
-# Copyright (c) 2024-2025 CEMCOF
+# Copyright (c) 2024-2026 CEMCOF
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -18,6 +18,7 @@ class WidgetType(Enum):
     DETAIL_BAND = "detail_band"
     STRING = "string"
     ACTION_SELECTOR = "action_selector"
+    PATTERN_TYPE_SELECTOR = "pattern_type_selector"
 
 
 class AreaOverlay(Enum):
@@ -45,6 +46,8 @@ class FormHint:
     area_overlay: AreaOverlay | None = None
     # sibling field name feeding the overlay
     overlay_source: str | None = None
+    # field name feeding the beam source
+    beam_source: str | None = None
 
 
 @dataclass

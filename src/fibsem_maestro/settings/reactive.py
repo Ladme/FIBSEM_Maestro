@@ -1,5 +1,5 @@
 # Released under MIT License.
-# Copyright (c) 2024-2025 CEMCOF
+# Copyright (c) 2024-2026 CEMCOF
 
 from collections.abc import Callable, Hashable, Iterable
 from typing import Any, Generic, Self, SupportsIndex, TypeVar

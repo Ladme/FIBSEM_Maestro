@@ -1,10 +1,12 @@
 # Released under MIT License.
-# Copyright (c) 2024-2025 CEMCOF
+# Copyright (c) 2024-2026 CEMCOF
 
+from functools import cached_property
 from typing import Any
 
 import numpy as np
 
+from fibsem_maestro.core.pattern_type import PatternType
 from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
@@ -56,7 +58,7 @@ class SimulatedMicroscopeControl(MicroscopeControl):
         self._rng = np.random.default_rng(seed)
 
         self._stage_position = StagePosition(
-            x=0.0, y=0.0, z=0.0, rotation=0.0, tilt=0.0
+            x=0.0, y=0.0, z=5_000_000.0, rotation=0.0, tilt=0.0
         )
 
         self._sample = SimulatedSample(self._rng, sample_width, sample_height)
@@ -189,3 +191,7 @@ class SimulatedMicroscopeControl(MicroscopeControl):
     @property
     def txt_log(self) -> TextLogger:
         return self._txt_log
+
+    @cached_property
+    def available_patterns(self) -> list[PatternType]:
+        return [PatternType("Si-ccs"), PatternType("Si-rcs"), PatternType("rectangle")]

@@ -1,8 +1,7 @@
 # Released under MIT License.
-# Copyright (c) 2024-2025 CEMCOF
+# Copyright (c) 2024-2026 CEMCOF
 
 
-from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -14,6 +13,7 @@ from fibsem_maestro.core.direction import Direction
 from fibsem_maestro.core.format import ImageFormat
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
+from fibsem_maestro.core.pattern_type import PatternType
 from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
@@ -39,6 +39,7 @@ class MockBeamControl(BeamControl):
         self._detector_contrast: float = 0.0
         self._detector_brightness: float = 0.0
         self._source_tilt = SourceTilt(0.0, 0.0)
+        self._scan_rotation: float = 0.0
 
         self._line_integration: int = 1
         self._dwell_time: float = 0.0
@@ -120,6 +121,14 @@ class MockBeamControl(BeamControl):
     @source_tilt.setter
     def source_tilt(self, value: SourceTilt) -> None:
         self._source_tilt = value
+
+    @property
+    def scan_rotation(self) -> float:
+        return self._scan_rotation
+
+    @scan_rotation.setter
+    def scan_rotation(self, value: float) -> None:
+        self._scan_rotation = value
 
     @property
     def line_integration(self) -> int:
@@ -222,7 +231,8 @@ class MockBeamControl(BeamControl):
         milling_area: NMArea,
         milling_depth: float,
         direction: Direction,
-        pattern_file: Path | str,
+        pattern_type: PatternType,
+        do_not_mill: bool,
     ) -> None:
         raise NotImplementedError()
 

@@ -1,5 +1,5 @@
 # Released under MIT License.
-# Copyright (c) 2024-2025 CEMCOF
+# Copyright (c) 2024-2026 CEMCOF
 
 
 from fibsem_maestro.action.action import Action
@@ -11,7 +11,6 @@ from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.logging.logging import with_logging_context
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.milling.error import MillingError
-from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.milling_settings import MillingSettings
 from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.workflow.actions import Actions
@@ -88,10 +87,6 @@ class Milling(Action[MillingSettings, MillingState]):
         return self._settings
 
     @property
-    def external_props(self) -> GlobalProperties:
-        return self._settings.external_props
-
-    @property
     def ctx(self) -> ActionContext:
         return self._ctx
 
@@ -146,7 +141,8 @@ class Milling(Action[MillingSettings, MillingState]):
             self._current_milling_area,
             self._settings.milling_depth,
             self._settings.milling_direction,
-            self._settings.pattern_file,
+            self._settings.pattern_type,
+            self._settings.do_not_mill,
         )
         self._ctx.text_logger.info("Milling procedure completed.")
 
@@ -158,7 +154,8 @@ class Milling(Action[MillingSettings, MillingState]):
             f"Updating milling area for the next slice: {self._current_milling_area}."
         )
 
-        self.collect_and_write_properties(self._ctx.props_store.next)
+        props = self.collect_properties()
+        self.write_properties(props, self._ctx.props_store.next)
 
         self._ctx.text_logger.info(
             f"Completed '{self.name}' for slice {self._ctx.slice}."

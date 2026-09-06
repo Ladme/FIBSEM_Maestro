@@ -1,7 +1,6 @@
 # Released under MIT License.
-# Copyright (c) 2024-2025 CEMCOF
+# Copyright (c) 2024-2026 CEMCOF
 
-from pathlib import Path
 from typing import Annotated
 
 from pydantic import Field, field_validator
@@ -9,7 +8,7 @@ from pydantic import Field, field_validator
 from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.direction import Direction
-from fibsem_maestro.properties.global_properties import GlobalProperties
+from fibsem_maestro.core.pattern_type import PatternType
 from fibsem_maestro.settings.base_settings import BaseSettings
 from fibsem_maestro.settings.form_utils import (
     AreaOverlay,
@@ -28,6 +27,7 @@ class MillingSettings(BaseSettings):
             max_areas=1,
             area_overlay=AreaOverlay.SHOW_DIRECTION,
             overlay_source="milling_direction",
+            beam_source="beam_type",
         ),
     ] = Field(
         default_factory=list,
@@ -41,9 +41,11 @@ class MillingSettings(BaseSettings):
         default=1,
         description="Run the action every N-th slice. If not checked, the action will never run.",
     )
-    pattern_file: Path | str = Field(
-        default="",
-        description="Configuration file containing definition of the pattern to use for milling.",
+    pattern_type: Annotated[
+        PatternType, FormHint(widget=WidgetType.PATTERN_TYPE_SELECTOR)
+    ] = Field(
+        default=PatternType(""),
+        description="Type of pattern to use for milling.",
     )
     milling_depth: Annotated[float, FieldUnit(suffix="nm")] = Field(
         default=0.0, description="Depth of the milling."
@@ -60,13 +62,13 @@ class MillingSettings(BaseSettings):
     ] = Field(
         default=Direction.DOWN, description="Direction in which the slicing progresses."
     )
+    do_not_mill: bool = Field(
+        default=False,
+        description="Prepare everything for milling but skip the actual milling process instead of performing it. Debug option.",
+    )
     properties_to_collect: PropertyNames = Field(
         default_factory=PropertyNames,
         description="Properties of the microscope and the beam relevant for milling.",
-    )
-    external_props: GlobalProperties = Field(
-        default=GlobalProperties(),
-        description="External properties of the microscope to use for milling. These properties will overwrite any current microscope properties.",
     )
 
     @field_validator("milling_direction")

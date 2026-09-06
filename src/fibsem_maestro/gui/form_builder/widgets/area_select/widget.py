@@ -1,6 +1,8 @@
 # Released under MIT License.
-# Copyright (c) 2024-2025 CEMCOF
+# Copyright (c) 2024-2026 CEMCOF
 
+
+from collections.abc import Callable
 
 import numpy as np
 from PyQt6.QtCore import QRectF, Qt
@@ -16,8 +18,12 @@ from PyQt6.QtWidgets import (
 )
 
 from fibsem_maestro.core.area import RelativeArea
+from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.point import RelativePoint
+from fibsem_maestro.gui.form_builder.widgets.area_select._mipmap import (
+    MipmapPixmapItem,
+)
 from fibsem_maestro.gui.form_builder.widgets.area_select._rectangle import (
     ResizableRect,
 )
@@ -43,6 +49,9 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         microscope: Microscope instance used to acquire images, or None.
         max_areas: Maximum number of areas, or None for unlimited.
         default: Pre-populated areas, applied once an image is available.
+        overlay: Decoration overlay drawn over the selected area.
+        beam_provider: Called just before each acquisition to decide which beam
+            to image with. Returning None leaves the active beam untouched.
         parent: Parent widget.
     """
 
@@ -56,6 +65,7 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         max_areas: int | None = None,
         default: list[RelativeArea] | None = None,
         overlay: AreaOverlay | None = None,
+        beam_provider: Callable[[], BeamType | None] | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -71,6 +81,7 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         self._overlay = overlay
         self._overlay_data: OverlayData | None = None
         self._pixel_size: float | None = None
+        self._beam_provider = beam_provider
 
         self.setMinimumWidth(self._MINIMUM_WIDTH)
 
@@ -94,7 +105,6 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         self._toggle_btn.setFixedWidth(80)
         self._toggle_btn.clicked.connect(self._toggle)
         header_layout.addWidget(self._toggle_btn)
-
         outer.addWidget(header)
 
         # thumbnail (used when collapsed)
@@ -158,7 +168,18 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         try:
             if self._microscope is None:
                 raise ValueError("FIBSEM Maestro is not connected to a microscope.")
-            image = self._microscope.beam.get_image()
+
+            # get image using the correct beam
+            beam = self._beam_provider() if self._beam_provider is not None else None
+            match beam:
+                case BeamType.ELECTRON:
+                    image = self._microscope.electron_beam.get_image()
+                case BeamType.ION:
+                    image = self._microscope.ion_beam.get_image()
+                case None:
+                    # use the current active beam
+                    image = self._microscope.beam.get_image()
+
             self.convert_image(image)
         except Exception as e:
             self._status_label.setText(f"Acquisition failed: {e}")
@@ -193,10 +214,13 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
             if item.parentItem() is None and not isinstance(item, ResizableRect):
                 self._scene.removeItem(item)
 
-        pixmap_item = self._scene.addPixmap(self._last_pixmap)
-        # set smooth transformation to avoid visual artifacts in compressed images
-        pixmap_item.setTransformationMode(Qt.TransformationMode.SmoothTransformation)
+        # a mipmapped item: Qt's bilinear filter only reads a 2x2 neighbourhood
+        # however far the image is minified, so a 6144x4096 frame in an 885 px
+        # viewport carries pixel noise through at full amplitude instead of
+        # averaging it away
+        pixmap_item = MipmapPixmapItem(self._last_pixmap)
         pixmap_item.setZValue(-1)
+        self._scene.addItem(pixmap_item)
         self._scene.setSceneRect(QRectF(0, 0, w, h))
         self._viewer.reset_zoom()
 
@@ -232,7 +256,7 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         thumb_h = self._THUMBNAIL_HEIGHT
 
         # render at a higher resolution, then downscale with a smoothing filter
-        supersample = 3
+        supersample = 2
         hi = QPixmap(thumb_w * supersample, thumb_h * supersample)
         hi.fill(Qt.GlobalColor.black)
 

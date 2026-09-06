@@ -1,18 +1,18 @@
 # Released under MIT License.
-# Copyright (c) 2024-2025 CEMCOF
+# Copyright (c) 2024-2026 CEMCOF
 
 import threading
 from pathlib import Path
 
 import numpy as np
 import pytest
+from fibsem_maestro.core.slice import SliceContext
 
 from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.detail_band import DetailBand
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.point import RelativePoint
-from fibsem_maestro.core.slice import SliceContext
 from fibsem_maestro.criterion.criterion import Criterion
 from fibsem_maestro.imaging.error import ImagingError
 from fibsem_maestro.imaging.imaging import Imaging

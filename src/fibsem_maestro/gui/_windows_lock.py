@@ -1,5 +1,5 @@
 # Released under MIT License.
-# Copyright (c) 2024-2025 CEMCOF
+# Copyright (c) 2024-2026 CEMCOF
 
 """
 Simulating Windows-like file/directory deletion behavior on Linux.

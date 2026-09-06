@@ -1,5 +1,5 @@
 # Released under MIT License.
-# Copyright (c) 2024-2025 CEMCOF
+# Copyright (c) 2024-2026 CEMCOF
 
 from typing import Annotated, Literal
 
@@ -76,6 +76,7 @@ class TemplateMatchingSettings(BaseSettings):
             max_areas=None,
             area_overlay=AreaOverlay.SHOW_MARGIN,
             overlay_source="correction_margin",
+            beam_source="beam_type",
         ),
     ] = Field(
         default_factory=list,

@@ -1,0 +1,29 @@
+action_names:
+  - drift correction
+  - autofocus
+  - imaging
+action_types:
+  - drift_correction
+  - autofocus
+  - imaging
+propagations:
+  - dependent_names:
+      - imaging
+      - drift correction
+    parent_name: autofocus
+    props_to_propagate:
+      electron_beam:
+        - working_distance
+      ion_beam: []
+      microscope: []
+  - dependent_names:
+      - autofocus
+      - imaging
+    parent_name: drift correction
+    props_to_propagate:
+      electron_beam:
+        - beam_shift
+      ion_beam: []
+      microscope:
+        - stage_position
+slice_index: 0

@@ -1,14 +1,14 @@
 # Released under MIT License.
-# Copyright (c) 2024-2025 CEMCOF
+# Copyright (c) 2024-2026 CEMCOF
 
 
 from pathlib import Path
 
 import numpy as np
 import pytest
+from fibsem_maestro.core.slice import SliceContext
 
 from fibsem_maestro.core.image import Image
-from fibsem_maestro.core.slice import SliceContext
 from fibsem_maestro.store.frame.file import FileFrameStore
 
 

@@ -1,0 +1,25 @@
+beam_type: electron
+correction_mode:
+  type: manual
+  wd_correction: 0.0
+  y_correction: 0.0
+execution_frequency: 1
+linked_milling: milling
+properties_to_collect:
+  electron_beam:
+    - stigmator
+    - lens_alignment
+    - beam_shift
+    - detector_contrast
+    - detector_brightness
+    - source_tilt
+    - line_integration
+    - dwell_time
+    - bit_depth
+    - resolution
+    - horizontal_field_width
+    - scanning_area
+    - working_distance
+  ion_beam: []
+  microscope:
+    - stage_position

@@ -1,5 +1,5 @@
 # Released under MIT License.
-# Copyright (c) 2024-2025 CEMCOF
+# Copyright (c) 2024-2026 CEMCOF
 
 import os
 from pathlib import Path
@@ -50,7 +50,7 @@ class MainWindow(QMainWindow):
         self._error_dialog: ActionErrorDialog | None = None
 
         self.setWindowTitle("FIBSEM Maestro")
-        self.resize(1280, 800)
+        self.setGeometry(self.screen().availableGeometry())
 
         # root layout
         root = QWidget()

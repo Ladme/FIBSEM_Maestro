@@ -1,15 +1,15 @@
 # Released under MIT License.
-# Copyright (c) 2024-2025 CEMCOF
+# Copyright (c) 2024-2026 CEMCOF
 
 
 import numpy as np
 import pytest
+from fibsem_maestro.autofocus.sweeping_registry import SweepingRegistry
 from numpy.typing import NDArray
 
 from fibsem_maestro.autofocus.error import AutofocusError
 from fibsem_maestro.autofocus.result import AutofocusResult
 from fibsem_maestro.autofocus.sweep_step import SweepStep
-from fibsem_maestro.autofocus.sweeping_registry import SweepingRegistry
 from fibsem_maestro.autofocus.sweeping_strategy import (
     BasicSweepingStrategy,
     InterleavedSweepingStrategy,

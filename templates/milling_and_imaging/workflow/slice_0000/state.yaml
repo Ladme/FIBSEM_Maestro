@@ -1,0 +1,58 @@
+action_names:
+- fiducial correction
+- milling
+- post milling correction
+- drift correction
+- autofocus
+- imaging
+action_types:
+- drift_correction
+- milling
+- post_milling_correction
+- drift_correction
+- autofocus
+- imaging
+propagations:
+- dependent_names:
+  - drift correction
+  - imaging
+  - post milling correction
+  parent_name: autofocus
+  props_to_propagate:
+    electron_beam:
+    - working_distance
+    ion_beam: []
+    microscope: []
+- dependent_names:
+  - autofocus
+  - imaging
+  - post milling correction
+  parent_name: drift correction
+  props_to_propagate:
+    electron_beam:
+    - beam_shift
+    ion_beam: []
+    microscope:
+    - stage_position
+- dependent_names:
+  - milling
+  parent_name: fiducial correction
+  props_to_propagate:
+    electron_beam: []
+    ion_beam:
+    - beam_shift
+    microscope:
+    - stage_position
+- dependent_names:
+  - drift correction
+  - autofocus
+  - imaging
+  parent_name: post milling correction
+  props_to_propagate:
+    electron_beam:
+    - beam_shift
+    - working_distance
+    ion_beam: []
+    microscope:
+    - stage_position
+slice_index: 0

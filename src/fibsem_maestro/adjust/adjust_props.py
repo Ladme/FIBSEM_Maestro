@@ -1,5 +1,5 @@
 # Released under MIT License.
-# Copyright (c) 2024-2025 CEMCOF
+# Copyright (c) 2024-2026 CEMCOF
 
 from typing import TYPE_CHECKING
 
@@ -11,7 +11,6 @@ from fibsem_maestro.adjust.error import AdjustPropsError
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.logging.logging import with_logging_context
 from fibsem_maestro.microscope.microscope import Microscope
-from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.adjust_props_settings import AdjustPropsSettings
 from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.workflow.actions import Actions
@@ -72,10 +71,6 @@ class AdjustProps(Action[AdjustPropsSettings, AdjustPropsState]):
     @property
     def microscope(self) -> Microscope:
         return self._microscope
-
-    @property
-    def external_props(self) -> GlobalProperties:
-        return GlobalProperties()
 
     @property
     def settings(self) -> AdjustPropsSettings:
@@ -142,7 +137,8 @@ class AdjustProps(Action[AdjustPropsSettings, AdjustPropsState]):
         self.microscope.set_properties(props, None)
 
         # update the microscope properties for the next frame
-        self.collect_and_write_properties(self._ctx.props_store.next)
+        props = self.collect_properties()
+        self.write_properties(props, self._ctx.props_store.next)
 
         self._ctx.text_logger.info(
             f"Completed '{self.name}' for slice {self._ctx.slice}."
