@@ -138,6 +138,7 @@ class DriftCorrection(Action[DriftCorrectionSettings, DriftCorrectionState]):
         """
         if not self._is_initialized:
             # initialize the drift calculation, if needed
+            self.read_and_set_properties()
             self._drift_calc.setup()
             self._is_initialized = True
 
