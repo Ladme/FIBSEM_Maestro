@@ -11,6 +11,7 @@ from fibsem_maestro.settings.form_utils import (
     AreaOverlay,
     FieldUnit,
     FormHint,
+    OverlaySpec,
     WidgetType,
 )
 
@@ -74,8 +75,9 @@ class TemplateMatchingSettings(BaseSettings):
         FormHint(
             widget=WidgetType.AREA_SELECT,
             max_areas=None,
-            area_overlay=AreaOverlay.SHOW_MARGIN,
-            overlay_source="correction_margin",
+            overlays=(
+                OverlaySpec.of(AreaOverlay.SHOW_MARGIN, margin_nm="correction_margin"),
+            ),
             beam_source="beam_type",
         ),
     ] = Field(

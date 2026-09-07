@@ -14,6 +14,7 @@ from fibsem_maestro.settings.form_utils import (
     AreaOverlay,
     FieldUnit,
     FormHint,
+    OverlaySpec,
     WidgetType,
 )
 from fibsem_maestro.settings.property_names import PropertyNames
@@ -25,8 +26,11 @@ class MillingSettings(BaseSettings):
         FormHint(
             widget=WidgetType.AREA_SELECT,
             max_areas=1,
-            area_overlay=AreaOverlay.SHOW_DIRECTION,
-            overlay_source="milling_direction",
+            overlays=(
+                OverlaySpec.of(
+                    AreaOverlay.SHOW_DIRECTION, direction="milling_direction"
+                ),
+            ),
             beam_source="beam_type",
         ),
     ] = Field(

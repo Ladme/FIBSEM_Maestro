@@ -21,6 +21,8 @@ from fibsem_maestro.gui.form_builder.widgets.area_select._constants import (
 from fibsem_maestro.settings.form_utils import AreaOverlay
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from fibsem_maestro.gui.form_builder.widgets.area_select._rectangle import (
         ResizableRect,
     )
@@ -204,3 +206,25 @@ def build_decoration(
             if data.direction is None:
                 return None
             return DirectionDecoration(direction=data.direction)
+
+
+def build_decorations(
+    overlays: Sequence[tuple[AreaOverlay, OverlayData]],
+    pixel_size_nm: float | None,
+) -> list[AreaDecoration]:
+    """
+    Build every decoration whose data and image scale are available.
+
+    Args:
+        overlays: Overlay kinds paired with their own runtime values.
+        pixel_size_nm: Image pixel size in nanometers, or None if no image loaded.
+
+    Returns:
+        The buildable decorations, in declaration order. Overlays with missing
+        data or missing scale are skipped.
+    """
+    return [
+        decoration
+        for kind, data in overlays
+        if (decoration := build_decoration(kind, data, pixel_size_nm)) is not None
+    ]
