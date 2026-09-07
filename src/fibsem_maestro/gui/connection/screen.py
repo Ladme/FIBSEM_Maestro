@@ -3,7 +3,6 @@
 
 
 import shutil
-import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -206,15 +205,10 @@ class ConnectionScreen(QDialog):
 
         if failures:
             details = "\n".join(f"- {path.name}: {exc}" for path, exc in failures)
-            hint = (
-                " The directory may be in use by another process - close it and try again."
-                if sys.platform == "win32"
-                else ""
-            )
             QMessageBox.critical(
                 self,
                 "Error",
-                f"Could not fully clear the workflow directory.{hint}\n\n{details}",
+                f"Could not fully clear the workflow directory.\n\n{details}",
             )
 
     def _connect_resume(self) -> None:
