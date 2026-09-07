@@ -33,6 +33,7 @@ from fibsem_maestro.gui.form_builder.widgets.area_select.overlay import (
     build_decorations,
 )
 from fibsem_maestro.gui.form_builder.widgets.base import BaseWidget
+from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.form_utils import AreaOverlay
 
@@ -61,6 +62,7 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
     def __init__(
         self,
         microscope: Microscope | None,
+        txt_log: TextLogger | None,
         max_areas: int | None = None,
         default: list[RelativeArea] | None = None,
         beam_provider: Callable[[], BeamType | None] | None = None,
@@ -70,6 +72,7 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         BaseWidget.__init__(self)
 
         self._microscope = microscope
+        self._txt_log = txt_log
         self._max_areas = max_areas
         self._image_size: tuple[int, int] | None = None
         self._last_pixmap: QPixmap | None = None
@@ -315,13 +318,10 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
 
     def _refresh_decorations(self) -> None:
         """Rebuild every rectangle's decorations from the current overlay state."""
-        if not self._overlays:
-            return
-
         for item in self._scene.items():
             if isinstance(item, ResizableRect):
                 item.apply_decorations(
-                    build_decorations(self._overlays, self._pixel_size)
+                    build_decorations(self._overlays, self._pixel_size, self._txt_log)
                 )
         self._update_thumbnail()
 

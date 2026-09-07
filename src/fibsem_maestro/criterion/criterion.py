@@ -35,6 +35,9 @@ if TYPE_CHECKING:
     from fibsem_maestro.logging.text.text_logger import TextLogger
     from fibsem_maestro.settings.criterion_settings import CriterionSettings
 
+TILE_PX_MULTIPLE = 4
+MIN_TILE_PX = 4
+
 
 class Criterion:
     """
@@ -252,22 +255,21 @@ class Criterion:
             size relative to the image dimensions.
         """
         # calculate the tile size in pixels
-        tile_size_px = int(tile_size / image.pixel_size)
-        tile_size_px -= tile_size_px % 4  # must be divisible by 4
+        tile_size_px = tile_size_in_pixels(tile_size, image.pixel_size)
         if tile_size_px < 4:
             raise CriterionError(
                 "Tile size is smaller than 4x4 pixels. Increase the tile size."
             )
 
-        step = int(tile_size_px * (1 - overlap))
+        step = tile_step_in_pixels(tile_size_px, overlap)
         if step == 0:
             raise CriterionError(
                 "Tiles could not be constructed. Overlap is too large or tiles are too small."
             )
-        height, width = image.shape[:2]
 
-        for y in range(0, height - tile_size_px + 1, step):
-            for x in range(0, width - tile_size_px + 1, step):
+        height, width = image.shape[:2]
+        for y in tile_origins(height, tile_size_px, step):
+            for x in tile_origins(width, tile_size_px, step):
                 yield PixelArea(
                     origin=PixelPoint(x, y),
                     width=tile_size_px,
@@ -420,3 +422,60 @@ class Criterion:
             tile_px.origin.x += offset_x
             tile_px.origin.y += offset_y
             yield tile_px
+
+
+def tile_size_in_pixels(tile_size_nm: float, pixel_size_nm: float) -> int:
+    """
+    Convert a tile size to whole pixels, quantised for the metric functions.
+
+    The result is truncated toward zero and then rounded *down* to a multiple of
+    `TILE_PX_MULTIPLE`, so the real tile is generally slightly smaller than the
+    requested size.
+
+    Args:
+        tile_size_nm: Requested tile side length in nanometers.
+        pixel_size_nm: Image pixel size in nanometers per pixel.
+
+    Returns:
+        The tile side length in pixels, a multiple of `TILE_PX_MULTIPLE`.
+        May be 0 if the requested size is below one multiple.
+    """
+    tile_px = int(tile_size_nm / pixel_size_nm)
+    return tile_px - tile_px % TILE_PX_MULTIPLE
+
+
+def tile_step_in_pixels(tile_px: int, relative_overlap: float) -> int:
+    """
+    Convert a tile size and relative overlap to a whole-pixel step.
+
+    Args:
+        tile_px: Tile side length in pixels.
+        relative_overlap: Fraction of the tile shared with its neighbour, in [0, 1).
+
+    Returns:
+        The distance between consecutive tile origins in pixels, truncated
+        toward zero. May be 0 if the overlap is too large for the tile size.
+    """
+    return int(tile_px * (1.0 - relative_overlap))
+
+
+def tile_origins(extent_px: int, tile_px: int, step_px: int) -> list[int]:
+    """
+    Lay out tile origins along one axis, anchored at the leading edge.
+
+    Tiles start at 0 and advance by `step_px`. A tile that would extend past
+    `extent_px` is omitted, so the trailing edge may be left uncovered; no tile
+    ever overhangs the area.
+
+    Args:
+        extent_px: Length of the area along this axis, in pixels.
+        tile_px: Tile side length in pixels.
+        step_px: Distance between consecutive origins, in pixels.
+
+    Returns:
+        Tile origin coordinates relative to the area's leading edge, ascending.
+        Empty if a single tile does not fit.
+    """
+    if tile_px <= 0 or step_px <= 0:
+        return []
+    return list(range(0, extent_px - tile_px + 1, step_px))

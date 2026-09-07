@@ -8,7 +8,7 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Mapping
 
     from fibsem_maestro.action.action import Action
 
@@ -31,6 +31,7 @@ class AreaOverlay(Enum):
 
     SHOW_MARGIN = "show_margin"
     SHOW_DIRECTION = "show_direction"
+    SHOW_TILES = "show_tiles"
 
     @property
     def data_fields(self) -> frozenset[str]:
@@ -38,6 +39,9 @@ class AreaOverlay(Enum):
         return {
             AreaOverlay.SHOW_MARGIN: frozenset({"margin_nm"}),
             AreaOverlay.SHOW_DIRECTION: frozenset({"direction"}),
+            AreaOverlay.SHOW_TILES: frozenset(
+                {"tile_size_nm", "tile_relative_overlap"}
+            ),
         }[self]
 
 
@@ -54,10 +58,14 @@ class OverlaySpec:
             unresolved or None-valued source leaves that attribute None, which
             suppresses this decoration without affecting the others on the
             same field.
+        requires: `(dotted path, required type)` pairs that must all hold in the
+            live settings for this decoration to be drawn.
+
     """
 
     kind: AreaOverlay
     sources: tuple[tuple[str, str], ...] = ()
+    requires: tuple[tuple[str, type], ...] = ()
 
     def __post_init__(self) -> None:
         names = [name for name, _ in self.sources]
@@ -70,19 +78,25 @@ class OverlaySpec:
             raise ValueError(f"{self.kind.name} has duplicate overlay sources")
 
     @classmethod
-    def of(cls, kind: AreaOverlay, **paths: str) -> OverlaySpec:
+    def of(
+        cls,
+        kind: AreaOverlay,
+        requires: Mapping[str, type] | None = None,
+        **paths: str,
+    ) -> OverlaySpec:
         """
         Build a spec from keyword sources.
 
         Args:
             kind: Which decoration to draw.
-            **paths: `OverlayData` attribute name to dotted field path, e.g.
-                `OverlaySpec.of(AreaOverlay.SHOW_DIRECTION, direction="milling.direction")`.
+            requires: Dotted path to required type, e.g.
+                `{"tiling_mode": MultiTileMode}`.
+            **paths: `OverlayData` attribute name to dotted field path.
 
         Returns:
             The spec.
         """
-        return cls(kind, tuple(paths.items()))
+        return cls(kind, tuple(paths.items()), tuple((requires or {}).items()))
 
 
 @dataclass

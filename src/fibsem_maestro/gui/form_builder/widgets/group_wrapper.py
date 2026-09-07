@@ -62,3 +62,8 @@ class GroupWrapper(CollapsibleGroupBox, BaseWidget[T]):
             read_only: If True, make the wrapped widget read-only.
         """
         self._inner.set_read_only(read_only)
+
+    @property
+    def inner(self) -> BaseWidget[T]:
+        """The wrapped widget."""
+        return self._inner

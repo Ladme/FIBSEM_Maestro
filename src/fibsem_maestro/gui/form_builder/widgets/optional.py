@@ -95,3 +95,8 @@ class OptionalWidget(QWidget, BaseWidget[T | None]):
     def highlight_target(self) -> QWidget:
         """Highlight the gated inner editor, not the checkbox row."""
         return self._inner
+
+    @property
+    def inner(self) -> BaseWidget[T]:
+        """The wrapped widget."""
+        return cast("BaseWidget[T]", self._inner)

@@ -19,3 +19,9 @@ MARGIN_FILL = QBrush(QColor(145, 145, 145, 60))
 MARGIN_PEN = QPen(QColor(30, 30, 35, 200), 1, Qt.PenStyle.DashLine)
 ARROW_COLOR = QColor(0, 30, 190, 120)
 ARROW_PEN = QPen(QColor(0, 30, 190, 120), 0)
+
+MAX_TILES = 4096
+TILE_COLOR = QColor(255, 0, 0)
+# width 0 means a cosmetic 1-pixel line
+TILE_PEN = QPen(TILE_COLOR, 0)
+TILE_PEN.setCosmetic(True)

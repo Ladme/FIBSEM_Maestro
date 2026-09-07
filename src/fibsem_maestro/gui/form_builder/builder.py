@@ -55,7 +55,7 @@ from fibsem_maestro.gui.form_builder.widgets.union import DiscriminatedUnionWidg
 from fibsem_maestro.gui.workflow_manager import WorkflowManager
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.settings.base_settings import BaseSettings
-from fibsem_maestro.settings.form_utils import AreaOverlay, WidgetType
+from fibsem_maestro.settings.form_utils import AreaOverlay, OverlaySpec, WidgetType
 
 if TYPE_CHECKING:
     from fibsem_maestro.core.pattern_type import PatternType
@@ -336,6 +336,7 @@ class FormBuilder:
 
                 return AreaSelectWidget(
                     microscope=self._microscope,
+                    txt_log=self._txt_log,
                     max_areas=hint.max_areas if hint.max_areas else None,
                     default=default,
                     beam_provider=provider,
@@ -513,44 +514,15 @@ class FormBuilder:
         """
 
         def build(cls: type, field_infos: list[FieldInfo] | None) -> ObjectWidget:
-            self._forget_subtree(scope)
-            obj = self._build_object(
+            return self._build_object(
                 cls,
                 settings=None,
                 scope=scope,
                 field_infos=field_infos,
                 on_change=on_change,
             )
-            if not scope.context.building:
-                # a switch after the initial build: the rest of the form is
-                # already registered, so only this subtree needs wiring
-                self._flush_overlays(scope.context)
-            return obj
 
         return build
-
-    def _forget_subtree(self, scope: BuildScope) -> None:
-        """
-        Drop registry entries and overlay bindings strictly below `scope`.
-
-        Args:
-            scope: The subtree being replaced.
-        """
-        if (prefix := scope.dotted) is None:
-            return
-
-        context = scope.context
-        dead = f"{prefix}."
-        for path in [p for p in context.widgets if p.startswith(dead)]:
-            del context.widgets[path]
-
-        for binding in [
-            b
-            for b in context.bindings
-            if b.area_path is not None and b.area_path.startswith(dead)
-        ]:
-            binding.deactivate()
-            context.bindings.remove(binding)
 
     def _make_item_factory(
         self, item: FieldType, on_change: OnChange, scope: BuildScope
@@ -683,49 +655,128 @@ class FormBuilder:
         """
         found: dict[int, BaseWidget] = {}
         for spec in binding.specs:
-            for _, path in spec.sources:
-                source = self._resolve_source(binding, path)
-                if source is None:
+            paths = [path for _, path in spec.sources]
+            paths += [path for path, _ in spec.requires]
+            for path in paths:
+                widgets = self._widgets_at(binding, path, all_variants=True)
+                if not widgets:
                     self._warn(
                         f"Overlay source {path!r} for field "
                         f"{binding.field_name!r} was not found in this form; "
                         f"{spec.kind.value} will not be drawn."
                     )
                     continue
-                found.setdefault(id(source), source)
+                for widget in widgets:
+                    found.setdefault(id(widget), widget)
         return list(found.values())
 
     def _resolve_source(self, binding: OverlayBinding, path: str) -> BaseWidget | None:
         """
-        Find the widget an overlay source path refers to.
-
-        A bare name is looked up among the declaring object's own fields first,
-        which keeps sibling references working inside list elements, where no
-        addressable path exists. Otherwise the path is tried against each
-        enclosing scope, innermost first.
+        Find the widget an overlay source or requirement path refers to.
 
         Args:
             binding: The overlay binding making the reference.
             path: Dotted path relative to the declaring object.
 
         Returns:
-            The source widget, or None if the path matches nothing.
+            The widget holding the current value, or None if the path matches
+            nothing in the form as it now stands. A path leading into a union
+            variant that is not selected resolves to None.
         """
-        if "." not in path and (sibling := binding.siblings.get(path)) is not None:
-            return sibling
+        widgets = self._widgets_at(binding, path, all_variants=False)
+        return widgets[0] if widgets else None
 
+    def _widgets_at(
+        self, binding: OverlayBinding, path: str, all_variants: bool
+    ) -> list[BaseWidget]:
+        """
+        Walk a dotted path down through the form widgets.
+
+        Args:
+            binding: The overlay binding making the reference.
+            path: Dotted path relative to the declaring object.
+            all_variants: If True, descend into every variant of a union rather
+                than only the selected one. Use this when subscribing, so an
+                edit in a variant selected later still reaches the overlay.
+
+        Returns:
+            The matching widgets. At most one unless `all_variants` is set.
+        """
+        parts = path.split(".")
+
+        root = binding.siblings.get(parts[0])
+        if root is None:
+            return self._registry_lookup(binding, path)
+
+        found = [self._unwrap(root)]
+        for part in parts[1:]:
+            found = [
+                child
+                for widget in found
+                for child in self._children_named(widget, part, all_variants)
+            ]
+        return found
+
+    def _unwrap(self, widget: BaseWidget) -> BaseWidget:
+        """Return the value-carrying widget inside any group or optional wrapper."""
+        while isinstance(widget, (OptionalWidget, GroupWrapper)):
+            widget = widget.inner
+        return widget
+
+    def _children_named(
+        self, widget: BaseWidget, name: str, all_variants: bool
+    ) -> list[BaseWidget]:
+        """
+        Return the child widgets of `widget` holding the field `name`.
+
+        Args:
+            widget: The already-unwrapped parent widget.
+            name: The field name to look for.
+            all_variants: If True, look in every variant of a union.
+
+        Returns:
+            The matching child widgets, unwrapped; empty if there are none.
+        """
+        if isinstance(widget, DiscriminatedUnionWidget):
+            variants = (
+                widget.variant_widgets()
+                if all_variants
+                else [w for w in [widget.selected_variant_widget()] if w is not None]
+            )
+            return [
+                child
+                for variant in variants
+                for child in self._children_named(
+                    self._unwrap(variant), name, all_variants
+                )
+            ]
+
+        if isinstance(widget, ObjectWidget):
+            child = widget.field_widget(name)
+            return [] if child is None else [self._unwrap(child)]
+
+        return []
+
+    def _registry_lookup(self, binding: OverlayBinding, path: str) -> list[BaseWidget]:
+        """
+        Resolve a path that starts outside the declaring object.
+
+        Args:
+            binding: The overlay binding making the reference.
+            path: Dotted path relative to some enclosing scope.
+
+        Returns:
+            The single matching widget, or an empty list.
+        """
         widgets = binding.scope.context.widgets
         for candidate in binding.scope.candidates(path):
             if (widget := widgets.get(candidate)) is not None:
-                return widget
-        return None
+                return [self._unwrap(widget)]
+        return []
 
     def _push_overlays(self, binding: OverlayBinding) -> None:
         """
         Copy the current source values into the area selector's overlays.
-
-        Source paths are re-resolved on every push rather than captured, so a
-        rebuilt subtree cannot leave the overlay reading a discarded widget.
 
         Args:
             binding: The overlay binding to push.
@@ -736,20 +787,41 @@ class FormBuilder:
         overlays: list[tuple[AreaOverlay, OverlayData]] = []
         for spec in binding.specs:
             data: dict[str, Any] = {}
-            for data_field, path in spec.sources:
-                source = self._resolve_source(binding, path)
-                if source is not None:
-                    data[data_field] = source.get_value()
+            if self._requirements_met(binding, spec):
+                for data_field, path in spec.sources:
+                    source = self._resolve_source(binding, path)
+                    if source is not None:
+                        data[data_field] = source.get_value()
             overlays.append((spec.kind, OverlayData(**data)))
 
         binding.area.set_overlays(overlays)
+
+    def _requirements_met(self, binding: OverlayBinding, spec: OverlaySpec) -> bool:
+        """
+        Check a spec's requirements against the live settings.
+
+        Args:
+            binding: The overlay binding being pushed.
+            spec: The overlay whose requirements to check.
+
+        Returns:
+            True if every required path holds a value of its required type.
+            False in a form with no live settings, where the active variant of
+            a union cannot be determined.
+        """
+        for path, kind in spec.requires:
+            widget = self._resolve_source(binding, path)
+            value = widget.get_value() if widget is not None else None
+            if not isinstance(value, kind):
+                return False
+        return True
 
     def _area_widget_of(self, widget: BaseWidget | None) -> AreaSelectWidget | None:
         """Return the `AreaSelectWidget` inside `widget`, unwrapping an optional."""
         if isinstance(widget, AreaSelectWidget):
             return widget
         if isinstance(widget, OptionalWidget):
-            inner = widget.inner  # type: ignore
+            inner = widget.inner
             if isinstance(inner, AreaSelectWidget):
                 return inner
         return None
