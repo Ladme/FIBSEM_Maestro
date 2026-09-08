@@ -2,7 +2,7 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 from PyQt6.QtCore import QPointF, QRectF, Qt
 from PyQt6.QtGui import QBrush, QCursor, QPainter, QPainterPath, QPen
@@ -65,7 +65,7 @@ class ResizableRect(QGraphicsRectItem):
         self._moved_during_drag = False
 
         self._read_only = False
-        self._decoration: AreaDecoration | None = None
+        self._decorations: list[AreaDecoration] = []
 
         # one ellipse item per handle, parented to this rect
         self._handles: dict[Handle, QGraphicsEllipseItem] = {}
@@ -103,21 +103,26 @@ class ResizableRect(QGraphicsRectItem):
         """
         self.setRect(rect)
         self._update_handle_positions()
-        if self._decoration is not None:
-            self._decoration.update(self)
+        for decoration in self._decorations:
+            decoration.update(self)
 
-    def apply_decoration(self, decoration: AreaDecoration | None) -> None:
+    def apply_decorations(self, decorations: Sequence[AreaDecoration]) -> None:
         """
-        Replace this rectangle's decoration.
+        Replace this rectangle's decorations.
 
         Args:
-            decoration: The decoration to attach, or None to remove the current one.
+            decorations: The decorations to attach, in draw order, or an empty
+                sequence to remove the current ones.
         """
-        if self._decoration is not None:
-            self._decoration.detach()
+        # decorations are child items, so attaching or detaching one changes
+        # this item's bounding rect (see boundingRect)
+        self.prepareGeometryChange()
 
-        self._decoration = decoration
-        if decoration is not None:
+        for decoration in self._decorations:
+            decoration.detach()
+
+        self._decorations = list(decorations)
+        for decoration in self._decorations:
             decoration.attach(self)
 
     def _handle_at(self, pos: QPointF) -> Handle | None:

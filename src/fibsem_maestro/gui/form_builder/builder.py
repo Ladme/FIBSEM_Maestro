@@ -1,11 +1,17 @@
 # Released under MIT License.
 # Copyright (c) 2024-2026 CEMCOF
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
+from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from fibsem_maestro.action.action import Action
-from fibsem_maestro.core.beam_type import BeamType
+from fibsem_maestro.gui.form_builder._build_scope import (
+    BuildContext,
+    BuildScope,
+    resolve_beam,
+)
+from fibsem_maestro.gui.form_builder._overlay_binding import OverlayBinding
 from fibsem_maestro.gui.form_builder._write_back import WriteBack
 from fibsem_maestro.gui.form_builder.schema.constraints import NumericBounds
 from fibsem_maestro.gui.form_builder.schema.field_info import FieldInfo
@@ -49,14 +55,23 @@ from fibsem_maestro.gui.form_builder.widgets.union import DiscriminatedUnionWidg
 from fibsem_maestro.gui.workflow_manager import WorkflowManager
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.settings.base_settings import BaseSettings
-from fibsem_maestro.settings.form_utils import AreaOverlay, WidgetType
+from fibsem_maestro.settings.form_utils import AreaOverlay, OverlaySpec, WidgetType
 
 if TYPE_CHECKING:
     from fibsem_maestro.core.pattern_type import PatternType
+    from fibsem_maestro.microscope.microscope import Microscope
 
 
 class FormBuilder:
     """Builds a reactive PyQt form from a live reactive settings instance."""
+
+    def __init__(self) -> None:
+        """Initialise the per-build configuration to empty."""
+        self._txt_log: TextLogger | None = None
+        self._manager: WorkflowManager | None = None
+        self._microscope: Microscope | None = None
+        self._manufacturer_properties: list[str] = []
+        self._action: Action | None = None
 
     def build_form(
         self,
@@ -85,7 +100,7 @@ class FormBuilder:
         """
         self._txt_log = txt_log
         self._configure(workflow_manager, action)
-        return self._build_object(
+        return self._build_root(
             type(settings), settings, self._infos(type(settings), fields)
         )
 
@@ -114,9 +129,7 @@ class FormBuilder:
         """
 
         self._configure(workflow_manager, action=None)
-        return self._build_object(
-            cls, settings=None, field_infos=self._infos(cls, fields)
-        )
+        return self._build_root(cls, settings=None, infos=self._infos(cls, fields))
 
     def _configure(
         self, workflow_manager: WorkflowManager | None, action: Action | None
@@ -140,13 +153,41 @@ class FormBuilder:
             infos = [fi for fi in infos if fi.name in fields]
         return infos
 
+    def _warn(self, message: str) -> None:
+        """Log a build-time warning, if a logger was supplied."""
+        if self._txt_log is not None:
+            self._txt_log.warning(message)
+
+    def _build_root(
+        self, cls: type, settings: BaseSettings | None, infos: list[FieldInfo]
+    ) -> ObjectWidget:
+        """
+        Build the top-level object, then wire overlays across the finished tree.
+
+        Args:
+            cls: The dataclass or model class at the form root.
+            settings: The live root instance, or None for a value-only form.
+            infos: Field infos for the root object.
+
+        Returns:
+            The populated top-level `ObjectWidget`.
+        """
+        context = BuildContext()
+        scope = BuildScope(context=context)
+        try:
+            obj = self._build_object(cls, settings, scope, field_infos=infos)
+        finally:
+            context.building = False
+        self._flush_overlays(context)
+        return obj
+
     def _build_object(
         self,
         cls: type,
         settings: BaseSettings | None,
+        scope: BuildScope,
         field_infos: list[FieldInfo] | None = None,
         on_change: OnChange = _noop,
-        parents: tuple[Any, ...] = (),
     ) -> ObjectWidget:
         """
         Build an `ObjectWidget` for `cls`.
@@ -160,17 +201,21 @@ class FormBuilder:
             preview. No write-backs are created; the inherited `on_change` is
             threaded down, so edits still reach the one top-level write-back.
 
+        Each addressable field's widget is registered in the build context, so
+        overlays declared elsewhere in the form can reference it by path.
+
         Args:
             cls: The dataclass or model class to introspect.
             settings: The live root instance, or None for a value-only subtree.
+            scope: The scope this object occupies.
             field_infos: Pre-computed field infos, or None to compute from cls.
             on_change: The callback threaded down in value-only mode.
 
         Returns:
             A populated `ObjectWidget`.
         """
-        # live instances enclosing this object, outermost first
-        chain = (*parents, settings) if settings is not None else parents
+        # live instances enclosing this object are extended by this one
+        scope = scope.with_instance(settings)
 
         obj = ObjectWidget(cls=cls)
         infos = field_infos if field_infos is not None else get_field_infos(cls)
@@ -178,26 +223,33 @@ class FormBuilder:
         widgets: dict[str, BaseWidget] = {}
         for fi in infos:
             value = getattr(settings, fi.name, None) if settings is not None else None
+            field_scope = scope.child(fi.name)
 
             if settings is not None:
                 # top-level field: its own write-back drives the whole subtree
                 write_back = WriteBack(
-                    settings, fi, self._manager, self._action, self._txt_log
+                    settings,
+                    fi,
+                    self._manager,
+                    self._action,
+                    self._txt_log,  # ty:ignore[invalid-argument-type]
                 )
-                widget = self._build_field(fi, value, write_back, chain)
+                widget = self._build_field(fi, value, write_back, field_scope)
                 write_back.bind(widget)
             else:
                 # nested: reuse the inherited top-level write-back
-                widget = self._build_field(fi, value, on_change, chain)
+                widget = self._build_field(fi, value, on_change, field_scope)
 
             obj.add_field(fi.name, fi.label, widget, fi.description)
             widgets[fi.name] = widget
+            if (path := field_scope.dotted) is not None:
+                scope.context.widgets[path] = widget
 
-        self._wire_overlays(infos, widgets)
+        self._collect_overlays(infos, widgets, scope)
         return obj
 
     def _build_field(
-        self, fi: FieldInfo, value: Any, on_change: OnChange, chain: tuple[Any, ...]
+        self, fi: FieldInfo, value: Any, on_change: OnChange, scope: BuildScope
     ) -> BaseWidget:
         """
         Dispatch a single field to a widget and wire `on_change`.
@@ -206,7 +258,7 @@ class FormBuilder:
         dispatched purely based on its `FieldType` descriptor.
         """
         if fi.hint is not None:
-            inner = self._build_hinted_widget(fi, value, chain)
+            inner = self._build_hinted_widget(fi, value, scope)
             result: BaseWidget = inner
             if fi.optional:
                 result = OptionalWidget(
@@ -219,10 +271,10 @@ class FormBuilder:
                 result.on_change(on_change)
             return result
 
-        return self._build_typed_widget(fi, value, on_change, chain)
+        return self._build_typed_widget(fi, value, on_change, scope)
 
     def _build_hinted_widget(
-        self, fi: FieldInfo, value: Any, chain: tuple[Any, ...]
+        self, fi: FieldInfo, value: Any, scope: BuildScope
     ) -> BaseWidget:
         """
         Build the widget specified by `fi.hint` (unconnected).
@@ -272,21 +324,21 @@ class FormBuilder:
             case WidgetType.AREA_SELECT:
                 provider = None
                 if beam_source := hint.beam_source:
-                    if not chain:
-                        self._txt_log.warning(
+                    if not scope.instances:
+                        self._warn(
                             f"Field {fi.name!r} requests beam {beam_source!r} but "
                             "is not bound to live settings; the active beam is used."
                         )
                     else:
 
                         def provider():
-                            return resolve_beam(chain, beam_source)
+                            return resolve_beam(scope, beam_source)
 
                 return AreaSelectWidget(
                     microscope=self._microscope,
+                    txt_log=self._txt_log,
                     max_areas=hint.max_areas if hint.max_areas else None,
                     default=default,
-                    overlay=hint.area_overlay,
                     beam_provider=provider,
                 )
 
@@ -324,7 +376,7 @@ class FormBuilder:
                 return TextAreaWidget(self._fallback_type(fi.type), default=default)
 
     def _build_typed_widget(
-        self, fi: FieldInfo, value: Any, on_change: OnChange, chain: tuple[Any, ...]
+        self, fi: FieldInfo, value: Any, on_change: OnChange, scope: BuildScope
     ) -> BaseWidget:
         """
         Build a widget from the field's `FieldType` descriptor.
@@ -387,7 +439,7 @@ class FormBuilder:
             case DataclassType(model=model):
                 # value-only recursion: thread the same write-back to children
                 inner_obj = self._build_object(
-                    model, settings=value, on_change=on_change, parents=chain
+                    model, settings=value, scope=scope, on_change=on_change
                 )
                 if fi.optional:
                     # toggling None <-> instance is a change to the parent field
@@ -406,13 +458,7 @@ class FormBuilder:
                         (v.discriminator_value, v.variant_type) for v in variants
                     ],
                     discriminator_key=key,
-                    build_object=lambda cls, infos: self._build_object(
-                        cls,
-                        settings=None,
-                        field_infos=infos,
-                        on_change=on_change,
-                        parents=chain,
-                    ),
+                    build_object=self._variant_builder(on_change, scope),
                 )
 
                 # switching variants is a change
@@ -432,7 +478,9 @@ class FormBuilder:
 
             case ListType(item=item):
                 widget = ListWidget(
-                    item_factory=self._make_item_factory(item, on_change, chain),
+                    item_factory=self._make_item_factory(
+                        item, on_change, scope.unaddressed()
+                    ),
                     default=list(default) if default is not None else [],
                 )
                 return self._finish_leaf(fi, widget, value, on_change)
@@ -451,14 +499,41 @@ class FormBuilder:
             case field_type:
                 raise ValueError(f"Unknown field type: {field_type}")
 
+    def _variant_builder(
+        self, on_change: OnChange, scope: BuildScope
+    ) -> Callable[[type, list[FieldInfo] | None], ObjectWidget]:
+        """
+        Return the union widget's object factory, scoped to the union field.
+
+        Args:
+            on_change: The write-back threaded into the variant's fields.
+            scope: Scope of the union field itself.
+
+        Returns:
+            A callable matching `DiscriminatedUnionWidget`'s `build_object`.
+        """
+
+        def build(cls: type, field_infos: list[FieldInfo] | None) -> ObjectWidget:
+            return self._build_object(
+                cls,
+                settings=None,
+                scope=scope,
+                field_infos=field_infos,
+                on_change=on_change,
+            )
+
+        return build
+
     def _make_item_factory(
-        self, item: FieldType, on_change: OnChange, chain: tuple[Any, ...]
+        self, item: FieldType, on_change: OnChange, scope: BuildScope
     ) -> Callable[[], BaseWidget]:
         """
         Return a factory building a widget for a single list element.
 
         The element's `on_change` is the same top-level write-back, so editing
-        any item reconstructs and reassigns the whole list field.
+        any item reconstructs and reassigns the whole list field. `scope` is
+        unaddressed: list elements come and go, so their fields are not
+        registered and can only be referenced as siblings.
         """
         match item:
             case BoolType():
@@ -474,7 +549,7 @@ class FormBuilder:
             case DataclassType(model=model):
                 return lambda: GroupWrapper(
                     self._build_object(
-                        model, settings=None, on_change=on_change, parents=chain
+                        model, settings=None, scope=scope, on_change=on_change
                     )
                 )
             case _:
@@ -501,63 +576,252 @@ class FormBuilder:
         widget.on_change(on_change)
         return widget
 
-    def _wire_overlays(
-        self, infos: list[FieldInfo], widgets: dict[str, BaseWidget]
+    def _collect_overlays(
+        self,
+        infos: list[FieldInfo],
+        widgets: dict[str, BaseWidget],
+        scope: BuildScope,
     ) -> None:
         """
-        Feed each area selector's overlay from a sibling field, reactively.
+        Queue each area selector's overlays for wiring after the build.
 
-        For every field whose hint requests an area overlay with a named source,
-        the source widget's current value is pushed into an `OverlayData` and a
-        subscription is added so later edits update the overlay live. Source and
-        area must be siblings in the same object; a source elsewhere in the tree
-        is not resolved and is skipped with a log message.
+        Wiring is deferred because an overlay source may live in a branch built
+        later; only the flush pass sees the whole form.
 
         Args:
             infos: Field infos for the object currently being built.
             widgets: The built widgets for this object, keyed by field name.
+            scope: The scope of the object currently being built.
         """
         for fi in infos:
-            hint = fi.hint
-            if hint is None or hint.area_overlay is None or hint.overlay_source is None:
+            if fi.hint is None or not fi.hint.overlays:
                 continue
 
             area = self._area_widget_of(widgets.get(fi.name))
-            source = widgets.get(hint.overlay_source)
-            if area is None or source is None:
-                self._txt_log.warning(
-                    f"Overlay source {hint.overlay_source!r} for field {fi.name!r} "
-                    "is not a sibling field; area overlay will stay static."
+            if area is None:
+                self._warn(
+                    f"Field {fi.name!r} declares area overlays but is not an "
+                    "area selector; they will be ignored."
                 )
                 continue
 
-            push = self._overlay_updater(area, source, hint.area_overlay)
-            # react to later edits of the source
-            source.on_change(push)
-            # seed the current value now
+            binding = OverlayBinding(
+                area=area,
+                area_path=scope.child(fi.name).dotted,
+                field_name=fi.name,
+                specs=tuple(fi.hint.overlays),
+                scope=scope,
+                siblings=widgets,
+            )
+            # a removed list item destroys its area without going through
+            # _forget_subtree, so stop pushing when the widget dies
+            area.destroyed.connect(binding.deactivate)
+            scope.context.bindings.append(binding)
+
+    def _flush_overlays(self, context: BuildContext) -> None:
+        """
+        Subscribe every unwired overlay binding to its sources and seed it.
+
+        One callback per area selector drives all of that field's overlays, so
+        each push carries a complete `OverlayData` per overlay and no partial
+        state is observable when several sources feed one decoration.
+
+        Args:
+            context: The build whose bindings should be wired.
+        """
+        for binding in list(context.bindings):
+            if binding.wired or not binding.active:
+                continue
+            binding.wired = True
+
+            sources = self._overlay_sources(binding)
+            if not sources:
+                continue
+
+            push = partial(self._push_overlays, binding)
+            for source in sources:
+                source.on_change(push)
             push()
 
-    def _overlay_updater(
-        self,
-        area: AreaSelectWidget,
-        source: BaseWidget,
-        overlay: AreaOverlay,
-    ) -> Callable[[], None]:
-        """Return a callback that copies `source`'s value into `area`'s overlay."""
+    def _overlay_sources(self, binding: OverlayBinding) -> list[BaseWidget]:
+        """
+        Resolve a binding's source paths once, warning about the missing ones.
 
-        def push() -> None:
-            area.set_overlay_data(
-                OverlayData(**{overlay.data_field: source.get_value()})
+        Args:
+            binding: The overlay binding being wired.
+
+        Returns:
+            The distinct source widgets to subscribe to, in declaration order.
+        """
+        found: dict[int, BaseWidget] = {}
+        for spec in binding.specs:
+            paths = [path for _, path in spec.sources]
+            paths += [path for path, _ in spec.requires]
+            for path in paths:
+                widgets = self._widgets_at(binding, path, all_variants=True)
+                if not widgets:
+                    self._warn(
+                        f"Overlay source {path!r} for field "
+                        f"{binding.field_name!r} was not found in this form; "
+                        f"{spec.kind.value} will not be drawn."
+                    )
+                    continue
+                for widget in widgets:
+                    found.setdefault(id(widget), widget)
+        return list(found.values())
+
+    def _resolve_source(self, binding: OverlayBinding, path: str) -> BaseWidget | None:
+        """
+        Find the widget an overlay source or requirement path refers to.
+
+        Args:
+            binding: The overlay binding making the reference.
+            path: Dotted path relative to the declaring object.
+
+        Returns:
+            The widget holding the current value, or None if the path matches
+            nothing in the form as it now stands. A path leading into a union
+            variant that is not selected resolves to None.
+        """
+        widgets = self._widgets_at(binding, path, all_variants=False)
+        return widgets[0] if widgets else None
+
+    def _widgets_at(
+        self, binding: OverlayBinding, path: str, all_variants: bool
+    ) -> list[BaseWidget]:
+        """
+        Walk a dotted path down through the form widgets.
+
+        Args:
+            binding: The overlay binding making the reference.
+            path: Dotted path relative to the declaring object.
+            all_variants: If True, descend into every variant of a union rather
+                than only the selected one. Use this when subscribing, so an
+                edit in a variant selected later still reaches the overlay.
+
+        Returns:
+            The matching widgets. At most one unless `all_variants` is set.
+        """
+        parts = path.split(".")
+
+        root = binding.siblings.get(parts[0])
+        if root is None:
+            return self._registry_lookup(binding, path)
+
+        found = [self._unwrap(root)]
+        for part in parts[1:]:
+            found = [
+                child
+                for widget in found
+                for child in self._children_named(widget, part, all_variants)
+            ]
+        return found
+
+    def _unwrap(self, widget: BaseWidget) -> BaseWidget:
+        """Return the value-carrying widget inside any group or optional wrapper."""
+        while isinstance(widget, (OptionalWidget, GroupWrapper)):
+            widget = widget.inner
+        return widget
+
+    def _children_named(
+        self, widget: BaseWidget, name: str, all_variants: bool
+    ) -> list[BaseWidget]:
+        """
+        Return the child widgets of `widget` holding the field `name`.
+
+        Args:
+            widget: The already-unwrapped parent widget.
+            name: The field name to look for.
+            all_variants: If True, look in every variant of a union.
+
+        Returns:
+            The matching child widgets, unwrapped; empty if there are none.
+        """
+        if isinstance(widget, DiscriminatedUnionWidget):
+            variants = (
+                widget.variant_widgets()
+                if all_variants
+                else [w for w in [widget.selected_variant_widget()] if w is not None]
             )
+            return [
+                child
+                for variant in variants
+                for child in self._children_named(
+                    self._unwrap(variant), name, all_variants
+                )
+            ]
 
-        return push
+        if isinstance(widget, ObjectWidget):
+            child = widget.field_widget(name)
+            return [] if child is None else [self._unwrap(child)]
+
+        return []
+
+    def _registry_lookup(self, binding: OverlayBinding, path: str) -> list[BaseWidget]:
+        """
+        Resolve a path that starts outside the declaring object.
+
+        Args:
+            binding: The overlay binding making the reference.
+            path: Dotted path relative to some enclosing scope.
+
+        Returns:
+            The single matching widget, or an empty list.
+        """
+        widgets = binding.scope.context.widgets
+        for candidate in binding.scope.candidates(path):
+            if (widget := widgets.get(candidate)) is not None:
+                return [self._unwrap(widget)]
+        return []
+
+    def _push_overlays(self, binding: OverlayBinding) -> None:
+        """
+        Copy the current source values into the area selector's overlays.
+
+        Args:
+            binding: The overlay binding to push.
+        """
+        if not binding.active:
+            return
+
+        overlays: list[tuple[AreaOverlay, OverlayData]] = []
+        for spec in binding.specs:
+            data: dict[str, Any] = {}
+            if self._requirements_met(binding, spec):
+                for data_field, path in spec.sources:
+                    source = self._resolve_source(binding, path)
+                    if source is not None:
+                        data[data_field] = source.get_value()
+            overlays.append((spec.kind, OverlayData(**data)))
+
+        binding.area.set_overlays(overlays)
+
+    def _requirements_met(self, binding: OverlayBinding, spec: OverlaySpec) -> bool:
+        """
+        Check a spec's requirements against the live settings.
+
+        Args:
+            binding: The overlay binding being pushed.
+            spec: The overlay whose requirements to check.
+
+        Returns:
+            True if every required path holds a value of its required type.
+            False in a form with no live settings, where the active variant of
+            a union cannot be determined.
+        """
+        for path, kind in spec.requires:
+            widget = self._resolve_source(binding, path)
+            value = widget.get_value() if widget is not None else None
+            if not isinstance(value, kind):
+                return False
+        return True
 
     def _area_widget_of(self, widget: BaseWidget | None) -> AreaSelectWidget | None:
         """Return the `AreaSelectWidget` inside `widget`, unwrapping an optional."""
         if isinstance(widget, AreaSelectWidget):
             return widget
         if isinstance(widget, OptionalWidget):
-            inner = widget.inner  # type: ignore
+            inner = widget.inner
             if isinstance(inner, AreaSelectWidget):
                 return inner
         return None
@@ -618,27 +882,3 @@ class FormBuilder:
         if isinstance(field_type, DataclassType):
             return field_type.model
         return Any
-
-
-def resolve_beam(chain: Sequence[Any], path: str) -> BeamType | None:
-    """
-    Look up a beam on the innermost settings object that defines it.
-
-    Args:
-        chain: Live settings instances from the root outwards.
-        path: Dotted attribute path relative to a chain member, e.g. `"beam"` or `"imaging.beam"`.
-
-    Returns:
-        The first non-None beam found, or None if no ancestor defines one.
-    """
-    parts = path.split(".")
-    for obj in reversed(chain):
-        current: Any = obj
-        for part in parts:
-            current = getattr(current, part, None)
-            if current is None:
-                break
-        if isinstance(current, BeamType):
-            return current
-
-    return None

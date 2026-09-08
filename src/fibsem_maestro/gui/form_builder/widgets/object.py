@@ -122,3 +122,15 @@ class ObjectWidget(QWidget, BaseWidget[T]):
         """
         for w in self._fields.values():
             w.set_read_only(read_only)
+
+    def field_widget(self, name: str) -> BaseWidget[Any] | None:
+        """
+        Return the editor widget for one field.
+
+        Args:
+            name: The field key given to `add_field`.
+
+        Returns:
+            The field's widget, or None if this form has no such field.
+        """
+        return self._fields.get(name)

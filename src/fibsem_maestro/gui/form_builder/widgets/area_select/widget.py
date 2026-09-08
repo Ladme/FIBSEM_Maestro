@@ -2,7 +2,7 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 import numpy as np
 from PyQt6.QtCore import QRectF, Qt
@@ -30,9 +30,10 @@ from fibsem_maestro.gui.form_builder.widgets.area_select._rectangle import (
 from fibsem_maestro.gui.form_builder.widgets.area_select._viewer import AreaViewer
 from fibsem_maestro.gui.form_builder.widgets.area_select.overlay import (
     OverlayData,
-    build_decoration,
+    build_decorations,
 )
 from fibsem_maestro.gui.form_builder.widgets.base import BaseWidget
+from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.form_utils import AreaOverlay
 
@@ -49,7 +50,6 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         microscope: Microscope instance used to acquire images, or None.
         max_areas: Maximum number of areas, or None for unlimited.
         default: Pre-populated areas, applied once an image is available.
-        overlay: Decoration overlay drawn over the selected area.
         beam_provider: Called just before each acquisition to decide which beam
             to image with. Returning None leaves the active beam untouched.
         parent: Parent widget.
@@ -62,9 +62,9 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
     def __init__(
         self,
         microscope: Microscope | None,
+        txt_log: TextLogger | None,
         max_areas: int | None = None,
         default: list[RelativeArea] | None = None,
-        overlay: AreaOverlay | None = None,
         beam_provider: Callable[[], BeamType | None] | None = None,
         parent: QWidget | None = None,
     ) -> None:
@@ -72,14 +72,14 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         BaseWidget.__init__(self)
 
         self._microscope = microscope
+        self._txt_log = txt_log
         self._max_areas = max_areas
         self._image_size: tuple[int, int] | None = None
         self._last_pixmap: QPixmap | None = None
         self._pending_regions: list[RelativeArea] = default or []
         self._expanded = False
 
-        self._overlay = overlay
-        self._overlay_data: OverlayData | None = None
+        self._overlays: list[tuple[AreaOverlay, OverlayData]] = []
         self._pixel_size: float | None = None
         self._beam_provider = beam_provider
 
@@ -317,27 +317,25 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         self._emit()
 
     def _refresh_decorations(self) -> None:
-        """Rebuild every rectangle's decoration from the current overlay state."""
-        if self._overlay_data is None:
-            return
-
+        """Rebuild every rectangle's decorations from the current overlay state."""
         for item in self._scene.items():
             if isinstance(item, ResizableRect):
-                item.apply_decoration(
-                    build_decoration(
-                        self._overlay, self._overlay_data, self._pixel_size
-                    )
+                item.apply_decorations(
+                    build_decorations(self._overlays, self._pixel_size, self._txt_log)
                 )
         self._update_thumbnail()
 
-    def set_overlay_data(self, data: OverlayData) -> None:
+    def set_overlays(self, overlays: Sequence[tuple[AreaOverlay, OverlayData]]) -> None:
         """
-        Update the runtime values feeding the overlay and redraw it live.
+        Replace the decorations drawn on every area and redraw them live.
 
         Args:
-            data: The overlay values (e.g. margin in nm, arrow direction).
+            overlays: Overlay kinds paired with their runtime values (e.g.
+                margin in nm, arrow direction). An overlay whose values are
+                missing is silently not drawn, so a partially configured form
+                still shows the overlays that are ready.
         """
-        self._overlay_data = data
+        self._overlays = list(overlays)
         self._refresh_decorations()
 
     def get_value(self) -> list[RelativeArea]:

@@ -3,7 +3,7 @@
 
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QCloseEvent
@@ -138,6 +138,7 @@ class MainWindow(QMainWindow):
         self._manager.actions_changed.connect(self._check_workflow_ready)
         self._manager.action_changed.connect(self._check_workflow_ready)
 
+        self._manager.slice_finished.connect(self._reload_panel_values)
         self._manager.slice_finished.connect(self._log_panel.on_slice_changed)
         self._manager.workflow_reset.connect(self._log_panel.on_slice_changed)
         self._manager.actions_changed.connect(self._log_panel.on_actions_changed)
@@ -236,3 +237,13 @@ class MainWindow(QMainWindow):
     def closeEvent(self, a0: QCloseEvent) -> None:
         _ = a0
         os._exit(0)
+
+    def _reload_panel_values(self, _: int) -> None:
+        """
+        Refresh the values shown by every open action form after a slice.
+
+        Runs on the GUI thread: `slice_finished` crosses from the worker thread
+        as a queued connection.
+        """
+        for panel in self._panels.values():
+            cast("ActionPanel", panel).reload_values()

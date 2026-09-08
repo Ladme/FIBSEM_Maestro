@@ -274,6 +274,9 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
 
         self._run_sweep_and_apply_best()
 
+        # the updated value may not be displayed in the microscope GUI until we start scanning
+        self._microscope.beam.grab_frame()
+
         self._ctx.text_logger.info(f"Completed test for {self.name}.")
 
     def _run_sweep_and_apply_best(self) -> None:

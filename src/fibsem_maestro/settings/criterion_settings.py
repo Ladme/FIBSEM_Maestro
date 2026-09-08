@@ -11,7 +11,13 @@ from fibsem_maestro.core.detail_band import DetailBand
 from fibsem_maestro.criterion.functions import CRITERION_FUNCTIONS
 from fibsem_maestro.criterion.reductors import REDUCTORS
 from fibsem_maestro.settings.base_settings import BaseSettings
-from fibsem_maestro.settings.form_utils import FieldUnit, FormHint, WidgetType
+from fibsem_maestro.settings.form_utils import (
+    AreaOverlay,
+    FieldUnit,
+    FormHint,
+    OverlaySpec,
+    WidgetType,
+)
 
 ReductionName = Annotated[
     str,
@@ -51,7 +57,7 @@ class MultiTileMode(BaseSettings):
         default="mean",
         description="Numpy method for calculating final criterion from all tiles.",
     )
-    tile_size: Annotated[float, Field(gt=0), FieldUnit(suffix="nm")] = Field(
+    tile_size: Annotated[float, Field(ge=0), FieldUnit(suffix="nm")] = Field(
         default=1.0, description="Tile size for criterion calculation."
     )
     relative_overlap: Annotated[float, Field(ge=0, le=1)] = Field(
@@ -79,7 +85,19 @@ class CriterionSettings(BaseSettings):
     )
     area: Annotated[
         list[RelativeArea],
-        FormHint(widget=WidgetType.AREA_SELECT, max_areas=1, beam_source="beam_type"),
+        FormHint(
+            widget=WidgetType.AREA_SELECT,
+            max_areas=1,
+            beam_source="beam_type",
+            overlays=(
+                OverlaySpec.of(
+                    AreaOverlay.SHOW_TILES,
+                    requires={"tiling_mode": MultiTileMode},
+                    tile_size_nm="tiling_mode.tile_size",
+                    tile_relative_overlap="tiling_mode.relative_overlap",
+                ),
+            ),
+        ),
     ] = Field(
         default_factory=lambda: [RelativeArea.full()],
         description="Area of the image to be used for image criterion calculation.",

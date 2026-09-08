@@ -2,11 +2,12 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
+from typing import TYPE_CHECKING
+
 from fibsem_maestro.action.action import Action
 from fibsem_maestro.action.registry import ACTION_REGISTRY
 from fibsem_maestro.action.state import ActionState
 from fibsem_maestro.action_context.action_context import ActionContext
-from fibsem_maestro.core.area import NMArea
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.logging.logging import with_logging_context
 from fibsem_maestro.microscope.microscope import Microscope
@@ -15,9 +16,12 @@ from fibsem_maestro.settings.milling_settings import MillingSettings
 from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.workflow.actions import Actions
 
+if TYPE_CHECKING:
+    from fibsem_maestro.core.area import NMArea
+
 
 class MillingState(ActionState):
-    milling_area: NMArea | None = None
+    pass
 
 
 @ACTION_REGISTRY.register("milling")
@@ -92,10 +96,10 @@ class Milling(Action[MillingSettings, MillingState]):
 
     @property
     def state(self) -> MillingState:
-        return MillingState(milling_area=self._current_milling_area)
+        return MillingState()
 
     def set_state(self, state: MillingState) -> None:
-        self._current_milling_area = state.milling_area
+        pass
 
     @with_logging_context
     def execute(self) -> None:
@@ -126,19 +130,17 @@ class Milling(Action[MillingSettings, MillingState]):
         # set the properties of the microscope
         self.read_and_set_properties()
 
-        # set the current milling area for the first slice
-        if self._current_milling_area is None:
-            self._current_milling_area = self._settings.milling_area[0].to_nanometers(
-                self._microscope.beam.resolution, self._microscope.beam.pixel_size
-            )
-            self._ctx.text_logger.debug(
-                f"First frame: setting milling area to: {self._current_milling_area}."
-            )
+        milling_area_nm = self._settings.milling_area[0].to_nanometers(
+            self._microscope.beam.resolution, self._microscope.beam.pixel_size
+        )
+        self._ctx.text_logger.debug(
+            f"Current milling area in nanometers: {self._current_milling_area}."
+        )
 
         # perform the milling step
         self._ctx.text_logger.info("Starting the milling procedure.")
         self._microscope.beam.rectangle_milling(
-            self._current_milling_area,
+            milling_area_nm,
             self._settings.milling_depth,
             self._settings.milling_direction,
             self._settings.pattern_type,
@@ -146,12 +148,18 @@ class Milling(Action[MillingSettings, MillingState]):
         )
         self._ctx.text_logger.info("Milling procedure completed.")
 
-        # update the current milling area for the next slice
-        self._current_milling_area = self._current_milling_area.shifted_in_direction(
+        # update the milling area for the next slice
+        milling_area_nm = milling_area_nm.shifted_in_direction(
             self._settings.milling_direction, self._settings.slice_distance
         )
         self._ctx.text_logger.debug(
-            f"Updating milling area for the next slice: {self._current_milling_area}."
+            f"Milling area for the next slice: {milling_area_nm}."
+        )
+
+        # convert the current milling area to relative coordinates
+        # and update the settings
+        self._settings.milling_area[0] = milling_area_nm.to_relative(
+            self._microscope.beam.resolution, self._microscope.beam.pixel_size
         )
 
         props = self.collect_properties()

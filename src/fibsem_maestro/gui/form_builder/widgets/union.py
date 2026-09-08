@@ -176,3 +176,26 @@ class DiscriminatedUnionWidget(QWidget, BaseWidget[Any]):
         for widget in self._variant_widgets:
             if isinstance(widget, BaseWidget):
                 widget.set_read_only(read_only)
+
+    def selected_variant_widget(self) -> BaseWidget[Any] | None:
+        """
+        Return the selected variant's field form.
+
+        Returns:
+            The `ObjectWidget` for the selected variant, or None if that
+            variant has no fields beyond the discriminator.
+        """
+        index = self._button_group.checkedId()
+        if index < 0 or index in self._empty_indices:
+            return None
+        widget = self._variant_widgets[index]
+        return widget if isinstance(widget, BaseWidget) else None
+
+    def variant_widgets(self) -> list[BaseWidget[Any]]:
+        """
+        Return every variant's field form, selected or not.
+
+        Returns:
+            The `ObjectWidget`s of the variants that have fields.
+        """
+        return [w for w in self._variant_widgets if isinstance(w, BaseWidget)]
