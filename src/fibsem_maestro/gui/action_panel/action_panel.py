@@ -196,3 +196,9 @@ class ActionPanel(QWidget):
             self._beam_label.setText(
                 f"   > beam: {str(action.beam_type) if action.beam_type is not None else '—'}"
             )
+
+    def reload_values(self) -> None:
+        """
+        Re-read every field from the live settings, leaving the form intact.
+        """
+        self._settings_widget.set_value(self._action.settings)
