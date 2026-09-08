@@ -30,6 +30,11 @@ class MillingSettings(BaseSettings):
                 OverlaySpec.of(
                     AreaOverlay.SHOW_DIRECTION, direction="milling_direction"
                 ),
+                OverlaySpec.of(
+                    AreaOverlay.SHOW_AREA_SHIFT,
+                    shift_distance_nm="slice_distance",
+                    direction="milling_direction",
+                ),
             ),
             beam_source="beam_type",
         ),

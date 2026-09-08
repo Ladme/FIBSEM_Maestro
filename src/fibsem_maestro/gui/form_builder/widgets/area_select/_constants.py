@@ -15,8 +15,9 @@ MIN_RECT_PX = 8
 MIN_DRAW_PX = 8
 GRAB_FACTOR = 2
 
-MARGIN_FILL = QBrush(QColor(145, 145, 145, 60))
-MARGIN_PEN = QPen(QColor(30, 30, 35, 200), 1, Qt.PenStyle.DashLine)
+MARGIN_COLOR = QColor(140, 200, 255)
+MARGIN_PEN = QPen(MARGIN_COLOR, 2, Qt.PenStyle.DotLine)
+
 ARROW_COLOR = QColor(0, 30, 190, 120)
 ARROW_PEN = QPen(QColor(0, 30, 190, 120), 0)
 
@@ -25,3 +26,6 @@ TILE_COLOR = QColor(255, 0, 0)
 # width 0 means a cosmetic 1-pixel line
 TILE_PEN = QPen(TILE_COLOR, 0)
 TILE_PEN.setCosmetic(True)
+
+SHIFT_COLOR = QColor(140, 200, 255)
+SHIFT_PEN = QPen(SHIFT_COLOR, 2, Qt.PenStyle.DotLine)

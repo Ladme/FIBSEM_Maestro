@@ -21,9 +21,9 @@ from fibsem_maestro.criterion.criterion import (
 from fibsem_maestro.gui.form_builder.widgets.area_select._constants import (
     ARROW_COLOR,
     ARROW_PEN,
-    MARGIN_FILL,
     MARGIN_PEN,
     MAX_TILES,
+    SHIFT_PEN,
     TILE_PEN,
 )
 from fibsem_maestro.settings.form_utils import AreaOverlay
@@ -47,13 +47,14 @@ class OverlayData:
         direction: Arrow direction, used by `SHOW_DIRECTION`.
         tile_size_nm: Tile size in nanometers, used by `SHOW_TILES`.
         tile_relative_overlap: Relative overlap of tiles, used by `SHOW_TILES`.
-        tiling_mode: Tiling mode, used by `SHOW_TILES`.
+        shift_distance_nm: Area shift distance in nanometers, used by `SHOW_AREA_SHIFT`.
     """
 
     margin_nm: float | None = None
     direction: Direction | None = None
     tile_size_nm: float | None = None
     tile_relative_overlap: float | None = None
+    shift_distance_nm: float | None = None
 
 
 class AreaDecoration(ABC):
@@ -93,7 +94,7 @@ class MarginDecoration(AreaDecoration):
     def attach(self, rect: ResizableRect) -> None:
         item = QGraphicsRectItem(rect)
         item.setPen(MARGIN_PEN)
-        item.setBrush(MARGIN_FILL)
+        item.setBrush(QBrush(Qt.BrushStyle.NoBrush))
         item.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
         # draws behind the parent
         item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemStacksBehindParent, True)
@@ -262,6 +263,56 @@ class TileDecoration(AreaDecoration):
         return path
 
 
+class AreaShiftDecoration(AreaDecoration):
+    """
+    A dashed outline of where the area moves to after one shift.
+
+    The offset is supplied in scene units (image pixels) and applied along
+    `direction` in image space, where `Direction.UP` points toward the top of
+    the image (decreasing y). The outline is unfilled so the underlying image
+    stays visible, and is drawn behind the parent so the area border
+    remains legible where the two overlap.
+
+    Args:
+        shift_px: Shift distance in scene units (image pixels).
+        direction: The direction the area moves in.
+    """
+
+    _OFFSETS = {
+        Direction.RIGHT: (1.0, 0.0),
+        Direction.LEFT: (-1.0, 0.0),
+        Direction.DOWN: (0.0, 1.0),
+        Direction.UP: (0.0, -1.0),
+    }
+
+    def __init__(self, shift_px: float, direction: Direction) -> None:
+        self._shift_px = shift_px
+        self._direction = direction
+        self._item: QGraphicsRectItem | None = None
+
+    def attach(self, rect: ResizableRect) -> None:
+        item = QGraphicsRectItem(rect)
+        item.setPen(SHIFT_PEN)
+        item.setBrush(QBrush(Qt.BrushStyle.NoBrush))
+        item.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
+        # draws behind the parent
+        item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemStacksBehindParent, True)
+        self._item = item
+        self.update(rect)
+
+    def update(self, rect: ResizableRect) -> None:
+        if self._item is not None:
+            dx, dy = self._OFFSETS[self._direction]
+            self._item.setRect(
+                rect.rect().translated(dx * self._shift_px, dy * self._shift_px)
+            )
+
+    def detach(self) -> None:
+        if self._item is not None and (scene := self._item.scene()) is not None:
+            scene.removeItem(self._item)
+        self._item = None
+
+
 def build_decoration(
     overlay: AreaOverlay | None,
     data: OverlayData,
@@ -326,6 +377,18 @@ def build_decoration(
                 return None
 
             return TileDecoration(tile_px=tile_px, step_px=step_px, txt_log=txt_log)
+
+        case AreaOverlay.SHOW_AREA_SHIFT:
+            if (
+                data.shift_distance_nm is None
+                or data.direction is None
+                or not pixel_size_nm
+            ):
+                return None
+            return AreaShiftDecoration(
+                shift_px=data.shift_distance_nm / pixel_size_nm,
+                direction=data.direction,
+            )
 
 
 def build_decorations(
