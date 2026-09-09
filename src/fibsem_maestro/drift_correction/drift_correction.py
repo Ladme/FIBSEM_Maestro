@@ -58,8 +58,8 @@ class DriftCorrection(Action[DriftCorrectionSettings, DriftCorrectionState]):
         self._settings.on_change(lambda _: self._rebuild())
 
     def _rebuild(self) -> None:
-        # TODO: we should probably only re-initialize if the template matching areas change
-        self._is_initialized = False
+        # TODO: we whould re-initialize if the template matching areas change
+        # self._is_initialized = False
 
         self._drift_calc_name = self._settings.drift_calculation_mode.type
         self._drift_calc: DriftCalculationMode = DRIFT_CALCULATION_MODES.get(
