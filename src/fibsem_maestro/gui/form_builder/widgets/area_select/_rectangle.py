@@ -135,6 +135,10 @@ class ResizableRect(QGraphicsRectItem):
         Returns:
             The handle within grab distance of `pos`, or None.
         """
+        # do not return a handle if the item is read-only
+        if self._read_only:
+            return None
+
         for h in self._handles:
             hp = h.position(self.rect())
             dx = pos.x() - hp.x()
@@ -265,7 +269,9 @@ class ResizableRect(QGraphicsRectItem):
             read_only: True to block moving and resizing and hide the handles.
         """
         self._read_only = read_only
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, not read_only)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, not read_only)
+        self.setAcceptHoverEvents(not read_only)
         self.set_handles_visible(not read_only)
 
     def restore_handles(self) -> None:
