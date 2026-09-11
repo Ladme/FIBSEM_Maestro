@@ -184,6 +184,10 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
                 self._resolve_imaging(),
                 resume_from=state.current_step_index,
             )
+        else:
+            self._sweep_in_progress = False
+            self._active_gen = None
+            self._collected_results = []
 
     @with_logging_context
     def execute(self) -> None:
