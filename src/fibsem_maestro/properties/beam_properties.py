@@ -68,6 +68,11 @@ class BeamProperties(BaseSettings):
         description="Tilt settings for the electron source.",
     )
 
+    beam_current: Annotated[float | None, FieldUnit(suffix="nA")] = Field(
+        default=None,
+        description="Beam current in nA.",
+    )
+
     line_integration: Annotated[int, Field(gt=0)] | None = Field(
         default=None,
         description="Number of line integrations per scan.",

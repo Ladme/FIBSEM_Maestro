@@ -199,6 +199,21 @@ class BeamControl(ABC):
 
     @property
     @abstractmethod
+    def beam_current(self) -> float:
+        """Beam current in nA."""
+
+    @beam_current.setter
+    @abstractmethod
+    def beam_current(self, value: float) -> None:
+        """
+        Set the beam current in nA.
+
+        Args:
+            value: New beam current value in nA.
+        """
+
+    @property
+    @abstractmethod
     def scan_rotation(self) -> float:
         """Rotation of the scan in degrees."""
 

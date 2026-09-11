@@ -35,6 +35,7 @@ class MockBeamControl(BeamControl):
         self._stigmator = Stigmator(0.0, 0.0)
         self._lens_alignment = LensAlignment(0.0, 0.0)
         self._beam_shift = BeamShift(0.0, 0.0)
+        self._beam_current: float = 0.0
 
         self._detector_contrast: float = 0.0
         self._detector_brightness: float = 0.0
@@ -121,6 +122,14 @@ class MockBeamControl(BeamControl):
     @source_tilt.setter
     def source_tilt(self, value: SourceTilt) -> None:
         self._source_tilt = value
+
+    @property
+    def beam_current(self) -> float:
+        return self._beam_current
+
+    @beam_current.setter
+    def beam_current(self, value: float) -> None:
+        self._beam_current = value
 
     @property
     def scan_rotation(self) -> float:

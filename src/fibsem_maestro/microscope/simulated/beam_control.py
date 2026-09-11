@@ -49,6 +49,7 @@ class SimulatedBeamControl(BeamControl):
         self._stigmator = Stigmator(x=0.0, y=0.0)
         self._lens_alignment = LensAlignment(x=0.0, y=0.0)  # nm
         self._beam_shift = BeamShift(x=0.0, y=0.0)  # nm
+        self._beam_current: float = 0.0  # nm
 
         self._detector_contrast = 0.5
         self._detector_brightness = 0.5
@@ -185,6 +186,14 @@ class SimulatedBeamControl(BeamControl):
     def source_tilt(self, value: SourceTilt) -> None:
         self._txt_log.debug(f"Setting source tilt: {value}.")
         self._source_tilt = value
+
+    @property
+    def beam_current(self) -> float:
+        return self._beam_current
+
+    @beam_current.setter
+    def beam_current(self, value: float) -> None:
+        self._beam_current = value
 
     @property
     def scan_rotation(self) -> float:
