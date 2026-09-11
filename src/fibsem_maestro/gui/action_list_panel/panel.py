@@ -92,9 +92,12 @@ class ActionListPanel(QWidget):
 
         # populate from existing workflow actions
         self._rebuild(self._manager.workflow.actions)
+
+        # connect signals
         self._manager.actions_changed.connect(self._rebuild)
         self._manager.new_workflow.connect(self._on_new_workflow)
         self._manager.action_finished.connect(self._on_action_finished)
+        self._manager.workflow_reset.connect(self._on_workflow_reset)
 
     def _on_new_workflow(self, workflow_dir: Path) -> None:
         """Update the action list if a new workflow is opened."""
@@ -198,6 +201,14 @@ class ActionListPanel(QWidget):
     def _on_selection_changed(self, row: int) -> None:
         widget = self._item_widget(row)
         self.action_selected.emit(widget.action if widget is not None else None)
+
+    def _on_workflow_reset(self) -> None:
+        self._active_action = None
+        # set all action widgets to inactive
+        for i in range(self._list.count()):
+            w = self._item_widget(i)
+            if w is not None:
+                w.set_active(False)
 
     def _on_rows_moved(
         self,
