@@ -132,6 +132,7 @@ class LogPanel(QWidget):
         """Update the log panel when a new workflow is opened."""
         self._workflow_dir = workflow_dir
         self._rebuild_sources()
+        self._rebuild_slices()
         self._refresh()
 
     def _source_names(self) -> list[str]:

@@ -234,6 +234,9 @@ class MainWindow(QMainWindow):
             self._stack.removeWidget(widget)
             widget.deleteLater()
 
+        # clear the panel cache
+        self._panels = {}
+
     def closeEvent(self, a0: QCloseEvent) -> None:
         _ = a0
         os._exit(0)
