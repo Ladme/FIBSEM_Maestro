@@ -293,16 +293,21 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         """
         if self._image_size is None:
             return
+
         w, h = self._image_size
+        bounds = QRectF(0, 0, w, h)
         rect = ResizableRect(
-            QRectF(
-                area.origin.x * w,
-                area.origin.y * h,
-                area.width * w,
-                area.height * h,
+            bounds.intersected(
+                QRectF(
+                    area.origin.x * w,
+                    area.origin.y * h,
+                    area.width * w,
+                    area.height * h,
+                )
             ),
             on_edit_finished=self._handle_edit_finished,
         )
+
         rect.set_read_only(self._read_only)
 
         self._scene.addItem(rect)
