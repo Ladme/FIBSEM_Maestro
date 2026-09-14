@@ -226,12 +226,12 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
             self._microscope.imaging.grab_frame_to_disk(
                 str(path), ImageFileFormat.TIFF, imaging_settings
             )
-            return Image.from_autoscript(AdornedImage.load(str(path)))
-
-        grabbed = self._microscope.imaging.grab_frame(imaging_settings)
-        image = Image.from_autoscript(grabbed)
-        if frame_store is not None:
-            frame_store.save_to_memory(image)
+            image = Image.from_autoscript(AdornedImage.load(str(path)))
+        else:
+            grabbed = self._microscope.imaging.grab_frame(imaging_settings)
+            image = Image.from_autoscript(grabbed)
+            if frame_store is not None:
+                frame_store.save_to_memory(image)
 
         self._txt_log.info("Image grabbed.")
         return image
