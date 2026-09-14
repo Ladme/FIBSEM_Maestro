@@ -534,15 +534,13 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
 
     @property
     def beam_current(self) -> float:
-        current = self._beam.beam_current.value
-        self._txt_log.debug(
-            f"Getting beam current ({self._modality}): {current * 1e9}."
-        )
+        current = self._beam.beam_current.value * 1e9
+        self._txt_log.debug(f"Getting beam current ({self._modality}): {current} nA.")
         return current
 
     @beam_current.setter
     def beam_current(self, value: float) -> None:
-        self._txt_log.debug(f"Setting beam current ({self._modality}): {value}.")
+        self._txt_log.debug(f"Setting beam current ({self._modality}): {value} nA.")
         self._beam.beam_current.value = value / 1e-9
 
     @property
