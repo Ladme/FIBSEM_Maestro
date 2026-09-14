@@ -541,7 +541,7 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
     @beam_current.setter
     def beam_current(self, value: float) -> None:
         self._txt_log.debug(f"Setting beam current ({self._modality}): {value} nA.")
-        self._beam.beam_current.value = value / 1e-9
+        self._beam.beam_current.value = value * 1e-9
 
     @property
     def minimal_dwell(self) -> float:
