@@ -4,7 +4,6 @@
 import math
 import time
 from abc import abstractmethod
-from pathlib import Path
 from typing import Any, Generic, TypeVar
 
 from autoscript_sdb_microscope_client.enumerations import (
@@ -220,29 +219,19 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
 
         path = frame_store.path() if frame_store is not None else None
 
-        try:
-            grabbed = self._microscope.imaging.grab_frame(imaging_settings)
-            image = Image.from_autoscript(grabbed)
-            if path is not None:
-                grabbed.save(str(path))
-            elif frame_store is not None:
-                frame_store.save_to_memory(image)
-        # the `grab_frame` method can fail if the image is too large
-        # if that happens, we grab the image to disk and then load it to memory
-        except Exception as e:
-            self._txt_log.warning(f"Grab frame error: {e}. Grabbing image to disk.")
-            tmp = path or Path("_temp_frame.tif")
+        # if a physical frame store is provided, then always frab frame to disk since we want to store it anyway
+        # the previous pathway using `imaging.grab_frame` and storing it using the `AdornedImage.save` method
+        # failed to store image metadata in the TIFF file for whatever reason
+        if path is not None:
             self._microscope.imaging.grab_frame_to_disk(
-                str(tmp), ImageFileFormat.TIFF, imaging_settings
+                str(path), ImageFileFormat.TIFF, imaging_settings
             )
-            grabbed = AdornedImage.load(str(tmp))
-            image = Image.from_autoscript(grabbed)
+            return Image.from_autoscript(AdornedImage.load(str(path)))
 
-            if path is None:
-                tmp.unlink()
-
-                if frame_store is not None:
-                    frame_store.save_to_memory(image)
+        grabbed = self._microscope.imaging.grab_frame(imaging_settings)
+        image = Image.from_autoscript(grabbed)
+        if frame_store is not None:
+            frame_store.save_to_memory(image)
 
         self._txt_log.info("Image grabbed.")
         return image
