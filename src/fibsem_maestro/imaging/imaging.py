@@ -4,7 +4,7 @@
 
 import contextvars
 import threading
-from contextlib import ExitStack, nullcontext
+from contextlib import ExitStack
 from pathlib import Path
 
 from fibsem_maestro.action.action import Action
@@ -305,42 +305,47 @@ class Imaging(Action[ImagingSettings, ImagingState]):
             f"Collecting microscope properties for {self.name}."
         )
 
-        # get scanning area from the settings
-        try:
-            scanning_area = self._settings.scanning_area[0]
-        except IndexError:
-            scanning_area = None
-
-        if scanning_area:
+        # get scanning area from settings
+        scanning_area = self._first_scanning_area()
+        if scanning_area is not None:
             self._ctx.text_logger.debug(
                 f"Scanning area specified in FIBSEM Maestro: {scanning_area}."
             )
 
-        # scanning area from the settings should override the scanning area set in the microscope's GUI
-        # when using extended resolution, the scanning area must always be set via scanning_area property in settings
-        with (
-            self._microscope.set_temporary_beam_property(
-                "scanning_area",
-                scanning_area,
-                self._settings.beam_type,
-                # only set the scanning area if it is not None
-            )
-            if scanning_area is not None
-            else nullcontext(),
-        ):
-            match self._settings.resolution_mode:
-                case StandardResolution():
-                    pass
-                case ExtendedResolution() as mode:
-                    self._set_extended_resolution_props(
-                        scanning_area or self._microscope.beam.scanning_area,
-                        mode.pixel_size,
-                    )
+        recorded_area: RelativeArea | None = None
+        match self._settings.resolution_mode:
+            case StandardResolution():
+                recorded_area = scanning_area
+            case ExtendedResolution() as mode:
+                # reads full-frame resolution and pixel size, as the geometry requires
+                self._set_extended_resolution_props(
+                    scanning_area
+                    if scanning_area is not None
+                    else self._microscope.beam.scanning_area,
+                    mode.pixel_size,
+                )
+                # extended resolution replaces area selection with beam shift + FOV
+                recorded_area = RelativeArea.full()
 
-            # collect the microscope properties
-            return self._microscope.collect_properties(
-                self._settings.properties_to_collect
-            )
+        # get the properties of the microscope
+        # needs to be called AFTER set_extended_resolution_props in the extended resolution mode
+        props = self._microscope.collect_properties(
+            self._settings.properties_to_collect
+        )
+
+        match self._settings.resolution_mode:
+            case StandardResolution():
+                pass
+            case ExtendedResolution():
+                # beam shift and FOV have taken over area selection; reset only
+                # now, so the collect above reads the reduced-area scan parameters
+                self._microscope.beam.scanning_area = RelativeArea.full()
+
+        # modify the scanning area to the correct value
+        if recorded_area is not None:
+            props.set_property("scanning_area", recorded_area, self._settings.beam_type)
+
+        return props
 
     def wait_for_sharpness(self) -> float | None:
         """
@@ -363,8 +368,9 @@ class Imaging(Action[ImagingSettings, ImagingState]):
         """
         Configure the beam for extended resolution imaging.
 
-        When a non-full-frame scanning area is configured, shifts the beam
-        to the centre of that area and resizes the field of view to match its physical dimensions.
+        When a non-full-frame scanning area is configured, shifts the beam to
+        the center of that area and resizes the field of view to match its
+        physical dimensions.
 
         The scanning area is always reset to full frame after the adjustment,
         since the beam shift and FOV take over the role of area selection in
@@ -403,15 +409,11 @@ class Imaging(Action[ImagingSettings, ImagingState]):
             )
 
             self._microscope.add_beam_shift_with_verification(shift)
+            self._scanning_area_selected = True
 
             # set the FOV to the scanning area
             self._microscope.beam.horizontal_field_width = area_nm.width
             self._microscope.beam.vertical_field_width = area_nm.height
-
-            self._scanning_area_selected = True
-
-        # always set scanning area to full frame
-        self._microscope.beam.scanning_area = RelativeArea.full()
 
         # set resolution based on the new pixel size
         # this is done even if scanning area is not specified
