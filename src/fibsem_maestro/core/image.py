@@ -8,9 +8,11 @@ from typing import TYPE_CHECKING, Any, Generic, Self, TypeVar, cast
 import cv2
 import numpy as np
 from scipy import ndimage
+from tifffile import TiffFile
 
 from fibsem_maestro.core.errors import AutoscriptNotAvailableError
 from fibsem_maestro.core.format import ImageFormat
+from fibsem_maestro.core.provenance import Provenance
 from fibsem_maestro.core.resolution import Resolution
 
 if TYPE_CHECKING:
@@ -21,7 +23,6 @@ if TYPE_CHECKING:
     )
     from cv2.typing import MatLike
     from numpy.typing import NDArray
-    from tifffile import TiffFile
 
     from fibsem_maestro.core.area import RelativeArea
 
@@ -128,9 +129,41 @@ class _ImageBase(np.ndarray[Any, np.dtype[TDType]], Generic[TDType]):
         return cls(np.asarray(as_image.data), pixel_size.x * 1e9)
 
     @classmethod
+    def from_file(cls, path: Path, origin: Provenance = Provenance.MAESTRO) -> Self:
+        """
+        Load an image from a TIFF file.
+
+        Args:
+            path: Path to the TIFF file.
+            origin: Which software produced the file. `MAESTRO` reads ImageJ
+                metadata; `AUTOSCRIPT` delegates to `AdornedImage.load` and
+                requires Autoscript to be installed.
+
+        Returns:
+            A new instance with pixel size in nanometres.
+
+        Raises:
+            ImageError: If the file cannot be read or carries no pixel size.
+        """
+        match origin:
+            case Provenance.MAESTRO:
+                with TiffFile(path) as tiff_file:
+                    return cls.from_tiff(tiff_file)
+            case Provenance.AUTOSCRIPT:
+                from autoscript_sdb_microscope_client.structures import AdornedImage
+
+                try:
+                    adorned = AdornedImage.load(str(path))
+                except OSError as exc:
+                    raise ImageError(f"Could not load Autoscript TIFF: {path}") from exc
+                return cls.from_autoscript(adorned)
+
+    @classmethod
     def from_tiff(cls, tiff_file: TiffFile) -> Self:
         """
         Construct an image from an open TiffFile.
+
+        Only use to read TIFF files written by FIBSEM Maestro.
 
         Reads the array data and pixel size from the file's ImageJ metadata.
         The caller is responsible for closing the TiffFile after this call.

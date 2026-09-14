@@ -10,6 +10,7 @@ from scipy.spatial import distance  # pyright: ignore[reportMissingTypeStubs]
 
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
+from fibsem_maestro.core.provenance import Provenance
 from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
@@ -80,6 +81,11 @@ class Microscope:
     def settings(self) -> MicroscopeSettings:
         """The microscope settings."""
         return self._settings
+
+    @property
+    def provenance(self) -> Provenance:
+        """The provenance of the microscope and it's control units."""
+        return self._control.provenance()
 
     @settings.setter
     def settings(self, new_settings: MicroscopeSettings) -> None:

@@ -7,6 +7,7 @@ from typing import Any
 from autoscript_sdb_microscope_client.sdb_microscope_client import SdbMicroscopeClient
 
 from fibsem_maestro.core.pattern_type import PatternType
+from fibsem_maestro.core.provenance import Provenance
 from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
@@ -47,6 +48,10 @@ class AutoscriptMicroscopeControl(MicroscopeControl):
             self._microscope,
             self._txt_log.derive("ion_beam"),
         )
+
+    @classmethod
+    def provenance(cls) -> Provenance:
+        return Provenance.AUTOSCRIPT
 
     @property
     def autoscript_microscope(self) -> SdbMicroscopeClient:

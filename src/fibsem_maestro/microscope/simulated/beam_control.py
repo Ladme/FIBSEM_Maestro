@@ -15,6 +15,7 @@ from fibsem_maestro.core.format import ImageFormat
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
 from fibsem_maestro.core.pattern_type import PatternType
+from fibsem_maestro.core.provenance import Provenance
 from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stage_position import StagePosition
@@ -94,6 +95,10 @@ class SimulatedBeamControl(BeamControl):
             "vertical_field_width": (1_000.0, 5_000_000_000.0),
             "dwell_time": (50e-9, 10e-6),  # in s
         }
+
+    @classmethod
+    def provenance(cls) -> Provenance:
+        return Provenance.MAESTRO
 
     def limits(self, var: str) -> tuple[float, float]:
         return self._limits.get(var, (-float("inf"), float("inf")))

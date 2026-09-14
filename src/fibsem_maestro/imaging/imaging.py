@@ -131,7 +131,7 @@ class Imaging(Action[ImagingSettings, ImagingState]):
             # by loading the persisted frame and computing synchronously
             try:
                 # try to load the frame for the current slice
-                image = self._ctx.frame_store.read()
+                image = self._ctx.frame_store.read(self._microscope.provenance)
             except FileNotFoundError:
                 self._ctx.text_logger.warning(
                     f"Restoring state of '{self.name}': frame for slice {self._ctx.slice} not found, falling back to slice {self._ctx.slice - 1}."
@@ -139,7 +139,9 @@ class Imaging(Action[ImagingSettings, ImagingState]):
                 # if this fails, fall back to the previous slice
                 # this should only happen if the image successfully completes the execution,
                 # but the background thread does not finish the calculation before interrupt
-                image = self._ctx.frame_store.at(self._ctx.slice - 1).read()
+                image = self._ctx.frame_store.at(self._ctx.slice - 1).read(
+                    self._microscope.provenance
+                )
             self._last_acquired_image = image
             self._calculate_sharpness(image, self._ctx.current_view)
 

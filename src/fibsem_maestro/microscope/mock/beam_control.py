@@ -14,6 +14,7 @@ from fibsem_maestro.core.format import ImageFormat
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
 from fibsem_maestro.core.pattern_type import PatternType
+from fibsem_maestro.core.provenance import Provenance
 from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
@@ -66,6 +67,10 @@ class MockBeamControl(BeamControl):
 
         self._blanked = False
         self._acquiring = False
+
+    @classmethod
+    def provenance(cls) -> Provenance:
+        return Provenance.MAESTRO
 
     @property
     def working_distance(self) -> float:

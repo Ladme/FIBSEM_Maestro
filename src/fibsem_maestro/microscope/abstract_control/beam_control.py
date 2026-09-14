@@ -13,6 +13,7 @@ from fibsem_maestro.core.direction import Direction
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
 from fibsem_maestro.core.pattern_type import PatternType
+from fibsem_maestro.core.provenance import Provenance
 from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
@@ -31,6 +32,11 @@ class BeamControl(ABC):
     def beam_type(cls) -> BeamType:
         """Returns the beam type (electron or ion)."""
         raise NotImplementedError(f"beam_type is not implemented for {cls.__name__}")
+
+    @classmethod
+    @abstractmethod
+    def provenance(cls) -> Provenance:
+        """The convention set this beam control and files follow."""
 
     @property
     @abstractmethod
