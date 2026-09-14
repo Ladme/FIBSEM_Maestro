@@ -18,6 +18,15 @@ from fibsem_maestro.settings.form_utils import FieldUnit, FormHint, WidgetType
 class BeamProperties(BaseSettings):
     model_config = {"extra": "allow"}
 
+    # must be set first because Autoscript sets different properties for full image
+    # scanning and for reduced area scanning
+    scanning_area: Annotated[
+        RelativeArea | None, FormHint(widget=WidgetType.AREA_SELECT, max_areas=1)
+    ] = Field(
+        default=None,
+        description="Area to be scanned.",
+    )
+
     stigmator: Stigmator | None = Field(
         default=None,
         description="Stigmator settings for beam correction.",
@@ -110,13 +119,6 @@ class BeamProperties(BaseSettings):
     pixel_size: Annotated[float, Field(gt=0), FieldUnit(suffix="nm")] | None = Field(
         default=None,
         description="Physical size of a pixel.",
-    )
-
-    scanning_area: Annotated[
-        RelativeArea | None, FormHint(widget=WidgetType.AREA_SELECT, max_areas=1)
-    ] = Field(
-        default=None,
-        description="Area to be scanned.",
     )
 
     working_distance: Annotated[float, Field(gt=0), FieldUnit(suffix="nm")] | None = (
