@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import time
 from abc import ABC, abstractmethod
+from contextlib import contextmanager
 from itertools import groupby
 from typing import TYPE_CHECKING
 
@@ -29,7 +30,7 @@ from fibsem_maestro.settings.autofocus_settings import (
 from fibsem_maestro.settings.autofocus_settings import LineMode as LineModeSettings
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import Generator, Iterator
 
     from autoscript_sdb_microscope_client.sdb_microscope_client import (
         SdbMicroscopeClient,
@@ -482,16 +483,23 @@ class AutoscriptMode(AutofocusMode):
                 )
             case AutoscriptAutoFocusMethod.VOLUMESCOPE:
                 # TODO: shouldn't volumescope use secondary electrons?
+
+                wd_step_as = (
+                    mode.working_distance_step * 1e-9
+                    if mode.working_distance_step is not None
+                    else None
+                )
                 settings = RunAutoFocusSettings(
                     method="Volumescope",
                     dwell_time=beam.dwell_time,
-                    horizontal_field_width=beam.horizontal_field_width,
+                    horizontal_field_width=beam.horizontal_field_width * 1e-9,
                     line_integration=beam.line_integration,
+                    resolution=str(beam.resolution),
                     # None is a valid value for all these fields
                     # Autoscript is just badly typed
                     reduced_area=reduced_area,  # ty:ignore[invalid-argument-type]
                     maximum_iterations=mode.maximum_iterations,  # ty:ignore[invalid-argument-type]
-                    working_distance_step=mode.working_distance_step,  # ty:ignore[invalid-argument-type]
+                    working_distance_step=wd_step_as,  # ty:ignore[invalid-argument-type]
                 )
 
         autoscript_microscope.auto_functions.run_auto_focus(settings)
@@ -598,7 +606,6 @@ class AutoscriptMode(AutofocusMode):
             mode: The Autoscript auto source tilt mode settings.
             autoscript_microscope: The Autoscript microscope client instance.
         """
-        from autoscript_sdb_microscope_client.enumerations import DetectorMode
         from autoscript_sdb_microscope_client.structures import (
             RunAutoSourceTiltSettings,
         )
@@ -611,14 +618,34 @@ class AutoscriptMode(AutofocusMode):
             contrast=beam.detector_contrast,
             brightness=beam.detector_brightness,
             dwell_time=beam.dwell_time,
+            resolution=str(beam.resolution),
         )
 
-        detector_type_backup = autoscript_microscope.detector.type.value
-        detector_mode_backup = autoscript_microscope.detector.mode.value
-        autoscript_microscope.detector.type.value = "TLD"
-        autoscript_microscope.detector.mode.value = DetectorMode.SECONDARY_ELECTRONS
-        try:
+        with self._secondary_electrons(autoscript_microscope):
             autoscript_microscope.auto_functions.run_auto_source_tilt(settings)
+
+    @staticmethod
+    @contextmanager
+    def _secondary_electrons(
+        microscope: SdbMicroscopeClient,
+    ) -> Iterator[None]:
+        """
+        Temporarily switch the detector to TLD in secondary electron mode, restoring it on exit.
+
+        Args:
+            microscope: Autoscript microscope client.
+
+        Yields:
+            None. The original detector settings are restored even if the body raises.
+        """
+        from autoscript_sdb_microscope_client.enumerations import DetectorMode
+
+        type_backup = microscope.detector.type.value
+        mode_backup = microscope.detector.mode.value
+        microscope.detector.type.value = "TLD"
+        microscope.detector.mode.value = DetectorMode.SECONDARY_ELECTRONS
+        try:
+            yield
         finally:
-            autoscript_microscope.detector.type.value = detector_type_backup
-            autoscript_microscope.detector.mode.value = detector_mode_backup
+            microscope.detector.type.value = type_backup
+            microscope.detector.mode.value = mode_backup
