@@ -17,6 +17,15 @@ from fibsem_maestro.core.registry import Registry
 from fibsem_maestro.microscope.autoscript_control.microscope_control import (
     AutoscriptMicroscopeControl,
 )
+from fibsem_maestro.settings.autofocus_settings import (
+    AutoscriptAutoFocus,
+    AutoscriptAutoFocusMethod,
+    AutoscriptAutoLensAlignment,
+    AutoscriptAutoLensAlignmentModulationType,
+    AutoscriptAutoSourceTilt,
+    AutoscriptAutoStigmator,
+    AutoscriptAutoStigmatorMethod,
+)
 from fibsem_maestro.settings.autofocus_settings import LineMode as LineModeSettings
 
 if TYPE_CHECKING:
@@ -428,18 +437,18 @@ class AutoscriptMode(AutofocusMode):
         )
 
         with ctx.temporary_stage_x_offset():
-            match ctx.target_attribute:
-                case "working_distance":
-                    self._run_autofocus(ctx, autoscript_microscope)
-                case "stigmator":
-                    self._run_autostigmator(ctx, autoscript_microscope)
-                case "lens_alignment":
-                    self._run_auto_lens_alignment(ctx, autoscript_microscope)
-                case "source_tilt":
-                    self._run_auto_source_tilt(ctx, autoscript_microscope)
+            match ctx.settings.mode:
+                case AutoscriptAutoFocus() as mode:
+                    self._run_autofocus(ctx, mode, autoscript_microscope)
+                case AutoscriptAutoStigmator() as mode:
+                    self._run_autostigmator(ctx, mode, autoscript_microscope)
+                case AutoscriptAutoLensAlignment() as mode:
+                    self._run_auto_lens_alignment(ctx, mode, autoscript_microscope)
+                case AutoscriptAutoSourceTilt() as mode:
+                    self._run_auto_source_tilt(ctx, mode, autoscript_microscope)
                 case _:
                     raise AutofocusError(
-                        f"Unsupported sweeping variable '{ctx.target_attribute}' for AutoscriptMode."
+                        f"Unsupported mode '{ctx.settings.mode}' for AutoscriptMode."
                     )
 
         yield from ()
@@ -447,6 +456,7 @@ class AutoscriptMode(AutofocusMode):
     def _run_autofocus(
         self,
         ctx: AutofocusContext,
+        mode: AutoscriptAutoFocus,
         autoscript_microscope: SdbMicroscopeClient,
     ) -> None:
         """
@@ -454,51 +464,82 @@ class AutoscriptMode(AutofocusMode):
 
         Args:
             ctx: Shared execution environment.
+            mode: The Autoscript auto focus mode settings.
             autoscript_microscope: The Autoscript microscope client instance.
         """
         from autoscript_sdb_microscope_client.structures import RunAutoFocusSettings
 
         beam = ctx.microscope.beam
         if (scanning_area := beam.scanning_area).is_full_frame():
-            settings = RunAutoFocusSettings()
+            reduced_area = None
         else:
-            settings = RunAutoFocusSettings(reduced_area=scanning_area.to_autoscript())
-        # we do not specify any other parameters for the settings
-        # since they may not be available on 'Systems 3' (see autoscript manual)
+            reduced_area = scanning_area.to_autoscript()
+
+        match mode.method:
+            case AutoscriptAutoFocusMethod.STANDARD:
+                settings = RunAutoFocusSettings(
+                    reduced_area=reduced_area  # ty:ignore[invalid-argument-type]
+                )
+            case AutoscriptAutoFocusMethod.VOLUMESCOPE:
+                # TODO: shouldn't volumescope use secondary electrons?
+                settings = RunAutoFocusSettings(
+                    method="Volumescope",
+                    dwell_time=beam.dwell_time,
+                    horizontal_field_width=beam.horizontal_field_width,
+                    line_integration=beam.line_integration,
+                    # None is a valid value for all these fields
+                    # Autoscript is just badly typed
+                    reduced_area=reduced_area,  # ty:ignore[invalid-argument-type]
+                    maximum_iterations=mode.maximum_iterations,  # ty:ignore[invalid-argument-type]
+                    working_distance_step=mode.working_distance_step,  # ty:ignore[invalid-argument-type]
+                )
 
         autoscript_microscope.auto_functions.run_auto_focus(settings)
 
     def _run_autostigmator(
         self,
         ctx: AutofocusContext,
+        mode: AutoscriptAutoStigmator,
         autoscript_microscope: SdbMicroscopeClient,
     ) -> None:
         """
         Run the manufacturer autostigmator routine.
 
-        Uses the OngEtAl method with the beam's current imaging parameters.
-
         Args:
             ctx: Shared execution environment.
+            mode: The Autoscript auto stigmator mode settings.
             autoscript_microscope: The Autoscript microscope client instance.
         """
         from autoscript_sdb_microscope_client.structures import RunAutoStigmatorSettings
 
         beam = ctx.microscope.beam
-        settings = RunAutoStigmatorSettings(
-            method="OngEtAl",
-            dwell_time=beam.dwell_time,
-            resolution=str(beam.resolution),
-            horizontal_field_width=beam.horizontal_field_width * 1e-9,
-            reduced_area=beam.scanning_area.to_autoscript(),
-            line_integration=beam.line_integration,
-        )
+        if (scanning_area := beam.scanning_area).is_full_frame():
+            reduced_area = None
+        else:
+            reduced_area = scanning_area.to_autoscript()
+
+        match mode.method:
+            case AutoscriptAutoStigmatorMethod.STANDARD:
+                settings = RunAutoStigmatorSettings(dwell_time=beam.dwell_time)
+            case AutoscriptAutoStigmatorMethod.ONGETAL:
+                settings = RunAutoStigmatorSettings(
+                    method="OngEtAl",
+                    dwell_time=beam.dwell_time,
+                    resolution=str(beam.resolution),
+                    horizontal_field_width=beam.horizontal_field_width * 1e-9,
+                    line_integration=beam.line_integration,
+                    # None is a valid value for all these fields
+                    reduced_area=reduced_area,  # ty:ignore[invalid-argument-type]
+                    maximum_iterations=mode.maximum_iterations,  # ty:ignore[invalid-argument-type]
+                    stigmation_step=mode.stigmation_step,  # ty:ignore[invalid-argument-type]
+                )
 
         autoscript_microscope.auto_functions.run_auto_stigmator(settings)
 
     def _run_auto_lens_alignment(
         self,
         ctx: AutofocusContext,
+        mode: AutoscriptAutoLensAlignment,
         autoscript_microscope: SdbMicroscopeClient,
     ) -> None:
         """
@@ -506,6 +547,7 @@ class AutoscriptMode(AutofocusMode):
 
         Args:
             ctx: Shared execution environment.
+            mode: The Autoscript auto lens alignment mode settings.
             autoscript_microscope: The Autoscript microscope client instance.
         """
         from autoscript_sdb_microscope_client.structures import (
@@ -514,24 +556,34 @@ class AutoscriptMode(AutofocusMode):
 
         beam = ctx.microscope.beam
         if (scanning_area := beam.scanning_area).is_full_frame():
-            settings = RunAutoLensAlignmentSettings(
-                dwell_time=beam.dwell_time,
-                resolution=str(beam.resolution),
-                line_integration=beam.line_integration,
-            )
+            reduced_area = None
         else:
-            settings = RunAutoLensAlignmentSettings(
-                dwell_time=beam.dwell_time,
-                resolution=str(beam.resolution),
-                line_integration=beam.line_integration,
-                reduced_area=scanning_area.to_autoscript(),
-            )
+            reduced_area = scanning_area.to_autoscript()
+
+        match mode.modulation_type:
+            case AutoscriptAutoLensAlignmentModulationType.AUTOMATIC:
+                modulation_type_as = "Automatic"
+            case AutoscriptAutoLensAlignmentModulationType.HIGH_VOLTAGE:
+                modulation_type_as = "HighVoltage"
+            case AutoscriptAutoLensAlignmentModulationType.WORKING_DISTANCE:
+                modulation_type_as = "WorkingDistance"
+
+        settings = RunAutoLensAlignmentSettings(
+            modulation_type=modulation_type_as,
+            dwell_time=beam.dwell_time,
+            resolution=str(beam.resolution),
+            line_integration=beam.line_integration,
+            # None is a valid value for all these fields
+            reduced_area=reduced_area,  # ty:ignore[invalid-argument-type]
+            number_of_frames=mode.number_of_frames,  # ty:ignore[invalid-argument-type]
+        )
 
         autoscript_microscope.auto_functions.run_auto_lens_alignment(settings)
 
     def _run_auto_source_tilt(
         self,
         ctx: AutofocusContext,
+        mode: AutoscriptAutoSourceTilt,
         autoscript_microscope: SdbMicroscopeClient,
     ) -> None:
         """
@@ -543,12 +595,15 @@ class AutoscriptMode(AutofocusMode):
 
         Args:
             ctx: Shared execution environment.
+            mode: The Autoscript auto source tilt mode settings.
             autoscript_microscope: The Autoscript microscope client instance.
         """
         from autoscript_sdb_microscope_client.enumerations import DetectorMode
         from autoscript_sdb_microscope_client.structures import (
             RunAutoSourceTiltSettings,
         )
+
+        _ = mode
 
         beam = ctx.microscope.beam
         settings = RunAutoSourceTiltSettings(

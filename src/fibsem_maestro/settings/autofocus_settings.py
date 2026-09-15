@@ -143,8 +143,18 @@ class AutoscriptAutoStigmator(AutoscriptFunctionBase):
     )
 
 
+class AutoscriptAutoLensAlignmentModulationType(Enum):
+    AUTOMATIC = "automatic"
+    HIGH_VOLTAGE = "high voltage"
+    WORKING_DISTANCE = "working distance"
+
+
 class AutoscriptAutoLensAlignment(AutoscriptFunctionBase):
     target_attribute: Literal["lens_alignment"] = "lens_alignment"
+    modulation_type: AutoscriptAutoLensAlignmentModulationType = Field(
+        default=AutoscriptAutoLensAlignmentModulationType.AUTOMATIC,
+        description="Modulation type for lens alignment adjustment",
+    )
     number_of_frames: Annotated[int | None, Field(ge=0)] = Field(
         default=None,
         description="Number of frames to integrate. Defaults if unset.",
