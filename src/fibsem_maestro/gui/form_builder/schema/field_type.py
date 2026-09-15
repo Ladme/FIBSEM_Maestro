@@ -1,10 +1,13 @@
 # Released under MIT License.
 # Copyright (c) 2024-2026 CEMCOF
 
+from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from enum import Enum
 
 
 class FieldType:
@@ -76,11 +79,18 @@ class UnionVariant:
 
     Attributes:
         discriminator_value: The tag value that selects this variant.
-        variant_type: The model class for this variant.
+        variant_type: The model class for this variant. For a nested arm this
+            is the common base of the inner variants; it is used only for the
+            fallback radio label and is never instantiated.
+        label: Explicit radio-button text, or None to derive it from
+            `variant_type.__name__`.
+        nested: For a nested arm, the inner union's descriptor; None for a leaf.
     """
 
     discriminator_value: str
     variant_type: type
+    label: str | None = None
+    nested: DiscriminatedUnionType | None = None
 
 
 @dataclass(frozen=True)
@@ -91,10 +101,12 @@ class DiscriminatedUnionType(FieldType):
     Attributes:
         discriminator_key: The name of the shared discriminator field.
         variants: The union arms, non-empty by construction.
+        follows: The name of the field that this union follows, if any.
     """
 
     discriminator_key: str
     variants: tuple[UnionVariant, ...]
+    follows: str | None = None
 
 
 @dataclass(frozen=True)

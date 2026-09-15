@@ -2,6 +2,7 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 from collections.abc import Callable
+from enum import Enum
 from functools import partial
 from typing import TYPE_CHECKING, Any
 
@@ -11,6 +12,7 @@ from fibsem_maestro.gui.form_builder._build_scope import (
     BuildScope,
     resolve_beam,
 )
+from fibsem_maestro.gui.form_builder._follower_binding import FollowerBinding
 from fibsem_maestro.gui.form_builder._overlay_binding import OverlayBinding
 from fibsem_maestro.gui.form_builder._write_back import WriteBack
 from fibsem_maestro.gui.form_builder.schema.constraints import NumericBounds
@@ -178,6 +180,7 @@ class FormBuilder:
             obj = self._build_object(cls, settings, scope, field_infos=infos)
         finally:
             context.building = False
+        self._flush_followers(context)
         self._flush_overlays(context)
         return obj
 
@@ -452,14 +455,8 @@ class FormBuilder:
                     return group
                 return GroupWrapper(inner_obj)
 
-            case DiscriminatedUnionType(discriminator_key=key, variants=variants):
-                union_widget = DiscriminatedUnionWidget(
-                    variants=[
-                        (v.discriminator_value, v.variant_type) for v in variants
-                    ],
-                    discriminator_key=key,
-                    build_object=self._variant_builder(on_change, scope),
-                )
+            case DiscriminatedUnionType() as union_type:
+                union_widget = self._build_union(union_type, on_change, scope)
 
                 # switching variants is a change
                 union_widget.on_change(on_change)
@@ -498,6 +495,77 @@ class FormBuilder:
 
             case field_type:
                 raise ValueError(f"Unknown field type: {field_type}")
+
+    def _build_union(
+        self,
+        union_type: DiscriminatedUnionType,
+        on_change: OnChange,
+        scope: BuildScope,
+        exclude: frozenset[str] = frozenset(),
+    ) -> DiscriminatedUnionWidget:
+        """
+        Build a union widget, recursing into nested union arms.
+
+        A nested arm is built as its own union widget and installed as the
+        outer arm's page. If it declares a driving field, a `FollowerBinding`
+        is queued so the selection can be wired once the form exists.
+
+        Args:
+            union_type: The union descriptor to build.
+            on_change: The write-back threaded into every variant's fields.
+            scope: Scope of the union field.
+            exclude: Discriminator names of enclosing unions, hidden from every
+                variant's form.
+
+        Returns:
+            The union widget, with nested arms already built and installed.
+        """
+        nested: dict[str, BaseWidget] = {}
+        labels: dict[str, str] = {}
+
+        for variant in union_type.variants:
+            if variant.label is not None:
+                labels[variant.discriminator_value] = variant.label
+
+            if variant.nested is None:
+                continue
+
+            inner = self._build_union(
+                variant.nested,
+                on_change,
+                scope,
+                exclude | {union_type.discriminator_key},
+            )
+
+            # switching the inner variant is a change to the same field
+            inner.on_change(on_change)
+            nested[variant.discriminator_value] = inner
+
+            if variant.nested.follows is None:
+                continue
+
+            binding = FollowerBinding(
+                union=inner,
+                source_path=variant.nested.follows,
+                fallback=variant.nested.variants[0].discriminator_value,
+                field_name=variant.label or variant.discriminator_value,
+                scope=scope,
+            )
+            # a rebuilt or discarded subtree must stop receiving pushes
+            inner.destroyed.connect(binding.deactivate)
+            scope.context.followers.append(binding)
+
+        return DiscriminatedUnionWidget(
+            variants=[
+                (v.discriminator_value, v.variant_type) for v in union_type.variants
+            ],
+            discriminator_key=union_type.discriminator_key,
+            build_object=self._variant_builder(on_change, scope),
+            nested=nested,
+            labels=labels,
+            exclude=exclude,
+            show_selector=union_type.follows is None,
+        )
 
     def _variant_builder(
         self, on_change: OnChange, scope: BuildScope
@@ -658,7 +726,9 @@ class FormBuilder:
             paths = [path for _, path in spec.sources]
             paths += [path for path, _ in spec.requires]
             for path in paths:
-                widgets = self._widgets_at(binding, path, all_variants=True)
+                widgets = self._widgets_at(
+                    binding.siblings, binding.scope, path, all_variants=True
+                )
                 if not widgets:
                     self._warn(
                         f"Overlay source {path!r} for field "
@@ -683,18 +753,27 @@ class FormBuilder:
             nothing in the form as it now stands. A path leading into a union
             variant that is not selected resolves to None.
         """
-        widgets = self._widgets_at(binding, path, all_variants=False)
+        widgets = self._widgets_at(
+            binding.siblings, binding.scope, path, all_variants=False
+        )
         return widgets[0] if widgets else None
 
     def _widgets_at(
-        self, binding: OverlayBinding, path: str, all_variants: bool
+        self,
+        siblings: dict[str, BaseWidget],
+        scope: BuildScope,
+        path: str,
+        all_variants: bool,
     ) -> list[BaseWidget]:
         """
         Walk a dotted path down through the form widgets.
 
         Args:
-            binding: The overlay binding making the reference.
-            path: Dotted path relative to the declaring object.
+            siblings: Widgets of the object the path is relative to, by field
+                name. Pass an empty mapping to resolve from the registry alone,
+                which is what a reference made from no particular object needs.
+            scope: The scope the reference is made from.
+            path: Dotted path relative to that scope.
             all_variants: If True, descend into every variant of a union rather
                 than only the selected one. Use this when subscribing, so an
                 edit in a variant selected later still reaches the overlay.
@@ -704,9 +783,9 @@ class FormBuilder:
         """
         parts = path.split(".")
 
-        root = binding.siblings.get(parts[0])
+        root = siblings.get(parts[0])
         if root is None:
-            return self._registry_lookup(binding, path)
+            return self._registry_lookup(scope, path)
 
         found = [self._unwrap(root)]
         for part in parts[1:]:
@@ -757,19 +836,19 @@ class FormBuilder:
 
         return []
 
-    def _registry_lookup(self, binding: OverlayBinding, path: str) -> list[BaseWidget]:
+    def _registry_lookup(self, scope: BuildScope, path: str) -> list[BaseWidget]:
         """
         Resolve a path that starts outside the declaring object.
 
         Args:
-            binding: The overlay binding making the reference.
+            scope: The scope the reference is made from.
             path: Dotted path relative to some enclosing scope.
 
         Returns:
             The single matching widget, or an empty list.
         """
-        widgets = binding.scope.context.widgets
-        for candidate in binding.scope.candidates(path):
+        widgets = scope.context.widgets
+        for candidate in scope.candidates(path):
             if (widget := widgets.get(candidate)) is not None:
                 return [self._unwrap(widget)]
         return []
@@ -882,3 +961,55 @@ class FormBuilder:
         if isinstance(field_type, DataclassType):
             return field_type.model
         return Any
+
+    def _flush_followers(self, context: BuildContext) -> None:
+        """
+        Subscribe every nested union to the field driving its selection.
+
+        Args:
+            context: The build whose followers should be wired.
+        """
+        for binding in list(context.followers):
+            if binding.wired or not binding.active:
+                continue
+            binding.wired = True
+
+            sources = self._widgets_at(
+                {}, binding.scope, binding.source_path, all_variants=False
+            )
+            if not sources:
+                self._warn(
+                    f"Variant {binding.field_name!r} follows "
+                    f"{binding.source_path!r}, which was not found in this "
+                    f"form; {binding.fallback!r} is used."
+                )
+                binding.union.select(binding.fallback)
+                continue
+
+            source = sources[0]
+            push = partial(self._push_follower, binding, source)
+            source.on_change(push)
+            push()
+
+    def _push_follower(self, binding: FollowerBinding, source: BaseWidget) -> None:
+        """
+        Select the nested variant matching the driving field's current value.
+
+        Args:
+            binding: The follower binding to push.
+            source: The widget holding the driving value.
+        """
+        if not binding.active:
+            return
+
+        value = source.get_value()
+        tag = value.value if isinstance(value, Enum) else value
+
+        if isinstance(tag, str) and binding.union.select(tag):
+            return
+
+        self._warn(
+            f"{binding.source_path!r} is {value!r}, which matches no "
+            f"{binding.field_name!r} variant; using {binding.fallback!r}."
+        )
+        binding.union.select(binding.fallback)

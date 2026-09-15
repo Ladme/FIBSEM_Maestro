@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 from fibsem_maestro.core.beam_type import BeamType
 
 if TYPE_CHECKING:
+    from fibsem_maestro.gui.form_builder._follower_binding import FollowerBinding
     from fibsem_maestro.gui.form_builder._overlay_binding import OverlayBinding
     from fibsem_maestro.gui.form_builder.widgets.base import BaseWidget
 
@@ -25,12 +26,15 @@ class BuildContext:
             addressable fields appear here (list elements are excluded).
         bindings: Overlay bindings collected during the build, wired by
             `FormBuilder._flush_overlays` once the whole tree exists.
+        followers: Nested-union bindings collected during the build, wired by
+            `FormBuilder._flush_followers` once the whole tree exists.
         building: True while the initial build pass is running. Subtrees rebuilt
             later (union variant switches) flush their own overlays.
     """
 
     widgets: dict[str, BaseWidget] = field(default_factory=dict)
     bindings: list[OverlayBinding] = field(default_factory=list)
+    followers: list[FollowerBinding] = field(default_factory=list)
     building: bool = True
 
 

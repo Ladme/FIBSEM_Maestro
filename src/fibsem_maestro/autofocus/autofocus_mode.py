@@ -463,6 +463,8 @@ class AutoscriptMode(AutofocusMode):
             settings = RunAutoFocusSettings()
         else:
             settings = RunAutoFocusSettings(reduced_area=scanning_area.to_autoscript())
+        # we do not specify any other parameters for the settings
+        # since they may not be available on 'Systems 3' (see autoscript manual)
 
         autoscript_microscope.auto_functions.run_auto_focus(settings)
 

@@ -28,7 +28,7 @@ from fibsem_maestro.logging.logging import with_logging_context
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.autofocus_settings import (
     AutofocusSettings,
-    AutoscriptMode,
+    AutoscriptFunctionBase,
 )
 from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.workflow.actions import Actions
@@ -92,7 +92,7 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
         """Rebuild mode, sweeping, and autofocus context from current settings."""
         self._mode = AUTOFOCUS_MODES.get(self._settings.mode.type)()
 
-        if isinstance(self._settings.mode, AutoscriptMode):
+        if isinstance(self._settings.mode, AutoscriptFunctionBase):
             # sweeping is not used in the Autoscript mode
             self._sweeping = None
         else:
