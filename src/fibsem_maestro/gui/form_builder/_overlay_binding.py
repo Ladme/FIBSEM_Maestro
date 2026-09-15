@@ -1,3 +1,6 @@
+# Released under GPL-3.0 License.
+# Copyright (c) 2024-2026 CEMCOF
+
 from dataclasses import dataclass
 
 from fibsem_maestro.gui.form_builder._build_scope import BuildScope
