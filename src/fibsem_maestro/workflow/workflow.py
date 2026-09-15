@@ -293,9 +293,6 @@ class Workflow:
             )
             action.ctx.advance()
 
-            if self.callbacks:
-                self.callbacks.notify_action_finished(i)
-
             if self.callbacks and self.callbacks.is_pause_requested():
                 # all actions should wait for their background threads to finish
                 for action in self.actions:
@@ -304,6 +301,9 @@ class Workflow:
                 self.callbacks.notify_is_paused()
                 # and wait for the resume signal
                 self.callbacks.wait_for_resume()
+
+            if self.callbacks:
+                self.callbacks.notify_action_finished(i)
 
         # at the end of each slice, increment the workflow slice counter
         self.ctx.advance()
