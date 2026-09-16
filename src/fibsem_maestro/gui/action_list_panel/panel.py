@@ -1,8 +1,6 @@
 # Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
-
-import contextlib
 import copy
 import shutil
 from pathlib import Path
@@ -15,6 +13,7 @@ from PyQt6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QMenu,
+    QMessageBox,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -285,10 +284,24 @@ class ActionListPanel(QWidget):
     def _remove_action(self, row: int, action: Action) -> None:
         self._list.takeItem(row)
         self._manager.workflow.actions.remove(action)
+        self._manager.notify_action_removed(action)
         self._manager.notify_actions_changed()
-        # delete the directory for the action; ignore failures
-        with contextlib.suppress(Exception):
-            shutil.rmtree(self._workflow_dir / action.name_with_underscores)
+
+        action_dir = self._workflow_dir / action.name_with_underscores
+        try:
+            shutil.rmtree(action_dir)
+        except FileNotFoundError:
+            # the action was never run, so it has no directory on disk
+            pass
+        except OSError as err:
+            QMessageBox.warning(
+                self,
+                "Could not remove action directory",
+                f"Action '{action.name}' was removed from the workflow, but its "
+                f"data directory could not be deleted:\n\n{action_dir}\n\n{err}\n\n"
+                "The directory can be deleted manually. It has no effect on the "
+                "workflow.",
+            )
 
     def _duplicate_action(self, action: Action) -> None:
         new_name = self._generate_unique_name(action.name)

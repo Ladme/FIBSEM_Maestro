@@ -21,6 +21,7 @@ from fibsem_maestro.workflow.workflow import Workflow
 class WorkflowManager(QObject):
     action_changed = pyqtSignal(Action)
     action_renamed = pyqtSignal(Action)
+    action_removed = pyqtSignal(Action)
     actions_changed = pyqtSignal(Actions)
     propagations_changed = pyqtSignal(Propagations)
     microscope_changed = pyqtSignal(Microscope)
@@ -86,6 +87,9 @@ class WorkflowManager(QObject):
 
     def notify_workflow_reset(self) -> None:
         self.workflow_reset.emit(0)
+
+    def notify_action_removed(self, action: Action) -> None:
+        self.action_removed.emit(action)
 
     def notify_new_workflow(self, path: Path) -> None:
         # abort the current worker and thread, if any

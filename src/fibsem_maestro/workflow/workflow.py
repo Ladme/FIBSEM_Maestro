@@ -264,18 +264,12 @@ class Workflow:
 
     def _run_slice(self) -> None:
         """Executes all actions for a single slice and performs synchronization."""
+
         self.ctx.text_logger.info(f"Starting slice {self.ctx.slice}.")
         # sleep for 1 ms to avoid overlapping slice log messages
         sleep(0.001)
-        for i, action in enumerate(self.actions):
-            # necessary when resuming a paused workflow
-            # we need to skip actions that have already been executed for this slice
-            if action.ctx.slice > self.ctx.slice:
-                self.ctx.text_logger.debug(
-                    f"Skipping action '{action.name}' for slice {self.ctx.slice} (already executed)."
-                )
-                continue
 
+        while (action := self._next_pending_action()) is not None:
             # execute the action
             executed = self._execute_with_recovery(action)
 
@@ -293,17 +287,32 @@ class Workflow:
             )
             action.ctx.advance()
 
+            # the loop terminates only when no action is pending, so a counter that
+            # fails to advance would spin forever
+            if action.ctx.slice <= self.ctx.slice:
+                raise WorkflowError(
+                    f"Action '{action.name}' did not advance its slice counter past "
+                    f"{self.ctx.slice}; refusing to loop."
+                )
+
             if self.callbacks and self.callbacks.is_pause_requested():
                 # all actions should wait for their background threads to finish
-                for action in self.actions:
-                    action.wait_for_background_threads()
+                for pending in self.actions:
+                    pending.wait_for_background_threads()
                 # then we notify that the workflow is actually paused
                 self.callbacks.notify_is_paused()
                 # and wait for the resume signal
                 self.callbacks.wait_for_resume()
 
             if self.callbacks:
-                self.callbacks.notify_action_finished(i)
+                # find the index of the action in the workflow list
+                index = next(
+                    (i for i, a in enumerate(self.actions) if a is action), None
+                )
+                # the action may have been already removed from the workflow
+                # in which case we do not notify
+                if index is not None:
+                    self.callbacks.notify_action_finished(index)
 
         # at the end of each slice, increment the workflow slice counter
         self.ctx.advance()
@@ -321,6 +330,24 @@ class Workflow:
 
         if self.callbacks:
             self.callbacks.notify_slice_finished()
+
+    def _next_pending_action(self) -> Action | None:
+        """
+        Finds the first action that has not yet run for the current slice.
+
+        The action list may be mutated (actions added or removed) while the
+        workflow is paused, so the next action is resolved by rescanning the
+        list rather than by a cached index or an active iterator.
+
+        Returns:
+            The first action whose slice counter has not yet advanced past the
+            workflow slice counter, or None if every action currently in the
+            workflow has been executed for this slice.
+        """
+        for action in self.actions:
+            if action.ctx.slice <= self.ctx.slice:
+                return action
+        return None
 
     def _execute_with_recovery(self, action: Action) -> bool:
         """
