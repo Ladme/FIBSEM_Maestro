@@ -46,10 +46,10 @@ class Imaging(Action[ImagingSettings, ImagingState]):
     # pixel size and vertical field width are derived from horizontal field width and
     # resolution, so restoring those two restores them as well
     _EXTENDED_RESOLUTION_STATE: tuple[str, ...] = (
-        "scanning_area",
         "beam_shift",
         "horizontal_field_width",
         "resolution",
+        "scanning_area",
     )
 
     def __init__(

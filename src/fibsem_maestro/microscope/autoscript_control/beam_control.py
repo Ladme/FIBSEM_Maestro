@@ -497,11 +497,6 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
 
     @scanning_area.setter
     def scanning_area(self, value: RelativeArea) -> None:
-        # copy dwell and resolution to reduced area scanning mode
-        # TODO: why is this needed?
-        backup_dwell = self.dwell_time
-        backup_res = self.resolution
-
         if value.is_full_frame():
             self._txt_log.debug(f"Disabling scanning area ({self._modality}).")
             try:
@@ -524,9 +519,6 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
 
         # fallback for older Autoscript versions
         self._scanning_area = value
-
-        self.dwell_time = backup_dwell
-        self.resolution = backup_res
 
     @property
     def beam_current(self) -> float:
