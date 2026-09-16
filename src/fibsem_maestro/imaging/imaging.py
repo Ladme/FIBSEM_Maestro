@@ -425,6 +425,9 @@ class Imaging(Action[ImagingSettings, ImagingState]):
         props.set_property(
             "scanning_area", RelativeArea.full(), self._settings.beam_type
         )
+
+        self._microscope.beam.clear_extended_resolution()
+
         return props
 
     def _set_extended_resolution_props(
