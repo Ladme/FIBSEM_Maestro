@@ -30,7 +30,7 @@ dev = [
     "pytest>=9.0.1",
     "pytest-cov>=7.1.0",
     "ruff>=0.14.6",
-    "ty>=0.0.34",
+    "ty>=0.0.81",
 ]
 
 [tool.setuptools_scm]

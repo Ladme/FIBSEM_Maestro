@@ -205,7 +205,7 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
             line_integration=self.line_integration,
             bit_depth=self.bit_depth,
             resolution=str(self.resolution),
-            dwell_time=self.dwell_time,
+            dwell_time=self.dwell_time * 1e-9,
         )
 
         if not self.scanning_area.is_full_frame():
@@ -215,11 +215,11 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
             "Acquiring image "
             f"(bit_depth={self.bit_depth}, "
             f"resolution={self.resolution}, "
-            f"pixel_size={self.pixel_size}, "
+            f"pixel_size={self.pixel_size} nm, "
             f"line_integration={self.line_integration}, "
             f"scanning_area={self.scanning_area}, "
-            f"dwell_time={self.dwell_time}, "
-            f"working_distance={self.working_distance})"
+            f"dwell_time={self.dwell_time} ns, "
+            f"working_distance={self.working_distance} nm)"
         )
 
         path = frame_store.path() if frame_store is not None else None
@@ -348,14 +348,14 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
 
     @property
     def dwell_time(self) -> float:
-        value = self._beam.scanning.dwell_time.value
+        value = self._beam.scanning.dwell_time.value * 1e9
         self._txt_log.debug(f"Getting dwell time ({self._modality}): {value}.")
         return value
 
     @dwell_time.setter
     def dwell_time(self, value: float) -> None:
         self._txt_log.debug(f"Setting dwell time to ({self._modality}): {value}.")
-        self._beam.scanning.dwell_time.value = value
+        self._beam.scanning.dwell_time.value = value * 1e-9
 
     @property
     def bit_depth(self) -> int:

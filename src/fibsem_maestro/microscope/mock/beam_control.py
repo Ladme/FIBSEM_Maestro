@@ -44,7 +44,7 @@ class MockBeamControl(BeamControl):
         self._scan_rotation: float = 0.0
 
         self._line_integration: int = 1
-        self._dwell_time: float = 0.0
+        self._dwell_time: float = 100.0
         self._bit_depth: int = 8
         self._resolution = Resolution(1, 1)
 
