@@ -42,6 +42,16 @@ class Imaging(Action[ImagingSettings, ImagingState]):
     Orchestrates a single image acquisition cycle on the electron microscope.
     """
 
+    # beam properties altered by `_set_extended_resolution_props`
+    # pixel size and vertical field width are derived from horizontal field width and
+    # resolution, so restoring those two restores them as well
+    _EXTENDED_RESOLUTION_STATE: tuple[str, ...] = (
+        "scanning_area",
+        "beam_shift",
+        "horizontal_field_width",
+        "resolution",
+    )
+
     def __init__(
         self,
         name: str,
@@ -305,62 +315,94 @@ class Imaging(Action[ImagingSettings, ImagingState]):
             f"Collecting microscope properties for {self.name}."
         )
 
-        # get scanning area from settings
         scanning_area = self._first_scanning_area()
         if scanning_area is not None:
             self._ctx.text_logger.debug(
                 f"Scanning area specified in FIBSEM Maestro: {scanning_area}."
             )
 
-        recorded_area: RelativeArea | None = None
         match self._settings.resolution_mode:
             case StandardResolution():
-                recorded_area = scanning_area
+                return self._collect_standard_properties(scanning_area)
             case ExtendedResolution() as mode:
-                # reads full-frame resolution and pixel size, as the geometry requires
-                self._set_extended_resolution_props(
-                    scanning_area
-                    if scanning_area is not None
-                    else self._microscope.beam.scanning_area,
-                    mode.pixel_size,
-                )
-                # extended resolution replaces area selection with beam shift + FOV
-                recorded_area = RelativeArea.full()
+                return self._collect_extended_properties(scanning_area, mode)
 
-        # get the properties of the microscope
-        # needs to be called AFTER set_extended_resolution_props in the extended resolution mode
+    def _collect_standard_properties(
+        self, scanning_area: RelativeArea | None
+    ) -> GlobalProperties:
+        """
+        Collect properties in standard resolution mode.
+
+        The microscope is not altered. The scanning area configured in FIBSEM
+        Maestro replaces the one read from the instrument, so that it is applied
+        on the next slice; the remaining scan parameters are recorded as read,
+        whatever area they were set for.
+
+        Args:
+            scanning_area: Scanning area from the settings, or `None` when none
+                is configured.
+
+        Returns:
+            The collected properties.
+        """
         props = self._microscope.collect_properties(
             self._settings.properties_to_collect
         )
 
-        match self._settings.resolution_mode:
-            case StandardResolution():
-                pass
-            case ExtendedResolution():
-                # beam shift and FOV have taken over area selection; reset only
-                # now, so the collect above reads the reduced-area scan parameters
-                self._microscope.beam.scanning_area = RelativeArea.full()
-
-        # modify the scanning area to the correct value
-        if recorded_area is not None:
-            props.set_property("scanning_area", recorded_area, self._settings.beam_type)
+        if scanning_area is not None:
+            props.set_property("scanning_area", scanning_area, self._settings.beam_type)
 
         return props
 
-    def wait_for_sharpness(self) -> float | None:
+    def _collect_extended_properties(
+        self, scanning_area: RelativeArea | None, mode: ExtendedResolution
+    ) -> GlobalProperties:
         """
-        Block until the background sharpness calculation finishes.
+        Collect properties in extended resolution mode.
+
+        Applies the extended resolution geometry, collects the resulting
+        properties, and restores the microscope to the state it was in on entry.
+
+        The properties are collected before the restoration and before the
+        scanning area is reset, so that the scan parameters Autoscript maintains
+        separately for a reduced area are preserved rather than replaced by the
+        full-frame ones. The recorded scanning area is the full frame, since
+        beam shift and field of view take over area selection here.
+
+        Args:
+            scanning_area: Scanning area from the settings, or `None` to fall
+                back to the one currently set on the instrument.
+            mode: The extended resolution settings.
 
         Returns:
-            The calculated sharpness value, or `None` if no criterion is
-            configured or the calculation failed.
+            The collected properties.
         """
-        if self._sharpness_thread is not None:
-            self._sharpness_thread.join()
-        return self._image_sharpness
+        with ExitStack() as stack:
+            for name in self._EXTENDED_RESOLUTION_STATE:
+                stack.enter_context(
+                    self._microscope.set_temporary_beam_property(
+                        name,
+                        getattr(self._microscope.beam, name),
+                        self._settings.beam_type,
+                    )
+                )
 
-    def wait_for_background_threads(self) -> None:
-        self.wait_for_sharpness()
+            self._set_extended_resolution_props(
+                scanning_area
+                if scanning_area is not None
+                else self._microscope.beam.scanning_area,
+                mode.pixel_size,
+            )
+
+            props = self._microscope.collect_properties(
+                self._settings.properties_to_collect
+            )
+
+        # extended resolution replaces area selection with beam shift + FOV
+        props.set_property(
+            "scanning_area", RelativeArea.full(), self._settings.beam_type
+        )
+        return props
 
     def _set_extended_resolution_props(
         self, scanning_area: RelativeArea, new_pixel_size: float
@@ -370,15 +412,16 @@ class Imaging(Action[ImagingSettings, ImagingState]):
 
         When a non-full-frame scanning area is configured, shifts the beam to
         the center of that area and resizes the field of view to match its
-        physical dimensions.
-
-        The scanning area is always reset to full frame after the adjustment,
-        since the beam shift and FOV take over the role of area selection in
-        extended resolution mode. The pixel size is always updated to
+        physical dimensions. The pixel size is always updated to
         `new_pixel_size`, regardless of whether a scanning area is configured.
 
+        The scanning area is deliberately left as it is: the caller collects the
+        properties before restoring it, so that the scan parameters Autoscript
+        maintains separately for a reduced area are preserved. Restoring the
+        altered beam state is the caller's responsibility.
+
         Args:
-            scanning_area: The scanning area to image.
+            scanning_area: The scanning area to image, relative to the full frame.
             new_pixel_size: The target pixel size in nanometers.
         """
         # image only the scanning area
@@ -412,12 +455,29 @@ class Imaging(Action[ImagingSettings, ImagingState]):
             self._scanning_area_selected = True
 
             # set the FOV to the scanning area
+            # HFW must be set before VFW: the VFW setter derives the new
+            # resolution from the pixel size that setting HFW has just changed
             self._microscope.beam.horizontal_field_width = area_nm.width
             self._microscope.beam.vertical_field_width = area_nm.height
 
         # set resolution based on the new pixel size
         # this is done even if scanning area is not specified
         self._microscope.beam.pixel_size = new_pixel_size
+
+    def wait_for_sharpness(self) -> float | None:
+        """
+        Block until the background sharpness calculation finishes.
+
+        Returns:
+            The calculated sharpness value, or `None` if no criterion is
+            configured or the calculation failed.
+        """
+        if self._sharpness_thread is not None:
+            self._sharpness_thread.join()
+        return self._image_sharpness
+
+    def wait_for_background_threads(self) -> None:
+        self.wait_for_sharpness()
 
     def _calculate_sharpness(self, image: Image, view: SliceView) -> None:
         """
