@@ -59,9 +59,6 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         )
         self._txt_log = txt_log
 
-        self._extended_resolution: Resolution | None = (
-            None  # extended resolution is set only if the required resolution is not standard
-        )
         self._standard_resolutions = (
             Resolution(1024, 884),
             Resolution(1536, 1024),
@@ -372,38 +369,24 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
 
     @property
     def resolution(self) -> Resolution:
-        if self._extended_resolution is None:
-            x, y = (
-                self._beam.scanning.resolution.width,
-                self._beam.scanning.resolution.height,
-            )
-            self._txt_log.debug(
-                f"Getting standard resolution ({self._modality}): {x}, {y}."
-            )
-            return Resolution(x, y)
+        res = Resolution(
+            width=self._beam.scanning.resolution.width,
+            height=self._beam.scanning.resolution.height,
+        )
 
         self._txt_log.debug(
-            f"Getting extended resolution ({self._modality}): {self._extended_resolution}."
+            f"Getting {'standard' if res in self._standard_resolutions else 'extended'} resolution ({self._modality}): {str(res)}."
         )
-        return self._extended_resolution
+
+        return res
 
     @resolution.setter
     def resolution(self, value: Resolution) -> None:
-        resolution = str(value)
-        if value in self._standard_resolutions:
-            self._txt_log.debug(
-                f"Setting standard resolution to ({self._modality}): {resolution}."
-            )
-            self._beam.scanning.resolution.value = resolution
-            return
         self._txt_log.debug(
-            f"Setting extended resolution to ({self._modality}): {resolution}."
+            f"Setting {'standard' if value in self._standard_resolutions else 'extended'} resolution ({self._modality}): {str(value)}."
         )
-        self._extended_resolution = value
 
-    @property
-    def extended_resolution(self) -> Resolution | None:
-        return self._extended_resolution
+        self._beam.scanning.resolution.value = str(value)
 
     @property
     def horizontal_field_width(self) -> float:
