@@ -528,7 +528,7 @@ class AutoscriptMode(AutofocusMode):
 
         match mode.method:
             case AutoscriptAutoStigmatorMethod.STANDARD:
-                settings = RunAutoStigmatorSettings(dwell_time=beam.dwell_time)
+                settings = RunAutoStigmatorSettings()
             case AutoscriptAutoStigmatorMethod.ONGETAL:
                 settings = RunAutoStigmatorSettings(
                     method="OngEtAl",
