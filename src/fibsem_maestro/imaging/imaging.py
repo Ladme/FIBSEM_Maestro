@@ -24,7 +24,6 @@ from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.imaging_settings import (
     ExtendedResolution,
     ImagingSettings,
-    ResolutionMode,
     StandardResolution,
 )
 from fibsem_maestro.settings.property_names import PropertyNames
@@ -33,7 +32,6 @@ from fibsem_maestro.workflow.actions import Actions
 
 
 class ImagingState(ActionState):
-    scanning_area_selected_under: str | None = None
     image_sharpness: float | None = None
 
 
@@ -53,10 +51,6 @@ class Imaging(Action[ImagingSettings, ImagingState]):
         "scanning_area",
     )
 
-    _RESOLUTION_MODES: dict[str, type[ResolutionMode]] = {
-        cls.__name__: cls for cls in (StandardResolution, ExtendedResolution)
-    }
-
     def __init__(
         self,
         name: str,
@@ -70,12 +64,6 @@ class Imaging(Action[ImagingSettings, ImagingState]):
         self._settings = settings
         self._ctx = ctx
         self._actions = actions
-
-        # resolution mode the extended-resolution geometry was applied under
-        # necessary to avoid shrinking the selected area in subsequent imagings
-        # `None` means no selection has been made
-        # switching mode invalidates the selection
-        self._scanning_area_selected_under: type[ResolutionMode] | None = None
 
         # sharpness of the acquired image
         self._image_sharpness: float | None = None
@@ -127,17 +115,10 @@ class Imaging(Action[ImagingSettings, ImagingState]):
     @property
     def state(self) -> ImagingState:
         return ImagingState(
-            scanning_area_selected_under=self._scanning_area_selected_under.__name__
-            if self._scanning_area_selected_under is not None
-            else None,
             image_sharpness=self._image_sharpness,
         )
 
     def set_state(self, state: ImagingState) -> None:
-        self._scanning_area_selected_under = self._resolution_mode_by_name(
-            state.scanning_area_selected_under
-        )
-
         self._image_sharpness = state.image_sharpness
 
         if (
@@ -219,7 +200,9 @@ class Imaging(Action[ImagingSettings, ImagingState]):
         )
 
         # update the saved microscope properties for the next frame
-        props = self.collect_properties()
+        # if we are in extended resolution, we skip setting up the geometry of the captured area
+        # since that would actually mess it up
+        props = self._collect_properties_in_current_geometry()
         self.write_properties(props, self._ctx.props_store.next)
 
         # calculate image sharpness in a separate thread
@@ -315,10 +298,42 @@ class Imaging(Action[ImagingSettings, ImagingState]):
         """
         Collect the relevant properties of the microscope.
 
-        Overrides the default implementation.
+        Overrides the default implementation. In extended resolution mode the
+        geometry is established before collecting, so that the collected
+        properties describe the region to image rather than the current frame.
+
+        This is the entry point for a manual collection, after the user has set
+        the microscope up by hand. `execute` uses
+        `_collect_properties_in_current_geometry` instead, since the properties
+        it reads already carry the geometry.
+
+        Returns:
+            The collected properties.
+        """
+        return self._collect(apply_extended_geometry=True)
+
+    def _collect_properties_in_current_geometry(self) -> GlobalProperties:
+        """
+        Collect the relevant properties without altering the microscope geometry.
+
+        In extended resolution mode the beam shift is additive and the field of
+        view shrink absolute, so the geometry is established once and then
+        carried in the collected properties. Re-applying it on every slice would
+        compound the shift and shrink the field of view further each time.
+
+        Returns:
+            The collected properties.
+        """
+        return self._collect(apply_extended_geometry=False)
+
+    def _collect(self, apply_extended_geometry: bool) -> GlobalProperties:
+        """
+        Dispatch property collection according to the configured resolution mode.
 
         Args:
-            store: Store to write properties to. If `None`, the current slice's store is used.
+            apply_extended_geometry: Whether to establish the extended
+                resolution geometry before collecting. Ignored in standard
+                resolution mode, which never alters the geometry.
 
         Returns:
             The collected properties.
@@ -337,7 +352,9 @@ class Imaging(Action[ImagingSettings, ImagingState]):
             case StandardResolution():
                 return self._collect_standard_properties(scanning_area)
             case ExtendedResolution() as mode:
-                return self._collect_extended_properties(scanning_area, mode)
+                return self._collect_extended_properties(
+                    scanning_area, mode, apply_extended_geometry
+                )
 
     def _collect_standard_properties(
         self, scanning_area: RelativeArea | None
@@ -345,10 +362,10 @@ class Imaging(Action[ImagingSettings, ImagingState]):
         """
         Collect properties in standard resolution mode.
 
-        The microscope is not altered. The scanning area configured in FIBSEM
-        Maestro replaces the one read from the instrument, so that it is applied
-        on the next slice; the remaining scan parameters are recorded as read,
-        whatever area they were set for.
+        The microscope geometry is not altered. The scanning area configured in
+        FIBSEM Maestro replaces the one read from the instrument, so that it is
+        applied on the next slice; the remaining scan parameters are recorded as
+        read, whatever area they were set for.
 
         Args:
             scanning_area: Scanning area from the settings, or `None` when none
@@ -357,16 +374,13 @@ class Imaging(Action[ImagingSettings, ImagingState]):
         Returns:
             The collected properties.
         """
-        # Autoscript supports only a fixed set of resolutions to be directly set for their beams,
-        # so extended resolution is emulated outside the instrument: the beam control holds
-        # the requested value and shadows what Autoscript reports
-        # standard mode must clear that emulation before collecting, or it would record the
-        # extended resolution and carry it into the next slice
-        # other vendors may set arbitrary resolutions directly, in which case this is a no-op
-        if self._scanning_area_selected_under is ExtendedResolution:
-            self._microscope.beam.clear_extended_resolution()
-
-        self._scanning_area_selected_under = StandardResolution
+        # Autoscript supports only a fixed set of resolutions for its beams, so
+        # extended resolution is emulated outside the instrument: the beam
+        # control holds the requested value and shadows what Autoscript reports;
+        # standard mode must clear that emulation before collecting, or it would
+        # record the extended resolution and carry it into the next slice; other
+        # vendors may set arbitrary resolutions directly, in which case this is a no-op.
+        self._microscope.beam.clear_extended_resolution()
 
         props = self._microscope.collect_properties(
             self._settings.properties_to_collect
@@ -378,28 +392,33 @@ class Imaging(Action[ImagingSettings, ImagingState]):
         return props
 
     def _collect_extended_properties(
-        self, scanning_area: RelativeArea | None, mode: ExtendedResolution
+        self,
+        scanning_area: RelativeArea | None,
+        mode: ExtendedResolution,
+        apply_geometry: bool,
     ) -> GlobalProperties:
         """
         Collect properties in extended resolution mode.
 
-        Applies the extended resolution geometry, collects the resulting
-        properties, and restores the microscope to the state it was in on entry.
-
-        The properties are collected before the restoration and before the
-        scanning area is reset, so that the scan parameters Autoscript maintains
-        separately for a reduced area are preserved rather than replaced by the
-        full-frame ones. The recorded scanning area is the full frame, since
-        beam shift and field of view take over area selection here.
+        When `apply_geometry` is True, the extended resolution geometry is
+        established, the resulting properties collected, and the microscope
+        restored to the state it was in on entry. Otherwise the properties are
+        collected as they stand: within a run they already carry the geometry.
 
         Args:
             scanning_area: Scanning area from the settings, or `None` to fall
                 back to the one currently set on the instrument.
             mode: The extended resolution settings.
+            apply_geometry: Whether to establish the geometry before collecting.
 
         Returns:
             The collected properties.
         """
+        if not apply_geometry:
+            return self._microscope.collect_properties(
+                self._settings.properties_to_collect
+            )
+
         with ExitStack() as stack:
             for name in self._EXTENDED_RESOLUTION_STATE:
                 stack.enter_context(
@@ -441,6 +460,10 @@ class Imaging(Action[ImagingSettings, ImagingState]):
         physical dimensions. The pixel size is always updated to
         `new_pixel_size`, regardless of whether a scanning area is configured.
 
+        The beam shift is additive and the field of view shrink absolute, so
+        this must be called only when the geometry is being established, not on
+        every collection.
+
         The scanning area is deliberately left as it is: the caller collects the
         properties before restoring it, so that the scan parameters Autoscript
         maintains separately for a reduced area are preserved. Restoring the
@@ -451,10 +474,7 @@ class Imaging(Action[ImagingSettings, ImagingState]):
             new_pixel_size: The target pixel size in nanometers.
         """
         # image only the scanning area
-        if (
-            not scanning_area.is_full_frame()
-            and self._scanning_area_selected_under is not ExtendedResolution
-        ):
+        if not scanning_area.is_full_frame():
             self._ctx.text_logger.debug(
                 "Setting scanning area using extended resolution."
             )
@@ -481,7 +501,6 @@ class Imaging(Action[ImagingSettings, ImagingState]):
             )
 
             self._microscope.add_beam_shift_with_verification(shift)
-            self._scanning_area_selected_under = ExtendedResolution
 
             # set the FOV to the scanning area
             # HFW must be set before VFW: the VFW setter derives the new
@@ -538,28 +557,3 @@ class Imaging(Action[ImagingSettings, ImagingState]):
             text_logger.debug(f"Image sharpness: {self._image_sharpness}.")
         except Exception as e:
             text_logger.warning(f"Could not calculate image sharpness: {e}")
-
-    @classmethod
-    def _resolution_mode_by_name(cls, name: str | None) -> type[ResolutionMode] | None:
-        """
-        Resolve a persisted resolution mode name back to its type.
-
-        Args:
-            name: Class name as written by `ImagingState`, or `None` when no
-                scanning area selection has been made.
-
-        Returns:
-            The resolution mode type, or `None` if no selection was recorded.
-
-        Raises:
-            ImagingError: If the name does not correspond to a known resolution mode.
-        """
-        if name is None:
-            return None
-        try:
-            return cls._RESOLUTION_MODES[name]
-        except KeyError as e:
-            raise ImagingError(
-                f"Unknown resolution mode in persisted state: {name!r}. "
-                f"Known modes: {', '.join(cls._RESOLUTION_MODES)}."
-            ) from e
