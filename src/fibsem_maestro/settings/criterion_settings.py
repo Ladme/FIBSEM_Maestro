@@ -12,6 +12,7 @@ from fibsem_maestro.criterion.functions import CRITERION_FUNCTIONS
 from fibsem_maestro.criterion.reductors import REDUCTORS
 from fibsem_maestro.settings.base_settings import BaseSettings
 from fibsem_maestro.settings.form_utils import (
+    AcquisitionOffset,
     AreaOverlay,
     FieldUnit,
     FormHint,
@@ -89,6 +90,7 @@ class CriterionSettings(BaseSettings):
             widget=WidgetType.AREA_SELECT,
             max_areas=1,
             beam_source="beam_type",
+            offset=AcquisitionOffset(source="delta_x"),
             overlays=(
                 OverlaySpec.of(
                     AreaOverlay.SHOW_TILES,

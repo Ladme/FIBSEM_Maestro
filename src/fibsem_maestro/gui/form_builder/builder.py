@@ -7,6 +7,7 @@ from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from fibsem_maestro.action.action import Action
+from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.gui.form_builder._build_scope import (
     BuildContext,
     BuildScope,
@@ -325,7 +326,7 @@ class FormBuilder:
                 return MultiSelectWidget(properties, default=default)
 
             case WidgetType.AREA_SELECT:
-                provider = None
+                beam_provider = None
                 if beam_source := hint.beam_source:
                     if not scope.instances:
                         self._warn(
@@ -334,15 +335,32 @@ class FormBuilder:
                         )
                     else:
 
-                        def provider():
+                        def beam_provider() -> BeamType | None:
+                            """The beam this selector images with, or None."""
                             return resolve_beam(scope, beam_source)
+
+                offset_provider = None
+                if (offset := hint.offset) is not None:
+                    if not scope.instances:
+                        self._warn(
+                            f"Field {fi.name!r} declares an acquisition offset "
+                            "but is not bound to live settings; images are "
+                            "grabbed at the current beam position."
+                        )
+                    else:
+                        offset_path = offset.source
+
+                        def offset_provider() -> float | None:
+                            """X offset applied when grabbing, in nm; None if unresolved."""
+                            return scope.value(offset_path, float)
 
                 return AreaSelectWidget(
                     microscope=self._microscope,
                     txt_log=self._txt_log,
                     max_areas=hint.max_areas if hint.max_areas else None,
                     default=default,
-                    beam_provider=provider,
+                    beam_provider=beam_provider,
+                    offset_provider=offset_provider,
                 )
 
             case WidgetType.RANGE_PAIR:

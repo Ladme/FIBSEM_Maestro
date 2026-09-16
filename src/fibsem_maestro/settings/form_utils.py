@@ -118,6 +118,20 @@ class NestedUnion:
     follows: str | None = None
 
 
+@dataclass(frozen=True)
+class AcquisitionOffset:
+    """
+    Offset applied to the beam while an area selector grabs its image.
+
+    Attributes:
+        source: Dotted path to the field holding the x offset, in nm.
+            Resolved against the settings object declaring the hint, then
+            outward toward the form root.
+    """
+
+    source: str
+
+
 @dataclass
 class FormHint:
     widget: WidgetType
@@ -128,6 +142,7 @@ class FormHint:
     overlays: tuple[OverlaySpec, ...] = ()
     # field name feeding the beam source
     beam_source: str | None = None
+    offset: AcquisitionOffset | None = None
 
 
 @dataclass
