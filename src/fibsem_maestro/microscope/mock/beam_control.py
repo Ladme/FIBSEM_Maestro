@@ -1,4 +1,4 @@
-# Released under MIT License.
+# Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
 
@@ -14,6 +14,7 @@ from fibsem_maestro.core.format import ImageFormat
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
 from fibsem_maestro.core.pattern_type import PatternType
+from fibsem_maestro.core.provenance import Provenance
 from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
@@ -35,6 +36,7 @@ class MockBeamControl(BeamControl):
         self._stigmator = Stigmator(0.0, 0.0)
         self._lens_alignment = LensAlignment(0.0, 0.0)
         self._beam_shift = BeamShift(0.0, 0.0)
+        self._beam_current: float = 0.0
 
         self._detector_contrast: float = 0.0
         self._detector_brightness: float = 0.0
@@ -65,6 +67,10 @@ class MockBeamControl(BeamControl):
 
         self._blanked = False
         self._acquiring = False
+
+    @classmethod
+    def provenance(cls) -> Provenance:
+        return Provenance.MAESTRO
 
     @property
     def working_distance(self) -> float:
@@ -123,6 +129,14 @@ class MockBeamControl(BeamControl):
         self._source_tilt = value
 
     @property
+    def beam_current(self) -> float:
+        return self._beam_current
+
+    @beam_current.setter
+    def beam_current(self, value: float) -> None:
+        self._beam_current = value
+
+    @property
     def scan_rotation(self) -> float:
         return self._scan_rotation
 
@@ -161,6 +175,9 @@ class MockBeamControl(BeamControl):
     @resolution.setter
     def resolution(self, value: Resolution) -> None:
         self._resolution = value
+
+    def clear_extended_resolution(self) -> None:
+        pass
 
     @property
     def horizontal_field_width(self) -> float:

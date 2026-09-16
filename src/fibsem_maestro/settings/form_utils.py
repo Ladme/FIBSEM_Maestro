@@ -1,4 +1,4 @@
-# Released under MIT License.
+# Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
 from __future__ import annotations
@@ -99,6 +99,23 @@ class OverlaySpec:
             The spec.
         """
         return cls(kind, tuple(paths.items()), tuple((requires or {}).items()))
+
+
+@dataclass(frozen=True)
+class NestedUnion:
+    """
+    Marks a discriminated union used as one arm of an enclosing union.
+
+    Attributes:
+        label: Text of the enclosing union's radio button for this arm.
+        follows: Name of a field outside the union whose value selects the
+            inner variant. Dotted paths are resolved against the object
+            declaring the union field, then outward toward the form root.
+            If None, the inner union shows its own radio row.
+    """
+
+    label: str
+    follows: str | None = None
 
 
 @dataclass

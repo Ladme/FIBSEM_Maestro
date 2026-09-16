@@ -1,8 +1,10 @@
-# Released under MIT License.
+# Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
 
 import types
+from collections.abc import Sequence
+from dataclasses import replace
 from enum import Enum
 from pathlib import Path
 from types import NoneType
@@ -32,6 +34,7 @@ from fibsem_maestro.gui.form_builder.schema.field_info import FieldInfo
 from fibsem_maestro.gui.form_builder.schema.field_type import (
     BoolType,
     DataclassType,
+    DiscriminatedUnionType,
     EnumType,
     FieldType,
     FloatTupleType,
@@ -40,11 +43,13 @@ from fibsem_maestro.gui.form_builder.schema.field_type import (
     ListType,
     LiteralType,
     StrType,
+    UnionVariant,
     UnknownType,
 )
+from fibsem_maestro.settings.form_utils import NestedUnion
 
 
-def classify_type(t: Any) -> FieldType:
+def classify_type(t: Any, discriminator: str | None = None) -> FieldType:
     """
     Classify an already-unwrapped, non-`Optional` hint into a descriptor.
 
@@ -54,6 +59,9 @@ def classify_type(t: Any) -> FieldType:
 
     Args:
         t: A bare type hint.
+        discriminator: The discriminator key declared by the field's
+                    `Field(discriminator=...)`, if any. Takes precedence over
+                    inference when `t` is a union.
 
     Returns:
         The matching `FieldType` descriptor; `UnknownType` as a fallback.
@@ -86,11 +94,11 @@ def classify_type(t: Any) -> FieldType:
     # union (X | Y | ...): a tagged union only if every arm is a model and they
     # share a Literal discriminator field
     if origin is Union or origin is types.UnionType:
-        variants = tuple(a for a in get_args(t) if a is not NoneType)
-        if variants and all(is_model(a) for a in variants):
-            key = get_discriminator_key(list(variants))
-            if key is not None:
-                return make_union(variants, key)
+        args = tuple(a for a in get_args(t) if a is not NoneType)
+        if args:
+            union = _classify_union(args, discriminator)
+            if union is not None:
+                return union
 
     if origin is list:
         args = get_args(t)
@@ -147,14 +155,146 @@ def _classify_field(inner_hint: Any, extras: tuple) -> FieldType:
     """
     Classify the field type, applying the Pydantic single-variant promotion.
 
-    A model field carrying ``Field(discriminator=...)`` is a one-armed
+    A model field carrying `Field(discriminator=...)` is a one-armed
     discriminated union even though only one variant is visible on the hint.
+
+    The key from `Field(discriminator=...)` takes precedence over inference
+    for unions, because a variant set can share more than one single-value
+    `Literal` field and inference cannot then tell which is the tag.
     """
-    field_type = classify_type(inner_hint)
-    if isinstance(field_type, DataclassType):
-        discriminator = pydantic_discriminator(extras)
-        if discriminator is not None:
-            model = (field_type.model,)
-            key = get_discriminator_key([field_type.model]) or discriminator
-            return make_union(model, key)
+    discriminator = pydantic_discriminator(extras)
+    field_type = classify_type(inner_hint, discriminator)
+
+    if isinstance(field_type, DataclassType) and discriminator is not None:
+        model = (field_type.model,)
+        key = get_discriminator_key([field_type.model]) or discriminator
+        return make_union(model, key)
+
     return field_type
+
+
+def _classify_union(
+    args: tuple[Any, ...], discriminator: str | None
+) -> DiscriminatedUnionType | None:
+    """
+    Build a tagged-union descriptor, folding in nested unions.
+
+    Each arg is either a model (a leaf arm) or an `Annotated` alias wrapping a
+    union and carrying a `NestedUnion` marker (a nested arm). Anything else
+    makes the union unclassifiable, and the field falls back to a text area.
+
+    Args:
+        args: The union's arms, with `NoneType` already removed.
+        discriminator: The declared outer discriminator key, or None to infer.
+
+    Returns:
+        The descriptor, or None if the arms do not form a tagged union.
+    """
+    leaves: list[type] = []
+    nested: list[tuple[NestedUnion, DiscriminatedUnionType, tuple[type, ...]]] = []
+
+    for arg in args:
+        if is_model(arg):
+            leaves.append(arg)
+            continue
+
+        parts = _nested_union(arg)
+        if parts is None:
+            return None
+        nested.append(parts)
+
+    if not nested:
+        # unchanged path: plain union of models
+        key = discriminator or get_discriminator_key(leaves)
+        return make_union(tuple(leaves), key) if key else None
+
+    inner_classes = [cls for _, _, classes in nested for cls in classes]
+    key = discriminator or get_discriminator_key(leaves + inner_classes)
+    if key is None:
+        return None
+
+    variants: list[UnionVariant] = []
+    for cls in leaves:
+        value = _literal_value(cls, key)
+
+        if value is None:
+            return None
+
+        variants.append(UnionVariant(discriminator_value=value, variant_type=cls))
+
+    for marker, inner, classes in nested:
+        values = {_literal_value(cls, key) for cls in classes}
+
+        if len(values) != 1 or None in values:
+            raise ValueError(
+                f"nested union {marker.label!r} must assign one shared "
+                f"{key!r} value to every variant, got {sorted(map(str, values))}"
+            )
+        base = _common_base(classes)
+
+        if base is None:
+            raise ValueError(f"nested union {marker.label!r} needs a common base class")
+
+        variants.append(
+            UnionVariant(
+                discriminator_value=values.pop(),  # ty:ignore[invalid-argument-type]
+                variant_type=base,
+                label=marker.label,
+                nested=inner,
+            )
+        )
+
+    return DiscriminatedUnionType(discriminator_key=key, variants=tuple(variants))
+
+
+def _nested_union(
+    arg: Any,
+) -> tuple[NestedUnion, DiscriminatedUnionType, tuple[type, ...]] | None:
+    """
+    Interpret a union arm as a nested union, if it is one.
+
+    Returns:
+        `(marker, inner descriptor, inner variant classes)`, or None if `arg`
+        is not an `Annotated` union carrying a `NestedUnion` marker.
+    """
+    split = split_annotated(arg)
+    marker = next((e for e in split.extras if isinstance(e, NestedUnion)), None)
+    if marker is None:
+        return None
+
+    if get_origin(split.bare) not in (Union, types.UnionType):
+        return None
+    classes = tuple(a for a in get_args(split.bare) if a is not NoneType)
+    if not classes or not all(is_model(c) for c in classes):
+        return None
+
+    inner_key = pydantic_discriminator(split.extras) or get_discriminator_key(
+        list(classes)
+    )
+    if inner_key is None:
+        return None
+
+    inner = make_union(classes, inner_key)
+    return marker, replace(inner, follows=marker.follows), classes
+
+
+def _literal_value(cls: type, key: str) -> str | None:
+    """Return the single `Literal` value `cls` assigns to field `key`."""
+    for rf in get_raw_fields(cls):
+        if rf.name != key:
+            continue
+        bare = split_annotated(rf.type_hint).bare
+        if get_origin(bare) is Literal and len(values := get_args(bare)) == 1:
+            return values[0]
+    return None
+
+
+def _common_base(classes: Sequence[type]) -> type | None:
+    """Return the nearest model base shared by all `classes`, excluding them."""
+    first, *rest = classes
+    for base in first.__mro__:
+        if base in classes or not is_model(base):
+            continue
+        if all(issubclass(c, base) for c in rest):
+            return base
+    return None

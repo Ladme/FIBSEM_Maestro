@@ -1,4 +1,4 @@
-# Released under MIT License.
+# Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
 from typing import Annotated
@@ -17,6 +17,15 @@ from fibsem_maestro.settings.form_utils import FieldUnit, FormHint, WidgetType
 
 class BeamProperties(BaseSettings):
     model_config = {"extra": "allow"}
+
+    # must be set first because Autoscript sets different properties for full image
+    # scanning and for reduced area scanning
+    scanning_area: Annotated[
+        RelativeArea | None, FormHint(widget=WidgetType.AREA_SELECT, max_areas=1)
+    ] = Field(
+        default=None,
+        description="Area to be scanned.",
+    )
 
     stigmator: Stigmator | None = Field(
         default=None,
@@ -68,6 +77,11 @@ class BeamProperties(BaseSettings):
         description="Tilt settings for the electron source.",
     )
 
+    beam_current: Annotated[float | None, FieldUnit(suffix="nA")] = Field(
+        default=None,
+        description="Beam current in nA.",
+    )
+
     line_integration: Annotated[int, Field(gt=0)] | None = Field(
         default=None,
         description="Number of line integrations per scan.",
@@ -105,13 +119,6 @@ class BeamProperties(BaseSettings):
     pixel_size: Annotated[float, Field(gt=0), FieldUnit(suffix="nm")] | None = Field(
         default=None,
         description="Physical size of a pixel.",
-    )
-
-    scanning_area: Annotated[
-        RelativeArea | None, FormHint(widget=WidgetType.AREA_SELECT, max_areas=1)
-    ] = Field(
-        default=None,
-        description="Area to be scanned.",
     )
 
     working_distance: Annotated[float, Field(gt=0), FieldUnit(suffix="nm")] | None = (

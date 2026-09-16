@@ -3,9 +3,10 @@
 > [!CAUTION]
 > This software is under development and many features are missing. Be cautious when using it!
 
-Software for (cryo/RT) volume-EM acquisition. It allows to acquire the big volume in constant high quality.  
+Software for (cryo/RT) volume-EM acquisition. It allows to acquire the big volume in constant high quality.
 
 Key features:
+
 - Usage of deep learning model for segmentation of region of interest. The segmented region is used for:
   - Resolution calculation ([siFRC](https://github.com/prabhatkc/siFRC) or others)
   - Autofocusing, autostigmator, auto-lens alignment (multiple criterions and sweeping strategies)
@@ -16,12 +17,9 @@ Key features:
 
 Drift correction with segmentation aid
 
-
 https://github.com/user-attachments/assets/45ff2652-db7e-494b-bb37-505d80c9be56
 
-
 FoV optimization with segmentation aid
-
 
 https://github.com/user-attachments/assets/0c56cf67-b3c6-4034-a15c-69c574f1049c
 
@@ -94,7 +92,7 @@ Use this if the microscope computer has no internet access. You will need a seco
        └── wheels\
 ```
 
-   > The `bundle` folder must sit next to the `.exe`, not inside another folder!
+> The `bundle` folder must sit next to the `.exe`, not inside another folder!
 
 7. Double-click the installer. The wizard will say that the installation will proceed using an offline bundle.
 
@@ -164,7 +162,7 @@ Use this if the microscope computer has no internet access. You will need a seco
    chmod +x fibsem-maestro-installer
 ```
 
-   You should end up with:
+You should end up with:
 
 ```
    maestro/
@@ -175,7 +173,7 @@ Use this if the microscope computer has no internet access. You will need a seco
        └── wheels/
 ```
 
-   > The `bundle` folder must sit next to the installer, not inside another folder!
+> The `bundle` folder must sit next to the installer, not inside another folder!
 
 4. Run the installer:
 
@@ -183,7 +181,7 @@ Use this if the microscope computer has no internet access. You will need a seco
    ./fibsem-maestro-installer
 ```
 
-   The wizard will say that the installation will proceed using an offline bundle.
+The wizard will say that the installation will proceed using an offline bundle.
 
 5. Follow the wizard as in the online instructions.
 
@@ -206,7 +204,7 @@ The wizard detects the existing installation and offers these options instead of
 
 **"This folder does not contain `autoscript_sdb_microscope_client`"**
 
-You selected the wrong folder. Look one level up or down from what you chose - you need the folder that *contains* `autoscript_sdb_microscope_client`, not the subfolder itself.
+You selected the wrong folder. Look one level up or down from what you chose - you need the folder that _contains_ `autoscript_sdb_microscope_client`, not the subfolder itself.
 
 **"The installer says it cannot reach GitHub"**
 
@@ -219,3 +217,22 @@ The folder was found, but Autoscript could not be loaded from it. This usually m
 **"Uninstall fails saying the folder is in use"**
 
 FIBSEM Maestro is still running. Close it and try again.
+
+---
+
+## License
+
+Copyright (C) 2024-2026 CEMCOF
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.

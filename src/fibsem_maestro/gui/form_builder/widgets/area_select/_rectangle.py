@@ -1,4 +1,4 @@
-# Released under MIT License.
+# Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
 
@@ -101,7 +101,7 @@ class ResizableRect(QGraphicsRectItem):
         Args:
             rect: The new geometry, in the item's local coordinates.
         """
-        self.setRect(rect)
+        self.setRect(self._clamped_rect(rect))
         self._update_handle_positions()
         for decoration in self._decorations:
             decoration.update(self)
@@ -135,6 +135,10 @@ class ResizableRect(QGraphicsRectItem):
         Returns:
             The handle within grab distance of `pos`, or None.
         """
+        # do not return a handle if the item is read-only
+        if self._read_only:
+            return None
+
         for h in self._handles:
             hp = h.position(self.rect())
             dx = pos.x() - hp.x()
@@ -265,7 +269,9 @@ class ResizableRect(QGraphicsRectItem):
             read_only: True to block moving and resizing and hide the handles.
         """
         self._read_only = read_only
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, not read_only)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, not read_only)
+        self.setAcceptHoverEvents(not read_only)
         self.set_handles_visible(not read_only)
 
     def restore_handles(self) -> None:
@@ -302,6 +308,40 @@ class ResizableRect(QGraphicsRectItem):
         path.addRect(self.boundingRect())
         return path
 
+    def itemChange(self, change, value):
+        if change == QGraphicsItem.GraphicsItemChange.ItemPositionChange:
+            bounds = self._scene_bounds()
+            if bounds is not None:
+                r = self.rect()
+                new_pos: QPointF = value
+                return QPointF(
+                    _clamp(
+                        new_pos.x(),
+                        bounds.left() - r.left(),
+                        bounds.right() - r.right(),
+                    ),
+                    _clamp(
+                        new_pos.y(),
+                        bounds.top() - r.top(),
+                        bounds.bottom() - r.bottom(),
+                    ),
+                )
+        return super().itemChange(change, value)
+
+    def _clamped_rect(self, rect: QRectF) -> QRectF:
+        """Clip a local-coordinate rect to the image extent, edge by edge."""
+        bounds = self._scene_bounds()
+        if bounds is None:
+            return rect
+        # pos is unchanged during a resize
+        local = self.mapRectFromScene(bounds)
+        return QRectF(
+            QPointF(max(rect.left(), local.left()), max(rect.top(), local.top())),
+            QPointF(
+                min(rect.right(), local.right()), min(rect.bottom(), local.bottom())
+            ),
+        )
+
     def _grab_margin(self) -> float:
         """
         Return the handle grab radius in local coordinates.
@@ -319,3 +359,14 @@ class ResizableRect(QGraphicsRectItem):
             if scale
             else HANDLE_RADIUS * GRAB_FACTOR
         )
+
+    def _scene_bounds(self) -> QRectF | None:
+        """Return the image extent in scene coordinates, or None if unavailable."""
+        scene = self.scene()
+        bounds = scene.sceneRect()
+        return None if bounds.isEmpty() else bounds
+
+
+def _clamp(v: float, lo: float, hi: float) -> float:
+    # hi < lo when the rect is larger than the image: pin to lo
+    return lo if hi < lo else min(max(v, lo), hi)

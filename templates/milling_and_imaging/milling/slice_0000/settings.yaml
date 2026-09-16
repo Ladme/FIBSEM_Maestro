@@ -18,6 +18,7 @@ properties_to_collect:
     - horizontal_field_width
     - working_distance
     - scanning_area
+    - beam_current
   microscope:
     - stage_position
 slice_distance: 0.0

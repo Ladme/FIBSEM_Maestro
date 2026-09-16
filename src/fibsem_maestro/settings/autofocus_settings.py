@@ -1,7 +1,8 @@
-# Released under MIT License.
+# Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
 
+from enum import Enum
 from typing import Annotated, Literal
 
 from pydantic import Field
@@ -11,7 +12,12 @@ from fibsem_maestro.imaging.imaging import Imaging
 from fibsem_maestro.properties.beam_properties import BeamProperties
 from fibsem_maestro.settings.base_settings import BaseSettings
 from fibsem_maestro.settings.criterion_settings import CriterionSettings
-from fibsem_maestro.settings.form_utils import FieldUnit, FormHint, WidgetType
+from fibsem_maestro.settings.form_utils import (
+    FieldUnit,
+    FormHint,
+    NestedUnion,
+    WidgetType,
+)
 from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.settings.sweeping_settings import SweepingSettings
 
@@ -74,12 +80,103 @@ class StepMode(BaseSettings):
     )
 
 
-class AutoscriptMode(BaseSettings):
+class AutoscriptFunctionBase(BaseSettings):
+    """
+    Base for auto-functions delegated to Autoscript's `auto_functions` API.
+
+    Attributes:
+        type: Outer discriminator. Identical for every Autoscript variant.
+    """
+
     type: Literal["autoscript"] = "autoscript"
 
 
+class AutoscriptAutoFocusMethod(Enum):
+    STANDARD = "standard"
+    VOLUMESCOPE = "volumescope"
+
+
+class AutoscriptAutoFocus(AutoscriptFunctionBase):
+    target_attribute: Literal["working_distance"] = "working_distance"
+    method: AutoscriptAutoFocusMethod = Field(
+        default=AutoscriptAutoFocusMethod.STANDARD,
+        description="Autofocus algorithm to use.",
+    )
+    working_distance_step: Annotated[
+        float | None, Field(ge=0), FieldUnit(suffix="nm")
+    ] = Field(
+        default=None,
+        description="Working distance step to use. Volumescope only; defaults if unset.",
+    )
+    number_of_frames: Annotated[int | None, Field(ge=0)] = Field(
+        default=None,
+        description="Number of frames to integrate. Volumescope only; defaults if unset.",
+    )
+    maximum_iterations: Annotated[int | None, Field(ge=0)] = Field(
+        default=None,
+        description="Max iterations for finding optimal focus. Volumescope only; defaults if unset.",
+    )
+
+
+class AutoscriptAutoStigmatorMethod(Enum):
+    STANDARD = "standard"
+    ONGETAL = "OngEtAl"
+
+
+class AutoscriptAutoStigmator(AutoscriptFunctionBase):
+    target_attribute: Literal["stigmator"] = "stigmator"
+    method: AutoscriptAutoStigmatorMethod = Field(
+        default=AutoscriptAutoStigmatorMethod.STANDARD,
+        description="Autostigmator algorithm to use.",
+    )
+    stigmation_step: Annotated[float | None, Field(ge=0)] = Field(
+        default=None,
+        description="Stigmation step to use. OngEtAl only; defaults if unset.",
+    )
+    number_of_frames: Annotated[int | None, Field(ge=0)] = Field(
+        default=None,
+        description="Number of frames to integrate. OngEtAl only; defaults if unset.",
+    )
+    maximum_iterations: Annotated[int | None, Field(ge=0)] = Field(
+        default=None,
+        description="Max iterations for finding optimal stigmator settings. OngEtAl only; defaults if unset.",
+    )
+
+
+class AutoscriptAutoLensAlignmentModulationType(Enum):
+    AUTOMATIC = "automatic"
+    HIGH_VOLTAGE = "high voltage"
+    WORKING_DISTANCE = "working distance"
+
+
+class AutoscriptAutoLensAlignment(AutoscriptFunctionBase):
+    target_attribute: Literal["lens_alignment"] = "lens_alignment"
+    modulation_type: AutoscriptAutoLensAlignmentModulationType = Field(
+        default=AutoscriptAutoLensAlignmentModulationType.AUTOMATIC,
+        description="Modulation type for lens alignment adjustment",
+    )
+    number_of_frames: Annotated[int | None, Field(ge=0)] = Field(
+        default=None,
+        description="Number of frames to integrate. Defaults if unset.",
+    )
+
+
+class AutoscriptAutoSourceTilt(AutoscriptFunctionBase):
+    target_attribute: Literal["source_tilt"] = "source_tilt"
+
+
+AutoscriptMode = Annotated[
+    AutoscriptAutoFocus
+    | AutoscriptAutoStigmator
+    | AutoscriptAutoLensAlignment
+    | AutoscriptAutoSourceTilt,
+    Field(discriminator="target_attribute"),
+    NestedUnion(label="autoscript mode", follows="target_attribute"),
+]
+
 AutofocusMode = Annotated[
-    BasicMode | LineMode | StepMode | AutoscriptMode, Field(discriminator="type")
+    BasicMode | LineMode | StepMode | AutoscriptMode,
+    Field(discriminator="type"),
 ]
 
 

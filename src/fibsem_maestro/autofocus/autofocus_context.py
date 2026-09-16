@@ -1,4 +1,4 @@
-# Released under MIT License.
+# Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
 import contextvars
@@ -18,7 +18,7 @@ from fibsem_maestro.criterion.criterion import Criterion
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.autofocus_settings import (
     AutofocusSettings,
-    AutoscriptMode,
+    AutoscriptFunctionBase,
 )
 
 
@@ -114,7 +114,7 @@ class AutofocusContext:
         def fn() -> AutofocusResult:
             def _run() -> AutofocusResult:
                 try:
-                    assert not isinstance(self.settings.mode, AutoscriptMode)
+                    assert not isinstance(self.settings.mode, AutoscriptFunctionBase)
                     criterion = Criterion(
                         self.settings.mode.criterion,
                         text_logger,

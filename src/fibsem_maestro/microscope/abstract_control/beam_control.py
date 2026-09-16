@@ -1,4 +1,4 @@
-# Released under MIT License.
+# Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
 from abc import ABC, abstractmethod
@@ -13,6 +13,7 @@ from fibsem_maestro.core.direction import Direction
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
 from fibsem_maestro.core.pattern_type import PatternType
+from fibsem_maestro.core.provenance import Provenance
 from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
@@ -31,6 +32,11 @@ class BeamControl(ABC):
     def beam_type(cls) -> BeamType:
         """Returns the beam type (electron or ion)."""
         raise NotImplementedError(f"beam_type is not implemented for {cls.__name__}")
+
+    @classmethod
+    @abstractmethod
+    def provenance(cls) -> Provenance:
+        """The convention set this beam control and files follow."""
 
     @property
     @abstractmethod
@@ -199,6 +205,21 @@ class BeamControl(ABC):
 
     @property
     @abstractmethod
+    def beam_current(self) -> float:
+        """Beam current in nA."""
+
+    @beam_current.setter
+    @abstractmethod
+    def beam_current(self, value: float) -> None:
+        """
+        Set the beam current in nA.
+
+        Args:
+            value: New beam current value in nA.
+        """
+
+    @property
+    @abstractmethod
     def scan_rotation(self) -> float:
         """Rotation of the scan in degrees."""
 
@@ -323,6 +344,16 @@ class BeamControl(ABC):
 
         Args:
             value: Scan resolution in pixels.
+        """
+
+    @abstractmethod
+    def clear_extended_resolution(self) -> None:
+        """
+        Return the beam to its native resolution handling.
+
+        Implementations that emulate resolutions the instrument does not
+        support natively discard that emulation; implementations without one
+        do nothing. Does not alter field width or beam shift.
         """
 
     @property

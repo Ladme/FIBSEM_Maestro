@@ -1,4 +1,4 @@
-# Released under MIT License.
+# Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
 from functools import cached_property
@@ -7,6 +7,7 @@ from typing import Any
 from autoscript_sdb_microscope_client.sdb_microscope_client import SdbMicroscopeClient
 
 from fibsem_maestro.core.pattern_type import PatternType
+from fibsem_maestro.core.provenance import Provenance
 from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
@@ -48,13 +49,18 @@ class AutoscriptMicroscopeControl(MicroscopeControl):
             self._txt_log.derive("ion_beam"),
         )
 
+    @classmethod
+    def provenance(cls) -> Provenance:
+        return Provenance.AUTOSCRIPT
+
     @property
     def autoscript_microscope(self) -> SdbMicroscopeClient:
         """The actual Autoscript microscope instance."""
         return self._microscope
 
     @property
-    def stage_position(self):
+    def stage_position(self) -> StagePosition:
+        # TODO: shouldn't we link back?
         self._microscope.specimen.stage.unlink()
 
         p = StagePosition.from_stage_position_autoscript(
@@ -96,6 +102,9 @@ class AutoscriptMicroscopeControl(MicroscopeControl):
         return self._manufacturer_properties.allowed()
 
     def try_set_stage_position(self, pos: StagePosition) -> StagePosition:
+        self._txt_log.debug(f"Current stage position: {self.stage_position}.")
+
+        # TODO: shouldn't we link back?
         self._microscope.specimen.stage.unlink()
         pos_autoscript = pos.to_stage_position_autoscript()
 
@@ -106,6 +115,8 @@ class AutoscriptMicroscopeControl(MicroscopeControl):
 
     def try_move_stage_position(self, delta: StagePosition) -> StagePosition:
         # TODO: shouldn't the stage be unlinked?
+        self._txt_log.debug(f"Current stage position: {self.stage_position}.")
+
         delta_autoscript = delta.to_stage_position_autoscript()
         self._microscope.specimen.stage.relative_move(delta_autoscript)
 

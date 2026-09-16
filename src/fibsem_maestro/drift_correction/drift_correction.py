@@ -1,4 +1,4 @@
-# Released under MIT License.
+# Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
 from typing import TYPE_CHECKING
@@ -137,7 +137,9 @@ class DriftCorrection(Action[DriftCorrectionSettings, DriftCorrectionState]):
                 `settings.stop_at_failure` is `True`.
         """
         if not self._is_initialized:
-            self._ctx.text_logger.debug(f"Drift correction '{self._name}' not initialized. Initializing now.")
+            self._ctx.text_logger.debug(
+                f"Drift correction '{self._name}' not initialized. Initializing now."
+            )
             # initialize the drift calculation, if needed
             self.read_and_set_properties()
             self._drift_calc.setup()

@@ -1,4 +1,4 @@
-# Released under MIT License.
+# Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
 from __future__ import annotations
@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from fibsem_maestro.core.image import Image
+    from fibsem_maestro.core.provenance import Provenance
 
 
 class MemoryFrameStore(FrameStore):
@@ -44,7 +45,8 @@ class MemoryFrameStore(FrameStore):
     def save_to_memory(self, image: Image) -> None:
         self._store[self._slice_provider()] = image
 
-    def read(self) -> Image:
+    def read(self, provenance: Provenance) -> Image:
+        _ = provenance
         idx = self._slice_provider()
         try:
             return self._store[idx]

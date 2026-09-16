@@ -1,4 +1,4 @@
-# Released under MIT License.
+# Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
 
@@ -15,6 +15,7 @@ from fibsem_maestro.core.format import ImageFormat
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
 from fibsem_maestro.core.pattern_type import PatternType
+from fibsem_maestro.core.provenance import Provenance
 from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stage_position import StagePosition
@@ -49,6 +50,7 @@ class SimulatedBeamControl(BeamControl):
         self._stigmator = Stigmator(x=0.0, y=0.0)
         self._lens_alignment = LensAlignment(x=0.0, y=0.0)  # nm
         self._beam_shift = BeamShift(x=0.0, y=0.0)  # nm
+        self._beam_current: float = 0.0  # nm
 
         self._detector_contrast = 0.5
         self._detector_brightness = 0.5
@@ -93,6 +95,10 @@ class SimulatedBeamControl(BeamControl):
             "vertical_field_width": (1_000.0, 5_000_000_000.0),
             "dwell_time": (50e-9, 10e-6),  # in s
         }
+
+    @classmethod
+    def provenance(cls) -> Provenance:
+        return Provenance.MAESTRO
 
     def limits(self, var: str) -> tuple[float, float]:
         return self._limits.get(var, (-float("inf"), float("inf")))
@@ -185,6 +191,14 @@ class SimulatedBeamControl(BeamControl):
     def source_tilt(self, value: SourceTilt) -> None:
         self._txt_log.debug(f"Setting source tilt: {value}.")
         self._source_tilt = value
+
+    @property
+    def beam_current(self) -> float:
+        return self._beam_current
+
+    @beam_current.setter
+    def beam_current(self, value: float) -> None:
+        self._beam_current = value
 
     @property
     def scan_rotation(self) -> float:
@@ -381,6 +395,9 @@ class SimulatedBeamControl(BeamControl):
         self._txt_log.debug(f"Setting resolution: {value}.")
         self._resolution = value
 
+    def clear_extended_resolution(self) -> None:
+        pass
+
     @property
     def horizontal_field_width(self) -> float:
         value = self._horizontal_field_width
@@ -405,7 +422,7 @@ class SimulatedBeamControl(BeamControl):
         pixel_size = self.pixel_size
         self.resolution = Resolution(self.resolution.width, int(value / pixel_size))
         self._txt_log.info(
-            f"Extended resolution set to: {str(self.resolution)} (via setting vertical field width)."
+            f"Resolution set to: {str(self.resolution)} (via setting vertical field width)."
         )
 
     @property

@@ -1,4 +1,4 @@
-# Released under MIT License.
+# Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
 import os
@@ -233,6 +233,9 @@ class MainWindow(QMainWindow):
                 continue
             self._stack.removeWidget(widget)
             widget.deleteLater()
+
+        # clear the panel cache
+        self._panels = {}
 
     def closeEvent(self, a0: QCloseEvent) -> None:
         _ = a0

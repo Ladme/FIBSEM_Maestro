@@ -1,11 +1,9 @@
-# Released under MIT License.
+# Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Self
-
-import tifffile
 
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.slice.slice_view import SliceView
@@ -14,6 +12,8 @@ from fibsem_maestro.store.frame.frame_store import FrameStore
 if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
+
+    from fibsem_maestro.core.provenance import Provenance
 
 
 class FileFrameStore(FrameStore):
@@ -58,12 +58,12 @@ class FileFrameStore(FrameStore):
             "path() always returns a Path. This is a bug."
         )
 
-    def read(self) -> Image:
+    def read(self, provenance: Provenance) -> Image:
         path = self._frame_path()
         if not path.exists():
             raise FileNotFoundError(f"No frame found at {path!r}")
-        with tifffile.TiffFile(path) as tif:
-            return Image.from_tiff(tif)
+
+        return Image.from_file(path, provenance)
 
     def exists(self) -> bool:
         return self._frame_path().exists()

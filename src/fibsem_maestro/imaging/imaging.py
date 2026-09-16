@@ -1,10 +1,10 @@
-# Released under MIT License.
+# Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
 
 import contextvars
 import threading
-from contextlib import ExitStack, nullcontext
+from contextlib import ExitStack
 from pathlib import Path
 
 from fibsem_maestro.action.action import Action
@@ -24,6 +24,7 @@ from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.imaging_settings import (
     ExtendedResolution,
     ImagingSettings,
+    ResolutionMode,
     StandardResolution,
 )
 from fibsem_maestro.settings.property_names import PropertyNames
@@ -32,7 +33,7 @@ from fibsem_maestro.workflow.actions import Actions
 
 
 class ImagingState(ActionState):
-    scanning_area_selected: bool = False
+    scanning_area_selected_under: str | None = None
     image_sharpness: float | None = None
 
 
@@ -41,6 +42,20 @@ class Imaging(Action[ImagingSettings, ImagingState]):
     """
     Orchestrates a single image acquisition cycle on the electron microscope.
     """
+
+    # beam properties altered by `_set_extended_resolution_props`
+    # pixel size and vertical field width are derived from horizontal field width and
+    # resolution, so restoring those two restores them as well
+    _EXTENDED_RESOLUTION_STATE: tuple[str, ...] = (
+        "beam_shift",
+        "horizontal_field_width",
+        "resolution",
+        "scanning_area",
+    )
+
+    _RESOLUTION_MODES: dict[str, type[ResolutionMode]] = {
+        cls.__name__: cls for cls in (StandardResolution, ExtendedResolution)
+    }
 
     def __init__(
         self,
@@ -56,9 +71,11 @@ class Imaging(Action[ImagingSettings, ImagingState]):
         self._ctx = ctx
         self._actions = actions
 
-        # was scanning area selected using extended resolution
+        # resolution mode the extended-resolution geometry was applied under
         # necessary to avoid shrinking the selected area in subsequent imagings
-        self._scanning_area_selected = False
+        # `None` means no selection has been made
+        # switching mode invalidates the selection
+        self._scanning_area_selected_under: type[ResolutionMode] | None = None
 
         # sharpness of the acquired image
         self._image_sharpness: float | None = None
@@ -110,12 +127,17 @@ class Imaging(Action[ImagingSettings, ImagingState]):
     @property
     def state(self) -> ImagingState:
         return ImagingState(
-            scanning_area_selected=self._scanning_area_selected,
+            scanning_area_selected_under=self._scanning_area_selected_under.__name__
+            if self._scanning_area_selected_under is not None
+            else None,
             image_sharpness=self._image_sharpness,
         )
 
     def set_state(self, state: ImagingState) -> None:
-        self._scanning_area_selected = state.scanning_area_selected
+        self._scanning_area_selected_under = self._resolution_mode_by_name(
+            state.scanning_area_selected_under
+        )
+
         self._image_sharpness = state.image_sharpness
 
         if (
@@ -131,7 +153,7 @@ class Imaging(Action[ImagingSettings, ImagingState]):
             # by loading the persisted frame and computing synchronously
             try:
                 # try to load the frame for the current slice
-                image = self._ctx.frame_store.read()
+                image = self._ctx.frame_store.read(self._microscope.provenance)
             except FileNotFoundError:
                 self._ctx.text_logger.warning(
                     f"Restoring state of '{self.name}': frame for slice {self._ctx.slice} not found, falling back to slice {self._ctx.slice - 1}."
@@ -139,7 +161,9 @@ class Imaging(Action[ImagingSettings, ImagingState]):
                 # if this fails, fall back to the previous slice
                 # this should only happen if the image successfully completes the execution,
                 # but the background thread does not finish the calculation before interrupt
-                image = self._ctx.frame_store.at(self._ctx.slice - 1).read()
+                image = self._ctx.frame_store.at(self._ctx.slice - 1).read(
+                    self._microscope.provenance
+                )
             self._last_acquired_image = image
             self._calculate_sharpness(image, self._ctx.current_view)
 
@@ -303,57 +327,105 @@ class Imaging(Action[ImagingSettings, ImagingState]):
             f"Collecting microscope properties for {self.name}."
         )
 
-        # get scanning area from the settings
-        try:
-            scanning_area = self._settings.scanning_area[0]
-        except IndexError:
-            scanning_area = None
-
-        if scanning_area:
+        scanning_area = self._first_scanning_area()
+        if scanning_area is not None:
             self._ctx.text_logger.debug(
                 f"Scanning area specified in FIBSEM Maestro: {scanning_area}."
             )
 
-        # scanning area from the settings should override the scanning area set in the microscope's GUI
-        # when using extended resolution, the scanning area must always be set via scanning_area property in settings
-        with (
-            self._microscope.set_temporary_beam_property(
-                "scanning_area",
-                scanning_area,
-                self._settings.beam_type,
-                # only set the scanning area if it is not None
-            )
-            if scanning_area is not None
-            else nullcontext(),
-        ):
-            match self._settings.resolution_mode:
-                case StandardResolution():
-                    pass
-                case ExtendedResolution() as mode:
-                    self._set_extended_resolution_props(
-                        scanning_area or self._microscope.beam.scanning_area,
-                        mode.pixel_size,
-                    )
+        match self._settings.resolution_mode:
+            case StandardResolution():
+                return self._collect_standard_properties(scanning_area)
+            case ExtendedResolution() as mode:
+                return self._collect_extended_properties(scanning_area, mode)
 
-            # collect the microscope properties
-            return self._microscope.collect_properties(
+    def _collect_standard_properties(
+        self, scanning_area: RelativeArea | None
+    ) -> GlobalProperties:
+        """
+        Collect properties in standard resolution mode.
+
+        The microscope is not altered. The scanning area configured in FIBSEM
+        Maestro replaces the one read from the instrument, so that it is applied
+        on the next slice; the remaining scan parameters are recorded as read,
+        whatever area they were set for.
+
+        Args:
+            scanning_area: Scanning area from the settings, or `None` when none
+                is configured.
+
+        Returns:
+            The collected properties.
+        """
+        # Autoscript supports only a fixed set of resolutions to be directly set for their beams,
+        # so extended resolution is emulated outside the instrument: the beam control holds
+        # the requested value and shadows what Autoscript reports
+        # standard mode must clear that emulation before collecting, or it would record the
+        # extended resolution and carry it into the next slice
+        # other vendors may set arbitrary resolutions directly, in which case this is a no-op
+        if self._scanning_area_selected_under is ExtendedResolution:
+            self._microscope.beam.clear_extended_resolution()
+
+        self._scanning_area_selected_under = StandardResolution
+
+        props = self._microscope.collect_properties(
+            self._settings.properties_to_collect
+        )
+
+        if scanning_area is not None:
+            props.set_property("scanning_area", scanning_area, self._settings.beam_type)
+
+        return props
+
+    def _collect_extended_properties(
+        self, scanning_area: RelativeArea | None, mode: ExtendedResolution
+    ) -> GlobalProperties:
+        """
+        Collect properties in extended resolution mode.
+
+        Applies the extended resolution geometry, collects the resulting
+        properties, and restores the microscope to the state it was in on entry.
+
+        The properties are collected before the restoration and before the
+        scanning area is reset, so that the scan parameters Autoscript maintains
+        separately for a reduced area are preserved rather than replaced by the
+        full-frame ones. The recorded scanning area is the full frame, since
+        beam shift and field of view take over area selection here.
+
+        Args:
+            scanning_area: Scanning area from the settings, or `None` to fall
+                back to the one currently set on the instrument.
+            mode: The extended resolution settings.
+
+        Returns:
+            The collected properties.
+        """
+        with ExitStack() as stack:
+            for name in self._EXTENDED_RESOLUTION_STATE:
+                stack.enter_context(
+                    self._microscope.set_temporary_beam_property(
+                        name,
+                        getattr(self._microscope.beam, name),
+                        self._settings.beam_type,
+                    )
+                )
+
+            self._set_extended_resolution_props(
+                scanning_area
+                if scanning_area is not None
+                else self._microscope.beam.scanning_area,
+                mode.pixel_size,
+            )
+
+            props = self._microscope.collect_properties(
                 self._settings.properties_to_collect
             )
 
-    def wait_for_sharpness(self) -> float | None:
-        """
-        Block until the background sharpness calculation finishes.
-
-        Returns:
-            The calculated sharpness value, or `None` if no criterion is
-            configured or the calculation failed.
-        """
-        if self._sharpness_thread is not None:
-            self._sharpness_thread.join()
-        return self._image_sharpness
-
-    def wait_for_background_threads(self) -> None:
-        self.wait_for_sharpness()
+        # extended resolution replaces area selection with beam shift + FOV
+        props.set_property(
+            "scanning_area", RelativeArea.full(), self._settings.beam_type
+        )
+        return props
 
     def _set_extended_resolution_props(
         self, scanning_area: RelativeArea, new_pixel_size: float
@@ -361,20 +433,25 @@ class Imaging(Action[ImagingSettings, ImagingState]):
         """
         Configure the beam for extended resolution imaging.
 
-        When a non-full-frame scanning area is configured, shifts the beam
-        to the centre of that area and resizes the field of view to match its physical dimensions.
-
-        The scanning area is always reset to full frame after the adjustment,
-        since the beam shift and FOV take over the role of area selection in
-        extended resolution mode. The pixel size is always updated to
+        When a non-full-frame scanning area is configured, shifts the beam to
+        the center of that area and resizes the field of view to match its
+        physical dimensions. The pixel size is always updated to
         `new_pixel_size`, regardless of whether a scanning area is configured.
 
+        The scanning area is deliberately left as it is: the caller collects the
+        properties before restoring it, so that the scan parameters Autoscript
+        maintains separately for a reduced area are preserved. Restoring the
+        altered beam state is the caller's responsibility.
+
         Args:
-            scanning_area: The scanning area to image.
+            scanning_area: The scanning area to image, relative to the full frame.
             new_pixel_size: The target pixel size in nanometers.
         """
         # image only the scanning area
-        if not scanning_area.is_full_frame() and not self._scanning_area_selected:
+        if (
+            not scanning_area.is_full_frame()
+            and self._scanning_area_selected_under is not ExtendedResolution
+        ):
             self._ctx.text_logger.debug(
                 "Setting scanning area using extended resolution."
             )
@@ -401,19 +478,32 @@ class Imaging(Action[ImagingSettings, ImagingState]):
             )
 
             self._microscope.add_beam_shift_with_verification(shift)
+            self._scanning_area_selected_under = ExtendedResolution
 
             # set the FOV to the scanning area
+            # HFW must be set before VFW: the VFW setter derives the new
+            # resolution from the pixel size that setting HFW has just changed
             self._microscope.beam.horizontal_field_width = area_nm.width
             self._microscope.beam.vertical_field_width = area_nm.height
-
-            self._scanning_area_selected = True
-
-        # always set scanning area to full frame
-        self._microscope.beam.scanning_area = RelativeArea.full()
 
         # set resolution based on the new pixel size
         # this is done even if scanning area is not specified
         self._microscope.beam.pixel_size = new_pixel_size
+
+    def wait_for_sharpness(self) -> float | None:
+        """
+        Block until the background sharpness calculation finishes.
+
+        Returns:
+            The calculated sharpness value, or `None` if no criterion is
+            configured or the calculation failed.
+        """
+        if self._sharpness_thread is not None:
+            self._sharpness_thread.join()
+        return self._image_sharpness
+
+    def wait_for_background_threads(self) -> None:
+        self.wait_for_sharpness()
 
     def _calculate_sharpness(self, image: Image, view: SliceView) -> None:
         """
@@ -445,3 +535,28 @@ class Imaging(Action[ImagingSettings, ImagingState]):
             text_logger.debug(f"Image sharpness: {self._image_sharpness}.")
         except Exception as e:
             text_logger.warning(f"Could not calculate image sharpness: {e}")
+
+    @classmethod
+    def _resolution_mode_by_name(cls, name: str | None) -> type[ResolutionMode] | None:
+        """
+        Resolve a persisted resolution mode name back to its type.
+
+        Args:
+            name: Class name as written by `ImagingState`, or `None` when no
+                scanning area selection has been made.
+
+        Returns:
+            The resolution mode type, or `None` if no selection was recorded.
+
+        Raises:
+            ImagingError: If the name does not correspond to a known resolution mode.
+        """
+        if name is None:
+            return None
+        try:
+            return cls._RESOLUTION_MODES[name]
+        except KeyError as e:
+            raise ImagingError(
+                f"Unknown resolution mode in persisted state: {name!r}. "
+                f"Known modes: {', '.join(cls._RESOLUTION_MODES)}."
+            ) from e

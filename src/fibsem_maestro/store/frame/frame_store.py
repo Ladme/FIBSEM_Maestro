@@ -1,4 +1,4 @@
-# Released under MIT License.
+# Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
 from __future__ import annotations
@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from fibsem_maestro.core.image import Image
+    from fibsem_maestro.core.provenance import Provenance
 
 
 class FrameStore(ABC):
@@ -47,9 +48,12 @@ class FrameStore(ABC):
         """
 
     @abstractmethod
-    def read(self) -> Image:
+    def read(self, provenance: Provenance) -> Image:
         """
         Load the frame for the current slice.
+
+        Args:
+            provenance: The provenance of the frame to load.
 
         Returns:
             The frame stored for the current slice.

@@ -1,4 +1,4 @@
-# Released under MIT License.
+# Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
 
@@ -157,7 +157,8 @@ class ConnectionScreen(QDialog):
             if answer != QMessageBox.StandardButton.Yes:
                 return
 
-        self._clear_workflow_directory()
+        if not self._clear_workflow_directory():
+            return
 
         self._workflow_context = FileActionContext(
             action_dir=self.workflow_dir / "workflow",
@@ -189,7 +190,7 @@ class ConnectionScreen(QDialog):
             QMessageBox.critical(self, "Error", f"Connection failed: {str(e)}")
             self._connect_btn.setEnabled(True)
 
-    def _clear_workflow_directory(self) -> None:
+    def _clear_workflow_directory(self) -> bool:
         """Delete all files and subdirectories inside the workflow directory."""
         assert self.workflow_dir is not None
 
@@ -210,6 +211,9 @@ class ConnectionScreen(QDialog):
                 "Error",
                 f"Could not fully clear the workflow directory.\n\n{details}",
             )
+            return False
+
+        return True
 
     def _connect_resume(self) -> None:
         """Load workflow and attempt connection to the microscope."""

@@ -24,6 +24,7 @@ properties_to_collect:
     - horizontal_field_width
     - scanning_area
     - working_distance
+    - beam_current
   microscope:
     - stage_position
 stop_at_failure: true

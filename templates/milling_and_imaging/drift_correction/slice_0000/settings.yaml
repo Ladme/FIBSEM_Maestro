@@ -25,6 +25,7 @@ properties_to_collect:
     - horizontal_field_width
     - working_distance
     - scanning_area
+    - beam_current
   ion_beam: []
   microscope:
     - stage_position

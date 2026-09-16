@@ -1,10 +1,9 @@
-# Released under MIT License.
+# Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
 import math
 import time
 from abc import abstractmethod
-from pathlib import Path
 from typing import Any, Generic, TypeVar
 
 from autoscript_sdb_microscope_client.enumerations import (
@@ -29,6 +28,7 @@ from fibsem_maestro.core.direction import Direction
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
 from fibsem_maestro.core.pattern_type import PatternType
+from fibsem_maestro.core.provenance import Provenance
 from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
@@ -80,6 +80,10 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         # fallback for scanning area
         # only used if the linked Autoscript version does not support getting reduced_area via scanning.mode
         self._scanning_area: RelativeArea = RelativeArea.full()
+
+    @classmethod
+    def provenance(cls) -> Provenance:
+        return Provenance.AUTOSCRIPT
 
     @property
     @abstractmethod
@@ -220,29 +224,19 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
 
         path = frame_store.path() if frame_store is not None else None
 
-        try:
+        # if a physical frame store is provided, then always frab frame to disk since we want to store it anyway
+        # the previous pathway using `imaging.grab_frame` and storing it using the `AdornedImage.save` method
+        # failed to store image metadata in the TIFF file for whatever reason
+        if path is not None:
+            self._microscope.imaging.grab_frame_to_disk(
+                str(path), ImageFileFormat.TIFF, imaging_settings
+            )
+            image = Image.from_autoscript(AdornedImage.load(str(path)))
+        else:
             grabbed = self._microscope.imaging.grab_frame(imaging_settings)
             image = Image.from_autoscript(grabbed)
-            if path is not None:
-                grabbed.save(str(path))
-            elif frame_store is not None:
+            if frame_store is not None:
                 frame_store.save_to_memory(image)
-        # the `grab_frame` method can fail if the image is too large
-        # if that happens, we grab the image to disk and then load it to memory
-        except Exception as e:
-            self._txt_log.warning(f"Grab frame error: {e}. Grabbing image to disk.")
-            tmp = path or Path("_temp_frame.tif")
-            self._microscope.imaging.grab_frame_to_disk(
-                str(tmp), ImageFileFormat.TIFF, imaging_settings
-            )
-            grabbed = AdornedImage.load(str(tmp))
-            image = Image.from_autoscript(grabbed)
-
-            if path is None:
-                tmp.unlink()
-
-                if frame_store is not None:
-                    frame_store.save_to_memory(image)
 
         self._txt_log.info("Image grabbed.")
         return image
@@ -401,11 +395,16 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
                 f"Setting standard resolution to ({self._modality}): {resolution}."
             )
             self._beam.scanning.resolution.value = resolution
+            self._extended_resolution = None
             return
         self._txt_log.debug(
             f"Setting extended resolution to ({self._modality}): {resolution}."
         )
+        # extended resolution cannot be set directly to the beam
         self._extended_resolution = value
+
+    def clear_extended_resolution(self) -> None:
+        self._extended_resolution = None
 
     @property
     def extended_resolution(self) -> Resolution | None:
@@ -501,11 +500,6 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
 
     @scanning_area.setter
     def scanning_area(self, value: RelativeArea) -> None:
-        # copy dwell and resolution to reduced area scanning mode
-        # TODO: why is this needed?
-        backup_dwell = self.dwell_time
-        backup_res = self.resolution
-
         if value.is_full_frame():
             self._txt_log.debug(f"Disabling scanning area ({self._modality}).")
             try:
@@ -529,8 +523,16 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         # fallback for older Autoscript versions
         self._scanning_area = value
 
-        self.dwell_time = backup_dwell
-        self.resolution = backup_res
+    @property
+    def beam_current(self) -> float:
+        current = self._beam.beam_current.value * 1e9
+        self._txt_log.debug(f"Getting beam current ({self._modality}): {current} nA.")
+        return current
+
+    @beam_current.setter
+    def beam_current(self, value: float) -> None:
+        self._txt_log.debug(f"Setting beam current ({self._modality}): {value} nA.")
+        self._beam.beam_current.value = value * 1e-9
 
     @property
     def minimal_dwell(self) -> float:

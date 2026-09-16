@@ -1,4 +1,4 @@
-# Released under MIT License.
+# Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
 
@@ -7,6 +7,7 @@ from functools import cached_property
 from typing import Any
 
 from fibsem_maestro.core.pattern_type import PatternType
+from fibsem_maestro.core.provenance import Provenance
 from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
@@ -32,6 +33,11 @@ class MicroscopeControl(ABC):
                 If None, the default port is used.
             txt_log: Logger for diagnostic and status messages.
         """
+
+    @classmethod
+    @abstractmethod
+    def provenance(cls) -> Provenance:
+        """The convention set this microscope control and files follow."""
 
     @property
     @abstractmethod

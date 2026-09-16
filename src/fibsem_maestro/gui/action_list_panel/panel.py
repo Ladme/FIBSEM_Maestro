@@ -1,8 +1,9 @@
-# Released under MIT License.
+# Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
 
 import contextlib
+import copy
 import shutil
 from pathlib import Path
 from typing import cast
@@ -26,6 +27,7 @@ from fibsem_maestro.gui.action_list_panel._action_item import ActionItemWidget
 from fibsem_maestro.gui.action_list_panel._add_action import AddActionDialog
 from fibsem_maestro.gui.app_state import AppState
 from fibsem_maestro.gui.workflow_manager import WorkflowManager
+from fibsem_maestro.settings.base_settings import BaseSettings
 from fibsem_maestro.workflow.actions import Actions
 
 
@@ -90,9 +92,12 @@ class ActionListPanel(QWidget):
 
         # populate from existing workflow actions
         self._rebuild(self._manager.workflow.actions)
+
+        # connect signals
         self._manager.actions_changed.connect(self._rebuild)
         self._manager.new_workflow.connect(self._on_new_workflow)
         self._manager.action_finished.connect(self._on_action_finished)
+        self._manager.workflow_reset.connect(self._on_workflow_reset)
 
     def _on_new_workflow(self, workflow_dir: Path) -> None:
         """Update the action list if a new workflow is opened."""
@@ -133,11 +138,17 @@ class ActionListPanel(QWidget):
             if (item := self._item_widget(i)) is not None
         }
 
-    def _build_action(self, type_key: str, name: str, slice_number: int) -> Action:
+    def _build_action(
+        self,
+        type_key: str,
+        name: str,
+        slice_number: int,
+        init_settings: BaseSettings | None = None,
+    ) -> Action:
         """Construct a new Action from the registry with default settings."""
         action_cls = ACTION_REGISTRY.get(type_key)
         settings_cls = action_cls.settings_cls()
-        settings = settings_cls()
+        settings = init_settings or settings_cls()
 
         action = action_cls(
             name=name,
@@ -190,6 +201,14 @@ class ActionListPanel(QWidget):
     def _on_selection_changed(self, row: int) -> None:
         widget = self._item_widget(row)
         self.action_selected.emit(widget.action if widget is not None else None)
+
+    def _on_workflow_reset(self) -> None:
+        self._active_action = None
+        # set all action widgets to inactive
+        for i in range(self._list.count()):
+            w = self._item_widget(i)
+            if w is not None:
+                w.set_active(False)
 
     def _on_rows_moved(
         self,
@@ -277,7 +296,10 @@ class ActionListPanel(QWidget):
             key for key in ACTION_REGISTRY if ACTION_REGISTRY.get(key) is type(action)
         )
         new_action = self._build_action(
-            type_key, new_name, self._manager.workflow.ctx.slice
+            type_key,
+            new_name,
+            self._manager.workflow.ctx.slice,
+            copy.deepcopy(action.settings),
         )
         self._manager.workflow.actions.append(new_action)
         self._append_item(new_action)

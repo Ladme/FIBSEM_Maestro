@@ -5,11 +5,11 @@ max_workers: 4
 mode:
   criterion:
     area:
-    - height: 1.0
-      origin:
-        x: 0.0
-        y: 0.0
-      width: 1.0
+      - height: 1.0
+        origin:
+          x: 0.0
+          y: 0.0
+        width: 1.0
     calculation_mode:
       type: basic
     detail:
@@ -23,28 +23,29 @@ mode:
   sweeping:
     cycles: 1
     range:
-    - 0.0
-    - 0.0
+      - 0.0
+      - 0.0
     steps: 3
     strategy:
       type: basic
   type: basic
 properties_to_collect:
   electron_beam:
-  - stigmator
-  - lens_alignment
-  - beam_shift
-  - detector_contrast
-  - detector_brightness
-  - source_tilt
-  - line_integration
-  - dwell_time
-  - bit_depth
-  - resolution
-  - horizontal_field_width
-  - working_distance
-  - scanning_area
+    - stigmator
+    - lens_alignment
+    - beam_shift
+    - detector_contrast
+    - detector_brightness
+    - source_tilt
+    - line_integration
+    - dwell_time
+    - bit_depth
+    - resolution
+    - horizontal_field_width
+    - working_distance
+    - scanning_area
+    - beam_current
   ion_beam: []
   microscope:
-  - stage_position
+    - stage_position
 target_attribute: working_distance

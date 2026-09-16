@@ -1,4 +1,4 @@
-# Released under MIT License.
+# Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
 
@@ -78,6 +78,7 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         self._last_pixmap: QPixmap | None = None
         self._pending_regions: list[RelativeArea] = default or []
         self._expanded = False
+        self._read_only = False
 
         self._overlays: list[tuple[AreaOverlay, OverlayData]] = []
         self._pixel_size: float | None = None
@@ -292,16 +293,24 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         """
         if self._image_size is None:
             return
+
         w, h = self._image_size
-        rect = QRectF(
-            area.origin.x * w,
-            area.origin.y * h,
-            area.width * w,
-            area.height * h,
+        bounds = QRectF(0, 0, w, h)
+        rect = ResizableRect(
+            bounds.intersected(
+                QRectF(
+                    area.origin.x * w,
+                    area.origin.y * h,
+                    area.width * w,
+                    area.height * h,
+                )
+            ),
+            on_edit_finished=self._handle_edit_finished,
         )
-        self._scene.addItem(
-            ResizableRect(rect, on_edit_finished=self._handle_edit_finished)
-        )
+
+        rect.set_read_only(self._read_only)
+
+        self._scene.addItem(rect)
         self._update_thumbnail()
 
     def _clear_rects(self) -> None:
@@ -399,6 +408,8 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         Args:
             read_only: True to freeze area editing and image loading.
         """
+        self._read_only = read_only
+
         self._load_btn.setEnabled(not read_only)
         # toggle stays enabled: collapse/expand is navigation, not editing
         self._viewer.set_read_only(read_only)
