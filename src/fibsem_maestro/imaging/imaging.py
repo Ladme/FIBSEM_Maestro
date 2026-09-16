@@ -24,6 +24,7 @@ from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.imaging_settings import (
     ExtendedResolution,
     ImagingSettings,
+    ResolutionMode,
     StandardResolution,
 )
 from fibsem_maestro.settings.property_names import PropertyNames
@@ -32,7 +33,7 @@ from fibsem_maestro.workflow.actions import Actions
 
 
 class ImagingState(ActionState):
-    scanning_area_selected: bool = False
+    scanning_area_selected_under: str | None = None
     image_sharpness: float | None = None
 
 
@@ -52,6 +53,10 @@ class Imaging(Action[ImagingSettings, ImagingState]):
         "scanning_area",
     )
 
+    _RESOLUTION_MODES: dict[str, type[ResolutionMode]] = {
+        cls.__name__: cls for cls in (StandardResolution, ExtendedResolution)
+    }
+
     def __init__(
         self,
         name: str,
@@ -66,9 +71,11 @@ class Imaging(Action[ImagingSettings, ImagingState]):
         self._ctx = ctx
         self._actions = actions
 
-        # was scanning area selected using extended resolution
+        # resolution mode the extended-resolution geometry was applied under
         # necessary to avoid shrinking the selected area in subsequent imagings
-        self._scanning_area_selected = False
+        # `None` means no selection has been made
+        # switching mode invalidates the selection
+        self._scanning_area_selected_under: type[ResolutionMode] | None = None
 
         # sharpness of the acquired image
         self._image_sharpness: float | None = None
@@ -120,12 +127,17 @@ class Imaging(Action[ImagingSettings, ImagingState]):
     @property
     def state(self) -> ImagingState:
         return ImagingState(
-            scanning_area_selected=self._scanning_area_selected,
+            scanning_area_selected_under=self._scanning_area_selected_under.__name__
+            if self._scanning_area_selected_under is not None
+            else None,
             image_sharpness=self._image_sharpness,
         )
 
     def set_state(self, state: ImagingState) -> None:
-        self._scanning_area_selected = state.scanning_area_selected
+        self._scanning_area_selected_under = self._resolution_mode_by_name(
+            state.scanning_area_selected_under
+        )
+
         self._image_sharpness = state.image_sharpness
 
         if (
@@ -345,6 +357,8 @@ class Imaging(Action[ImagingSettings, ImagingState]):
         Returns:
             The collected properties.
         """
+        self._scanning_area_selected_under = StandardResolution
+
         props = self._microscope.collect_properties(
             self._settings.properties_to_collect
         )
@@ -425,7 +439,10 @@ class Imaging(Action[ImagingSettings, ImagingState]):
             new_pixel_size: The target pixel size in nanometers.
         """
         # image only the scanning area
-        if not scanning_area.is_full_frame() and not self._scanning_area_selected:
+        if (
+            not scanning_area.is_full_frame()
+            and self._scanning_area_selected_under is not ExtendedResolution
+        ):
             self._ctx.text_logger.debug(
                 "Setting scanning area using extended resolution."
             )
@@ -452,7 +469,7 @@ class Imaging(Action[ImagingSettings, ImagingState]):
             )
 
             self._microscope.add_beam_shift_with_verification(shift)
-            self._scanning_area_selected = True
+            self._scanning_area_selected_under = ExtendedResolution
 
             # set the FOV to the scanning area
             # HFW must be set before VFW: the VFW setter derives the new
@@ -509,3 +526,28 @@ class Imaging(Action[ImagingSettings, ImagingState]):
             text_logger.debug(f"Image sharpness: {self._image_sharpness}.")
         except Exception as e:
             text_logger.warning(f"Could not calculate image sharpness: {e}")
+
+    @classmethod
+    def _resolution_mode_by_name(cls, name: str | None) -> type[ResolutionMode] | None:
+        """
+        Resolve a persisted resolution mode name back to its type.
+
+        Args:
+            name: Class name as written by `ImagingState`, or `None` when no
+                scanning area selection has been made.
+
+        Returns:
+            The resolution mode type, or `None` if no selection was recorded.
+
+        Raises:
+            ImagingError: If the name does not correspond to a known resolution mode.
+        """
+        if name is None:
+            return None
+        try:
+            return cls._RESOLUTION_MODES[name]
+        except KeyError as e:
+            raise ImagingError(
+                f"Unknown resolution mode in persisted state: {name!r}. "
+                f"Known modes: {', '.join(cls._RESOLUTION_MODES)}."
+            ) from e
