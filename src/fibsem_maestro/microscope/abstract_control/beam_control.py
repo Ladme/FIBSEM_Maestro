@@ -346,6 +346,16 @@ class BeamControl(ABC):
             value: Scan resolution in pixels.
         """
 
+    @abstractmethod
+    def clear_extended_resolution(self) -> None:
+        """
+        Return the beam to its native resolution handling.
+
+        Implementations that emulate resolutions the instrument does not
+        support natively discard that emulation; implementations without one
+        do nothing. Does not alter field width or beam shift.
+        """
+
     @property
     @abstractmethod
     def horizontal_field_width(self) -> float:

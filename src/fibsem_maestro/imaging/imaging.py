@@ -357,6 +357,15 @@ class Imaging(Action[ImagingSettings, ImagingState]):
         Returns:
             The collected properties.
         """
+        # Autoscript supports only a fixed set of resolutions to be directly set for their beams,
+        # so extended resolution is emulated outside the instrument: the beam control holds
+        # the requested value and shadows what Autoscript reports
+        # standard mode must clear that emulation before collecting, or it would record the
+        # extended resolution and carry it into the next slice
+        # other vendors may set arbitrary resolutions directly, in which case this is a no-op
+        if self._scanning_area_selected_under is ExtendedResolution:
+            self._microscope.beam.clear_extended_resolution()
+
         self._scanning_area_selected_under = StandardResolution
 
         props = self._microscope.collect_properties(

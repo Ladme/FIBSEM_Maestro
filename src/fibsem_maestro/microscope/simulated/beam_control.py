@@ -395,6 +395,9 @@ class SimulatedBeamControl(BeamControl):
         self._txt_log.debug(f"Setting resolution: {value}.")
         self._resolution = value
 
+    def clear_extended_resolution(self) -> None:
+        pass
+
     @property
     def horizontal_field_width(self) -> float:
         value = self._horizontal_field_width
@@ -419,7 +422,7 @@ class SimulatedBeamControl(BeamControl):
         pixel_size = self.pixel_size
         self.resolution = Resolution(self.resolution.width, int(value / pixel_size))
         self._txt_log.info(
-            f"Extended resolution set to: {str(self.resolution)} (via setting vertical field width)."
+            f"Resolution set to: {str(self.resolution)} (via setting vertical field width)."
         )
 
     @property

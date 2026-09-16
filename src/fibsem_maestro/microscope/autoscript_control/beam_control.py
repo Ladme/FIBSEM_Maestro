@@ -403,6 +403,9 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         # extended resolution cannot be set directly to the beam
         self._extended_resolution = value
 
+    def clear_extended_resolution(self) -> None:
+        self._extended_resolution = None
+
     @property
     def extended_resolution(self) -> Resolution | None:
         return self._extended_resolution

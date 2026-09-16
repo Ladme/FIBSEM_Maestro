@@ -176,6 +176,9 @@ class MockBeamControl(BeamControl):
     def resolution(self, value: Resolution) -> None:
         self._resolution = value
 
+    def clear_extended_resolution(self) -> None:
+        pass
+
     @property
     def horizontal_field_width(self) -> float:
         return self._horizontal_field_width
