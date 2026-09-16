@@ -481,14 +481,16 @@ class AutoscriptMode(AutofocusMode):
                 settings = RunAutoFocusSettings(
                     reduced_area=reduced_area  # ty:ignore[invalid-argument-type]
                 )
-            case AutoscriptAutoFocusMethod.VOLUMESCOPE:
-                # TODO: shouldn't volumescope use secondary electrons?
 
+                autoscript_microscope.auto_functions.run_auto_focus(settings)
+
+            case AutoscriptAutoFocusMethod.VOLUMESCOPE:
                 wd_step_as = (
                     mode.working_distance_step * 1e-9
                     if mode.working_distance_step is not None
                     else None
                 )
+
                 settings = RunAutoFocusSettings(
                     method="Volumescope",
                     dwell_time=beam.dwell_time,
@@ -502,7 +504,8 @@ class AutoscriptMode(AutofocusMode):
                     working_distance_step=wd_step_as,  # ty:ignore[invalid-argument-type]
                 )
 
-        autoscript_microscope.auto_functions.run_auto_focus(settings)
+                with self._secondary_electrons(autoscript_microscope):
+                    autoscript_microscope.auto_functions.run_auto_focus(settings)
 
     def _run_autostigmator(
         self,
