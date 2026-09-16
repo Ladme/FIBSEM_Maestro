@@ -13,6 +13,7 @@ import numpy as np
 
 from fibsem_maestro.autofocus.error import AutofocusError
 from fibsem_maestro.autofocus.sweep_step import SweepStep
+from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.image_tools import get_stripes
 from fibsem_maestro.core.registry import Registry
 from fibsem_maestro.microscope.autoscript_control.microscope_control import (
@@ -102,7 +103,9 @@ class BasicMode(AutofocusMode):
         if (sweeping := ctx.sweeping) is None:
             raise AutofocusError("Sweeping for basic mode autofocus is not defined.")
 
-        with ctx.temporary_stage_x_offset():
+        with ctx.microscope.add_temporary_beam_shift(
+            BeamShift(x=ctx.settings.delta_x, y=0.0)
+        ):
             for sweep in sweeping.sweep():
                 ctx.ctx.text_logger.info(
                     f"Autofunction step {sweep.index + 1} "
@@ -129,7 +132,9 @@ class LineMode(AutofocusMode):
         if (sweeping := ctx.sweeping) is None:
             raise AutofocusError("Sweeping for line mode autofocus is not defined.")
 
-        with ctx.temporary_stage_x_offset():
+        with ctx.microscope.add_temporary_beam_shift(
+            BeamShift(x=ctx.settings.delta_x, y=0.0)
+        ):
             line_time = self._estimate_line_time(ctx)
 
             # generate sweep steps once so both acquisition and processing see the same steps
@@ -437,7 +442,9 @@ class AutoscriptMode(AutofocusMode):
             ctx.microscope.control.autoscript_microscope
         )
 
-        with ctx.temporary_stage_x_offset():
+        with ctx.microscope.add_temporary_beam_shift(
+            BeamShift(x=ctx.settings.delta_x, y=0.0)
+        ):
             match ctx.settings.mode:
                 case AutoscriptAutoFocus() as mode:
                     self._run_autofocus(ctx, mode, autoscript_microscope)

@@ -418,3 +418,60 @@ class Microscope:
                 setattr(beam_control, property, backup)
             except Exception as e:
                 self._txt_log.warning(f"Could not restore property {property}: {e}")
+
+    @contextmanager
+    def add_temporary_beam_shift(
+        self, offset: BeamShift, beam: BeamControl | None = None
+    ) -> Iterator[None]:
+        """
+        Temporarily shift the beam by the specified offset.
+
+        Args:
+            offset: The offset to shift the beam by.
+
+        Yields:
+            None: Control is yielded to the caller with the beam shifted.
+        """
+        self.add_beam_shift_with_verification(offset, beam)
+        self._txt_log.debug(
+            f"Temporarily shifting beam by x = {offset.x}, y = {offset.y}."
+        )
+
+        try:
+            yield
+        finally:
+            try:
+                restore = offset.inverted()
+                self._txt_log.debug(
+                    f"Restoring beam shift. Changing by x = {restore.x}, y = {restore.y}."
+                )
+                self.add_beam_shift_with_verification(restore, beam)
+            except Exception as e:
+                self._txt_log.warning(f"Could not restore beam shift: {e}")
+
+    @contextmanager
+    def add_temporary_stage_offset(self, offset: StagePosition) -> Iterator[None]:
+        """
+        Temporarily move the stage by the specified offset.
+
+        Yields:
+            None: Control is yielded to the caller with the stage displaced.
+        """
+        # move the stage away
+        self.move_stage_position_with_verification(offset)
+        self._txt_log.info(
+            f"Temporarily moving stage by x = {offset.x}, y = {offset.y}, z = {offset.z}, rotation = {offset.rotation}, tilt = {offset.tilt}."
+        )
+
+        try:
+            yield
+        finally:
+            try:
+                restore = offset.inverted()
+                self._txt_log.debug(
+                    "Restoring stage position. "
+                    f"Changing by x = {restore.x}, y = {restore.y}, z = {restore.z}, rotation = {restore.rotation}, tilt = {restore.tilt}."
+                )
+                self.move_stage_position_with_verification(restore)
+            except Exception as e:
+                self._txt_log.warning(f"Could not restore stage position: {e}")
