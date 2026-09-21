@@ -446,7 +446,7 @@ def test_reactive_dict_parent_event_does_not_propagate_to_children():
     assert ctr_c.count == 0
 
 
-def test_reactive_dict_ultiple_hooks_fire_in_order():
+def test_reactive_dict_multiple_hooks_fire_in_order():
     d = ReactiveDict()
     c1 = HookCounter()
     c2 = HookCounter()
@@ -864,3 +864,13 @@ def test_deep_mixed_reactive_structure_propagation():
 
     assert ctr_leaf_a.calls == []  # sibling leaf
     assert ctr_extra_dict.calls == []  # unrelated dict
+
+
+def test_reactive_model_parent_write_is_visible_on_read():
+    p = Parent(child=Child(value=0))
+    c = Child(value=1)
+
+    c._parent = p
+
+    assert c.__pydantic_private__["_parent"] is p  # ty: ignore[not-subscriptable]
+    assert c._parent is p

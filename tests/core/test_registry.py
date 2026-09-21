@@ -2,11 +2,14 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
-from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 import pytest
 
 from fibsem_maestro.core.registry import Registry, RegistryError
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 def test_register_and_get_class() -> None:

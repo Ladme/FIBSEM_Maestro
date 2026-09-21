@@ -1,6 +1,8 @@
 # Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
+from __future__ import annotations
+
 from collections.abc import Callable, Hashable, Iterable
 from typing import Any, Generic, Self, SupportsIndex, TypeVar
 
@@ -15,12 +17,12 @@ class ReactiveNode:
     A `ReactiveNode` participates in a hierarchical tree of reactive objects.
     Each node maintains:
 
-    - A reference to its parent node (or `None` if it is the root)
+    - A reference to its parent node (which is `None` if it is the root)
     - A list of change hooks (callbacks) that should fire when the node or any
       of its reactive descendants is modified
     """
 
-    _parent: "ReactiveNode | None" = None
+    _parent: ReactiveNode | None
     _hooks: list[Callable[[Self], None]]
 
     def __init__(self):
@@ -65,7 +67,7 @@ class ReactiveModel(BaseModel, ReactiveNode):
     """
 
     _hooks: list[Callable] = PrivateAttr(default_factory=list)
-    _parent: "ReactiveNode | None" = PrivateAttr(default=None)
+    _parent: ReactiveNode | None = PrivateAttr(default=None)
 
     def __init__(self, **data: Any):
         """
