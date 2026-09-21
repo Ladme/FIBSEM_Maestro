@@ -26,6 +26,7 @@ from fibsem_maestro.gui.action_list_panel._action_item import ActionItemWidget
 from fibsem_maestro.gui.action_list_panel._add_action import AddActionDialog
 from fibsem_maestro.gui.app_state import AppState
 from fibsem_maestro.gui.workflow_manager import WorkflowManager
+from fibsem_maestro.logging.text.file import close_all_log_files
 from fibsem_maestro.settings.base_settings import BaseSettings
 from fibsem_maestro.workflow.actions import Actions
 
@@ -288,6 +289,7 @@ class ActionListPanel(QWidget):
         self._manager.notify_actions_changed()
 
         action_dir = self._workflow_dir / action.name_with_underscores
+        close_all_log_files()
         try:
             shutil.rmtree(action_dir)
         except FileNotFoundError:
