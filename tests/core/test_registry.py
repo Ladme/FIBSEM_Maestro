@@ -256,3 +256,48 @@ def test_validate_as_pydantic_after_validator() -> None:
 
     with pytest.raises(Exception, match="Unknown color 'green'"):
         Config(color="green")
+
+
+def test_key_of_returns_registration_key() -> None:
+    registry: Registry[type] = Registry("thing")
+
+    @registry.register("foo")
+    class Foo:
+        pass
+
+    assert registry.key_of(Foo) == "foo"
+
+
+def test_key_of_returns_key_for_add() -> None:
+    registry: Registry[Callable[..., int]] = Registry("operation")
+
+    def double(x: int) -> int:
+        return x * 2
+
+    registry.add("double", double)
+
+    assert registry.key_of(double) == "double"
+
+
+def test_key_of_unregistered_object_raises() -> None:
+    registry: Registry[type] = Registry("widget")
+
+    @registry.register("known")
+    class Known:
+        pass
+
+    class Unknown:
+        pass
+
+    with pytest.raises(RegistryError, match="is not registered in the widget registry"):
+        registry.key_of(Unknown)
+
+
+def test_key_of_on_empty_registry_raises() -> None:
+    registry: Registry[type] = Registry("widget")
+
+    class Anything:
+        pass
+
+    with pytest.raises(RegistryError, match="is not registered"):
+        registry.key_of(Anything)
