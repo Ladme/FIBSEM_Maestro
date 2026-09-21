@@ -231,8 +231,9 @@ class LineMode(AutofocusMode):
         assert isinstance(mode, LineModeSettings)
         assert ctx.sweeping is not None
 
-        pre_delay = mode.pre_imaging_delay
-        hold = mode.lines_per_sweep * line_time  # in ns
+        pre_delay = mode.pre_imaging_delay  # in s
+        hold = mode.lines_per_sweep * line_time * 1e-9  # in s
+        ctx.ctx.text_logger.debug(f"Hold time per sweep value: {hold} s")
 
         ctx.microscope.beam.start_acquisition()
         try:
@@ -245,16 +246,16 @@ class LineMode(AutofocusMode):
                 with ctx.microscope.beam.total_blanked():
                     if repetition == 0 and pre_delay > 0:
                         time.sleep(pre_delay)
-                    time.sleep(hold * 1e-9)
+                    time.sleep(hold)
 
                 # acquire part of the stripe with each sweep value
                 for sweep in steps:
                     ctx.sweeping.set_attribute_value(sweep.value)
-                    time.sleep(hold * 1e-9)
+                    time.sleep(hold)
 
             # create a final dark separator band
             with ctx.microscope.beam.total_blanked():
-                time.sleep(hold * 1e-9)
+                time.sleep(hold)
 
         finally:
             ctx.microscope.beam.stop_acquisition()
