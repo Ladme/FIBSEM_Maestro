@@ -71,7 +71,7 @@ def logging_context(logger: TextLogger) -> Generator[None, None, None]:
         reset_current_logger(token)
 
 
-def with_logging_context(method: Callable[..., Any]):
+def with_logging_context(method: Callable[..., Any]) -> Callable[..., Any]:
     """
     Decorator that runs a method inside a `logging_context` for `self.ctx.text_logger`.
 
@@ -88,7 +88,7 @@ def with_logging_context(method: Callable[..., Any]):
     """
 
     @functools.wraps(method)
-    def wrapper(self, *args, **kwargs):
+    def wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
         with logging_context(self.ctx.text_logger):
             return method(self, *args, **kwargs)
 

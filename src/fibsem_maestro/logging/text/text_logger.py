@@ -1,6 +1,7 @@
 # Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
+from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from typing import Self
@@ -74,7 +75,7 @@ class TextLogger(ABC):
         """
 
     @abstractmethod
-    def at(self, slice_index: int) -> Self:
+    def at(self, slice_index: int) -> TextLogger:
         """
         Return a view of this logger scoped to a specific slice.
 
@@ -105,7 +106,7 @@ class TextLogger(ABC):
         """
 
     @property
-    def next(self) -> Self:
+    def next(self) -> TextLogger:
         """
         Return a view of this logger scoped to the next slice.
 
