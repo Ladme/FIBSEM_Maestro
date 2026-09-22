@@ -6,6 +6,10 @@ from pathlib import Path
 from typing import Any
 
 
+class SerializerError(Exception):
+    """Raised when a file cannot be deserialized into the expected structure."""
+
+
 class Serializer(ABC):
     """
     Abstract base class defining a bidirectional serialization interface.
