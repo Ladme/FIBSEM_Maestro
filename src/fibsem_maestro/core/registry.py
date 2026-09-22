@@ -3,9 +3,10 @@
 
 
 from collections.abc import Callable, Iterator
-from typing import Generic, TypeVar
+from typing import Generic, TypeVar, cast
 
 T = TypeVar("T")
+TObj = TypeVar("TObj")
 
 
 class RegistryError(Exception):
@@ -42,7 +43,7 @@ class Registry(Generic[T]):
             )
         self._entries[key] = obj
 
-    def register(self, key: str) -> Callable[[T], T]:
+    def register(self, key: str) -> Callable[[TObj], TObj]:
         """
         Decorator that registers an object under the given name.
 
@@ -57,8 +58,8 @@ class Registry(Generic[T]):
             RegistryError: If the name is already registered.
         """
 
-        def decorator(obj: T) -> T:
-            self.add(key, obj)
+        def decorator(obj: TObj) -> TObj:
+            self.add(key, cast("T", obj))
             return obj
 
         return decorator

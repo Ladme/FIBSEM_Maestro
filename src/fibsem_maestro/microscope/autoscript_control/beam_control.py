@@ -161,12 +161,12 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
     def blank(self) -> None:
         self.select_modality()
         self._txt_log.debug(f"Blanking beam ({self._modality}).")
-        self._beam.blank()  # ty:ignore[invalid-argument-type]
+        self._beam.blank()
 
     def unblank(self) -> None:
         self.select_modality()
         self._txt_log.debug(f"Unblanking beam ({self._modality}).")
-        self._beam.unblank()  # ty:ignore[invalid-argument-type]
+        self._beam.unblank()
 
     def start_acquisition(self):
         self.select_modality()

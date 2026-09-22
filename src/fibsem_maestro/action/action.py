@@ -31,14 +31,14 @@ TState = TypeVar("TState", bound=ActionState)
 
 class Action(ABC, Generic[TSettings, TState]):
     @classmethod
-    def settings_cls(cls) -> type[BaseSettings]:
+    def settings_cls(cls) -> type[TSettings]:
         """
         Class used for the action's settings.
         """
         raise NotImplementedError(f"settings_type not implemented for {cls.__name__}")
 
     @classmethod
-    def state_cls(cls) -> type[ActionState]:
+    def state_cls(cls) -> type[TState]:
         """
         Class used for the action's state.
         """

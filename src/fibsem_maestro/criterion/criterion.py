@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -296,10 +296,7 @@ class Criterion:
         Returns:
             A SharpnessMap with the same spatial dimensions as full_image.
         """
-        sharpness_map = cast(
-            "SharpnessMap",
-            np.zeros_like(full_image, dtype=np.float64).view(SharpnessMap),
-        )
+        sharpness_map = np.zeros_like(full_image, dtype=np.float64).view(SharpnessMap)
 
         for sharpness, tile in zip(sharpnesses, tiles):
             sharpness_map[

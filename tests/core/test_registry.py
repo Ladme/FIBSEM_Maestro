@@ -301,3 +301,67 @@ def test_key_of_on_empty_registry_raises() -> None:
 
     with pytest.raises(RegistryError, match="is not registered"):
         registry.key_of(Anything)
+
+
+def test_register_does_not_wrap_decorated_object() -> None:
+    registry: Registry[Callable[..., int]] = Registry("operation")
+
+    def _original(x: int) -> int:
+        """Original docstring."""
+        return x
+
+    decorated = registry.register("op")(_original)
+
+    assert decorated is _original
+    assert decorated.__name__ == "_original"
+    assert decorated.__doc__ == "Original docstring."
+
+
+def test_duplicate_registration_leaves_original_entry_intact() -> None:
+    """A rejected registration must not overwrite or half-write the entry."""
+    registry: Registry[type] = Registry("thing")
+
+    @registry.register("dup")
+    class First:
+        pass
+
+    class Second:
+        pass
+
+    with pytest.raises(RegistryError):
+        registry.add("dup", Second)
+
+    assert registry.get("dup") is First
+    assert len(registry) == 1
+    assert registry.key_of(First) == "dup"
+
+
+def test_key_of_matches_by_identity_not_equality() -> None:
+    class AlwaysEqual:
+        def __eq__(self, other: object) -> bool:
+            _ = other
+            return True
+
+        def __hash__(self) -> int:
+            return 0
+
+    registry: Registry[object] = Registry("widget")
+    registered = AlwaysEqual()
+    impostor = AlwaysEqual()
+
+    registry.add("real", registered)
+
+    assert registered == impostor
+    assert registry.key_of(registered) == "real"
+    with pytest.raises(RegistryError, match="is not registered"):
+        registry.key_of(impostor)
+
+
+def test_falsy_values_are_registered_normally() -> None:
+    registry: Registry[int] = Registry("constant")
+    registry.add("zero", 0)
+
+    assert "zero" in registry
+    assert registry.get("zero") == 0
+    assert registry.key_of(0) == "zero"
+    assert len(registry) == 1
