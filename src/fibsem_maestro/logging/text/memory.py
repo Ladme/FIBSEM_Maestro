@@ -87,6 +87,9 @@ class MemoryTextLogger(TextLogger):
     def debug(self, msg: str) -> None:
         self._append("debug", msg)
 
+    def exception(self, msg: str) -> None:
+        self._append("exception", msg)
+
     def derive(self, name: str) -> Self:
         """Create a child logger sharing the same record store.
 

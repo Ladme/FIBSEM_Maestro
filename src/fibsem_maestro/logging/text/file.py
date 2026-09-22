@@ -4,8 +4,8 @@
 from __future__ import annotations
 
 import logging
+import sys
 import weakref
-from logging import FileHandler
 from typing import TYPE_CHECKING, Self
 
 from fibsem_maestro.logging.text.text_logger import TextLogger
@@ -13,6 +13,7 @@ from fibsem_maestro.logging.text.text_logger import TextLogger
 if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
+    from types import TracebackType
 
     from fibsem_maestro.slice.slice_view import SliceView
 
@@ -38,14 +39,12 @@ class FileTextLogger(TextLogger):
         level: Logging level. Defaults to `logging.INFO`.
     """
 
-    _FORMAT = "%(asctime)s [%(name)s] %(levelname)s: %(message)s"
-
     def __init__(
         self,
         view_provider: Callable[[], SliceView],
         name: str,
         filename: str = "run.log",
-        level: int = logging.INFO,
+        level: int = logging.DEBUG,
         *,
         _root: _FileTextLoggerRoot | None = None,
     ) -> None:
@@ -54,13 +53,28 @@ class FileTextLogger(TextLogger):
         self._filename = filename
         self._level = level
         self._root = (
-            _root
-            if _root is not None
-            else _FileTextLoggerRoot(view_provider, filename, level)
+            _root if _root is not None else _FileTextLoggerRoot(filename, level)
         )
 
-    def _emit(self, level: int, msg: str) -> None:
-        handler = self._root.get_handler()
+    def _emit(
+        self,
+        level: int,
+        msg: str,
+        exc_info: tuple[type[BaseException], BaseException, TracebackType]
+        | None = None,
+    ) -> None:
+        """
+        Write a record to the current slice's log file.
+
+        Args:
+            level: The `logging` level of the record.
+            msg: The message to log.
+            exc_info: Exception triple to render after the message, or None.
+        """
+        if level < self._level:
+            return
+
+        handler = self._root.get_handler(self._view_provider())
         record = logging.LogRecord(
             name=self._name,
             level=level,
@@ -68,9 +82,9 @@ class FileTextLogger(TextLogger):
             lineno=0,
             msg=msg,
             args=(),
-            exc_info=None,
+            exc_info=exc_info,
         )
-        handler.emit(record)
+        handler.handle(record)
 
     def info(self, msg: str) -> None:
         self._emit(logging.INFO, msg)
@@ -80,6 +94,10 @@ class FileTextLogger(TextLogger):
 
     def error(self, msg: str) -> None:
         self._emit(logging.ERROR, msg)
+
+    def exception(self, msg: str) -> None:
+        exc_info = sys.exc_info()
+        self._emit(logging.ERROR, msg, None if exc_info[0] is None else exc_info)
 
     def debug(self, msg: str) -> None:
         self._emit(logging.DEBUG, msg)
@@ -117,33 +135,15 @@ class FileTextLogger(TextLogger):
         Returns:
             A `FileTextLogger` writing to the given slice directory.
         """
-        fixed = self._view_provider().__class__(
-            self._view_provider().action_dir, slice_index
-        )
+        view = self._view_provider()
+        fixed = type(view)(view.action_dir, slice_index)
+
         return type(self)(
             lambda: fixed,
             self._name,
             self._filename,
             self._level,
-        )
-
-    @property
-    def next(self) -> Self:
-        """
-        Return a view of this logger scoped to the next slice.
-
-        Returns:
-            A `FileTextLogger` writing to the slice after the current one.
-        """
-        next_index = self._view_provider().slice_index + 1
-        fixed = self._view_provider().__class__(
-            self._view_provider().action_dir, next_index
-        )
-        return type(self)(
-            lambda: fixed,
-            self._name,
-            self._filename,
-            self._level,
+            _root=self._root,
         )
 
     @property
@@ -151,7 +151,6 @@ class FileTextLogger(TextLogger):
         return self._view_provider().slice_index
 
     def close(self) -> None:
-        """Close this logger's file handler (shared by all derived loggers)."""
         self._root.close()
 
 
@@ -178,39 +177,37 @@ class _FileTextLoggerRoot:
     # be garbage-collected normally instead of being pinned here
     _instances: weakref.WeakSet[_FileTextLoggerRoot] = weakref.WeakSet()
 
-    def __init__(
-        self,
-        view_provider: Callable[[], SliceView],
-        filename: str,
-        level: int,
-    ) -> None:
-        self._view_provider = view_provider
+    def __init__(self, filename: str, level: int) -> None:
         self._filename = filename
         self._level = level
         self._active_path: Path | None = None
         self._active_handler: logging.FileHandler | None = None
         _FileTextLoggerRoot._instances.add(self)
 
-    def get_handler(self) -> FileHandler:
+    def get_handler(self, view: SliceView) -> logging.FileHandler:
         """
-        Return a `FileHandler` for the current slice, rotating if needed.
+        Return a `FileHandler` for the given slice, rotating if needed.
+
+        Args:
+            view: The slice view whose directory the handler writes into.
 
         Returns:
-            An open `FileHandler` pointed at the active slice log file.
+            An open `FileHandler` pointed at that slice's log file.
         """
-        path = self._view_provider().path() / self._filename
-        if path != self._active_path:
-            if self._active_handler is not None:
-                self._active_handler.close()
-            handler = logging.FileHandler(path)
-            handler.setLevel(self._level)
-            handler.setFormatter(logging.Formatter(self._FORMAT))
-            self._active_handler = handler
-            self._active_path = path
-        # at this point, there is always an active handler
-        # it has either been set in this method or has been set previously
-        assert self._active_handler
-        return self._active_handler
+        path = view.path() / self._filename
+
+        if self._active_handler is not None and path == self._active_path:
+            return self._active_handler
+
+        if self._active_handler is not None:
+            self._active_handler.close()
+
+        handler = logging.FileHandler(path)
+        handler.setLevel(self._level)
+        handler.setFormatter(logging.Formatter(self._FORMAT))
+        self._active_handler = handler
+        self._active_path = path
+        return handler
 
     def close(self) -> None:
         """

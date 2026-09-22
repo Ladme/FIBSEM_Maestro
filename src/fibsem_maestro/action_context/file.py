@@ -49,7 +49,7 @@ class FileActionContext(ActionContext):
         name: str,
         slice: int = 0,
         log_filename: str = "run.log",
-        log_level: int = logging.INFO,
+        log_level: int = logging.DEBUG,
         frames_directory_name: str = "frames",
     ) -> None:
         self._action_dir = action_dir

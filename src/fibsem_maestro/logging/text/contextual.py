@@ -47,6 +47,9 @@ class ContextualTextLogger(TextLogger):
     def debug(self, msg: str) -> None:
         self._active().debug(msg)
 
+    def exception(self, msg: str) -> None:
+        self._active().exception(msg)
+
     def derive(self, name: str) -> Self:
         """
         Create a child logger that appends `name` to the active logger's name.
