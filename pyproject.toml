@@ -27,6 +27,7 @@ dynamic = ["version"]
 [dependency-groups]
 dev = [
     "codecov>=2.1.13",
+    "pre-commit>=4.6.2",
     "pytest>=9.0.1",
     "pytest-cov>=7.1.0",
     "ruff>=0.14.6",
