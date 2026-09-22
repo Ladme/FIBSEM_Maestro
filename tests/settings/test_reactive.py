@@ -2,6 +2,8 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
+from typing import Literal
+
 from fibsem_maestro.settings.reactive import (
     ReactiveDict,
     ReactiveList,
@@ -874,3 +876,310 @@ def test_reactive_model_parent_write_is_visible_on_read():
 
     assert c.__pydantic_private__["_parent"] is p  # ty: ignore[not-subscriptable]
     assert c._parent is p
+
+
+class PatchChild(ReactiveModel):
+    a: int | None = None
+    b: int | None = None
+
+
+class PatchParent(ReactiveModel):
+    child: PatchChild | None = None
+    name: str | None = None
+    tags: ReactiveList | None = None
+
+
+class PatchGrandParent(ReactiveModel):
+    parent: PatchParent | None = None
+
+
+def test_patch_applies_non_none_fields():
+    model = PatchParent(name="original")
+
+    model.patch(PatchParent(name="updated"))
+
+    assert model.name == "updated"
+
+
+def test_patch_skips_none_fields():
+    model = PatchParent(name="original")
+
+    model.patch(PatchParent(name=None))
+
+    assert model.name == "original"
+
+
+def test_patch_cannot_clear_a_field():
+    model = PatchParent(name="original")
+
+    model.patch(PatchParent())
+
+    assert model.name == "original"
+
+
+def test_patch_applies_falsy_values():
+    """Only None is skipped - 0 and '' are real values."""
+    model = PatchParent(name="original")
+    child = PatchChild(a=5)
+
+    model.patch(PatchParent(name=""))
+    child.patch(PatchChild(a=0))
+
+    assert model.name == ""
+    assert child.a == 0
+
+
+def test_patch_recurses_into_nested_models():
+    model = PatchParent(child=PatchChild(a=1, b=2))
+
+    model.patch(PatchParent(child=PatchChild(a=99)))
+
+    assert model.child is not None
+    assert model.child.a == 99
+    assert model.child.b == 2
+
+
+def test_patch_keeps_nested_model_identity():
+    """Nested models are patched in place, not replaced, so existing hooks survive."""
+    model = PatchParent(child=PatchChild(a=1))
+    original_child = model.child
+
+    model.patch(PatchParent(child=PatchChild(a=9)))
+
+    assert model.child is original_child
+
+
+def test_patch_does_not_adopt_the_nested_model_of_other():
+    source = PatchParent(child=PatchChild(a=1))
+    target = PatchParent(child=PatchChild(a=2))
+
+    target.patch(source)
+
+    assert target.child is not source.child
+    assert source.child is not None
+    assert source.child._parent is source
+
+
+def test_patch_recurses_through_two_levels():
+    model = PatchGrandParent(
+        parent=PatchParent(name="keep", child=PatchChild(a=1, b=2))
+    )
+
+    model.patch(PatchGrandParent(parent=PatchParent(child=PatchChild(a=9))))
+
+    assert model.parent is not None
+    assert model.parent.child is not None
+    assert model.parent.child.a == 9
+    assert model.parent.child.b == 2
+    assert model.parent.name == "keep"
+
+
+def test_patch_reparents_children():
+    model = PatchParent(child=PatchChild(a=1))
+
+    model.patch(PatchParent(child=PatchChild(a=5)))
+
+    assert model.child is not None
+    assert model.child._parent is model
+
+
+def test_patch_fires_hooks_once_for_a_flat_patch():
+    model = PatchParent(name="original", child=PatchChild(a=1))
+    ctr = HookCounter()
+    model.on_change(ctr.hook)
+
+    model.patch(PatchParent(name="updated"))
+
+    assert ctr.count == 1
+    assert ctr.calls == [model]
+
+
+def test_patch_fires_hooks_even_when_nothing_changes():
+    """An all-None patch still emits; callers must tolerate a no-op event."""
+    model = PatchParent(name="original")
+    ctr = HookCounter()
+    model.on_change(ctr.hook)
+
+    model.patch(PatchParent())
+
+    assert ctr.count == 1
+
+
+def test_patch_fires_nested_hooks_on_the_patched_child():
+    model = PatchParent(child=PatchChild(a=1))
+    ctr = HookCounter()
+    assert model.child is not None
+    model.child.on_change(ctr.hook)
+
+    model.patch(PatchParent(child=PatchChild(a=9)))
+
+    assert ctr.count == 1
+    assert ctr.calls == [model.child]
+
+
+def test_patch_fires_root_hooks_once_regardless_of_depth():
+    model = PatchGrandParent(parent=PatchParent(child=PatchChild(a=1)))
+    ctr = HookCounter()
+    model.on_change(ctr.hook)
+
+    model.patch(PatchGrandParent(parent=PatchParent(child=PatchChild(a=9))))
+
+    assert ctr.count == 1
+    assert ctr.calls == [model]
+
+
+def test_patch_creates_nested_model_when_target_field_is_none():
+    model = PatchParent(child=None)
+
+    model.patch(PatchParent(child=PatchChild(a=1)))
+
+    assert model.child is not None
+    assert model.child.a == 1
+    assert model.child._parent is model
+
+
+def test_patch_created_nested_model_is_not_shared_with_source():
+    source = PatchParent(child=PatchChild(a=1))
+    target = PatchParent(child=None)
+
+    target.patch(source)
+
+    assert target.child is not source.child
+
+
+def test_patch_copies_non_model_containers():
+    source = PatchParent(tags=ReactiveList([1, 2]))
+    target = PatchParent(tags=ReactiveList([9]))
+
+    target.patch(source)
+
+    assert target.tags is not None
+    assert source.tags is not None
+    assert list(target.tags) == [1, 2]
+    assert target.tags is not source.tags
+    assert source.tags._parent is source
+
+
+def test_patch_copied_container_does_not_inherit_source_hooks():
+    source = PatchParent(tags=ReactiveList([1, 2]))
+    ctr = HookCounter()
+    assert source.tags is not None
+    source.tags.on_change(ctr.hook)
+    target = PatchParent(tags=ReactiveList([9]))
+
+    target.patch(source)
+    assert target.tags is not None
+    target.tags.append(3)
+
+    assert ctr.count == 0
+
+
+def test_patch_fires_nested_hooks_exactly_once():
+    model = PatchGrandParent(parent=PatchParent(child=PatchChild(a=1)))
+    ctr_parent = HookCounter()
+    ctr_child = HookCounter()
+    assert model.parent is not None
+    assert model.parent.child is not None
+    model.parent.on_change(ctr_parent.hook)
+    model.parent.child.on_change(ctr_child.hook)
+
+    model.patch(PatchGrandParent(parent=PatchParent(child=PatchChild(a=9))))
+
+    assert ctr_parent.count == 1
+    assert ctr_child.count == 1
+
+
+def test_patch_creates_nested_model_with_required_fields():
+    """`model_construct` sidesteps the no-default-constructor problem."""
+
+    class Required(ReactiveModel):
+        kind: Literal["imaging"]
+        dwell_time_ns: int = 100
+
+    class Holder(ReactiveModel):
+        action: Required | None = None
+
+    target = Holder(action=None)
+
+    target.patch(Holder(action=Required(kind="imaging", dwell_time_ns=50)))
+
+    assert target.action is not None
+    assert target.action.kind == "imaging"
+    assert target.action.dwell_time_ns == 50
+    assert target.action._parent is target
+
+
+def test_patch_copies_models_held_in_a_container():
+    class Action(ReactiveModel):
+        dwell_time_ns: int = 100
+
+    class Pipeline(ReactiveModel):
+        actions: ReactiveList | None = None
+
+    source = Pipeline(actions=ReactiveList([Action(dwell_time_ns=50)]))
+    target = Pipeline(actions=ReactiveList([]))
+
+    target.patch(source)
+
+    assert target.actions is not None
+    assert source.actions is not None
+    assert target.actions[0].dwell_time_ns == 50
+    assert target.actions[0] is not source.actions[0]
+
+
+def test_patch_leaves_source_container_items_parented_to_the_source():
+    class Action(ReactiveModel):
+        dwell_time_ns: int = 100
+
+    class Pipeline(ReactiveModel):
+        actions: ReactiveList | None = None
+
+    source = Pipeline(actions=ReactiveList([Action(dwell_time_ns=50)]))
+    target = Pipeline(actions=ReactiveList([]))
+
+    target.patch(source)
+
+    assert source.actions is not None
+    assert source.actions[0]._parent is source.actions
+
+
+def test_patch_copied_container_items_do_not_inherit_source_hooks():
+    class Action(ReactiveModel):
+        dwell_time_ns: int = 100
+
+    class Pipeline(ReactiveModel):
+        actions: ReactiveList | None = None
+
+    source = Pipeline(actions=ReactiveList([Action(dwell_time_ns=50)]))
+    ctr = HookCounter()
+    assert source.actions is not None
+    source.actions[0].on_change(ctr.hook)
+    target = Pipeline(actions=ReactiveList([]))
+
+    target.patch(source)
+    assert target.actions is not None
+    target.actions[0].dwell_time_ns = 99
+
+    assert ctr.count == 0
+
+
+def test_patch_copies_models_nested_inside_container_items():
+    class Inner(ReactiveModel):
+        value: int = 1
+
+    class Action(ReactiveModel):
+        inner: Inner | None = None
+
+    class Pipeline(ReactiveModel):
+        actions: ReactiveList | None = None
+
+    source = Pipeline(actions=ReactiveList([Action(inner=Inner(value=5))]))
+    target = Pipeline(actions=ReactiveList([]))
+
+    target.patch(source)
+
+    assert target.actions is not None
+    assert source.actions is not None
+    assert target.actions[0].inner.value == 5
+    assert target.actions[0].inner is not source.actions[0].inner
+    assert target.actions[0].inner._parent is target.actions[0]

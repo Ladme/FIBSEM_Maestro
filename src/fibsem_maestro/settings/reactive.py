@@ -44,16 +44,17 @@ class ReactiveNode:
         """
         self._hooks.append(hook)
 
-    def _call_hooks(self):
-        """
-        Invoke hooks on this node and all ancestor nodes, bottom-up.
-        """
-        node = self
-
+    def _call_hooks(self) -> None:
+        """Invoke hooks on this node and all ancestor nodes, bottom-up."""
+        node: ReactiveNode | None = self
         while node is not None:
-            for hook in node._hooks:
-                hook(node)
+            node._call_local_hooks()
             node = node._parent
+
+    def _call_local_hooks(self) -> None:
+        """Invoke hooks registered on this node only, without notifying ancestors."""
+        for hook in self._hooks:
+            hook(self)
 
 
 class ReactiveModel(BaseModel, ReactiveNode):
@@ -101,27 +102,65 @@ class ReactiveModel(BaseModel, ReactiveNode):
 
         self._call_hooks()
 
-    def patch(self, other: Self):
+    def patch(self, other: Self) -> None:
         """
         Partially update this instance from another, skipping None fields.
 
         Only fields that are not None in `other` are applied to `self`.
-        Fields that are None in `other` retain their current value.
+        Fields that are None in `other` retain their current value. Nested
+        reactive models are patched in place, so their identity and their
+        registered hooks are preserved.
+
+        Hooks on each patched node fire exactly once, and the ancestor chain
+        is notified exactly once, regardless of nesting depth.
 
         Args:
             other: Another instance whose non-None values replace this one's.
+
+        Raises:
+            ValueError: If a nested field is None on `self` and the
+                corresponding model on `other` cannot be constructed from
+                defaults.
         """
+        patched = self._patch_fields(other)
+
+        propagate_parent(self, self)
+
+        for node in patched:
+            node._call_local_hooks()
+        self._call_hooks()
+
+    def _patch_fields(self, other: Self) -> list[ReactiveModel]:
+        """
+        Apply non-None fields of `other` to `self` without firing any hooks.
+
+        Nested models already present on `self` are patched in place, keeping
+        their identity and hooks. Everything else is copied, so `self` and
+        `other` never share reactive state.
+
+        Returns:
+            The nested models that were patched in place, excluding `self`,
+            in depth-first order.
+        """
+        patched: list[ReactiveModel] = []
+
         for field in type(self).model_fields:
             value = getattr(other, field)
             if value is None:
                 continue
-            if isinstance(value, ReactiveModel):
-                getattr(self, field).patch(value)
-            else:
-                object.__setattr__(self, field, value)
 
-        propagate_parent(self, self)
-        self._call_hooks()
+            if isinstance(value, ReactiveModel):
+                current = getattr(self, field)
+                if current is None:
+                    # nothing to patch into, and nothing is subscribed to it yet
+                    object.__setattr__(self, field, _reactive_copy(value))
+                    continue
+                patched.append(current)
+                patched.extend(current._patch_fields(value))
+            else:
+                object.__setattr__(self, field, _reactive_copy(value))
+
+        return patched
 
     def __setattr__(self, name: str, value: Any):
         """
@@ -339,3 +378,32 @@ def propagate_parent(parent: ReactiveNode, value: Any):
 
     elif isinstance(value, ReactiveNode):
         value._parent = parent
+
+
+def _reactive_copy(value: Any) -> Any:
+    """
+    Return a copy of a reactive value that shares no state with the original.
+
+    Reactive models and containers are rebuilt so the copy has its own hooks
+    and parent pointer; every other value is returned unchanged. Models are
+    rebuilt with `model_construct`, which skips validation - callers must pass
+    values that have already been validated.
+
+    Args:
+        value: The value to copy.
+
+    Returns:
+        An independent copy for reactive models and containers, otherwise the value itself.
+    """
+    if isinstance(value, ReactiveModel):
+        return type(value).model_construct(
+            **{
+                name: _reactive_copy(getattr(value, name))
+                for name in type(value).model_fields
+            }
+        )
+    if isinstance(value, ReactiveList):
+        return type(value)(_reactive_copy(item) for item in value)
+    if isinstance(value, ReactiveDict):
+        return type(value)({key: _reactive_copy(v) for key, v in value.items()})
+    return value
