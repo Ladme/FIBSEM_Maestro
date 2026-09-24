@@ -130,6 +130,9 @@ class FileActionContext(ActionContext):
         if dir.exists():
             raise FileExistsError(f"Target action directory already exists: {dir}")
 
-        self._action_dir.rename(dir)
+        # only rename if the current action directory exists
+        if self._action_dir.exists():
+            self._action_dir.rename(dir)
+
         self._action_dir = dir
         self._current_view = self._make_view(self._current_view.slice_index)
