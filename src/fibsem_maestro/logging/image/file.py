@@ -2,11 +2,13 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 import re
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Self
 
 import matplotlib as mpl
+from matplotlib.figure import Figure
 
 from fibsem_maestro.logging.image.plot_element import Curve, PlotElement, VerticalLine
 from fibsem_maestro.slice.slice_view import SliceView
@@ -61,21 +63,20 @@ class FileImageLogger(ImageLogger):
                 `VerticalLineOverlay`, and `HeatmapOverlay`. Unsupported types are silently skipped.
             title: Optional title rendered above the image.
         """
-        fig, ax = plt.subplots()
-        ax.imshow(img, cmap="gray")
+        with self._figure() as (fig, ax):
+            ax.imshow(img, cmap="gray")
 
-        if overlays:
-            self._draw_overlays(ax, overlays)
+            if overlays:
+                self._draw_overlays(ax, overlays)
 
-        if title:
-            ax.set_title(title)
+            if title:
+                ax.set_title(title)
 
-        ax.axis("off")
-        fig.tight_layout()
+            ax.axis("off")
+            fig.tight_layout()
 
-        out_path = self._unique_path(self._view_provider().path() / filename)
-        fig.savefig(out_path, dpi=100)
-        plt.close(fig)
+            out_path = self._unique_path(self._view_provider().path() / filename)
+            fig.savefig(out_path, dpi=100)
 
     def save_plot(
         self,
@@ -95,43 +96,41 @@ class FileImageLogger(ImageLogger):
             xlabel: Optional x-axis label.
             ylabel: Optional y-axis label.
         """
-        fig, ax = plt.subplots()
-
-        for element in elements:
-            match element:
-                case Curve():
-                    if element.x is None:
-                        ax.plot(
-                            element.y,
+        with self._figure() as (fig, ax):
+            for element in elements:
+                match element:
+                    case Curve():
+                        if element.x is None:
+                            ax.plot(
+                                element.y,
+                                color=element.color,
+                                linewidth=element.linewidth,
+                            )
+                        else:
+                            ax.plot(
+                                element.x,
+                                element.y,
+                                color=element.color,
+                                linewidth=element.linewidth,
+                            )
+                    case VerticalLine():
+                        ax.axvline(
+                            x=element.x,
                             color=element.color,
                             linewidth=element.linewidth,
                         )
-                    else:
-                        ax.plot(
-                            element.x,
-                            element.y,
-                            color=element.color,
-                            linewidth=element.linewidth,
-                        )
-                case VerticalLine():
-                    ax.axvline(
-                        x=element.x,
-                        color=element.color,
-                        linewidth=element.linewidth,
-                    )
 
-        if title:
-            ax.set_title(title)
-        if xlabel:
-            ax.set_xlabel(xlabel)
-        if ylabel:
-            ax.set_ylabel(ylabel)
+            if title:
+                ax.set_title(title)
+            if xlabel:
+                ax.set_xlabel(xlabel)
+            if ylabel:
+                ax.set_ylabel(ylabel)
 
-        fig.tight_layout()
+            fig.tight_layout()
 
-        out_path = self._unique_path(self._view_provider().path() / filename)
-        fig.savefig(out_path, dpi=100)
-        plt.close(fig)
+            out_path = self._unique_path(self._view_provider().path() / filename)
+            fig.savefig(out_path, dpi=100)
 
     def _draw_overlays(self, ax: Axes, overlays: Sequence[Overlay]) -> None:
         """
@@ -139,33 +138,41 @@ class FileImageLogger(ImageLogger):
 
         Args:
             ax: The axes to draw onto.
-            overlays: Sequence of overlay definitions. Unsupported types are silently skipped.
+            overlays: Sequence of overlay definitions.
+
+        Raises:
+            TypeError: If an overlay's type has no renderer defined.
         """
         for overlay in overlays:
-            if isinstance(overlay, RectangleOverlay):
-                ax.add_patch(
-                    Rectangle(
-                        (overlay.x, overlay.y),
-                        overlay.width,
-                        overlay.height,
-                        fill=False,
-                        edgecolor=overlay.color,
-                        linewidth=overlay.linewidth,
-                        alpha=overlay.alpha,
+            match overlay:
+                case RectangleOverlay():
+                    ax.add_patch(
+                        Rectangle(
+                            (overlay.x, overlay.y),
+                            overlay.width,
+                            overlay.height,
+                            fill=False,
+                            edgecolor=overlay.color,
+                            linewidth=overlay.linewidth,
+                            alpha=overlay.alpha,
+                        )
                     )
-                )
-            elif isinstance(overlay, PolylineOverlay):
-                xs = [p.x for p in overlay.points]
-                ys = [p.y for p in overlay.points]
-                ax.plot(xs, ys, color=overlay.color, linewidth=overlay.linewidth)
-            elif isinstance(overlay, VerticalLineOverlay):
-                ax.axvline(
-                    x=overlay.x,
-                    color=overlay.color,
-                    linewidth=overlay.linewidth,
-                )
-            elif isinstance(overlay, HeatmapOverlay):
-                ax.imshow(overlay.data, cmap="hot", alpha=overlay.alpha)
+                case PolylineOverlay():
+                    xs = [p.x for p in overlay.points]
+                    ys = [p.y for p in overlay.points]
+                    ax.plot(xs, ys, color=overlay.color, linewidth=overlay.linewidth)
+                case VerticalLineOverlay():
+                    ax.axvline(
+                        x=overlay.x,
+                        color=overlay.color,
+                        linewidth=overlay.linewidth,
+                    )
+                case HeatmapOverlay():
+                    ax.imshow(overlay.data, cmap="hot", alpha=overlay.alpha)
+                case _:
+                    raise TypeError(
+                        f"Unsupported overlay type: {type(overlay).__name__}."
+                    )
 
     def at(self, slice_index: int) -> Self:
         """
@@ -200,25 +207,31 @@ class FileImageLogger(ImageLogger):
     @staticmethod
     def _unique_path(path: Path) -> Path:
         """
-        Return a unique path by appending or incrementing a numeric suffix.
+        Return the requested path, or a numbered variant if it is taken.
 
-        Scans the parent directory for files sharing the same stem, regardless
-        of extension, and returns a path with a numeric suffix one above the
-        current maximum. If no conflicting files exist the original path is
-        returned unchanged.
+        The requested path is returned unchanged whenever nothing occupies it,
+        so a caller-supplied number such as `sweep_3.png` is honoured. On a
+        real collision, the trailing `_N` is stripped and the directory is
+        scanned for files sharing that stem and extension; the returned path
+        carries a number one above the highest found. Directories and files
+        with other extensions are ignored, and gaps in the numbering are not
+        filled.
 
         Args:
             path: The desired output path.
 
         Returns:
-            The original path if no conflict exists, otherwise a path of the
-            form `<stem>_N<suffix>` where `N` is one greater than the
-            highest conflicting index found.
+            The original path if it is free, otherwise a path of the form `<stem>_N<suffix>`.
         """
+        if not path.exists():
+            return path
+
         clean_stem = re.sub(r"_\d+$", "", path.stem)
 
         nums: list[int] = []
         for p in path.parent.iterdir():
+            if not p.is_file() or p.suffix != path.suffix:
+                continue
             if p.stem == clean_stem:
                 nums.append(1)
             elif p.stem.startswith(clean_stem + "_"):
@@ -230,3 +243,18 @@ class FileImageLogger(ImageLogger):
             return path
 
         return path.with_name(f"{clean_stem}_{max(nums) + 1}{path.suffix}")
+
+    @staticmethod
+    @contextmanager
+    def _figure() -> Iterator[tuple[Figure, Axes]]:
+        """
+        Yield a fresh Matplotlib figure and axes, closing the figure on exit.
+
+        Yields:
+            The figure and its axes.
+        """
+        fig, ax = plt.subplots()
+        try:
+            yield fig, ax
+        finally:
+            plt.close(fig)
