@@ -18,6 +18,17 @@ class SliceView:
     """
 
     def __init__(self, action_dir: Path, slice_index: int) -> None:
+        """
+        Args:
+            action_dir: The action's root directory.
+            slice_index: The index of the slice this view addresses.
+
+        Raises:
+            ValueError: If `slice_index` is negative.
+        """
+        if slice_index < 0:
+            raise ValueError(f"Slice index must not be negative, got {slice_index}.")
+
         self._action_dir = action_dir
         self._slice_index = slice_index
 

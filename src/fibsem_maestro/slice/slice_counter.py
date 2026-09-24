@@ -13,9 +13,17 @@ class SliceCounter:
 
     Args:
         initial: Starting value. Defaults to `0` so that the first call to `advance` yields slice `1`.
+
+    Raises:
+        ValueError: If `initial` is negative.
     """
 
     def __init__(self, initial: int = 0) -> None:
+        if initial < 0:
+            raise ValueError(
+                f"Initial slice index must not be negative, got {initial}."
+            )
+
         self._value = initial
         self._lock = threading.Lock()
 
