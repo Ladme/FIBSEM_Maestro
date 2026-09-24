@@ -180,6 +180,29 @@ class ReactiveModel(BaseModel, ReactiveNode):
         """
         propagate_parent(self, self)
 
+    def __eq__(self, other: object) -> bool:
+        """
+        Compare by field values, ignoring reactive bookkeeping.
+
+        Pydantic's default compares private attributes too, which for a
+        reactive model means comparing `_parent` - and that walks back up to
+        the object being compared, recursing without end. Registered hooks are
+        likewise not part of a model's value.
+
+        Args:
+            other: The object to compare against.
+
+        Returns:
+            True if `other` is the same class and holds equal field values.
+        """
+        if other.__class__ is not self.__class__:
+            return NotImplemented
+
+        return (
+            self.__dict__ == other.__dict__
+            and self.__pydantic_extra__ == other.__pydantic_extra__
+        )
+
 
 K = TypeVar("K", bound=Hashable)
 T = TypeVar("T", bound=Any)

@@ -4,6 +4,7 @@
 
 import shutil
 from collections.abc import Callable
+from pathlib import Path
 from typing import Self
 
 from fibsem_maestro.serializer.yaml_serializer import YamlSerializer
@@ -26,11 +27,12 @@ class FileSettingsStore(SettingsStore):
     def __init__(self, view_provider: Callable[[], SliceView]) -> None:
         self._view_provider = view_provider
 
-    def _path(self, filename: str):
-        return self._view_provider().path() / filename
+    def _path(self, filename: str) -> Path:
+        """Resolve a filename in the current slice directory, without creating it."""
+        return self._view_provider().expected_path / filename
 
     def write(self, filename: str, settings: BaseSettings) -> None:
-        settings.to_file(self._path(filename), SerializerCls=YamlSerializer)
+        settings.to_file(self._view_provider().path() / filename)
 
     def read(self, filename: str, cls: type[BaseSettings]) -> BaseSettings:
         path = self._path(filename)
@@ -44,7 +46,9 @@ class FileSettingsStore(SettingsStore):
         if not src.exists():
             raise FileNotFoundError(f"No settings file found at {src!r}")
 
-        target = to._path(filename)
+        target = to._view_provider().path() / filename
+        if src == target:
+            return
 
         shutil.copy(src, target)
 

@@ -4,6 +4,7 @@
 
 import shutil
 from collections.abc import Callable
+from pathlib import Path
 from typing import Self
 
 import yaml
@@ -27,12 +28,13 @@ class FileStateStore(StateStore):
     def __init__(self, view_provider: Callable[[], SliceView]) -> None:
         self._view_provider = view_provider
 
-    def _path(self, filename: str):
-        return self._view_provider().path() / filename
+    def _path(self, filename: str) -> Path:
+        """Resolve a filename in the current slice directory, without creating it."""
+        return self._view_provider().expected_path / filename
 
     def write(self, filename: str, state: ActionState) -> None:
-        with self._path(filename).open("w") as f:
-            yaml.safe_dump(state.model_dump(), f)
+        with (self._view_provider().path() / filename).open("w") as f:
+            yaml.safe_dump(state.model_dump(mode="json"), f)
 
     def read(self, filename: str, cls: type[ActionState]) -> ActionState:
         path = self._path(filename)
@@ -47,7 +49,9 @@ class FileStateStore(StateStore):
         if not src.exists():
             raise FileNotFoundError(f"No state file found at {src!r}")
 
-        target = to._path(filename)
+        target = to._view_provider().path() / filename
+        if src == target:
+            return
 
         shutil.copy(src, target)
 

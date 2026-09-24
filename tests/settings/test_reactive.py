@@ -1183,3 +1183,48 @@ def test_patch_copies_models_nested_inside_container_items():
     assert target.actions[0].inner.value == 5
     assert target.actions[0].inner is not source.actions[0].inner
     assert target.actions[0].inner._parent is target.actions[0]
+
+
+def test_equality_of_nested_models_does_not_recurse():
+    """`_parent` points back at the owner; comparing it would loop forever."""
+    first = Parent(child=Child(value=1))
+    second = Parent(child=Child(value=1))
+
+    assert first == second
+
+
+def test_equality_ignores_registered_hooks():
+    first = Parent(child=Child(value=1))
+    second = Parent(child=Child(value=1))
+    first.child.on_change(lambda _: None)
+
+    assert first == second
+
+
+def test_equality_ignores_the_parent_pointer():
+    """An attached child equals a detached one with the same value."""
+    attached = Parent(child=Child(value=1)).child
+    detached = Child(value=1)
+
+    assert attached == detached
+
+
+def test_equality_compares_field_values():
+    assert Parent(child=Child(value=1)) != Parent(child=Child(value=2))
+
+
+def test_equality_compares_extra_fields():
+    class Loose(ReactiveModel):
+        model_config = {"extra": "allow"}
+
+        value: int = 0
+
+    first = Loose(value=1)
+    second = Loose(value=1)
+    first.vendor_property = 7.0
+
+    assert first != second
+
+
+def test_models_of_different_classes_are_not_equal():
+    assert Parent(child=Child(value=1)) != Child(value=1)
