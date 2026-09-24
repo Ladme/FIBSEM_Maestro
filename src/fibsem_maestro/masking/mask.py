@@ -14,8 +14,10 @@ class Mask:
         txt_log: TextLogger,
         img_log: ImageLogger,
     ):
+        _ = settings
         self._txt_log = txt_log
         self._img_log = img_log
 
     def mask_image(self, img: Image, line_number: int | None = None) -> list[Image]:
+        _ = line_number
         return [img]
