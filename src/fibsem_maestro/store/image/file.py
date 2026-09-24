@@ -1,11 +1,10 @@
 # Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
+from __future__ import annotations
 
 import shutil
-from collections.abc import Callable
-from pathlib import Path
-from typing import Any, Self, TypeVar
+from typing import TYPE_CHECKING, Any, Self, TypeVar
 
 import tifffile
 
@@ -13,6 +12,10 @@ from fibsem_maestro.core.format import ImageFormat
 from fibsem_maestro.core.image import _ImageBase
 from fibsem_maestro.slice.slice_view import SliceView
 from fibsem_maestro.store.image.image_store import ImageStore, _normalize_tif
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from pathlib import Path
 
 T = TypeVar("T", bound=_ImageBase[Any])
 
@@ -38,10 +41,12 @@ class FileImageStore(ImageStore[T]):
         self._cls = cls
 
     def _path(self, filename: str) -> Path:
-        return self._view_provider().path() / _normalize_tif(filename)
+        return self._view_provider().expected_path / _normalize_tif(filename)
 
     def write(self, filename: str, image: T) -> None:
-        image.save(self._path(filename), ImageFormat.TIF)
+        image.save(
+            self._view_provider().path() / _normalize_tif(filename), ImageFormat.TIF
+        )
 
     def read(self, filename: str) -> T:
         path = self._path(filename)
@@ -50,12 +55,19 @@ class FileImageStore(ImageStore[T]):
         with tifffile.TiffFile(path) as tif:
             return self._cls.from_tiff(tif)
 
-    def copy_to(self, filename: str, to: Self) -> None:
+    def copy_to(self, filename: str, to: ImageStore[T]) -> None:
         src = self._path(filename)
         if not src.exists():
             raise FileNotFoundError(f"No image found at {src!r}")
 
-        target = to._path(filename)
+        if not isinstance(to, FileImageStore):
+            to.write(filename, self.read(filename))
+            return
+
+        target = to._view_provider().path() / _normalize_tif(filename)
+        # don't do anything if source is target
+        if src == target:
+            return
 
         shutil.copy(src, target)
 

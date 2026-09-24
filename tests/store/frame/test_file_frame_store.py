@@ -344,3 +344,20 @@ def test_next_keeps_the_directory_name(cursor: SliceCursor) -> None:
 
 def test_next_of_next_advances_twice(store: FileFrameStore) -> None:
     assert store.next.next.path().name == "slice_0002.tif"
+
+
+def test_exists_does_not_create_the_frames_directory(
+    store: FileFrameStore, cursor: SliceCursor
+) -> None:
+    store.exists()
+
+    assert not (cursor.action_dir / "frames").exists()
+
+
+def test_read_does_not_create_the_frames_directory(
+    store: FileFrameStore, cursor: SliceCursor
+) -> None:
+    with pytest.raises(FileNotFoundError):
+        store.read(Provenance.MAESTRO)
+
+    assert not (cursor.action_dir / "frames").exists()

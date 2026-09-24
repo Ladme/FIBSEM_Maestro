@@ -56,7 +56,7 @@ class MemoryImageStore(ImageStore[T]):
                 f"No image stored for slice {slice_idx!r}, filename {fname!r}"
             ) from None
 
-    def copy_to(self, filename: str, to: Self) -> None:
+    def copy_to(self, filename: str, to: ImageStore[T]) -> None:
         image = self.read(filename)
         to.write(filename, image)
 

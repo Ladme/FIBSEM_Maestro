@@ -45,12 +45,14 @@ class FileFrameStore(FrameStore):
 
     def _frame_path(self) -> Path:
         view = self._view_provider()
-        frames_dir = view.action_dir / self._directory_name
-        frames_dir.mkdir(parents=True, exist_ok=True)
-        return frames_dir / f"slice_{view.slice_index:04d}.tif"
+        return (
+            view.action_dir / self._directory_name / f"slice_{view.slice_index:04d}.tif"
+        )
 
     def path(self) -> Path:
-        return self._frame_path()
+        path = self._frame_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return path
 
     def save_to_memory(self, image: Image) -> None:
         _ = image

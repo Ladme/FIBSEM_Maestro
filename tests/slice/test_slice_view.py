@@ -22,26 +22,6 @@ def test_action_dir_returns_the_constructor_value(tmp_path: Path) -> None:
     assert SliceView(tmp_path, 0).action_dir == tmp_path
 
 
-def test_action_dir_creates_the_directory(tmp_path: Path) -> None:
-    target = tmp_path / "milling"
-    view = SliceView(target, 0)
-    assert not target.exists()
-
-    assert view.action_dir.is_dir()
-
-
-def test_action_dir_creates_missing_parents(tmp_path: Path) -> None:
-    view = SliceView(tmp_path / "run" / "actions" / "milling", 0)
-
-    assert view.action_dir.is_dir()
-
-
-def test_action_dir_does_not_create_the_slice_directory(tmp_path: Path) -> None:
-    view = SliceView(tmp_path / "milling", 3)
-
-    assert list(view.action_dir.iterdir()) == []
-
-
 def test_path_is_named_from_the_slice_index(view: SliceView) -> None:
     assert view.path().name == "slice_0000"
 
@@ -137,3 +117,29 @@ def test_negative_slice_index_is_rejected_before_touching_the_filesystem(
         SliceView(target, -1)
 
     assert not target.exists()
+
+
+def test_action_dir_does_not_create_the_directory(tmp_path: Path) -> None:
+    target = tmp_path / "milling"
+
+    assert SliceView(target, 0).action_dir == target
+    assert not target.exists()
+
+
+def test_expected_path_names_the_slice_folder(tmp_path: Path) -> None:
+    assert SliceView(tmp_path, 42).expected_path == tmp_path / "slice_0042"
+
+
+def test_expected_path_does_not_create_anything(tmp_path: Path) -> None:
+    view = SliceView(tmp_path / "milling", 3)
+
+    view.expected_path
+
+    assert not (tmp_path / "milling").exists()
+
+
+def test_path_creates_what_directory_only_names(tmp_path: Path) -> None:
+    view = SliceView(tmp_path / "milling", 3)
+
+    assert view.path() == view.expected_path
+    assert view.expected_path.is_dir()

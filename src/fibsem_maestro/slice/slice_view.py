@@ -35,12 +35,14 @@ class SliceView:
     @property
     def action_dir(self) -> Path:
         """
-        The action's root directory, creating it if necessary.
+        The action's root directory.
+
+        The directory is not created; use `path` to create the slice
+        directory and its parents when writing.
 
         Returns:
-            The `Path` to the action directory, guaranteed to exist.
+            The `Path` to the action directory.
         """
-        self._action_dir.mkdir(parents=True, exist_ok=True)
         return self._action_dir
 
     @property
@@ -53,6 +55,19 @@ class SliceView:
         """
         return self._slice_index
 
+    @property
+    def expected_path(self) -> Path:
+        """
+        The slice directory path, without creating it.
+
+        Unlike `path`, this has no side effect, so it is safe for queries
+        such as existence checks. The directory may not exist.
+
+        Returns:
+            The `Path` to `action_dir/slice_NNNN/`.
+        """
+        return self._action_dir / f"slice_{self._slice_index:04d}"
+
     def path(self) -> Path:
         """
         Return the slice directory path, creating it if necessary.
@@ -60,6 +75,6 @@ class SliceView:
         Returns:
             The directory `action_dir/slice_NNNN/`, guaranteed to exist.
         """
-        p = self._action_dir / f"slice_{self._slice_index:04d}"
+        p = self.expected_path
         p.mkdir(parents=True, exist_ok=True)
         return p
