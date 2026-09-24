@@ -44,9 +44,10 @@ class FileFrameStore(FrameStore):
         self._directory_name = directory_name
 
     def _frame_path(self) -> Path:
-        frames_dir = self._view_provider().action_dir / self._directory_name
+        view = self._view_provider()
+        frames_dir = view.action_dir / self._directory_name
         frames_dir.mkdir(parents=True, exist_ok=True)
-        return frames_dir / f"slice_{self._view_provider().slice_index:04d}.tif"
+        return frames_dir / f"slice_{view.slice_index:04d}.tif"
 
     def path(self) -> Path:
         return self._frame_path()
@@ -92,8 +93,9 @@ class FileFrameStore(FrameStore):
         Returns:
             A `FileFrameStore` addressing the slice after the current one.
         """
-        next_index = self._view_provider().slice_index + 1
-        fixed = SliceView(self._view_provider().action_dir, next_index)
+        view = self._view_provider()
+        next_index = view.slice_index + 1
+        fixed = SliceView(view.action_dir, next_index)
         return type(self)(lambda: fixed, self._directory_name)
 
     @property
