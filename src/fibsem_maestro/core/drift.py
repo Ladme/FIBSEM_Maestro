@@ -1,7 +1,7 @@
 # Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
-
+import math
 from dataclasses import dataclass
 from typing import Annotated
 
@@ -25,5 +25,16 @@ class Drift:
     confidence: float | None = None
 
     def is_valid(self) -> bool:
-        """Check if the drift is fully defined in all dimensions."""
-        return self.x is not None and self.y is not None
+        """
+        Check if the drift is fully defined and finite in all dimensions.
+
+        Returns:
+            True if both axes hold a finite value, False if either is None,
+            NaN, or infinite.
+        """
+        return (
+            self.x is not None
+            and self.y is not None
+            and math.isfinite(self.x)
+            and math.isfinite(self.y)
+        )

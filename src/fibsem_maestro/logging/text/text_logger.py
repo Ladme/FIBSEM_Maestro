@@ -1,6 +1,7 @@
 # Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
+from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from typing import Self
@@ -37,6 +38,17 @@ class TextLogger(ABC):
         """
 
     @abstractmethod
+    def exception(self, msg: str) -> None:
+        """
+        Log an error message together with the active exception's traceback.
+
+        Must be called from inside an `except` block; outside one it behaves like `error`.
+
+        Args:
+            msg: The message to log.
+        """
+
+    @abstractmethod
     def debug(self, msg: str) -> None:
         """
         Log a debug-level message.
@@ -63,7 +75,7 @@ class TextLogger(ABC):
         """
 
     @abstractmethod
-    def at(self, slice_index: int) -> Self:
+    def at(self, slice_index: int) -> TextLogger:
         """
         Return a view of this logger scoped to a specific slice.
 
@@ -76,17 +88,6 @@ class TextLogger(ABC):
 
     @property
     @abstractmethod
-    def next(self) -> Self:
-        """
-        Return a view of this logger scoped to the next slice.
-
-        Returns:
-            A logger of the same concrete type writing to the slice after
-            the current one.
-        """
-
-    @property
-    @abstractmethod
     def slice(self) -> int:
         """
         The slice index this logger is currently writing to.
@@ -94,3 +95,23 @@ class TextLogger(ABC):
         Returns:
             The current slice index.
         """
+
+    def close(self) -> None:
+        """
+        Release any resources held by this logger.
+
+        The default implementation does nothing. Loggers holding file handles
+        or sockets override this. Logging after `close` is always valid;
+        resources are reacquired as needed.
+        """
+
+    @property
+    def next(self) -> TextLogger:
+        """
+        Return a view of this logger scoped to the next slice.
+
+        Returns:
+            A logger of the same concrete type writing to the slice after
+            the current one.
+        """
+        return self.at(self.slice + 1)

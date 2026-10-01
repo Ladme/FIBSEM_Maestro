@@ -49,7 +49,7 @@ class FileActionContext(ActionContext):
         name: str,
         slice: int = 0,
         log_filename: str = "run.log",
-        log_level: int = logging.INFO,
+        log_level: int = logging.DEBUG,
         frames_directory_name: str = "frames",
     ) -> None:
         self._action_dir = action_dir
@@ -130,6 +130,9 @@ class FileActionContext(ActionContext):
         if dir.exists():
             raise FileExistsError(f"Target action directory already exists: {dir}")
 
-        self._action_dir.rename(dir)
+        # only rename if the current action directory exists
+        if self._action_dir.exists():
+            self._action_dir.rename(dir)
+
         self._action_dir = dir
         self._current_view = self._make_view(self._current_view.slice_index)

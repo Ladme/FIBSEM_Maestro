@@ -27,20 +27,27 @@ class FilePropsStore(PropsStore):
         self._view_provider = view_provider
 
     def _path(self, filename: str) -> Path:
-        return self._view_provider().path() / filename
+        """Resolve a filename in the current slice directory, without creating it."""
+        return self._view_provider().expected_path / filename
 
     def write(self, filename: str, props: GlobalProperties) -> None:
-        props.to_file(self._path(filename))
+        props.to_file(self._view_provider().path() / filename)
 
     def read(self, filename: str) -> GlobalProperties:
-        return GlobalProperties.from_file(self._path(filename))
+        path = self._path(filename)
+        if not path.exists():
+            raise FileNotFoundError(f"No props file found at {path!r}")
+
+        return GlobalProperties.from_file(path)
 
     def copy_to(self, filename: str, to: Self) -> None:
         src = self._path(filename)
         if not src.exists():
             raise FileNotFoundError(f"No props file found at {src!r}")
 
-        target = to._path(filename)
+        target = to._view_provider().path() / filename
+        if src == target:
+            return
 
         shutil.copy(src, target)
 

@@ -87,9 +87,9 @@ class BeamProperties(BaseSettings):
         description="Number of line integrations per scan.",
     )
 
-    dwell_time: Annotated[float, Field(gt=0), FieldUnit(suffix="s")] | None = Field(
+    dwell_time: Annotated[float, Field(gt=0), FieldUnit(suffix="ns")] | None = Field(
         default=None,
-        description="Dwell time per pixel.",
+        description="Dwell time per pixel in nanoseconds.",
     )
 
     bit_depth: Annotated[int, Field(gt=0)] | None = Field(

@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 
 from fibsem_maestro.core.area import MArea, NMArea, PixelArea, RelativeArea
+from fibsem_maestro.core.direction import Direction
 from fibsem_maestro.core.point import MPoint, NMPoint, PixelPoint, RelativePoint
 from fibsem_maestro.core.resolution import Resolution
 
@@ -279,3 +280,122 @@ def test_m_area_expanded() -> None:
     assert result.origin.y == pytest.approx(1.9e-6)
     assert result.width == pytest.approx(7e-7)
     assert result.height == pytest.approx(5e-7)
+
+
+def test_area_shifted_in_direction_up_decreases_y():
+    area = RelativeArea(origin=RelativePoint(0.3, 0.4), width=0.2, height=0.1)
+
+    result = area.shifted_in_direction(Direction.UP, 0.05)
+
+    assert result.origin.x == pytest.approx(0.3)
+    assert result.origin.y == pytest.approx(0.35)
+
+
+def test_area_shifted_in_direction_down_increases_y():
+    area = RelativeArea(origin=RelativePoint(0.3, 0.4), width=0.2, height=0.1)
+
+    result = area.shifted_in_direction(Direction.DOWN, 0.05)
+
+    assert result.origin.x == pytest.approx(0.3)
+    assert result.origin.y == pytest.approx(0.45)
+
+
+def test_area_shifted_in_direction_left_decreases_x():
+    area = RelativeArea(origin=RelativePoint(0.3, 0.4), width=0.2, height=0.1)
+
+    result = area.shifted_in_direction(Direction.LEFT, 0.05)
+
+    assert result.origin.x == pytest.approx(0.25)
+    assert result.origin.y == pytest.approx(0.4)
+
+
+def test_area_shifted_in_direction_right_increases_x():
+    area = RelativeArea(origin=RelativePoint(0.3, 0.4), width=0.2, height=0.1)
+
+    result = area.shifted_in_direction(Direction.RIGHT, 0.05)
+
+    assert result.origin.x == pytest.approx(0.35)
+    assert result.origin.y == pytest.approx(0.4)
+
+
+def test_area_shifted_in_direction_preserves_dimensions():
+    area = RelativeArea(origin=RelativePoint(0.3, 0.4), width=0.2, height=0.1)
+
+    result = area.shifted_in_direction(Direction.UP, 0.05)
+
+    assert result.width == pytest.approx(0.2)
+    assert result.height == pytest.approx(0.1)
+
+
+def test_area_shifted_in_direction_does_not_modify_original():
+    area = RelativeArea(origin=RelativePoint(0.3, 0.4), width=0.2, height=0.1)
+
+    area.shifted_in_direction(Direction.DOWN, 0.05)
+
+    assert area.origin.x == pytest.approx(0.3)
+    assert area.origin.y == pytest.approx(0.4)
+
+
+def test_area_shifted_in_direction_zero_delta_is_identity():
+    area = RelativeArea(origin=RelativePoint(0.3, 0.4), width=0.2, height=0.1)
+
+    result = area.shifted_in_direction(Direction.UP, 0.0)
+
+    assert result.origin.x == pytest.approx(0.3)
+    assert result.origin.y == pytest.approx(0.4)
+
+
+def test_area_shifted_in_direction_negative_delta_inverts_direction():
+    area = RelativeArea(origin=RelativePoint(0.3, 0.4), width=0.2, height=0.1)
+
+    up = area.shifted_in_direction(Direction.UP, -0.05)
+    down = area.shifted_in_direction(Direction.DOWN, 0.05)
+
+    assert up.origin.y == pytest.approx(down.origin.y)
+
+
+def test_area_shifted_in_direction_opposite_directions_cancel():
+    area = RelativeArea(origin=RelativePoint(0.3, 0.4), width=0.2, height=0.1)
+
+    result = area.shifted_in_direction(Direction.LEFT, 0.1).shifted_in_direction(
+        Direction.RIGHT, 0.1
+    )
+
+    assert result.origin.x == pytest.approx(0.3)
+    assert result.origin.y == pytest.approx(0.4)
+
+
+def test_pixel_area_shifted_in_direction_correct_coordinates():
+    area = PixelArea(origin=PixelPoint(100, 200), width=50, height=30)
+
+    result = area.shifted_in_direction(Direction.UP, 10)
+
+    assert isinstance(result, PixelArea)
+    assert result.origin.x == 100
+    assert result.origin.y == 190
+    assert result.width == 50
+    assert result.height == 30
+
+
+def test_nm_area_shifted_in_direction_correct_coordinates():
+    area = NMArea(origin=NMPoint(500.0, 1000.0), width=200.0, height=100.0)
+
+    result = area.shifted_in_direction(Direction.DOWN, 50.0)
+
+    assert isinstance(result, NMArea)
+    assert result.origin.x == pytest.approx(500.0)
+    assert result.origin.y == pytest.approx(1050.0)
+    assert result.width == pytest.approx(200.0)
+    assert result.height == pytest.approx(100.0)
+
+
+def test_m_area_shifted_in_direction_correct_coordinates():
+    area = MArea(origin=MPoint(1e-6, 2e-6), width=5e-7, height=3e-7)
+
+    result = area.shifted_in_direction(Direction.LEFT, 1e-7)
+
+    assert isinstance(result, MArea)
+    assert result.origin.x == pytest.approx(9e-7)
+    assert result.origin.y == pytest.approx(2e-6)
+    assert result.width == pytest.approx(5e-7)
+    assert result.height == pytest.approx(3e-7)

@@ -4,13 +4,12 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 import numpy as np
 from scipy.ndimage import gaussian_filter
 
 from fibsem_maestro.core.registry import Registry
-from fibsem_maestro.frc.frc import frc
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -178,31 +177,31 @@ def fft_criterion(
     )
 
 
-@CRITERION_FUNCTIONS.register("frc")
-def frc_criterion(
-    img: Image, settings: CriterionSettings, logger: TextLogger
-) -> np.floating:
-    """
-    Compute the focal quality based on Fourier Ring Correlation (FRC).
-
-    Args:
-        img (Image): Input image.
-        settings (CriterionSettings): Criterion configuration (unused).
-        logger (TextLogger): Logger to use for textual logging.
-
-    Returns:
-        np.floating: FRC score, or `np.nan` if FRC computation fails.
-    """
-    _ = settings
-    # TODO: check that the frc has the same polarity as other criteria
-
-    try:
-        res = frc(img, img.pixel_size)
-    except Exception as e:
-        logger.warning(f"FRC error on current tile: {e}")
-        return cast("np.floating", np.nan)
-
-    return res
+# @CRITERION_FUNCTIONS.register("frc")
+# def frc_criterion(
+#    img: Image, settings: CriterionSettings, logger: TextLogger
+# ) -> np.floating:
+#    """
+#    Compute the focal quality based on Fourier Ring Correlation (FRC).
+#
+#    Args:
+#        img (Image): Input image.
+#        settings (CriterionSettings): Criterion configuration (unused).
+#        logger (TextLogger): Logger to use for textual logging.
+#
+#    Returns:
+#        np.floating: FRC score, or `np.nan` if FRC computation fails.
+#    """
+#    _ = settings
+#    # TODO: check that the frc has the same polarity as other criteria
+#
+#    try:
+#        res = frc(img, img.pixel_size)
+#    except Exception as e:
+#        logger.warning(f"FRC error on current tile: {e}")
+#        return cast("np.floating", np.nan)
+#
+#    return res
 
 
 def gauss_filter(x: Image, px_size: float, detail: float) -> NDArray[np.floating]:

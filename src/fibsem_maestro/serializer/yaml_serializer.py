@@ -3,14 +3,33 @@
 
 import contextlib
 import inspect
-from pathlib import Path
+from enum import Enum
+from pathlib import Path, PurePath
 from typing import Any
 
 import yaml
 from yaml import CSafeDumper, CSafeLoader, MappingNode
 from yaml.representer import RepresenterError
 
-from .serializer import Serializer
+from .serializer import Serializer, SerializerError
+
+
+class _MaestroDumper(CSafeDumper):
+    """
+    Dumper carrying FIBSEM Maestro's representers.
+
+    Subclassed so that registering representers does not mutate the global
+    `CSafeDumper` used by other libraries in the same process.
+    """
+
+
+class _MaestroLoader(CSafeLoader):
+    """
+    Loader carrying FIBSEM Maestro's constructors.
+
+    Subclassed so that registering constructors does not mutate the global
+    `CSafeLoader` used by other libraries in the same process.
+    """
 
 
 class YamlSerializer(Serializer):
@@ -34,9 +53,18 @@ class YamlSerializer(Serializer):
             OSError: If the file cannot be opened or read.
         """
         with file.open("r") as input:
-            data: dict[str, Any] = yaml.load(input, Loader=CSafeLoader)
+            data: Any = yaml.load(input, Loader=_MaestroLoader)
 
-        return data or {}
+        if data is None:
+            return {}
+
+        if not isinstance(data, dict):
+            raise SerializerError(
+                f"Expected a mapping at the top level of {file}, "
+                f"got {type(data).__name__}."
+            )
+
+        return data
 
     @classmethod
     def write(cls, file: Path, data: dict[str, Any]) -> None:
@@ -52,7 +80,35 @@ class YamlSerializer(Serializer):
             OSError: If the file cannot be opened or written to.
         """
         with file.open("w") as output:
-            yaml.dump(data, output, Dumper=CSafeDumper)
+            yaml.dump(data, output, Dumper=_MaestroDumper)
+
+
+def enum_representer(dumper: _MaestroDumper, data: Enum) -> yaml.nodes.Node:
+    """
+    Represent an enum member by its value.
+
+    Args:
+        dumper: The active YAML dumper instance.
+        data: The enum member to serialize.
+
+    Returns:
+        A YAML node holding the member's value.
+    """
+    return dumper.represent_data(data.value)
+
+
+def path_representer(dumper: _MaestroDumper, data: PurePath) -> yaml.nodes.Node:
+    """
+    Represent a filesystem path as a plain string.
+
+    Args:
+        dumper: The active YAML dumper instance.
+        data: The path to serialize.
+
+    Returns:
+        A YAML scalar node holding the path in string form.
+    """
+    return dumper.represent_str(str(data))
 
 
 def public_property_dict(obj: object) -> dict[str, Any]:
@@ -154,5 +210,7 @@ def generic_object_constructor(
     return cls(**values)
 
 
-CSafeDumper.add_multi_representer(object, generic_object_representer)
-CSafeLoader.add_multi_constructor("!", generic_object_constructor)
+_MaestroDumper.add_multi_representer(Enum, enum_representer)
+_MaestroDumper.add_multi_representer(PurePath, path_representer)
+_MaestroDumper.add_multi_representer(object, generic_object_representer)
+_MaestroLoader.add_multi_constructor("!", generic_object_constructor)

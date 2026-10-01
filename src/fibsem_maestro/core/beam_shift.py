@@ -29,6 +29,14 @@ class BeamShift:
         """
         return (self.x, self.y)
 
+    def inverted(self) -> Self:
+        """
+        Returns a new BeamShift instance with inverted coordinates.
+
+        The output structure only makes sense when used for relative shift.
+        """
+        return type(self)(x=-self.x, y=-self.y)
+
     @classmethod
     def from_point_autoscript(cls, point_autoscript: PointAs) -> Self:
         """

@@ -61,7 +61,7 @@ class SimulatedBeamControl(BeamControl):
         self._acquiring = False
 
         self._line_integration = 1
-        self._dwell_time = 1e-6  # seconds
+        self._dwell_time = 100.0  # in ns
         self._bit_depth = 8
         self._resolution = Resolution(1024, 768)
         self._horizontal_field_width = 2000.0
@@ -93,7 +93,7 @@ class SimulatedBeamControl(BeamControl):
             "source_tilt_y": (-5.0, 5.0),
             "horizontal_field_width": (1_000.0, 5_000_000_000.0),
             "vertical_field_width": (1_000.0, 5_000_000_000.0),
-            "dwell_time": (50e-9, 10e-6),  # in s
+            "dwell_time": (50, 10_000),  # in ns
         }
 
     @classmethod

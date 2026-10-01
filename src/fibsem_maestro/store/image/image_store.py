@@ -1,13 +1,18 @@
 # Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
+from pathlib import PurePath
 from typing import Any, Generic, Self, TypeVar
 
 from fibsem_maestro.core.image import _ImageBase
 
 T = TypeVar("T", bound=_ImageBase[Any])
 TSelf = TypeVar("TSelf", bound="ImageStore[Any]")
+
+_IMAGE_SUFFIXES = frozenset({".tif", ".tiff", ".png", ".jpg", ".jpeg", ".bmp"})
 
 
 class ImageStore(ABC, Generic[T]):
@@ -44,14 +49,21 @@ class ImageStore(ABC, Generic[T]):
         """
 
     @abstractmethod
-    def copy_to(self, filename: str, to: TSelf) -> None:
+    def copy_to(self, filename: str, to: ImageStore[T]) -> None:
         """
         Copy the image at the given filename to the target `ImageStore`.
 
+        The target must hold the same image type as this store; a differently
+        typed store would relabel the copied bytes without converting them.
+
         Args:
             filename: Filename within the current slice directory. The
-                `.tif` extension is appended automatically if omitted.
+                `.tif` extension is applied automatically.
             to: The target `ImageStore` to copy the image to.
+
+        Raises:
+            FileNotFoundError: If no image with that name exists in the
+                current slice directory.
         """
 
     @abstractmethod
@@ -104,12 +116,20 @@ class ImageStore(ABC, Generic[T]):
 
 def _normalize_tif(filename: str) -> str:
     """
-    Ensure a filename ends with the `.tif` extension.
+    Return the filename with a `.tif` extension.
+
+    An existing image extension is replaced; any other trailing text is kept,
+    so a name containing a dot such as `v1.5_scan` is not truncated.
 
     Args:
         filename: The raw filename provided by the caller.
 
     Returns:
-        The filename with a guaranteed `.tif` suffix.
+        The filename with a `.tif` suffix.
     """
-    return filename if filename.endswith(".tif") else f"{filename}.tif"
+    suffix = PurePath(filename).suffix
+
+    if suffix.lower() in _IMAGE_SUFFIXES:
+        return f"{filename[: -len(suffix)]}.tif"
+
+    return f"{filename}.tif"

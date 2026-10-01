@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Generic, Self, TypeVar, cast
 import cv2
 import numpy as np
 from scipy import ndimage
-from tifffile import TiffFile
+from tifffile import TiffFile, TiffFileError
 
 from fibsem_maestro.core.errors import AutoscriptNotAvailableError
 from fibsem_maestro.core.format import ImageFormat
@@ -64,7 +64,7 @@ class _ImageBase(np.ndarray[Any, np.dtype[TDType]], Generic[TDType]):
             A new instance of this class wrapping the given array.
         """
 
-        obj = cast("Self", np.asarray(image).view(cls))
+        obj = np.asarray(image).view(cls)
         obj.pixel_size = pixel_size
         return obj
 
@@ -81,7 +81,7 @@ class _ImageBase(np.ndarray[Any, np.dtype[TDType]], Generic[TDType]):
         # preserve pixel_size when array is sliced or copied
         self.pixel_size = getattr(obj, "pixel_size", 1)
 
-    def __getitem__(self, key: Any) -> Self:  # type: ignore
+    def __getitem__(self, key: Any) -> Self:
         """
         Return a slice of this image as an instance of the same subclass.
 
@@ -147,8 +147,11 @@ class _ImageBase(np.ndarray[Any, np.dtype[TDType]], Generic[TDType]):
         """
         match origin:
             case Provenance.MAESTRO:
-                with TiffFile(path) as tiff_file:
-                    return cls.from_tiff(tiff_file)
+                try:
+                    with TiffFile(path) as tiff_file:
+                        return cls.from_tiff(tiff_file)
+                except (OSError, TiffFileError) as exc:
+                    raise ImageError(f"Could not load TIFF: {path}") from exc
             case Provenance.AUTOSCRIPT:
                 from autoscript_sdb_microscope_client.structures import AdornedImage
 
@@ -205,7 +208,7 @@ class _ImageBase(np.ndarray[Any, np.dtype[TDType]], Generic[TDType]):
         return self[
             pixel_area.origin.y : pixel_area.origin.y + pixel_area.height,
             pixel_area.origin.x : pixel_area.origin.x + pixel_area.width,
-        ]
+        ].copy()
 
     def crop_with_padding(self, relative_area: RelativeArea, padding_nm: float) -> Self:
         """
@@ -244,7 +247,7 @@ class _ImageBase(np.ndarray[Any, np.dtype[TDType]], Generic[TDType]):
             pixel_area.origin.x : pixel_area.origin.x
             + pixel_area.width
             + 2 * padding_px,
-        ]
+        ].copy()
 
     def blured(self, sigma: int | None) -> Self:
         """

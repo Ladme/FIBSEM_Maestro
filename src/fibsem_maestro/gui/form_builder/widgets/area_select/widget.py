@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import (
 )
 
 from fibsem_maestro.core.area import RelativeArea
+from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.point import RelativePoint
@@ -34,6 +35,7 @@ from fibsem_maestro.gui.form_builder.widgets.area_select.overlay import (
 )
 from fibsem_maestro.gui.form_builder.widgets.base import BaseWidget
 from fibsem_maestro.logging.text.text_logger import TextLogger
+from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.form_utils import AreaOverlay
 
@@ -66,6 +68,7 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         max_areas: int | None = None,
         default: list[RelativeArea] | None = None,
         beam_provider: Callable[[], BeamType | None] | None = None,
+        offset_provider: Callable[[], float | None] | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -83,6 +86,7 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         self._overlays: list[tuple[AreaOverlay, OverlayData]] = []
         self._pixel_size: float | None = None
         self._beam_provider = beam_provider
+        self._offset_provider = offset_provider
 
         self.setMinimumWidth(self._MINIMUM_WIDTH)
 
@@ -170,22 +174,66 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
             if self._microscope is None:
                 raise ValueError("FIBSEM Maestro is not connected to a microscope.")
 
-            # get image using the correct beam
-            beam = self._beam_provider() if self._beam_provider is not None else None
-            match beam:
-                case BeamType.ELECTRON:
-                    image = self._microscope.electron_beam.get_image()
-                case BeamType.ION:
-                    image = self._microscope.ion_beam.get_image()
-                case None:
-                    # use the current active beam
-                    image = self._microscope.beam.get_image()
+            beam = self._resolve_beam()
+            offset_x = self._resolve_offset()
+
+            # we only need to apply the offset if it is non-zero
+            # in which case we always need to grab a new frame
+            if offset_x != 0.0:
+                with self._microscope.add_temporary_beam_shift(
+                    BeamShift(x=offset_x, y=0), beam
+                ):
+                    image = beam.grab_frame()
+            # otherwise, we can just use the cached image
+            else:
+                image = beam.get_image()
 
             self.convert_image(image)
         except Exception as e:
             self._status_label.setText(f"Acquisition failed: {e}")
         finally:
             self._load_btn.setEnabled(True)
+
+    def _resolve_beam(self) -> BeamControl:
+        """
+        Return the beam wrapper to image with.
+
+        Returns:
+            The electron or ion beam if the provider names one, otherwise the
+            currently active beam.
+        """
+        assert self._microscope is not None
+
+        beam_type = self._beam_provider() if self._beam_provider is not None else None
+        match beam_type:
+            case BeamType.ELECTRON:
+                return self._microscope.electron_beam
+            case BeamType.ION:
+                return self._microscope.ion_beam
+            case None:
+                return self._microscope.beam
+
+    def _resolve_offset(self) -> float:
+        """
+        Return the x offset to apply while grabbing, in nanometres.
+
+        Returns:
+            The declared offset, or 0.0 when none is declared or a declared one
+            cannot be resolved. An unresolvable offset is logged, since it means
+            the image is grabbed somewhere other than the form intends.
+        """
+        if self._offset_provider is None:
+            return 0.0
+
+        offset_nm = self._offset_provider()
+        if offset_nm is None:
+            if self._txt_log is not None:
+                self._txt_log.warning(
+                    "Area selector declares an acquisition offset that could not "
+                    "be resolved; grabbing at the current beam position."
+                )
+            return 0.0
+        return offset_nm
 
     def convert_image(self, image: Image) -> None:
         """

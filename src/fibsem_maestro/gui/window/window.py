@@ -149,6 +149,8 @@ class MainWindow(QMainWindow):
 
         self._manager.new_workflow.connect(self._on_new_workflow)
 
+        self._manager.action_removed.connect(self._on_action_removed)
+
     def _on_action_selected(self, action: Action | None) -> None:
         if action is None:
             # set empty action panel
@@ -250,3 +252,17 @@ class MainWindow(QMainWindow):
         """
         for panel in self._panels.values():
             cast("ActionPanel", panel).reload_values()
+
+    def _on_action_removed(self, action: Action) -> None:
+        """
+        Tears down the cached form panel for an action removed from the workflow.
+        """
+        panel = self._panels.pop(action, None)
+        if panel is None:
+            return
+
+        if self._stack.currentWidget() is panel:
+            self._stack.setCurrentWidget(self._empty_panel)
+
+        self._stack.removeWidget(panel)
+        panel.deleteLater()

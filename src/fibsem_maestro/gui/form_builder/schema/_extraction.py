@@ -54,7 +54,7 @@ def _raw_fields_from_dataclass(cls: type) -> tuple[RawField, ...]:
             description="",
             metadata=(),
         )
-        for f in dataclasses.fields(cls)
+        for f in dataclasses.fields(cls)  # ty: ignore[invalid-argument-type]
     )
 
 

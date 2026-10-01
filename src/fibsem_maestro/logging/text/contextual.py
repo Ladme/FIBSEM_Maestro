@@ -20,6 +20,13 @@ class ContextualTextLogger(TextLogger):
     If no logger is active in the current context, calls are forwarded to
     `fallback`.
 
+    Views returned by `at()` and `next` are resolved from the logger active
+    at the moment of the call and stay bound to it, so they keep writing to
+    that action's directory even after the context advances.
+
+    This logger owns neither the active logger nor the fallback, so `close()`
+    is a no-op; close the underlying loggers through whatever created them.
+
     Args:
         fallback: Logger to use when no action context is active.
         _suffix: Internal name suffix accumulated via `derive()`.
@@ -47,6 +54,9 @@ class ContextualTextLogger(TextLogger):
     def debug(self, msg: str) -> None:
         self._active().debug(msg)
 
+    def exception(self, msg: str) -> None:
+        self._active().exception(msg)
+
     def derive(self, name: str) -> Self:
         """
         Create a child logger that appends `name` to the active logger's name.
@@ -66,10 +76,10 @@ class ContextualTextLogger(TextLogger):
 
     def at(self, slice_index: int) -> TextLogger:
         """
-        Return a view of this logger scoped to a specific slice.
+        Return a view of the active logger scoped to a specific slice.
 
-        Delegates to the currently active logger's `at()` method.
-        If no logger is active, delegates to the fallback.
+        The view is bound to the logger active at the time of this call, not
+        re-resolved later. If no logger is active, the fallback's view is returned.
 
         Args:
             slice_index: The slice index to address.
@@ -81,7 +91,12 @@ class ContextualTextLogger(TextLogger):
 
     @property
     def next(self) -> TextLogger:
-        """Return a view of this logger scoped to the next slice.
+        """
+        Return a view of the active logger scoped to the next slice.
+
+        Overrides the base implementation so the context is read once rather
+        than twice. Resolving `self.slice` and `self.at()` separately could
+        straddle an `ActionContext.advance()` and mix two actions.
 
         Returns:
             A scoped view from the currently active logger.
@@ -91,3 +106,12 @@ class ContextualTextLogger(TextLogger):
     @property
     def slice(self) -> int:
         return self._active().slice
+
+    def close(self) -> None:
+        """
+        Do nothing; this logger owns no resources.
+
+        Both the active logger and the fallback are owned by whatever created
+        them. Closing them here would release file handles still in use by
+        the running action.
+        """

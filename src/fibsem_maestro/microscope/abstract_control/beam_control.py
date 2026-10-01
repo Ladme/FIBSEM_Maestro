@@ -304,7 +304,7 @@ class BeamControl(ABC):
     @property
     @abstractmethod
     def dwell_time(self) -> float:
-        """Time spent per pixel during a scan in seconds."""
+        """Time spent per pixel during a scan in nanoseconds."""
 
     @dwell_time.setter
     @abstractmethod
@@ -313,7 +313,7 @@ class BeamControl(ABC):
         Set the dwell time per pixel.
 
         Args:
-            value: Dwell time in seconds.
+            value: Dwell time in nanoseconds.
         """
 
     @property

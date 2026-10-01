@@ -50,7 +50,7 @@ class Patchifier:
         padded = np.pad(ds_image, ((0, ph), (0, pw)), mode="constant")
 
         # patchify
-        patches = patchify(padded, self._patch_size, step=self._patch_size[0])
+        patches = patchify(padded, self._patch_size, step=self._patch_size[0])  # type: ignore  # noqa: F821
         grid_shape = patches.shape[:2]
 
         # flatten patches
@@ -77,7 +77,7 @@ class Patchifier:
         )
 
         # unpatchify
-        padded_mask = unpatchify(patch_grid, data.padded_shape)
+        padded_mask = unpatchify(patch_grid, data.padded_shape)  # type: ignore  # noqa: F821
 
         # upsample back
         mask = zoom(padded_mask, self._downsampling_factor)

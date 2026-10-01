@@ -2,8 +2,7 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 import contextvars
-from collections.abc import Callable, Iterator
-from contextlib import contextmanager
+from collections.abc import Callable
 
 import numpy as np
 
@@ -13,7 +12,6 @@ from fibsem_maestro.autofocus.result import AutofocusResult
 from fibsem_maestro.autofocus.sweep_step import SweepStep
 from fibsem_maestro.autofocus.sweeping import Sweeping
 from fibsem_maestro.core.image import Image
-from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.criterion.criterion import Criterion
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.autofocus_settings import (
@@ -46,37 +44,6 @@ class AutofocusContext:
         self.sweeping = sweeping
         self.ctx = ctx
         self.settings = settings
-
-    @contextmanager
-    def temporary_stage_x_offset(self) -> Iterator[None]:
-        """
-        Temporarily move the stage in X to a nearby focusing area.
-
-        Displaces the stage by `-delta_x` before entering the block and
-        restores it by `+delta_x` afterward, regardless of whether the block
-        raises an exception.
-
-        Yields:
-            None: Control is yielded to the caller with the stage displaced.
-        """
-        # move the stage away
-        self.microscope.move_stage_position_with_verification(
-            StagePosition(x=-self.settings.delta_x)
-        )
-        self.ctx.text_logger.info(
-            f"Moving stage to focusing area (X offset {-self.settings.delta_x:+g})"
-        )
-
-        try:
-            yield
-        finally:
-            # move the stage back
-            self.microscope.move_stage_position_with_verification(
-                StagePosition(x=self.settings.delta_x)
-            )
-            self.ctx.text_logger.info(
-                f"Restoring stage position (X offset {self.settings.delta_x:+g})"
-            )
 
     def make_sharpness_job(
         self, image: Image, sweep: SweepStep

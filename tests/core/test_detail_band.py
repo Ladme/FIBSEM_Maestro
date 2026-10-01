@@ -15,27 +15,29 @@ def test_detail_band_stores_low_and_high():
 
 
 def test_detail_band_raises_when_low_is_zero():
-    with pytest.raises(ValueError, match="positive"):
+    with pytest.raises(ValueError, match="greater than 0"):
         DetailBand(low=0.0, high=100.0)
 
 
 def test_detail_band_raises_when_low_is_negative():
-    with pytest.raises(ValueError, match="positive"):
+    with pytest.raises(ValueError, match="greater than 0"):
         DetailBand(low=-1.0, high=100.0)
 
 
 def test_detail_band_raises_when_high_is_zero():
-    with pytest.raises(ValueError, match="positive"):
+    with pytest.raises(ValueError, match="greater than 0"):
         DetailBand(low=10.0, high=0.0)
 
 
-def test_detail_band_raises_when_low_equals_high():
-    with pytest.raises(ValueError, match="low must be"):
-        DetailBand(low=10.0, high=10.0)
+def test_detail_band_allows_low_equal_to_high():
+    band = DetailBand(low=10.0, high=10.0)
+
+    assert np.isclose(band.low, 10.0)
+    assert np.isclose(band.high, 10.0)
 
 
 def test_detail_band_raises_when_low_exceeds_high():
-    with pytest.raises(ValueError, match="low must be"):
+    with pytest.raises(ValueError, match="cannot be greater than"):
         DetailBand(low=100.0, high=10.0)
 
 
@@ -46,3 +48,11 @@ def test_to_frequency_range_returns_correct_values():
 
     assert np.isclose(freq1, 0.01)
     assert np.isclose(freq2, 0.1)
+
+
+def test_to_frequency_range_is_not_swapped():
+    band = DetailBand(low=10.0, high=100.0)
+
+    freq1, freq2 = band.to_frequency_range()
+
+    assert freq1 < freq2

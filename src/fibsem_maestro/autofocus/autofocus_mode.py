@@ -13,6 +13,7 @@ import numpy as np
 
 from fibsem_maestro.autofocus.error import AutofocusError
 from fibsem_maestro.autofocus.sweep_step import SweepStep
+from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.image_tools import get_stripes
 from fibsem_maestro.core.registry import Registry
 from fibsem_maestro.microscope.autoscript_control.microscope_control import (
@@ -102,7 +103,9 @@ class BasicMode(AutofocusMode):
         if (sweeping := ctx.sweeping) is None:
             raise AutofocusError("Sweeping for basic mode autofocus is not defined.")
 
-        with ctx.temporary_stage_x_offset():
+        with ctx.microscope.add_temporary_beam_shift(
+            BeamShift(x=ctx.settings.delta_x, y=0.0)
+        ):
             for sweep in sweeping.sweep():
                 ctx.ctx.text_logger.info(
                     f"Autofunction step {sweep.index + 1} "
@@ -129,8 +132,10 @@ class LineMode(AutofocusMode):
         if (sweeping := ctx.sweeping) is None:
             raise AutofocusError("Sweeping for line mode autofocus is not defined.")
 
-        with ctx.temporary_stage_x_offset():
-            line_time = self._estimate_line_time(ctx)
+        with ctx.microscope.add_temporary_beam_shift(
+            BeamShift(x=ctx.settings.delta_x, y=0.0)
+        ):
+            line_time = self._estimate_line_time(ctx)  # in ns
 
             # generate sweep steps once so both acquisition and processing see the same steps
             sweep_steps = list(sweeping.sweep())
@@ -151,7 +156,7 @@ class LineMode(AutofocusMode):
                 and beam parameters.
 
         Returns:
-            Estimated line scan time in seconds with line time correction factor applied.
+            Estimated line scan time in nanoseconds with line time correction factor applied.
         """
         mode = ctx.settings.mode
         assert isinstance(mode, LineModeSettings)
@@ -174,7 +179,7 @@ class LineMode(AutofocusMode):
             * correction_factor
         )
 
-        ctx.ctx.text_logger.debug(f"Estimated line time: {estimated_line_time} s")
+        ctx.ctx.text_logger.debug(f"Estimated line time: {estimated_line_time} ns")
 
         return estimated_line_time
 
@@ -217,7 +222,7 @@ class LineMode(AutofocusMode):
         Args:
             ctx: Shared execution environment providing access to the microscope,
                 sweeping controller, and logger.
-            line_time: Estimated time to scan a single line in seconds, used to
+            line_time: Estimated time to scan a single line in nanoseconds, used to
                 compute the hold duration per sweep step.
             sweep_steps: Pre-generated list of sweep steps, shared with
                 `_process_image` to ensure consistency.
@@ -226,8 +231,9 @@ class LineMode(AutofocusMode):
         assert isinstance(mode, LineModeSettings)
         assert ctx.sweeping is not None
 
-        pre_delay = mode.pre_imaging_delay
-        hold = mode.lines_per_sweep * line_time
+        pre_delay = mode.pre_imaging_delay  # in s
+        hold = mode.lines_per_sweep * line_time * 1e-9  # in s
+        ctx.ctx.text_logger.debug(f"Hold time per sweep value: {hold} s")
 
         ctx.microscope.beam.start_acquisition()
         try:
@@ -437,7 +443,9 @@ class AutoscriptMode(AutofocusMode):
             ctx.microscope.control.autoscript_microscope
         )
 
-        with ctx.temporary_stage_x_offset():
+        with ctx.microscope.add_temporary_beam_shift(
+            BeamShift(x=ctx.settings.delta_x, y=0.0)
+        ):
             match ctx.settings.mode:
                 case AutoscriptAutoFocus() as mode:
                     self._run_autofocus(ctx, mode, autoscript_microscope)
@@ -493,7 +501,7 @@ class AutoscriptMode(AutofocusMode):
 
                 settings = RunAutoFocusSettings(
                     method="Volumescope",
-                    dwell_time=beam.dwell_time,
+                    dwell_time=beam.dwell_time * 1e-9,
                     horizontal_field_width=beam.horizontal_field_width * 1e-9,
                     line_integration=beam.line_integration,
                     resolution=str(beam.resolution),
@@ -535,7 +543,7 @@ class AutoscriptMode(AutofocusMode):
             case AutoscriptAutoStigmatorMethod.ONGETAL:
                 settings = RunAutoStigmatorSettings(
                     method="OngEtAl",
-                    dwell_time=beam.dwell_time,
+                    dwell_time=beam.dwell_time * 1e-9,
                     resolution=str(beam.resolution),
                     horizontal_field_width=beam.horizontal_field_width * 1e-9,
                     line_integration=beam.line_integration,
@@ -581,7 +589,7 @@ class AutoscriptMode(AutofocusMode):
 
         settings = RunAutoLensAlignmentSettings(
             modulation_type=modulation_type_as,
-            dwell_time=beam.dwell_time,
+            dwell_time=beam.dwell_time * 1e-9,
             resolution=str(beam.resolution),
             line_integration=beam.line_integration,
             # None is a valid value for all these fields
@@ -620,7 +628,7 @@ class AutoscriptMode(AutofocusMode):
             method="Volumescope",
             contrast=beam.detector_contrast,
             brightness=beam.detector_brightness,
-            dwell_time=beam.dwell_time,
+            dwell_time=beam.dwell_time * 1e-9,
             resolution=str(beam.resolution),
         )
 

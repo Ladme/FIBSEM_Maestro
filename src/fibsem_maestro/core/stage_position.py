@@ -39,6 +39,16 @@ class StagePosition:
         """
         return self.x, self.y
 
+    def inverted(self) -> Self:
+        """
+        Returns a new StagePosition instance with inverted coordinates.
+
+        The output structure only makes sense when used for relative positioning.
+        """
+        return type(self)(
+            x=-self.x, y=-self.y, z=-self.z, rotation=-self.rotation, tilt=-self.tilt
+        )
+
     @classmethod
     def from_stage_position_autoscript(
         cls, stage_position_autoscript: StagePositionAs
