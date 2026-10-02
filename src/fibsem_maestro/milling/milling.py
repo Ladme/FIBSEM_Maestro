@@ -135,7 +135,7 @@ class Milling(Action[MillingSettings, MillingState]):
                 milling_area_nm.height = self._settings.slice_distance
             case Direction.UP:
                 milling_area_nm.origin.y += (
-                    milling_area_nm.height + self._settings.slice_distance
+                    milling_area_nm.height - self._settings.slice_distance
                 )
                 milling_area_nm.height = self._settings.slice_distance
 
