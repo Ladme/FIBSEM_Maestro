@@ -131,10 +131,10 @@ class Milling(Action[MillingSettings, MillingState]):
         # hot fix milling
         match self._settings.milling_direction:
             case Direction.DOWN:
-                milling_area_nm.origin.y -= self._settings.slice_distance
+                milling_area_nm.origin.y += self._settings.slice_distance
                 milling_area_nm.height = self._settings.slice_distance
             case Direction.UP:
-                milling_area_nm.origin.y -= (
+                milling_area_nm.origin.y += (
                     milling_area_nm.height + self._settings.slice_distance
                 )
                 milling_area_nm.height = self._settings.slice_distance
