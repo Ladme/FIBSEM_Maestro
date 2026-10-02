@@ -2,22 +2,18 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
-from typing import TYPE_CHECKING
-
 from fibsem_maestro.action.action import Action
 from fibsem_maestro.action.registry import ACTION_REGISTRY
 from fibsem_maestro.action.state import ActionState
 from fibsem_maestro.action_context.action_context import ActionContext
 from fibsem_maestro.core.beam_type import BeamType
+from fibsem_maestro.core.direction import Direction
 from fibsem_maestro.logging.logging import with_logging_context
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.milling.error import MillingError
 from fibsem_maestro.settings.milling_settings import MillingSettings
 from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.workflow.actions import Actions
-
-if TYPE_CHECKING:
-    from fibsem_maestro.core.area import NMArea
 
 
 class MillingState(ActionState):
@@ -55,8 +51,6 @@ class Milling(Action[MillingSettings, MillingState]):
         self._settings = settings
         self._ctx = ctx
         self._actions = actions
-
-        self._current_milling_area: NMArea | None = None
 
     @classmethod
     def settings_cls(cls) -> type[MillingSettings]:
@@ -133,8 +127,20 @@ class Milling(Action[MillingSettings, MillingState]):
         milling_area_nm = self._settings.milling_area[0].to_nanometers(
             self._microscope.beam.resolution, self._microscope.beam.pixel_size
         )
+
+        # hot fix milling
+        match self._settings.milling_direction:
+            case Direction.DOWN:
+                milling_area_nm.origin.y -= self._settings.slice_distance
+                milling_area_nm.height = self._settings.slice_distance
+            case Direction.UP:
+                milling_area_nm.origin.y -= (
+                    milling_area_nm.height + self._settings.slice_distance
+                )
+                milling_area_nm.height = self._settings.slice_distance
+
         self._ctx.text_logger.debug(
-            f"Current milling area in nanometers: {self._current_milling_area}."
+            f"Current milling area in nanometers: {milling_area_nm}."
         )
 
         # perform the milling step
