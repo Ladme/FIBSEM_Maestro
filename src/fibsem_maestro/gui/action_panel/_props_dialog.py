@@ -34,6 +34,8 @@ class PropertiesDialog(QDialog):
         properties: GlobalProperties,
         workflow_manager: WorkflowManager,
         txt_log: TextLogger,
+        title: str = "Properties",
+        hint: str = "Edit the values if needed, then save.",
         parent: QWidget | None = None,
     ) -> None:
         """
@@ -43,13 +45,15 @@ class PropertiesDialog(QDialog):
             workflow_manager: Passed through to the form builder; needed by
                 manager-dependent widgets (property/area/action selectors).
             txt_log: Logger used by the form builder for build-time warnings.
+            title: Window title.
+            hint: Short explanation shown above the form.
             parent: Parent widget.
         """
         super().__init__(parent)
 
         self._properties = properties
 
-        self.setWindowTitle("Collected properties")
+        self.setWindowTitle(title)
         self.setModal(True)
         self.setGeometry(self.screen().availableGeometry())
 
@@ -57,12 +61,10 @@ class PropertiesDialog(QDialog):
         layout.setContentsMargins(8, 8, 8, 8)
         layout.setSpacing(8)
 
-        hint = QLabel(
-            "Values read from the microscope. Edit them if needed, then save."
-        )
-        hint.setStyleSheet("font-size: 11px; color: #888888;")
-        hint.setWordWrap(True)
-        layout.addWidget(hint)
+        hint_label = QLabel(hint)
+        hint_label.setStyleSheet("font-size: 11px; color: #888888;")
+        hint_label.setWordWrap(True)
+        layout.addWidget(hint_label)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -98,6 +100,8 @@ class PropertiesDialog(QDialog):
         properties: GlobalProperties,
         workflow_manager: WorkflowManager,
         txt_log: TextLogger,
+        title: str = "Properties",
+        hint: str = "Edit the values if needed, then save.",
         parent: QWidget | None = None,
     ) -> GlobalProperties | None:
         """
@@ -107,6 +111,8 @@ class PropertiesDialog(QDialog):
             properties: The live properties instance to review. Mutated in place.
             workflow_manager: Passed through to the form builder.
             txt_log: Logger used by the form builder.
+            title: Window title.
+            hint: Short explanation shown above the form.
             parent: Parent widget.
 
         Returns:
@@ -117,6 +123,8 @@ class PropertiesDialog(QDialog):
             properties=properties,
             workflow_manager=workflow_manager,
             txt_log=txt_log,
+            title=title,
+            hint=hint,
             parent=parent,
         )
 

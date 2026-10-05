@@ -313,6 +313,15 @@ class Action(ABC, Generic[TSettings, TState]):
         self._ctx.text_logger.debug(f"Writing microscope properties for {self.name}.")
         store.write("props.yaml", props)
 
+    def has_stored_properties(self) -> bool:
+        """
+        Check whether properties are stored for the current slice.
+
+        Returns:
+            `True` if the props file for the current slice exists.
+        """
+        return self._ctx.props_store.exists("props.yaml")
+
 
 def matches_frequency(slice_index: int, frequency: int | None) -> bool:
     """
