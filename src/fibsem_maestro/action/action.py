@@ -86,6 +86,41 @@ class Action(ABC, Generic[TSettings, TState]):
 
     @final
     @with_logging_context
+    def prepare(self) -> None:
+        """
+        Prepare the action to execute its current slice from the microscope as it is now.
+
+        Captures the action's properties from the microscope and stores them
+        for the current slice, then runs the action-specific `_prepare`
+        hook, then stores the resulting state for the current slice. The
+        properties are captured first, so they reflect the user's setup and
+        not whatever the hook leaves on the microscope.
+        """
+        self._ctx.text_logger.info(
+            f"Preparing '{self.name}' for slice {self._ctx.slice}."
+        )
+        self.write_properties(self.collect_properties())
+        self._prepare()
+        self._ctx.state_store.write("state.yaml", self.state)
+
+    def _prepare(self) -> None:
+        """
+        Action-specific preparation, run after the properties are captured.
+
+        Does nothing by default.
+        """
+
+    def preparation_issues(self) -> list[str]:
+        """
+        Describe what must still be prepared before the action can execute.
+
+        Returns:
+            Human-readable problems; empty if the action is ready. The default reports none.
+        """
+        return []
+
+    @final
+    @with_logging_context
     def execute(self) -> StepOutcome:
         """
         Run one step of the action for the current slice.

@@ -103,6 +103,37 @@ class TemplateMatching:
             self._validate_template_scan_consistency(template_scans, area_index)
             self._save_averaged_template(template_scans, area_index, store)
 
+    def templates_exist(self, store: ImageStore[Image8Bit] | None = None) -> bool:
+        """
+        Check whether a template is stored for every configured area.
+
+        Args:
+            store: Store to check. If `None`, the current slice's store is used.
+
+        Returns:
+            `True` if areas are configured and each has a stored template.
+        """
+        if store is None:
+            store = self._image_store
+
+        return bool(self._settings.areas) and all(
+            store.exists(self._construct_template_name(i))
+            for i in range(len(self._settings.areas))
+        )
+
+    def copy_templates(
+        self, src: ImageStore[Image8Bit], dest: ImageStore[Image8Bit]
+    ) -> None:
+        """
+        Copy the template of every configured area unchanged between stores.
+
+        Args:
+            src: Store to read the templates from.
+            dest: Store to write the templates to.
+        """
+        for i in range(len(self._settings.areas)):
+            self._copy_template(i, src, dest)
+
     def update_templates(self, slice_number: int, confidence: float | None) -> None:
         """
         Refresh templates for the next slice, subject to the update policy.
@@ -123,8 +154,7 @@ class TemplateMatching:
 
         else:
             # copy templates from the current slice
-            for i in range(len(self._settings.areas)):
-                self._copy_template(i, self._image_store, self._image_store.next)
+            self.copy_templates(self._image_store, self._image_store.next)
 
     def calculate_drift(self) -> Drift:
         """

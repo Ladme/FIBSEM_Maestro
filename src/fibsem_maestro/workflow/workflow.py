@@ -270,6 +270,15 @@ class Workflow:
         # sleep for 1 ms to avoid overlapping slice log messages
         sleep(0.001)
 
+        # check for issues with action preparation
+        issues = [
+            f"'{action.name}': {issue}"
+            for action in self.actions
+            for issue in action.preparation_issues()
+        ]
+        if issues:
+            raise WorkflowError("Actions are not ready to run:\n" + "\n".join(issues))
+
         while (action := self._next_pending_action()) is not None:
             # execute the action
             outcome = self._execute_with_recovery(action)

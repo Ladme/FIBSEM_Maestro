@@ -6,7 +6,7 @@ from PyQt6.QtGui import QColor, QIcon, QPainter, QPalette, QPixmap
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import QToolButton, QWidget
 
-ICON_CAPTURE = (
+ICON_PREPARE = (
     '<path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/>'
     '<path d="M12 3v12"/><path d="M7 10l5 5 5-5"/>'
 )

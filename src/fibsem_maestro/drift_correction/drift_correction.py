@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
 
 class DriftCorrectionState(ActionState):
-    is_initialized: bool = False
+    pass
 
 
 @ACTION_REGISTRY.register("drift_correction")
@@ -41,13 +41,7 @@ class DriftCorrection(Action[DriftCorrectionSettings, DriftCorrectionState]):
         ctx: ActionContext,
         actions: Actions,
     ):
-        self._name = name
-        self._microscope = microscope
-        self._settings = settings
-        self._ctx = ctx
-        self._actions = actions
-
-        self._is_initialized = False
+        super().__init__(name, microscope, settings, ctx, actions)
         # set up the drift calculation method
         self._rebuild()
         # rebuild whenever the settings change
@@ -78,22 +72,42 @@ class DriftCorrection(Action[DriftCorrectionSettings, DriftCorrectionState]):
 
     @property
     def state(self) -> DriftCorrectionState:
-        return DriftCorrectionState(is_initialized=self._is_initialized)
+        return DriftCorrectionState()
 
     def set_state(self, state: DriftCorrectionState) -> None:
-        self._is_initialized = state.is_initialized
+        _ = state
 
     def carry_over_to_next(self) -> None:
         super().carry_over_to_next()
         self._drift_calc.if_skipped(self._ctx.slice)
 
+    def _prepare(self) -> None:
+        self._ctx.text_logger.info(
+            f"Setting up drift calculation for '{self.name}' for slice {self._ctx.slice}."
+        )
+        self._drift_calc.setup()
+
+    def preparation_issues(self) -> list[str]:
+        if self._drift_calc.is_set_up():
+            return []
+        return ["drift calculation is not set up; press the Prepare button"]
+
+    def initialize_first_slice(self) -> None:
+        # copy before the base advances the context, while the store still
+        # addresses slice 0; if nothing was set up there is nothing to copy,
+        # and the workflow's preparation check reports it clearly
+        if self._drift_calc.is_set_up():
+            store = self._ctx.image_store(Image8Bit)
+            self._drift_calc.copy_setup(store, store.next)
+
+        super().initialize_first_slice()
+
     def _run_step(self) -> StepOutcome:
-        if not self._is_initialized:
-            self._ctx.text_logger.debug(f"Initializing drift correction '{self.name}'.")
-            self._drift_calc.setup()
-            self._is_initialized = True
-            # TODO: should we do this?
-            self.read_and_set_properties()
+        if not self._drift_calc.is_set_up():
+            # the workflow checks this before each slice; this guards direct calls
+            raise DriftCorrectionError(
+                f"'{self.name}' has not been prepared: drift calculation is not set up."
+            )
 
         if self._microscope.beam.scan_rotation != 0:
             raise DriftCorrectionError(

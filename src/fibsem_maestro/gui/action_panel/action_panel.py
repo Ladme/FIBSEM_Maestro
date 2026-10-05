@@ -3,24 +3,22 @@
 
 from collections.abc import Callable
 
-from PyQt6.QtCore import QSize, Qt, QThread
+from PyQt6.QtCore import Qt, QThread
 from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
     QScrollArea,
-    QStyle,
-    QToolButton,
     QVBoxLayout,
     QWidget,
 )
 
 from fibsem_maestro.action.action import Action
-from fibsem_maestro.gui.action_panel._action_test_worker import ActionTestWorker
+from fibsem_maestro.gui.action_panel._call_worker import CallWorker
 from fibsem_maestro.gui.action_panel._icon_button import (
     ICON_APPLY,
-    ICON_CAPTURE,
     ICON_EDIT,
+    ICON_PREPARE,
     ICON_TEST,
     IconButton,
 )
@@ -67,8 +65,12 @@ class ActionPanel(QWidget):
         self._txt_log = self._manager.workflow.ctx.text_logger
         self._form_builder = form_builder
 
-        self._test_thread: QThread | None = None
-        self._test_worker: ActionTestWorker | None = None
+        # the running worker-thread task, if any
+        self._task_thread: QThread | None = None
+        self._task_worker: CallWorker | None = None
+        self._task_description = ""
+        self._task_on_success: Callable[[], None] | None = None
+        self._task_failed = False
 
         outer_layout = QVBoxLayout(self)
         outer_layout.setContentsMargins(0, 0, 0, 0)
@@ -76,11 +78,11 @@ class ActionPanel(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setStyleSheet("""
-                    QWidget[dataclass_form="true"] QWidget[highlighted="true"] {
-                        border: 1px solid #346792;
-                        border-radius: 3px;
-                    }
-                """)
+                QWidget[dataclass_form="true"] QWidget[highlighted="true"] {
+                    border: 1px solid #346792;
+                    border-radius: 3px;
+                }
+            """)
         outer_layout.addWidget(scroll)
 
         container = QWidget()
@@ -89,7 +91,40 @@ class ActionPanel(QWidget):
         layout.setContentsMargins(8, 8, 8, 8)
         layout.setSpacing(12)
 
-        # header: labels, then the tool buttons right next to them
+        layout.addWidget(self._build_header(action))
+
+        # settings
+        self._settings_widget = self._form_builder.build_form(
+            action.settings,
+            self._manager,
+            txt_log=self._txt_log,
+            fields=None,
+            action=self._action,
+        )
+        layout.addWidget(self._settings_widget)
+
+        # propagations
+        self._propagations_widget = PropagationsWidget(
+            current_action=action,
+            workflow_manager=self._manager,
+        )
+        layout.addWidget(self._propagations_widget)
+
+        layout.addStretch()
+
+        # sets read-only state of the form, propagations and buttons
+        self.on_app_state_changed(self._manager.state)
+
+    def _build_header(self, action: Action) -> QFrame:
+        """
+        Build the header: name, type and beam labels, with the tool buttons beside them.
+
+        Args:
+            action: The action shown in the panel.
+
+        Returns:
+            The header frame.
+        """
         title_frame = QFrame()
         title_frame.setFrameShape(QFrame.Shape.StyledPanel)
         header_layout = QHBoxLayout(title_frame)
@@ -113,13 +148,14 @@ class ActionPanel(QWidget):
         self._beam_label.setStyleSheet("font-size: 11px; color: #888888")
         labels_layout.addWidget(self._beam_label)
 
-        self._capture_btn = IconButton(
-            ICON_CAPTURE,
-            "<b>Capture</b><br>"
-            "Read the action's properties from the microscope and store them "
-            "for the current slice, replacing any stored ones.<br>"
+        self._prepare_btn = IconButton(
+            ICON_PREPARE,
+            "<b>Prepare</b><br>"
+            "Capture the action's properties from the microscope and store them "
+            "for the current slice, replacing any stored ones. Some actions do "
+            "more, e.g. drift correction also acquires its reference templates.<br>"
             "<i>Microscope -> stored properties</i>",
-            "Capture properties",
+            "Prepare action",
         )
         self._edit_btn = IconButton(
             ICON_EDIT,
@@ -143,14 +179,14 @@ class ActionPanel(QWidget):
             "properties if there are any.",
             "Test action",
         )
-        self._capture_btn.clicked.connect(self._capture_properties)
+        self._prepare_btn.clicked.connect(self._prepare_action)
         self._edit_btn.clicked.connect(self._edit_properties)
         self._apply_btn.clicked.connect(self._apply_properties)
         self._test_btn.clicked.connect(self._test_action)
 
         buttons_layout = QHBoxLayout()
         buttons_layout.setSpacing(4)
-        for btn in (self._capture_btn, self._edit_btn, self._apply_btn, self._test_btn):
+        for btn in (self._prepare_btn, self._edit_btn, self._apply_btn, self._test_btn):
             buttons_layout.addWidget(btn, 0, Qt.AlignmentFlag.AlignVCenter)
 
         header_layout.addLayout(labels_layout)
@@ -158,88 +194,39 @@ class ActionPanel(QWidget):
         header_layout.addLayout(buttons_layout)
         header_layout.addStretch(1)
 
-        layout.addWidget(title_frame)
+        return title_frame
 
-        # settings
-        self._settings_widget = self._form_builder.build_form(
-            action.settings,
-            self._manager,
-            txt_log=self._txt_log,
-            fields=None,
-            action=self._action,
-        )
-        layout.addWidget(self._settings_widget)
-
-        # propagations
-        self._propagations_widget = PropagationsWidget(
-            current_action=action,
-            workflow_manager=self._manager,
-        )
-        layout.addWidget(self._propagations_widget)
-
-        layout.addStretch()
-
-        self.on_app_state_changed(self._manager.state)
-
-    def _make_header_button(
-        self,
-        pixmap: QStyle.StandardPixmap,
-        accessible_name: str,
-        tooltip: str,
-        slot: Callable[[], None],
-    ) -> QToolButton:
+    @staticmethod
+    def _beam_text(action: Action) -> str:
         """
-        Create an icon-only tool button for the header.
+        Header text describing the action's beam.
 
         Args:
-            pixmap: Standard style icon for the button.
-            accessible_name: Name announced by screen readers.
-            tooltip: Help text shown on hover (rich text).
-            slot: Called when the button is clicked.
+            action: The action shown in the panel.
 
         Returns:
-            The configured button.
+            The beam label text.
         """
-        btn = QToolButton()
-        btn.setIcon(self.style().standardIcon(pixmap))
-        btn.setIconSize(QSize(20, 20))
-        btn.setAutoRaise(True)
-        btn.setToolTip(tooltip)
-        btn.setAccessibleName(accessible_name)
-        btn.clicked.connect(slot)
-        return btn
+        beam = str(action.beam_type) if action.beam_type is not None else "—"
+        return f"   > beam: {beam}"
 
     def _update_buttons(self) -> None:
-        """Enable the header buttons according to app state, test state and stored props."""
-        idle = self._manager.state in _EDITABLE_STATES and not self._test_running()
+        """Enable the header buttons according to app state, running task and stored props."""
+        idle = self._manager.state in _EDITABLE_STATES and self._task_thread is None
         has_props = idle and self._action.has_stored_properties()
 
-        self._capture_btn.setEnabled(idle)
+        self._prepare_btn.setEnabled(idle)
         self._edit_btn.setEnabled(has_props)
         self._apply_btn.setEnabled(has_props)
         self._test_btn.setEnabled(idle)
 
-    def _test_running(self) -> bool:
-        """Whether a test of this action is currently running."""
-        return self._test_thread is not None and self._test_thread.isRunning()
-
-    def _capture_properties(self) -> None:
-        """Collect the action's properties from the microscope and store them."""
-        try:
-            props = self._action.collect_properties()
-            self._action.write_properties(props)
-        except Exception as e:
-            self._txt_log.error(
-                f"Capturing properties for '{self._action.name}' failed: {e}"
-            )
-            return
-
-        self._txt_log.info(
-            f"Captured properties for '{self._action.name}' "
-            f"(slice {self._action.ctx.slice})."
+    def _prepare_action(self) -> None:
+        """Prepare the action on a worker thread."""
+        self._start_task(
+            self._action.prepare,
+            f"Preparing '{self._action.name}'",
+            on_success=lambda: self._manager.notify_action_changed(self._action),
         )
-        self._manager.notify_action_changed(self._action)
-        self._update_buttons()
 
     def _edit_properties(self) -> None:
         """Open the stored properties of the current slice for editing."""
@@ -300,31 +287,78 @@ class ActionPanel(QWidget):
         )
 
     def _test_action(self) -> None:
-        """Run the action's test on a worker thread."""
-        # prevent overlapping runs
-        if self._test_running():
+        """Test the action on a worker thread."""
+        self._start_task(self._action.test, f"Testing '{self._action.name}'")
+
+    def _start_task(
+        self,
+        fn: Callable[[], None],
+        description: str,
+        on_success: Callable[[], None] | None = None,
+    ) -> None:
+        """
+        Run a microscope task on a worker thread; at most one runs at a time.
+
+        Args:
+            fn: The task to run.
+            description: Human-readable description, for error messages.
+            on_success: Called on the GUI thread if the task did not raise.
+        """
+        if self._task_thread is not None:
             return
 
-        self._test_thread = QThread()
-        self._test_worker = ActionTestWorker(self._action)
-        self._test_worker.moveToThread(self._test_thread)
+        thread = QThread()
+        worker = CallWorker(fn)
+        worker.moveToThread(thread)
 
-        self._test_thread.started.connect(self._test_worker.run)
-        self._test_worker.finished.connect(self._test_thread.quit)
-        self._test_worker.finished.connect(self._test_worker.deleteLater)
-        self._test_worker.finished.connect(lambda: setattr(self, "_test_worker", None))
-        self._test_thread.finished.connect(self._test_thread.deleteLater)
-        self._test_thread.finished.connect(lambda: setattr(self, "_test_thread", None))
-        # connected after the reset above, so the buttons see the thread as gone
-        self._test_thread.finished.connect(self._update_buttons)
-        self._test_worker.error.connect(
-            lambda e: self._action.ctx.text_logger.error(f"Test failed: {e}")
-        )
+        thread.started.connect(worker.run)
+        worker.finished.connect(thread.quit)
+        # bound methods of this panel run on the GUI thread (queued connections)
+        worker.error.connect(self._on_task_failed)
+        thread.finished.connect(self._on_task_finished)
 
-        self._test_thread.start()
+        self._task_thread = thread
+        self._task_worker = worker
+        self._task_description = description
+        self._task_on_success = on_success
+        self._task_failed = False
+
+        self._update_buttons()
+        thread.start()
+
+    def _on_task_failed(self, error: Exception) -> None:
+        """
+        Log a failed task.
+
+        Args:
+            error: The exception raised by the task.
+        """
+        self._task_failed = True
+        self._txt_log.error(f"{self._task_description} failed: {error}")
+
+    def _on_task_finished(self) -> None:
+        """Release the finished task and run its success callback."""
+        assert self._task_thread is not None
+        # `finished` is emitted just before the thread exits; wait so that
+        # dropping the last reference cannot destroy a still-running QThread
+        self._task_thread.wait()
+
+        on_success = None if self._task_failed else self._task_on_success
+        self._task_thread = None
+        self._task_worker = None
+        self._task_on_success = None
+
+        if on_success is not None:
+            on_success()
         self._update_buttons()
 
     def on_app_state_changed(self, state: AppState) -> None:
+        """
+        Update read-only state and buttons for a new app state.
+
+        Args:
+            state: The new app state.
+        """
         read_only = state not in _EDITABLE_STATES
         self._settings_widget.set_read_only(read_only)
         self._propagations_widget.set_read_only(read_only)
@@ -332,6 +366,12 @@ class ActionPanel(QWidget):
         self._update_buttons()
 
     def on_action_changed(self, action: Action) -> None:
+        """
+        Refresh the header if the changed action is the one shown.
+
+        Args:
+            action: The action that changed.
+        """
         if self._action is action:
             self._name_label.setText(action.name)
             self._beam_label.setText(self._beam_text(action))
@@ -342,8 +382,3 @@ class ActionPanel(QWidget):
         Re-read every field from the live settings, leaving the form intact.
         """
         self._settings_widget.set_value(self._action.settings)
-
-    @staticmethod
-    def _beam_text(action: Action) -> str:
-        """Header text describing the action's beam."""
-        return f"   > beam: {str(action.beam_type) if action.beam_type is not None else '—'}"
