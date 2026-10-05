@@ -27,5 +27,6 @@ TILE_COLOR = QColor(255, 0, 0)
 TILE_PEN = QPen(TILE_COLOR, 0)
 TILE_PEN.setCosmetic(True)
 
-SHIFT_COLOR = QColor(140, 200, 255)
-SHIFT_PEN = QPen(SHIFT_COLOR, 2, Qt.PenStyle.DotLine)
+LINE_COLOR = QColor(140, 200, 255)
+LINE_PEN = QPen(LINE_COLOR, 1, Qt.PenStyle.DotLine)
+MAX_LINES = 500

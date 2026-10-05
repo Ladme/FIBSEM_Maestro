@@ -114,6 +114,46 @@ class _Area(BaseModel, Generic[T, U]):
 
         return self.shifted(shift)
 
+    def contains(self, other: Self, *, tolerance: float = 0.0) -> bool:
+        """
+        Check whether `other` lies entirely inside this area.
+
+        Edges are inclusive: an area that shares one or more edges with this
+        area (including an identical area) counts as inside.
+
+        Both areas must be the same type, i.e. expressed in the same units.
+
+        Args:
+            other: The area to test.
+            tolerance: Slack allowed on every edge, in the same units as
+                `width` and `height`. Useful for float-based areas, where
+                accumulated rounding (e.g. after `shifted`) can push an edge
+                that should coincide with this area's edge slightly past it.
+                Must be non-negative.
+
+        Returns:
+            True if `other` lies within this area (up to `tolerance`),
+            False otherwise.
+
+        Raises:
+            TypeError: If `other` is not the same area type as this area.
+            ValueError: If `tolerance` is negative.
+        """
+        if type(other) is not type(self):
+            raise TypeError(
+                f"Cannot compare {type(self).__name__} with {type(other).__name__}; "
+                "convert both areas to the same units first."
+            )
+        if tolerance < 0:
+            raise ValueError(f"Tolerance must be non-negative, got {tolerance}.")
+
+        return (
+            other.origin.x >= self.origin.x - tolerance
+            and other.origin.y >= self.origin.y - tolerance
+            and other.origin.x + other.width <= self.origin.x + self.width + tolerance
+            and other.origin.y + other.height <= self.origin.y + self.height + tolerance
+        )
+
 
 class RelativeArea(_Area[RelativePoint, float]):
     """
