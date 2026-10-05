@@ -8,12 +8,12 @@ from contextlib import ExitStack
 from pathlib import Path
 
 from fibsem_maestro.action.action import Action
+from fibsem_maestro.action.outcome import Produced, StepOutcome
 from fibsem_maestro.action.registry import ACTION_REGISTRY
 from fibsem_maestro.action.state import ActionState
 from fibsem_maestro.action_context.action_context import ActionContext
 from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.beam_shift import BeamShift
-from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.format import ImageFormat
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.criterion.criterion import Criterion
@@ -26,7 +26,6 @@ from fibsem_maestro.settings.imaging_settings import (
     ImagingSettings,
     StandardResolution,
 )
-from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.slice.slice_view import SliceView
 from fibsem_maestro.workflow.actions import Actions
 
@@ -59,11 +58,7 @@ class Imaging(Action[ImagingSettings, ImagingState]):
         ctx: ActionContext,
         actions: Actions,
     ):
-        self._name = name
-        self._microscope = microscope
-        self._settings = settings
-        self._ctx = ctx
-        self._actions = actions
+        super().__init__(name, microscope, settings, ctx, actions)
 
         # sharpness of the acquired image
         self._image_sharpness: float | None = None
@@ -79,38 +74,6 @@ class Imaging(Action[ImagingSettings, ImagingState]):
     @classmethod
     def state_cls(cls) -> type[ImagingState]:
         return ImagingState
-
-    @property
-    def name(self) -> str:
-        """Human-readable identifier for this imaging instance."""
-        return self._name
-
-    @name.setter
-    def name(self, value: str) -> None:
-        self._name = value
-
-    @property
-    def beam_type(self) -> BeamType | None:
-        """Beam type used for acquisition, either electron or ion."""
-        return self._settings.beam_type
-
-    @property
-    def props_to_collect(self) -> PropertyNames:
-        """Names of microscope properties relevant for the image acquisition."""
-        return self._settings.properties_to_collect
-
-    @property
-    def microscope(self) -> Microscope:
-        """The microscope instance used for the imaging."""
-        return self._microscope
-
-    @property
-    def settings(self) -> ImagingSettings:
-        return self._settings
-
-    @property
-    def ctx(self) -> ActionContext:
-        return self._ctx
 
     @property
     def state(self) -> ImagingState:
@@ -153,83 +116,45 @@ class Imaging(Action[ImagingSettings, ImagingState]):
         """Get the last image acquired by this imaging."""
         return self._last_acquired_image
 
-    @with_logging_context
-    def execute(self) -> None:
-        """
-        Execute the full image acquisition pipeline for the current slice.
-
-        Loads stored microscope properties and applies them to the beam,
-        acquires a frame and persists it via the frame store, writes updated
-        properties to the next slice's store, and optionally launches a
-        background thread to evaluate image sharpness.
-
-        Call `wait_for_sharpness` after this method to block until the
-        sharpness result is available.
-
-        Raises:
-            ImagingError: If a frame for the current slice already exists in the frame store.
-        """
-        if (
-            self._settings.execution_frequency is None
-            # the first slice is 1, so we use slice_number - 1 to get the 0-indexed slice number
-            or (self._ctx.slice - 1) % self._settings.execution_frequency != 0
-        ):
-            self._ctx.text_logger.info(
-                f"Skipping '{self.name}' for slice {self._ctx.slice}."
-            )
-            # even if imaging is skipped, we need to write properties for the next slice
-            self.propagate_to_next()
-            return
-
-        self._ctx.text_logger.info(
-            f"Started '{self.name}' for slice {self._ctx.slice}."
-        )
-
-        # set the properties of the microscope
-        self.read_and_set_properties()
-
-        # make sure that the image for the current slice does not exist
+    def _run_step(self) -> StepOutcome:
         self._ctx.frame_store.raise_if_exists(
             ImagingError,
             f"Frame for slice {self._ctx.slice} for action '{self.name}' already exists.",
         )
-
-        # grab the frame and save it
         self._last_acquired_image = self._microscope.beam.grab_frame(
             self._ctx.frame_store
         )
 
-        # update the saved microscope properties for the next frame
-        # if we are in extended resolution, we skip setting up the geometry of the captured area
-        # since that would actually mess it up
+        # in extended resolution the props already carry the geometry
         props = self._collect_properties_in_current_geometry()
-        self.write_properties(props, self._ctx.props_store.next)
+        self._start_sharpness_calculation(self._last_acquired_image)
+        return Produced(props)
 
-        # calculate image sharpness in a separate thread
+    def _start_sharpness_calculation(self, image: Image) -> None:
+        """
+        Start the background sharpness evaluation for an acquired image.
+
+        Does nothing beyond logging if no criterion is configured. Call
+        `wait_for_sharpness` to block until the result is available.
+
+        Args:
+            image: The image to evaluate.
+        """
         self._image_sharpness = None
-        if self._settings.criterion is not None:
-            # capture the current logging context to use in the thread
-            # this is done so that the logs from the sharpness calculation
-            # are logged to the correct slice
-            current_view = self._ctx.current_view
-            ctx_snapshot = contextvars.copy_context()
-            self._sharpness_thread = threading.Thread(
-                target=ctx_snapshot.run,
-                args=(
-                    self._calculate_sharpness,
-                    self._last_acquired_image,
-                    current_view,
-                ),
-            )
-            self._sharpness_thread.start()
-        else:
+        if self._settings.criterion is None:
             self._ctx.text_logger.debug(
-                f"Criterion is not configured for {self.name}. Image sharpness will not be calculated."
+                f"Criterion is not configured for {self.name}. "
+                "Image sharpness will not be calculated."
             )
+            return
 
-        self._ctx.text_logger.info(
-            f"Completed '{self.name}' for slice {self._ctx.slice}."
+        # run in a copy of the logging context, addressed to this slice
+        ctx_snapshot = contextvars.copy_context()
+        self._sharpness_thread = threading.Thread(
+            target=ctx_snapshot.run,
+            args=(self._calculate_sharpness, image, self._ctx.current_view),
         )
+        self._sharpness_thread.start()
 
     @with_logging_context
     def test(self) -> None:

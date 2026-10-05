@@ -112,20 +112,6 @@ def test_accumulate_property():
     assert props.electron_beam.beam_shift.y == pytest.approx(5.0)
 
 
-def test_accumulate_property_raises_on_nonexistent_property():
-    props = GlobalProperties.model_validate({})
-    props.electron_beam = BeamProperties.model_validate({})
-
-    with pytest.raises(ValueError) as exc_info:
-        props.accumulate_property(
-            "nonexistent_property", 10.0, beam_type=BeamType.ELECTRON
-        )
-
-    assert "nonexistent_property" not in exc_info.value.args[
-        0
-    ] or "does not exist" in str(exc_info.value)
-
-
 def test_accumulate_property_mixed_none_and_values():
     """Properties can be mixed: some None, some with values."""
     props = GlobalProperties.model_validate({})
@@ -194,18 +180,6 @@ def test_set_property_multiple_updates():
     assert props.electron_beam.line_integration == 8
 
 
-def test_set_property_raises_on_nonexistent_property():
-    props = GlobalProperties.model_validate({})
-    props.electron_beam = BeamProperties.model_validate({})
-
-    with pytest.raises(ValueError) as exc_info:
-        props.set_property("fake_property", 10.0, beam_type=BeamType.ELECTRON)
-
-    assert "fake_property" not in str(exc_info.value) or "does not exist" in str(
-        exc_info.value
-    )
-
-
 def test_global_properties_get_property_names_returns_empty_when_all_none():
     props = GlobalProperties()
 
@@ -247,3 +221,145 @@ def test_global_properties_get_property_names_returns_property_names_instance():
     result = props.get_property_names()
 
     assert isinstance(result, PropertyNames)
+
+
+def _electron_names(*names: str) -> PropertyNames:
+    return PropertyNames(microscope=[], electron_beam=list(names), ion_beam=[])
+
+
+def test_select_missing_property_raises() -> None:
+    props = GlobalProperties()
+    props.set_property("working_distance", 4.0e6, BeamType.ELECTRON)  # nm
+
+    with pytest.raises(KeyError):
+        props.select(_electron_names("working_distance", "dwell_time"))
+
+
+def test_select_extra_property_is_selected() -> None:
+    props = GlobalProperties()
+    props.set_property("vendor_specific_gain", 1.5, BeamType.ELECTRON)
+
+    selected = props.select(_electron_names("vendor_specific_gain"))
+
+    assert selected.electron_beam is not None
+    assert selected.electron_beam.vendor_specific_gain == 1.5  # ty: ignore[unresolved-attribute]
+
+
+def _names(
+    *,
+    microscope: tuple[str, ...] = (),
+    electron: tuple[str, ...] = (),
+    ion: tuple[str, ...] = (),
+) -> PropertyNames:
+    return PropertyNames(
+        microscope=list(microscope),
+        electron_beam=list(electron),
+        ion_beam=list(ion),
+    )
+
+
+@pytest.fixture
+def props() -> GlobalProperties:
+    """Electron and ion beam properties with a few declared fields set."""
+    p = GlobalProperties()
+    p.set_property("working_distance", 4.0e6, BeamType.ELECTRON)  # nm
+    p.set_property("dwell_time", 100.0, BeamType.ELECTRON)  # ns
+    p.set_property("working_distance", 4.5e6, BeamType.ION)  # nm
+    return p
+
+
+def test_select_keeps_only_requested_properties(props: GlobalProperties) -> None:
+    selected = props.select(_names(electron=("working_distance",)))
+
+    assert selected.electron_beam is not None
+    assert selected.electron_beam.working_distance == 4.0e6
+    assert selected.electron_beam.dwell_time is None
+
+
+def test_select_beams_are_independent(props: GlobalProperties) -> None:
+    selected = props.select(_names(electron=("dwell_time",), ion=("working_distance",)))
+
+    assert selected.electron_beam is not None
+    assert selected.ion_beam is not None
+    assert selected.electron_beam.working_distance is None
+    assert selected.electron_beam.dwell_time == 100.0
+    assert selected.ion_beam.working_distance == 4.5e6
+
+
+def test_select_empty_names_returns_empty_properties(props: GlobalProperties) -> None:
+    selected = props.select(_names())
+
+    assert selected.microscope is None
+    assert selected.electron_beam is None
+    assert selected.ion_beam is None
+
+
+def test_select_from_unset_beam_raises() -> None:
+    p = GlobalProperties()
+    p.set_property("working_distance", 4.0e6, BeamType.ELECTRON)
+
+    with pytest.raises(KeyError, match="ion_beam"):
+        p.select(_names(ion=("working_distance",)))
+
+
+def test_select_unknown_property_raises(props: GlobalProperties) -> None:
+    with pytest.raises(KeyError, match="no_such_property"):
+        props.select(_names(electron=("no_such_property",)))
+
+
+def test_select_does_not_modify_source(props: GlobalProperties) -> None:
+    props.select(_names(electron=("working_distance",)))
+
+    assert props.electron_beam is not None
+    assert props.electron_beam.working_distance == 4.0e6
+    assert props.electron_beam.dwell_time == 100.0
+    assert props.ion_beam is not None
+    assert props.ion_beam.working_distance == 4.5e6
+
+
+def test_select_result_shares_no_mutable_state_with_source() -> None:
+    p = GlobalProperties()
+    p.set_property("vendor_offsets", [1.0, 2.0], BeamType.ELECTRON)
+
+    selected = p.select(_names(electron=("vendor_offsets",)))
+    assert selected.electron_beam is not None
+    selected.electron_beam.vendor_offsets.append(3.0)  # ty: ignore[unresolved-attribute]
+
+    assert p.electron_beam is not None
+    assert p.electron_beam.vendor_offsets == [1.0, 2.0]  # ty: ignore[unresolved-attribute]
+
+
+def test_set_property_extra_on_existing_inner_object() -> None:
+    p = GlobalProperties()
+    p.set_property("working_distance", 4.0e6, BeamType.ELECTRON)  # nm
+    p.set_property("vendor_specific_gain", 1.5, BeamType.ELECTRON)
+
+    assert p.electron_beam is not None
+    assert p.electron_beam.vendor_specific_gain == 1.5  # ty: ignore[unresolved-attribute]
+    assert p.electron_beam.working_distance == 4.0e6
+
+
+def test_accumulate_property_unset_extra_is_set() -> None:
+    p = GlobalProperties()
+    p.set_property("working_distance", 4.0e6, BeamType.ELECTRON)
+    p.accumulate_property("vendor_offset", 2.0, BeamType.ELECTRON)
+
+    assert p.electron_beam is not None
+    assert p.electron_beam.vendor_offset == 2.0  # ty: ignore[unresolved-attribute]
+
+
+def test_accumulate_property_existing_extra_is_added() -> None:
+    p = GlobalProperties()
+    p.set_property("vendor_offset", 2.0, BeamType.ELECTRON)
+    p.accumulate_property("vendor_offset", 0.5, BeamType.ELECTRON)
+
+    assert p.electron_beam is not None
+    assert p.electron_beam.vendor_offset == 2.5  # ty: ignore[unresolved-attribute]
+
+
+@pytest.mark.parametrize("name", ["_private", "model_config", "get_property_names"])
+def test_set_property_reserved_name_raises(name: str) -> None:
+    p = GlobalProperties()
+
+    with pytest.raises(ValueError, match=name):
+        p.set_property(name, 1.0, BeamType.ELECTRON)

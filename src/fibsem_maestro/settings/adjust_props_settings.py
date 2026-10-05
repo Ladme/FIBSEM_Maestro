@@ -23,3 +23,18 @@ class AdjustPropsSettings(BaseSettings):
         default_factory=PropertyNames,
         description="Properties of the microscope and the beams relevant for this action.",
     )
+
+    @property
+    def beam_type(self) -> None:
+        """
+        Beam this action works with: neither beam specifically.
+
+        A plain property rather than a field, so it is not serialised and
+        does not appear in the settings form.
+
+        Only needed to conform to the `ActionSettingsLike` protocol.
+
+        Returns:
+            Always `None`.
+        """
+        return None

@@ -1,7 +1,8 @@
 # Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
-from typing import Any
+import copy
+from typing import Any, Self
 
 from pydantic import Field
 
@@ -45,11 +46,11 @@ class GlobalProperties(BaseSettings):
         self, property_name: str, value_to_add: Any, beam_type: BeamType | None = None
     ) -> None:
         """
-        Accumulate a property value to microscope or beam properties.
+        Accumulate a value onto a microscope or beam property.
 
-        If the property object does not exist, it will be created with this property.
-        If it exists, the value will be added to the existing property (using the
-        __add__ operator).
+        Declared fields and extra properties are treated alike. A property that
+        is not set (absent or `None`) is set to `value_to_add`; otherwise
+        `value_to_add` is added to the current value with `+`.
 
         Args:
             property_name: Name of the property to accumulate.
@@ -57,19 +58,19 @@ class GlobalProperties(BaseSettings):
             beam_type: Type of beam (ELECTRON, ION) or None for microscope properties.
 
         Raises:
-            ValueError: If the property does not exist or does not support addition.
+            ValueError: If the name cannot be used as a property, or the current
+                value does not support addition.
         """
         # determine which properties object to update
         props_attr_name = self.get_properties_attr_name(beam_type)
+        self._check_property_name(props_attr_name, property_name)
         inner_props: BeamProperties | MicroscopeProperties | None = getattr(
             self, props_attr_name
         )
 
         if inner_props is None:
-            # create new properties object with this property
             self._initialize_properties(props_attr_name, property_name, value_to_add)
         else:
-            # add to existing property
             self._accumulate_property_value(
                 inner_props, property_name, value_to_add, props_attr_name
             )
@@ -78,10 +79,10 @@ class GlobalProperties(BaseSettings):
         self, property_name: str, value: Any, beam_type: BeamType | None = None
     ) -> None:
         """
-        Set a property value, replacing any existing value.
+        Set a microscope or beam property, replacing any existing value.
 
-        If the property object does not exist, it will be created with this property.
-        If it exists, the property will be set to the new value without accumulation.
+        Declared fields and extra properties are treated alike. If the
+        properties object does not exist yet, it is created with this property.
 
         Args:
             property_name: Name of the property to set.
@@ -89,19 +90,18 @@ class GlobalProperties(BaseSettings):
             beam_type: Type of beam (ELECTRON, ION) or None for microscope properties.
 
         Raises:
-            ValueError: If the property does not exist on an existing properties object.
+            ValueError: If the name cannot be used as a property.
         """
         props_attr_name = self.get_properties_attr_name(beam_type)
+        self._check_property_name(props_attr_name, property_name)
         inner_props: BeamProperties | MicroscopeProperties | None = getattr(
             self, props_attr_name
         )
 
         if inner_props is None:
-            # Create new properties object with this property
             self._initialize_properties(props_attr_name, property_name, value)
         else:
-            # Set the property on existing object
-            self._set_property_value(inner_props, property_name, props_attr_name, value)
+            setattr(inner_props, property_name, value)
 
     def get_properties_attr_name(self, beam_type: BeamType | None) -> str:
         """
@@ -121,6 +121,42 @@ class GlobalProperties(BaseSettings):
             case BeamType.ION:
                 return "ion_beam"
 
+    def select(self, names: PropertyNames) -> Self:
+        """
+        Return a new instance containing only the named properties.
+
+        Both declared fields and extra properties can be selected.
+        A property counts as set if it is not `None`.
+        Values are deep-copied, so the result shares no mutable state with this instance.
+
+        Args:
+            names: The property names to keep.
+
+        Returns:
+            A new `GlobalProperties` with only the named properties set.
+
+        Raises:
+            KeyError: If any named property is not set on this instance.
+        """
+        selected = type(self)()
+        for attr in ("microscope", "electron_beam", "ion_beam"):
+            wanted: list[str] = list(getattr(names, attr))
+            if not wanted:
+                continue
+
+            inner: BeamProperties | MicroscopeProperties | None = getattr(self, attr)
+            if inner is None:
+                raise KeyError(
+                    f"No properties set on '{attr}'; requested: {', '.join(wanted)}."
+                )
+
+            values = {name: getattr(inner, name, None) for name in wanted}
+            if missing := [name for name, value in values.items() if value is None]:
+                raise KeyError(f"Properties not set on '{attr}': {', '.join(missing)}.")
+
+            setattr(selected, attr, type(inner).model_validate(copy.deepcopy(values)))
+        return selected
+
     def _initialize_properties(
         self,
         props_attr_name: str,
@@ -135,9 +171,8 @@ class GlobalProperties(BaseSettings):
             property_name: Name of the property to set.
             value: Value of the property.
         """
-        properties_class = (
-            BeamProperties if props_attr_name != "microscope" else MicroscopeProperties
-        )
+        properties_class = self._properties_class(props_attr_name)
+
         setattr(
             self,
             props_attr_name,
@@ -152,10 +187,10 @@ class GlobalProperties(BaseSettings):
         props_attr_name: str,
     ) -> None:
         """
-        Accumulate a value to an existing property using the __add__ operator.
+        Accumulate a value onto a property of an existing properties object.
 
-        If the property is None, it will be set to value_to_add. Otherwise, the value
-        will be added to the existing property using the __add__ operator.
+        A property that is not set (absent or `None`) is set to
+        `value_to_add`; otherwise the value is added with `+`.
 
         Args:
             inner_props: The properties object containing the property.
@@ -164,59 +199,62 @@ class GlobalProperties(BaseSettings):
             props_attr_name: Name of the properties attribute (for error messages).
 
         Raises:
-            ValueError: If property does not exist or does not support addition.
+            ValueError: If the current value does not support addition.
         """
-        # check if property exists
-        if not hasattr(inner_props, property_name):
-            available_props = ", ".join(type(inner_props).model_fields.keys())
-            raise ValueError(
-                f"Property '{property_name}' does not exist on '{props_attr_name}'. "
-                f"Available properties: {available_props}"
-            )
+        current_value = getattr(inner_props, property_name, None)
 
-        current_value = getattr(inner_props, property_name)
-
-        # if property is None, just set it to the value
         if current_value is None:
             setattr(inner_props, property_name, value_to_add)
             return
 
-        # check if property type supports addition
         if not hasattr(current_value, "__add__"):
             raise ValueError(
                 f"Cannot accumulate property '{property_name}' on '{props_attr_name}': "
                 f"type '{type(current_value).__name__}' does not support the addition operator"
             )
 
-        # perform addition and update
-        new_value = value_to_add + current_value
-        setattr(inner_props, property_name, new_value)
+        setattr(inner_props, property_name, value_to_add + current_value)
 
-    def _set_property_value(
-        self,
-        inner_props: BeamProperties | MicroscopeProperties,
-        property_name: str,
+    @staticmethod
+    def _properties_class(
         props_attr_name: str,
-        value: Any,
-    ) -> None:
+    ) -> type[BeamProperties] | type[MicroscopeProperties]:
         """
-        Set a property value on an existing properties object.
+        Return the properties model stored under an attribute name.
 
         Args:
-            inner_props: The properties object containing the property.
-            property_name: Name of the property to set.
-            props_attr_name: Name of the properties attribute (for error messages).
-            value: New value for the property.
+            props_attr_name: `"microscope"`, `"electron_beam"` or `"ion_beam"`.
+
+        Returns:
+            The model class for that attribute.
+        """
+        return (
+            MicroscopeProperties if props_attr_name == "microscope" else BeamProperties
+        )
+
+    @classmethod
+    def _check_property_name(cls, props_attr_name: str, property_name: str) -> None:
+        """
+        Reject names that cannot be stored as properties.
+
+        Any declared field or extra name is a valid property, except names
+        starting with an underscore, which Pydantic does not store as extras,
+        and names that collide with attributes of the model (methods,
+        Pydantic internals).
+
+        Args:
+            props_attr_name: Attribute name of the properties object.
+            property_name: The property name to check.
 
         Raises:
-            ValueError: If property does not exist on the properties object.
+            ValueError: If the name cannot be used as a property.
         """
-        # check if property exists in the model
-        if property_name not in type(inner_props).model_fields:
-            available_props = ", ".join(type(inner_props).model_fields.keys())
+        properties_class = cls._properties_class(props_attr_name)
+        if property_name in properties_class.model_fields:
+            return
+        if property_name.startswith("_") or hasattr(properties_class, property_name):
             raise ValueError(
-                f"Property '{property_name}' does not exist on '{props_attr_name}'. "
-                f"Available properties: {available_props}"
+                f"'{property_name}' cannot be used as a property name on "
+                f"'{props_attr_name}': it starts with an underscore or collides "
+                f"with an attribute of {properties_class.__name__}."
             )
-
-        setattr(inner_props, property_name, value)

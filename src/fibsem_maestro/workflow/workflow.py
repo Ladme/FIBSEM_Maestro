@@ -7,6 +7,7 @@ from time import sleep
 from typing import Protocol, Self
 
 from fibsem_maestro.action.action import Action
+from fibsem_maestro.action.outcome import Produced, StepOutcome
 from fibsem_maestro.action.registry import ACTION_REGISTRY
 from fibsem_maestro.action.state import ActionState
 from fibsem_maestro.action_context.action_context import ActionContext
@@ -159,7 +160,7 @@ class Workflow:
             if action is None:
                 raise WorkflowError(
                     f"Failed to load action '{name}' from any available slice: {last_error}"
-                )
+                ) from last_error
 
             actions.append(action)
 
@@ -271,15 +272,17 @@ class Workflow:
 
         while (action := self._next_pending_action()) is not None:
             # execute the action
-            executed = self._execute_with_recovery(action)
+            outcome = self._execute_with_recovery(action)
 
             # store the state and the current settings of the action
             action.ctx.state_store.next.write("state.yaml", action.state)
             action.ctx.settings_store.next.write("settings.yaml", action.settings)
 
             # propagate properties to other actions, if the action was executed
-            if executed:
-                self.propagations.propagate(action, self.actions, self.ctx.text_logger)
+            if isinstance(outcome, Produced):
+                self.propagations.propagate(
+                    action, outcome.props, self.actions, self.ctx.text_logger
+                )
 
             # advance the slice counter for the action
             self.ctx.text_logger.debug(
@@ -349,13 +352,15 @@ class Workflow:
                 return action
         return None
 
-    def _execute_with_recovery(self, action: Action) -> bool:
+    def _execute_with_recovery(self, action: Action) -> StepOutcome:
         """
         Execute an action, offering the user recovery options if it fails.
 
+        Args:
+            action: The action to execute.
+
         Returns:
-            True if the action executed successfully, False if the user chose
-            to skip it.
+            The action's outcome, or a carry-over if the user chose to skip it.
 
         Raises:
             ActionError: If the user chose to terminate, or there is no GUI
@@ -363,8 +368,7 @@ class Workflow:
         """
         while True:
             try:
-                action.execute()
-                return True
+                return action.execute()
             except Exception as e:
                 action.ctx.text_logger.error(f"Action '{action.name}' failed: {e}")
 
@@ -376,7 +380,6 @@ class Workflow:
                     action.ctx.text_logger.error(f"Failed to notify: {notify_error}")
 
                 error = ActionError(action, str(e))
-
                 if self.callbacks is None:
                     raise error from e
 
@@ -387,12 +390,7 @@ class Workflow:
                         )
                         continue
                     case ErrorChoice.SKIP:
-                        action.ctx.text_logger.warning(
-                            f"Skipping failed action '{action.name}'."
-                        )
-                        # copy properties to the next slice
-                        action.propagate_to_next()
-                        return False
+                        return action.skip("failed and skipped by the user")
                     case ErrorChoice.TERMINATE:
                         raise error from e
 
