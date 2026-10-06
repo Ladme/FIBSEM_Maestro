@@ -5,8 +5,10 @@ import ctypes
 import os
 import sys
 from importlib.resources import as_file, files
+from pathlib import Path
 
 import fibsem_maestro.pillow_config  # noqa: F401
+from fibsem_maestro.crash_diagnostics import install_crash_diagnostics
 
 # fix Qt plugin path on Windows
 if sys.platform == "win32":
@@ -33,7 +35,26 @@ def load_app_icon() -> QIcon:
         return QIcon(str(path))
 
 
+def _crash_log_path() -> Path:
+    """
+    Return the per-user crash log location.
+
+    Returns:
+        `%LOCALAPPDATA%/fibsem-maestro/logs/crash.log` on Windows, or
+        `$XDG_STATE_HOME/fibsem-maestro/logs/crash.log` (default
+        `~/.local/state`) elsewhere.
+    """
+    if sys.platform == "win32":
+        base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
+    else:
+        base = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local" / "state"))
+    return base / "fibsem-maestro" / "logs" / "crash.log"
+
+
 def main() -> None:
+    # install crash diagnostics before anything else
+    install_crash_diagnostics(_crash_log_path())
+
     # set the Windows App User Model ID so the app uses its own taskbar icon
     if sys.platform == "win32":
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
