@@ -238,13 +238,24 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
 
     def convert_image(self, image: Image) -> None:
         """
-        Display an image, preserving existing areas and realizing pending ones.
+        Display an image, keeping the current areas in place relative to the frame.
+
+        Areas are scene items in pixels of the displayed image, so they are read
+        back as relative areas before the image is replaced and re-created in
+        pixels of the new one. A reload at a different resolution or aspect
+        ratio therefore keeps every area at the same fraction of the frame.
 
         Args:
             image: The image to display beneath the area overlay.
         """
+
         arr = np.ascontiguousarray(image.to_8bit())
         h, w = arr.shape[:2]
+
+        # read the areas in the old image's pixels before the size changes;
+        # before any image, this returns the pending regions
+        regions = self.get_value()
+
         self._image_size = (w, h)
         self._pixel_size = image.pixel_size
 
@@ -259,9 +270,10 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
 
         self._last_pixmap = QPixmap.fromImage(q_image)
 
-        # replace the background pixmap, keep the area rectangles and all their children
+        # replace the whole scene: the background and the area rectangles,
+        # which are re-created below in pixels of the new image
         for item in list(self._scene.items()):
-            if item.parentItem() is None and not isinstance(item, ResizableRect):
+            if item.parentItem() is None:
                 self._scene.removeItem(item)
 
         # a mipmapped item: Qt's bilinear filter only reads a 2x2 neighbourhood
@@ -274,10 +286,7 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         self._scene.setSceneRect(QRectF(0, 0, w, h))
         self._viewer.reset_zoom()
 
-        self._update_thumbnail()
-
-        # realize any regions deferred while no image was available
-        for area in self._pending_regions:
+        for area in regions:
             self._add_relative_area(area)
         self._pending_regions = []
 

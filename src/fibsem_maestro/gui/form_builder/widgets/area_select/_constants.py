@@ -20,7 +20,7 @@ MIN_DRAW_PX = 8
 GRAB_FACTOR = 2
 
 MARGIN_COLOR = QColor(140, 200, 255)
-MARGIN_PEN = _cosmetic_pen(MARGIN_COLOR, 5, Qt.PenStyle.DotLine)
+MARGIN_PEN = _cosmetic_pen(MARGIN_COLOR, 3, Qt.PenStyle.DotLine)
 
 ARROW_COLOR = QColor(0, 30, 190, 120)
 ARROW_PEN = _cosmetic_pen(ARROW_COLOR, 1)
