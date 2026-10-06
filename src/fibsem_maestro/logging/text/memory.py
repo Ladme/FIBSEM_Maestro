@@ -20,8 +20,10 @@ class LogRecord:
 
     Attributes:
         slice_index: The slice during which this record was emitted.
-        level: Severity - one of `debug`, `info`, `warning`, `error`.
-        name: The logger name that emitted this record.
+        level: Severity - one of `debug`, `info`, `warning`, `error`,
+            `exception`.
+        name: The full logger name at the time the record was emitted; a
+            later rename does not change it.
         message: The log message text.
     """
 
@@ -35,16 +37,22 @@ class MemoryTextLogger(TextLogger):
     """
     `TextLogger` that stores records in memory rather than writing to disk.
 
-    All instances sharing the same `_records` dict (i.e. created via
-    `at()` or `next`) write into that shared dict, keyed by slice index.
+    A logger created directly is the root of a logger group; loggers produced
+    by `derive()`, `at()` and `next` join its group. A group shares the record
+    store, keyed by slice index, and a `_GroupState` holding the close flag
+    and the base name. Each logger stores only its own suffix and resolves its
+    full name on every record, so `rename()` on any logger renames the whole
+    group, including derived loggers created earlier.
 
     Args:
         slice_provider: Callable returning the current slice index.
-        name: Logger name shown in each `LogRecord`.
-        _records: Shared record store. When `None` a fresh dict is created,
-            making this instance the root of a new record group.
-        _close_state: Shared close flag. When `None` a fresh flag is created,
-            paired with the new record group.
+        name: Name shown in each `LogRecord`. For a logger joining an existing
+            group (`_group` given), the suffix appended to the group's base
+            name instead.
+        _records: Shared record store. Internal; set by `derive()` and `at()`.
+            When `None`, a fresh store is created.
+        _group: Group to join. Internal; set by `derive()` and `at()`. When
+            `None`, this logger becomes the root of a new group named `name`.
     """
 
     def __init__(
@@ -53,15 +61,34 @@ class MemoryTextLogger(TextLogger):
         name: str = "",
         *,
         _records: dict[int, list[LogRecord]] | None = None,
-        _close_state: _CloseState | None = None,
+        _group: _GroupState | None = None,
     ) -> None:
         self._slice_provider = slice_provider
-        self._name = name
         self._records: dict[int, list[LogRecord]] = (
             defaultdict(list) if _records is None else _records
         )
+        if _group is None:
+            self._group = _GroupState(name)
+            self._suffix = ""
+        else:
+            self._group = _group
+            self._suffix = name
 
-        self._close_state = _CloseState() if _close_state is None else _close_state
+    @property
+    def name(self) -> str:
+        """
+        The full name shown in each record.
+
+        Resolved on every call, so a rename of the group takes effect
+        immediately for every logger in it.
+
+        Returns:
+            The group's base name followed by this logger's suffix.
+        """
+        base = self._group.name
+        if not self._suffix:
+            return base
+        return f"{base}.{self._suffix}" if base else self._suffix
 
     @property
     def records(self) -> dict[int, list[LogRecord]]:
@@ -70,15 +97,34 @@ class MemoryTextLogger(TextLogger):
 
         Returns:
             A dict mapping slice index to the list of records emitted in
-            that slice, across this logger and any navigated views.
+            that slice, across every logger in this group.
         """
         return self._records
 
+    def rename(self, name: str) -> None:
+        """
+        Change the base name of this logger's group.
+
+        Every logger in the group keeps its suffix and uses the new base name
+        from its next record on. Records already stored keep their names.
+
+        Args:
+            name: The new base name.
+        """
+        self._group.name = name
+
     def _append(self, level: str, msg: str) -> None:
+        """
+        Store a record for the current slice.
+
+        Args:
+            level: Severity of the record.
+            msg: The message to store.
+        """
         record = LogRecord(
             slice_index=self._slice_provider(),
             level=level,
-            name=self._name,
+            name=self.name,
             message=msg,
         )
         self._records[record.slice_index].append(record)
@@ -99,7 +145,11 @@ class MemoryTextLogger(TextLogger):
         self._append("exception", msg)
 
     def derive(self, name: str) -> Self:
-        """Create a child logger sharing the same record store.
+        """
+        Create a child logger in this logger's group.
+
+        The child shares the record store and the base name, so it follows
+        renames of the group.
 
         Args:
             name: The suffix to append to this logger's name.
@@ -108,17 +158,20 @@ class MemoryTextLogger(TextLogger):
             A `MemoryTextLogger` sharing the same record store with name
             `"{this_name}.{name}"`.
         """
-        child_name = f"{self._name}.{name}" if self._name else name
+        suffix = f"{self._suffix}.{name}" if self._suffix else name
         return type(self)(
             self._slice_provider,
-            child_name,
+            suffix,
             _records=self._records,
-            _close_state=self._close_state,
+            _group=self._group,
         )
 
     def at(self, slice_index: int) -> Self:
         """
         Return a view of this logger scoped to a specific slice.
+
+        The view joins this logger's group, so it keeps this logger's name
+        and follows renames of the group.
 
         Args:
             slice_index: The slice index to address.
@@ -129,9 +182,9 @@ class MemoryTextLogger(TextLogger):
         """
         return type(self)(
             lambda: slice_index,
-            self._name,
+            self._suffix,
             _records=self._records,
-            _close_state=self._close_state,
+            _group=self._group,
         )
 
     @property
@@ -141,12 +194,12 @@ class MemoryTextLogger(TextLogger):
     @property
     def closed(self) -> bool:
         """
-        Whether `close` has been called on this logger or any view of it.
+        Whether `close` has been called on any logger in this group.
 
         Returns:
             True once any logger in this group has been closed.
         """
-        return self._close_state.closed
+        return self._group.closed
 
     def close(self) -> None:
         """
@@ -156,16 +209,21 @@ class MemoryTextLogger(TextLogger):
         still append, matching `FileTextLogger`, where logging after `close`
         reopens the handler.
         """
-        self._close_state.closed = True
+        self._group.closed = True
 
 
-class _CloseState:
+class _GroupState:
     """
-    Close flag shared across a logger group.
+    State shared across a `MemoryTextLogger` group.
 
-    Mirrors `FileTextLogger`'s shared handler root: closing any view in a
-    group marks the whole group closed.
+    Mirrors `FileTextLogger`'s shared handler root: closing any logger in the
+    group marks the whole group closed, and renaming any logger renames the
+    whole group.
+
+    Args:
+        name: Base name of the group.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, name: str) -> None:
+        self.name = name
         self.closed = False

@@ -177,6 +177,26 @@ class ActionContext(ABC):
             dir: The new action directory path.
         """
 
+    @abstractmethod
+    def rename(self, name: str) -> None:
+        """
+        Rename the context: its loggers, and its directory if it has one.
+
+        The text logger's group is renamed, so every logger derived from it or
+        viewed from it reports the new name from its next record on, including
+        loggers created before the rename. A file-backed context also moves its
+        action directory to a sibling directory named `name`, as
+        `change_action_dir` does; an in-memory context only renames its loggers.
+
+        Args:
+            name: The new action name with underscores, as used for the logger
+                name and the directory name.
+
+        Raises:
+            FileExistsError: If the context is file-backed and a directory for
+                the new name already exists. Nothing is renamed in that case.
+        """
+
     def set_slice(self, slice_index: int) -> SliceView:
         """
         Set the slice counter to an explicit index.

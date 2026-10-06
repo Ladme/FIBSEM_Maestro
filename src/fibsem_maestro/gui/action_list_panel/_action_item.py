@@ -150,9 +150,6 @@ class ActionItemWidget(QWidget):
         old_name = self._name_label.text()
 
         if new_name != old_name:
-            # close all open log files
-            close_all_log_files()
-
             existing_names = {
                 action.name
                 for action in self._manager.workflow.actions
@@ -162,16 +159,22 @@ class ActionItemWidget(QWidget):
                 self._name_edit.setText(old_name)
                 QMessageBox.critical(self, "Invalid name", error)
             else:
-                self._name_label.setText(new_name)
-                # update the action
-                self._action.name = new_name
-                # update the actions context and move the action directory
-                self._action.ctx.change_action_dir(
-                    self._workflow_dir / self._action.name_with_underscores
-                )
-
-                self._manager.action_changed.emit(self._action)
-                self._manager.action_renamed.emit(self._action)
+                # release the log files before the action directory is moved
+                close_all_log_files()
+                try:
+                    # renames the action, its directory and its loggers
+                    self._action.rename(new_name)
+                except OSError as e:
+                    self._name_edit.setText(old_name)
+                    QMessageBox.critical(
+                        self,
+                        "Could not rename action",
+                        f"Action '{old_name}' could not be renamed to '{new_name}':\n\n{e}",
+                    )
+                else:
+                    self._name_label.setText(new_name)
+                    self._manager.action_changed.emit(self._action)
+                    self._manager.action_renamed.emit(self._action)
 
         self._name_edit.hide()
         self._name_label.show()

@@ -62,9 +62,9 @@ class TextLogger(ABC):
         """
         Create a child logger with a more specific name.
 
-        The child logger shares the same destination and slice tracking as
-        this logger, but records are emitted under a hierarchical name formed
-        by appending `name` to this logger's name.
+        The child joins this logger's group: it shares the destination, slice
+        tracking and base name, so it follows renames of the group. Records
+        are emitted under the base name followed by the child's suffix.
 
         Args:
             name: The suffix to append to this logger's name.
@@ -115,3 +115,12 @@ class TextLogger(ABC):
             the current one.
         """
         return self.at(self.slice + 1)
+
+    @abstractmethod
+    def rename(self, name: str) -> None:
+        """
+        Change the base name of this logger's group.
+
+        Args:
+            name: The new base name.
+        """

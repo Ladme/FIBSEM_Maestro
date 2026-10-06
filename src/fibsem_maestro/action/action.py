@@ -198,6 +198,20 @@ class Action(ABC, Generic[TSettings, TState]):
         """
         self.write_properties(self.read_properties(), self._ctx.props_store.next)
 
+    def rename(self, name: str) -> None:
+        """
+        Rename the action, together with its directory and its loggers.
+
+        Args:
+            name: The new action name.
+
+        Raises:
+            OSError: If the action directory cannot be moved, e.g.
+                `FileExistsError` if a directory for the new name already exists.
+        """
+        self._ctx.rename(name.replace(" ", "_"))
+        self._name = name
+
     @abstractmethod
     def _run_step(self) -> StepOutcome:
         """
@@ -261,10 +275,6 @@ class Action(ABC, Generic[TSettings, TState]):
     def name(self) -> str:
         """Human-readable identifier of the action."""
         return self._name
-
-    @name.setter
-    def name(self, value: str) -> None:
-        self._name = value
 
     @property
     def name_with_underscores(self) -> str:

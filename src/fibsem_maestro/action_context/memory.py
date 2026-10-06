@@ -108,3 +108,6 @@ class MemoryActionContext(ActionContext):
     def change_action_dir(self, dir: Path) -> None:
         _ = dir
         pass
+
+    def rename(self, name: str) -> None:
+        self._text_logger.rename(name)
