@@ -154,6 +154,16 @@ class _Area(BaseModel, Generic[T, U]):
             and other.origin.y + other.height <= self.origin.y + self.height + tolerance
         )
 
+    def has_size(self) -> bool:
+        """
+        Check whether the area covers a non-empty region.
+
+        Returns:
+            True if both `width` and `height` are positive, False if either is
+            zero or negative.
+        """
+        return self.width > 0 and self.height > 0
+
 
 class RelativeArea(_Area[RelativePoint, float]):
     """

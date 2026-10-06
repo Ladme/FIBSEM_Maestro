@@ -399,3 +399,20 @@ def test_m_area_shifted_in_direction_correct_coordinates():
     assert result.origin.y == pytest.approx(2e-6)
     assert result.width == pytest.approx(5e-7)
     assert result.height == pytest.approx(3e-7)
+
+
+@pytest.mark.parametrize(
+    ("width", "height", "expected"),
+    [
+        (0.5, 0.5, True),
+        (0.0, 0.5, False),
+        (0.5, 0.0, False),
+        (0.0, 0.0, False),
+        (-0.1, 0.5, False),
+        (0.5, -0.1, False),
+    ],
+)
+def test_has_size(width: float, height: float, expected: bool) -> None:
+    area = RelativeArea(origin=RelativePoint(x=0.1, y=0.1), width=width, height=height)
+
+    assert area.has_size() is expected
