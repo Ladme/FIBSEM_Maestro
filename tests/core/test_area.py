@@ -490,25 +490,25 @@ _SLIGHT_OVERHANGS = [
 
 
 @pytest.mark.parametrize("overhanging", _SLIGHT_OVERHANGS)
-def test_tolerance_smaller_than_the_overhang_rejects_it(
+def test_contains_tolerance_smaller_than_the_overhang_rejects_it(
     container: RelativeArea, overhanging: RelativeArea
 ) -> None:
     assert not container.contains(overhanging, tolerance=_EPS / 2)
 
 
 @pytest.mark.parametrize("overhanging", _SLIGHT_OVERHANGS)
-def test_default_tolerance_is_exact(
+def test_contains_default_tolerance_is_exact(
     container: RelativeArea, overhanging: RelativeArea
 ) -> None:
     assert not container.contains(overhanging)
 
 
-def test_negative_tolerance_raises(container: RelativeArea) -> None:
+def test_contains_negative_tolerance_raises(container: RelativeArea) -> None:
     with pytest.raises(ValueError, match="non-negative"):
         container.contains(container, tolerance=-_EPS)
 
 
-def test_different_area_type_raises(container: RelativeArea) -> None:
+def test_contains_different_area_type_raises(container: RelativeArea) -> None:
     class _OtherArea(RelativeArea):
         """Same fields, different type: stands in for an area in other units."""
 
