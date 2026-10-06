@@ -18,7 +18,7 @@ from fibsem_maestro.workflow.actions import Actions
 
 
 class MillingState(ActionState):
-    milling_slice: NMArea | None
+    milling_slice: NMArea | None = None
 
 
 @ACTION_REGISTRY.register("milling")
