@@ -1,7 +1,9 @@
 # Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
+import copy
 from collections.abc import Mapping
+from dataclasses import replace
 from typing import Self
 
 from pydantic.dataclasses import dataclass
@@ -152,6 +154,29 @@ class Propagations:
             self._propagate_to_dependents(
                 all_actions, [actions_by_name[name]], patch, text_logger
             )
+
+    def copy_rules_from(self, source_name: str, new_parent_name: str) -> None:
+        """
+        Duplicate every rule whose parent is `source_name`, with a new parent.
+
+        Rules in which `source_name` is a dependent are not copied: the new
+        action becomes a source of the same propagations, not a receiver.
+
+        Args:
+            source_name: Name of the action whose outgoing rules are copied.
+            new_parent_name: Name of the action that becomes the parent of the copies.
+        """
+        copies = [
+            replace(
+                rule,
+                parent_name=new_parent_name,
+                dependent_names=list(rule.dependent_names),
+                props_to_propagate=copy.deepcopy(rule.props_to_propagate),
+            )
+            for rule in self.rules
+            if rule.parent_name == source_name
+        ]
+        self.rules.extend(copies)
 
     def _propagate_to_dependents(
         self,

@@ -317,6 +317,7 @@ class ActionListPanel(QWidget):
             copy.deepcopy(action.settings),
         )
         self._manager.workflow.actions.append(new_action)
+        self._manager.workflow.propagations.copy_rules_from(action.name, new_name)
         self._append_item(new_action)
         self._manager.notify_actions_changed()
 
