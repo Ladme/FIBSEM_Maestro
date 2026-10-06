@@ -139,6 +139,7 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         viewer_layout.addLayout(status_box)
 
         self._scene = QGraphicsScene()
+        self._scene.setItemIndexMethod(QGraphicsScene.ItemIndexMethod.NoIndex)
         # scene.changed drives ONLY the thumbnail
         # committing changes is done via the viewer's edit-finished callback,
         # so a drag does not spam writes
