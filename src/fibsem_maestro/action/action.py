@@ -99,6 +99,8 @@ class Action(ABC, Generic[TSettings, TState]):
         self._ctx.text_logger.info(
             f"Preparing '{self.name}' for slice {self._ctx.slice}."
         )
+        if (bt := self.beam_type) is not None:
+            self._microscope.set_beam(bt)
         self.write_properties(self.collect_properties())
         self._prepare()
         self._ctx.state_store.write("state.yaml", self.state)
