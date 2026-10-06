@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from fibsem_maestro.action.action import Action, matches_frequency
+from fibsem_maestro.action.action import Action
 from fibsem_maestro.action.outcome import Produced, StepOutcome
 from fibsem_maestro.action.registry import ACTION_REGISTRY
 from fibsem_maestro.action.state import ActionState
@@ -169,7 +169,7 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
         sharpness = self._resolve_imaging().wait_for_sharpness()
         self._ctx.text_logger.debug(f"Last image sharpness: {sharpness}.")
 
-        if matches_frequency(self._ctx.slice, self._settings.execution_frequency):
+        if self._settings.execution_frequency.matches(self._ctx.slice):
             self._ctx.text_logger.info(
                 f"'{self.name}' triggered: slice {self._ctx.slice} matches "
                 f"execution frequency ({self._settings.execution_frequency})."

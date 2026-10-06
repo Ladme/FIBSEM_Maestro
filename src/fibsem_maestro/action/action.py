@@ -168,7 +168,7 @@ class Action(ABC, Generic[TSettings, TState]):
         Returns:
             `True` if the action should run for this slice.
         """
-        return matches_frequency(self._ctx.slice, self._settings.execution_frequency)
+        return self._settings.execution_frequency.matches(self._ctx.slice)
 
     def skip(self, reason: str) -> CarriedOver:
         """
@@ -358,17 +358,3 @@ class Action(ABC, Generic[TSettings, TState]):
             `True` if the props file for the current slice exists.
         """
         return self._ctx.props_store.exists("props.yaml")
-
-
-def matches_frequency(slice_index: int, frequency: int | None) -> bool:
-    """
-    Check whether a 1-based slice index falls on an execution frequency.
-
-    Args:
-        slice_index: The slice index; the first acquired slice is 1.
-        frequency: Run every `frequency` slices, or `None` for never.
-
-    Returns:
-        `True` if the slice matches. Slice 1 always matches a set frequency.
-    """
-    return frequency is not None and (slice_index - 1) % frequency == 0

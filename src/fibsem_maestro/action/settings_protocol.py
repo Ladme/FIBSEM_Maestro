@@ -4,6 +4,7 @@
 from typing import Protocol, TypeVar
 
 from fibsem_maestro.core.beam_type import BeamType
+from fibsem_maestro.core.frequency import Frequency
 from fibsem_maestro.settings.property_names import PropertyNames
 
 
@@ -27,8 +28,8 @@ class ActionSettingsLike(Protocol):
         ...
 
     @property
-    def execution_frequency(self) -> int | None:
-        """Run every N slices (slice 1 always runs), or `None` for never."""
+    def execution_frequency(self) -> Frequency:
+        """How often the action runs."""
         ...
 
 

@@ -8,6 +8,7 @@ from pydantic import Field, field_validator
 from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.direction import Direction
+from fibsem_maestro.core.frequency import Every, Frequency
 from fibsem_maestro.core.pattern_type import PatternType
 from fibsem_maestro.settings.base_settings import BaseSettings
 from fibsem_maestro.settings.form_utils import (
@@ -46,10 +47,6 @@ class MillingSettings(BaseSettings):
         default=BeamType.ION,
         description="Beam used for milling.",
     )
-    execution_frequency: Annotated[int, Field(gt=0)] | None = Field(
-        default=1,
-        description="Run the action every N-th slice. If not checked, the action will never run.",
-    )
     pattern_type: Annotated[
         PatternType, FormHint(widget=WidgetType.PATTERN_TYPE_SELECTOR)
     ] = Field(
@@ -74,6 +71,10 @@ class MillingSettings(BaseSettings):
     do_not_mill: bool = Field(
         default=False,
         description="Prepare everything for milling but skip the actual milling process instead of performing it. Debug option.",
+    )
+    execution_frequency: Frequency = Field(
+        default_factory=Every,
+        description="How often the action runs",
     )
     properties_to_collect: PropertyNames = Field(
         default_factory=PropertyNames,
