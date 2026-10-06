@@ -201,7 +201,6 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
         if isinstance(self._mode, StepMode):
             raise AutofocusError("Test is not supported for step mode")
 
-        self._ctx.text_logger.info(f"Started test for {self.name}.")
         # clear any existing jobs
         self._jobs.wait_and_clear()
 
@@ -215,8 +214,6 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
 
         # the updated value may not be displayed in the microscope GUI until we start scanning
         self._microscope.beam.grab_frame()
-
-        self._ctx.text_logger.info(f"Completed test for {self.name}.")
 
     def wait_for_background_threads(self) -> None:
         self._jobs.wait()

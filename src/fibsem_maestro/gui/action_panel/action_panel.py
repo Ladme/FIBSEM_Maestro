@@ -238,7 +238,7 @@ class ActionPanel(QWidget):
         try:
             props = self._action.read_properties()
         except Exception as e:
-            self._txt_log.error(
+            self._action.ctx.text_logger.error(
                 f"Reading properties for '{self._action.name}' failed: {e}"
             )
             return
@@ -246,7 +246,7 @@ class ActionPanel(QWidget):
         edited = PropertiesDialog.review(
             properties=props,
             workflow_manager=self._manager,
-            txt_log=self._txt_log,
+            txt_log=self._action.ctx.text_logger,
             title=f"Properties of '{self._action.name}'",
             hint=(
                 f"Properties stored for slice {self._action.ctx.slice}. "
@@ -260,7 +260,7 @@ class ActionPanel(QWidget):
         try:
             self._action.write_properties(edited)
         except Exception as e:
-            self._txt_log.error(
+            self._action.ctx.text_logger.error(
                 f"Saving properties for '{self._action.name}' failed: {e}"
             )
             return
@@ -268,22 +268,15 @@ class ActionPanel(QWidget):
         self._manager.notify_action_changed(self._action)
 
     def _apply_properties(self) -> None:
-        """Set the stored properties of the current slice on the microscope."""
+        """Set the stored properties of the current slice on the microscope, on a worker thread."""
+        # the file may have disappeared since the buttons were last updated
         if not self._action.has_stored_properties():
             self._update_buttons()
             return
 
-        try:
-            self._action.read_and_set_properties()
-        except Exception as e:
-            self._txt_log.error(
-                f"Applying properties for '{self._action.name}' failed: {e}"
-            )
-            return
-
-        self._txt_log.info(
-            f"Applied properties of '{self._action.name}' "
-            f"(slice {self._action.ctx.slice}) to the microscope."
+        self._start_task(
+            self._action.read_and_set_properties,
+            f"Applying properties of '{self._action.name}'",
         )
 
     def _test_action(self) -> None:
@@ -323,6 +316,7 @@ class ActionPanel(QWidget):
         self._task_on_success = on_success
         self._task_failed = False
 
+        self._action.ctx.text_logger.info(f"{description}...")
         self._update_buttons()
         thread.start()
 
@@ -334,7 +328,7 @@ class ActionPanel(QWidget):
             error: The exception raised by the task.
         """
         self._task_failed = True
-        self._txt_log.error(f"{self._task_description} failed: {error}")
+        self._action.ctx.text_logger.error(f"{self._task_description} failed: {error}")
 
     def _on_task_finished(self) -> None:
         """Release the finished task and run its success callback."""
@@ -342,6 +336,9 @@ class ActionPanel(QWidget):
         # `finished` is emitted just before the thread exits; wait so that
         # dropping the last reference cannot destroy a still-running QThread
         self._task_thread.wait()
+
+        if not self._task_failed:
+            self._action.ctx.text_logger.info(f"{self._task_description} completed.")
 
         on_success = None if self._task_failed else self._task_on_success
         self._task_thread = None

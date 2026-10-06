@@ -96,9 +96,6 @@ class Action(ABC, Generic[TSettings, TState]):
         properties are captured first, so they reflect the user's setup and
         not whatever the hook leaves on the microscope.
         """
-        self._ctx.text_logger.info(
-            f"Preparing '{self.name}' for slice {self._ctx.slice}."
-        )
         if (bt := self.beam_type) is not None:
             self._microscope.set_beam(bt)
         self.write_properties(self.collect_properties())

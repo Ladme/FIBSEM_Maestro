@@ -166,8 +166,6 @@ class Imaging(Action[ImagingSettings, ImagingState]):
         configured scanning area are applied temporarily for the duration of
         the acquisition.
         """
-        self._ctx.text_logger.info(f"Started test for {self.name}.")
-
         with ExitStack() as stack:
             if self._ctx.props_store.exists("props.yaml"):
                 self._ctx.text_logger.info("Loading saved microscope properties.")
