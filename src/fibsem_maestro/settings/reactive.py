@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import copy
 from collections.abc import Callable, Hashable, Iterable
 from typing import Any, Generic, Self, SupportsIndex, TypeAlias, TypeVar
 
@@ -243,6 +244,33 @@ class ReactiveModel(BaseModel, ReactiveNode):
             and self.__pydantic_extra__ == other.__pydantic_extra__
         )
 
+    def __deepcopy__(self, memo: dict[int, Any] | None = None) -> Self:
+        """
+        Deep-copy the field values, without hooks or parent.
+
+        Hooks belong to the observers of this instance, not to its value, so
+        the copy starts with none; copying them would also deep-copy every
+        object a bound-method hook belongs to. Parent pointers are rebuilt
+        for the copy's own tree.
+
+        Args:
+            memo: The `copy.deepcopy` memo.
+
+        Returns:
+            An independent copy with the same field values.
+        """
+        values = {
+            name: copy.deepcopy(getattr(self, name), memo)
+            for name in type(self).model_fields
+        }
+        extra = {
+            name: copy.deepcopy(value, memo)
+            for name, value in (self.__pydantic_extra__ or {}).items()
+        }
+        return type(self).model_construct(
+            _fields_set=set(self.model_fields_set), **values, **extra
+        )
+
 
 K = TypeVar("K", bound=Hashable)
 T = TypeVar("T", bound=Any)
@@ -311,6 +339,12 @@ class ReactiveDict(dict[K, T], ReactiveNode, Generic[K, T]):
         """
         # use the standard Python schema for dicts
         return core_schema.no_info_plain_validator_function(cls)
+
+    def __deepcopy__(self, memo: dict[int, Any] | None = None) -> Self:
+        """Deep-copy the items, without hooks or parent."""
+        return type(self)(
+            {copy.deepcopy(k, memo): copy.deepcopy(v, memo) for k, v in self.items()}
+        )
 
 
 class ReactiveList(list[T], ReactiveNode, Generic[T]):
@@ -413,6 +447,10 @@ class ReactiveList(list[T], ReactiveNode, Generic[T]):
         """
         # use the standard Python schema for lists
         return core_schema.no_info_plain_validator_function(cls)
+
+    def __deepcopy__(self, memo: dict[int, Any] | None = None) -> Self:
+        """Deep-copy the items, without hooks or parent."""
+        return type(self)(copy.deepcopy(item, memo) for item in self)
 
 
 def propagate_parent(parent: ReactiveNode, value: Any, key: Hashable | None = None):
