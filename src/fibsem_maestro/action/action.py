@@ -4,11 +4,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import TYPE_CHECKING, Generic, TypeVar, final
 
+from fibsem_maestro.action.outcome import CarriedOver, Produced, StepOutcome
+from fibsem_maestro.action.settings_protocol import ActionSettingsLike
 from fibsem_maestro.action.state import ActionState
 from fibsem_maestro.logging.logging import with_logging_context
-from fibsem_maestro.settings.base_settings import BaseSettings
 
 if TYPE_CHECKING:
     from fibsem_maestro.action_context.action_context import ActionContext
@@ -20,31 +21,35 @@ if TYPE_CHECKING:
     from fibsem_maestro.workflow.actions import Actions
 
 
-@abstractmethod
-class LinkedActions:
+class LinkedActions(ABC):
     """Base class for action links."""
 
 
-TSettings = TypeVar("TSettings", bound=BaseSettings)
+TSettings = TypeVar("TSettings", bound=ActionSettingsLike)
 TState = TypeVar("TState", bound=ActionState)
 
 
 class Action(ABC, Generic[TSettings, TState]):
-    @classmethod
-    def settings_cls(cls) -> type[TSettings]:
-        """
-        Class used for the action's settings.
-        """
-        raise NotImplementedError(f"settings_type not implemented for {cls.__name__}")
+    """
+    A step of the acquisition workflow, executed at most once per slice.
 
-    @classmethod
-    def state_cls(cls) -> type[TState]:
-        """
-        Class used for the action's state.
-        """
-        raise NotImplementedError(f"state_cls not implemented for {cls.__name__}")
+    The base class owns the per-slice lifecycle in `execute`: gating, applying
+    the stored properties, committing the outcome to the next slice, and
+    logging. Subclasses implement `_run_step` and may refine `should_execute`.
 
-    @abstractmethod
+    Terminology:
+        carry over: copy this action's own properties to its next slice.
+        propagate: send this action's produced properties to other actions.
+            The workflow does this, and only for `Produced` outcomes.
+
+    Args:
+        name: Human-readable identifier, unique within the workflow.
+        microscope: The microscope instance.
+        settings: The action's settings.
+        ctx: Slice navigation, stores and loggers for this action.
+        actions: All actions in the workflow, for resolving linked actions.
+    """
+
     def __init__(
         self,
         name: str,
@@ -52,60 +57,187 @@ class Action(ABC, Generic[TSettings, TState]):
         settings: TSettings,
         ctx: ActionContext,
         actions: Actions,
-    ):
+    ) -> None:
+        self._name = name
+        self._microscope = microscope
+        self._settings = settings
+        self._ctx = ctx
+        self._actions = actions
+
+    @classmethod
+    def settings_cls(cls) -> type[TSettings]:
         """
-        Initialize the action.
+        Return the class used for the action's settings.
+
+        Raises:
+            NotImplementedError: If the subclass does not override this.
+        """
+        raise NotImplementedError(f"settings_type not implemented for {cls.__name__}")
+
+    @classmethod
+    def state_cls(cls) -> type[TState]:
+        """
+        Return the class used for the action's state.
+
+        Raises:
+            NotImplementedError: If the subclass does not override this.
+        """
+        raise NotImplementedError(f"state_cls not implemented for {cls.__name__}")
+
+    @final
+    @with_logging_context
+    def prepare(self) -> None:
+        """
+        Prepare the action to execute its current slice from the microscope as it is now.
+
+        Captures the action's properties from the microscope and stores them
+        for the current slice, then runs the action-specific `_prepare`
+        hook, then stores the resulting state for the current slice. The
+        properties are captured first, so they reflect the user's setup and
+        not whatever the hook leaves on the microscope.
+        """
+        self._ctx.text_logger.info(
+            f"Preparing '{self.name}' for slice {self._ctx.slice}."
+        )
+        self.write_properties(self.collect_properties())
+        self._prepare()
+        self._ctx.state_store.write("state.yaml", self.state)
+
+    def _prepare(self) -> None:
+        """
+        Action-specific preparation, run after the properties are captured.
+
+        Does nothing by default.
+        """
+
+    def preparation_issues(self) -> list[str]:
+        """
+        Describe what must still be prepared before the action can execute.
+
+        Returns:
+            Human-readable problems; empty if the action is ready. The default reports none.
+        """
+        return []
+
+    @final
+    @with_logging_context
+    def execute(self) -> StepOutcome:
+        """
+        Run one step of the action for the current slice.
+
+        If `should_execute` declines, the current properties are carried over
+        to the next slice and the microscope is not touched. Otherwise the
+        stored properties are applied, `_run_step` runs, and its outcome is
+        committed: produced properties are written to the next slice, and a
+        carry-over copies the current ones unchanged.
+
+        Subclasses customise `should_execute` and `_run_step`, not this method.
+
+        Returns:
+            The step outcome. The workflow propagates only `Produced` outcomes.
+        """
+        if not self.should_execute():
+            return self.skip("execution conditions not met")
+
+        self._ctx.text_logger.info(
+            f"Started '{self.name}' for slice {self._ctx.slice}."
+        )
+        self.read_and_set_properties()
+        outcome = self._run_step()
+
+        match outcome:
+            case Produced(props=props):
+                self.write_properties(props, self._ctx.props_store.next)
+            case CarriedOver():
+                self.carry_over_to_next()
+
+        self._ctx.text_logger.info(
+            f"Completed '{self.name}' for slice {self._ctx.slice}."
+        )
+        return outcome
+
+    def should_execute(self) -> bool:
+        """
+        Decide whether the action runs on the current slice.
+
+        The default follows `settings.execution_frequency`. Overrides may add
+        conditions but must not change microscope state.
+
+        Returns:
+            `True` if the action should run for this slice.
+        """
+        return matches_frequency(self._ctx.slice, self._settings.execution_frequency)
+
+    def skip(self, reason: str) -> CarriedOver:
+        """
+        Skip the current slice, carrying the current properties over unchanged.
+
+        Args:
+            reason: Why the slice is skipped, for logging.
+
+        Returns:
+            The carry-over outcome.
+        """
+        self._ctx.text_logger.info(
+            f"Skipping '{self.name}' for slice {self._ctx.slice}: {reason}."
+        )
+        self.carry_over_to_next()
+        return CarriedOver(reason)
+
+    def carry_over_to_next(self) -> None:
+        """
+        Copy this action's current properties to its next slice unchanged.
+
+        Override to carry over additional files or notify collaborators; call `super()`.
+        """
+        self.write_properties(self.read_properties(), self._ctx.props_store.next)
+
+    @abstractmethod
+    def _run_step(self) -> StepOutcome:
+        """
+        Perform the action's work for the current slice.
+
+        Called by `execute` after the stored properties have been applied.
+
+        Returns:
+            `Produced` with the properties for the next slice, or `CarriedOver`
+            if the step finished without new properties (e.g. mid-sweep).
         """
 
     @abstractmethod
     def set_state(self, state: TState) -> None:
         """
-        Set the state of the action.
-        """
+        Restore the action's internal state.
 
-    @abstractmethod
-    def execute(self) -> None:
-        """
-        Execute the action.
+        Args:
+            state: The state to restore.
         """
 
     @abstractmethod
     def test(self) -> None:
+        """Run the action once outside the acquisition loop, for diagnostics."""
+
+    def wait_for_background_threads(self) -> None:
         """
-        Test the action.
+        Wait for all background threads spawned by this action to complete.
+
+        The default does nothing; override if the action spawns threads.
         """
+        pass
 
     def reset(self) -> None:
-        """
-        Reset the action to its initial state.
-        """
+        """Reset the action to slice 0 and its default state."""
         self.ctx.reset()
         # use the default state object associated with the action
         self.set_state(self.state_cls()())
-
-    @abstractmethod
-    def wait_for_background_threads(self) -> None:
-        """
-        Wait for ALL background threads spawned by this action to complete.
-        """
-
-    def propagate_to_next(self) -> None:
-        """
-        Propagate the props of this action to the next slice.
-
-        Can be overriden to propagate other files as well.
-        """
-        self.write_properties(self.read_properties(), self.ctx.props_store.next)
 
     @with_logging_context
     def initialize_first_slice(self) -> None:
         """
         Initialize the action for the first slice.
 
-        By default, this method copies props, settings, and state from slice 0 to slice 1,
-        and then advances the action context.
-
-        This method assumes that props, settings and state have already been written for slice 0.
+        Copies props, settings and state from slice 0 to slice 1, then
+        advances the action context. Assumes these files exist for slice 0.
         """
         self.ctx.text_logger.debug(f"Initializing action {self.name}.")
         self.ctx.props_store.copy_to("props.yaml", self.ctx.props_store.next)
@@ -114,113 +246,127 @@ class Action(ABC, Generic[TSettings, TState]):
         self.ctx.advance()
 
     @property
-    @abstractmethod
     def name(self) -> str:
-        """
-        Name of the action.
-        """
+        """Human-readable identifier of the action."""
+        return self._name
 
     @name.setter
-    @abstractmethod
     def name(self, value: str) -> None:
-        """
-        Set the name of the action.
-        """
-
-    @property
-    @abstractmethod
-    def ctx(self) -> ActionContext:
-        """
-        Slice navigation and access to all logging and storage resources for this action.
-        """
-
-    @property
-    @abstractmethod
-    def beam_type(self) -> BeamType | None:
-        """
-        Type of beam this action works with.
-        None if the action works with both beams or neither of them.
-        """
-
-    @property
-    @abstractmethod
-    def props_to_collect(self) -> PropertyNames:
-        """
-        Names of properties that should be collected for this action.
-        """
-
-    @property
-    @abstractmethod
-    def microscope(self) -> Microscope:
-        """
-        Current microscope instance.
-        """
-
-    @property
-    @abstractmethod
-    def settings(self) -> BaseSettings:
-        """
-        Settings for the action.
-        """
-
-    @property
-    @abstractmethod
-    def state(self) -> ActionState:
-        """
-        Internal state of the action.
-        """
+        self._name = value
 
     @property
     def name_with_underscores(self) -> str:
-        """
-        Name of the action with spaces replaced by underscores.
-        """
-        return self.name.replace(" ", "_")
+        """Name of the action with spaces replaced by underscores."""
+        return self._name.replace(" ", "_")
+
+    @property
+    def ctx(self) -> ActionContext:
+        """Slice navigation, stores and loggers for this action."""
+        return self._ctx
+
+    @property
+    def microscope(self) -> Microscope:
+        """The microscope instance."""
+        return self._microscope
+
+    @property
+    def settings(self) -> TSettings:
+        """The action's settings."""
+        return self._settings
+
+    @property
+    def beam_type(self) -> BeamType | None:
+        """Beam the action works with, or `None` for both or neither."""
+        return self._settings.beam_type
+
+    @property
+    def props_to_collect(self) -> PropertyNames:
+        """Names of the microscope properties this action collects."""
+        return self._settings.properties_to_collect
+
+    @property
+    @abstractmethod
+    def state(self) -> TState:
+        """Internal state of the action."""
 
     @with_logging_context
     def read_properties(self, store: PropsStore | None = None) -> GlobalProperties:
         """
-        Read properties of the microscope from the properties file.
+        Read this action's stored microscope properties.
+
+        Args:
+            store: Store to read from; defaults to the current slice.
+
+        Returns:
+            The stored properties.
         """
-        store = store or self.ctx.props_store
-
-        self.ctx.text_logger.debug(f"Reading microscope properties for {self.name}.")
-
+        store = store or self._ctx.props_store
+        self._ctx.text_logger.debug(f"Reading microscope properties for {self.name}.")
         return store.read("props.yaml")
 
     @with_logging_context
     def read_and_set_properties(self, store: PropsStore | None = None) -> None:
+        """
+        Read this action's stored properties and apply them to the microscope.
+
+        Selects the action's beam first, if it has one.
+
+        Args:
+            store: Store to read from; defaults to the current slice.
+        """
         props = self.read_properties(store)
-
-        # select the beam used for this action
         if self.beam_type is not None:
-            self.microscope.set_beam(self.beam_type)
-
-        # set properties to the microscope
-        self.ctx.text_logger.debug(f"Setting microscope properties for {self.name}.")
-        self.microscope.set_properties(props, beam=self.beam_type)
+            self._microscope.set_beam(self.beam_type)
+        self._ctx.text_logger.debug(f"Setting microscope properties for {self.name}.")
+        self._microscope.set_properties(props, beam=self.beam_type)
 
     @with_logging_context
-    def collect_properties(self, store: PropsStore | None = None) -> GlobalProperties:
+    def collect_properties(self) -> GlobalProperties:
         """
-        Collect the properties of the microscope.
+        Collect this action's properties from the microscope.
+
+        Returns:
+            The collected properties.
         """
-        # default: current frame
-        store = store or self.ctx.props_store
-
-        self.ctx.text_logger.debug(f"Collecting microscope properties for {self.name}.")
-
-        return self.microscope.collect_properties(self.props_to_collect)
+        self._ctx.text_logger.debug(
+            f"Collecting microscope properties for {self.name}."
+        )
+        return self._microscope.collect_properties(self.props_to_collect)
 
     @with_logging_context
     def write_properties(
         self, props: GlobalProperties, store: PropsStore | None = None
     ) -> None:
         """
-        Write properties of the microscope to the properties file.
+        Write microscope properties to this action's store.
+
+        Args:
+            props: The properties to write.
+            store: Store to write to; defaults to the current slice.
         """
-        store = store or self.ctx.props_store
-
-        self.ctx.text_logger.debug(f"Writing microscope properties for {self.name}.")
-
+        store = store or self._ctx.props_store
+        self._ctx.text_logger.debug(f"Writing microscope properties for {self.name}.")
         store.write("props.yaml", props)
+
+    def has_stored_properties(self) -> bool:
+        """
+        Check whether properties are stored for the current slice.
+
+        Returns:
+            `True` if the props file for the current slice exists.
+        """
+        return self._ctx.props_store.exists("props.yaml")
+
+
+def matches_frequency(slice_index: int, frequency: int | None) -> bool:
+    """
+    Check whether a 1-based slice index falls on an execution frequency.
+
+    Args:
+        slice_index: The slice index; the first acquired slice is 1.
+        frequency: Run every `frequency` slices, or `None` for never.
+
+    Returns:
+        `True` if the slice matches. Slice 1 always matches a set frequency.
+    """
+    return frequency is not None and (slice_index - 1) % frequency == 0

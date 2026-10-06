@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -21,9 +22,10 @@ from fibsem_maestro.criterion.criterion import (
 from fibsem_maestro.gui.form_builder.widgets.area_select._constants import (
     ARROW_COLOR,
     ARROW_PEN,
+    LINE_PEN,
     MARGIN_PEN,
+    MAX_LINES,
     MAX_TILES,
-    SHIFT_PEN,
     TILE_PEN,
 )
 from fibsem_maestro.settings.form_utils import AreaOverlay
@@ -47,14 +49,14 @@ class OverlayData:
         direction: Arrow direction, used by `SHOW_DIRECTION`.
         tile_size_nm: Tile size in nanometers, used by `SHOW_TILES`.
         tile_relative_overlap: Relative overlap of tiles, used by `SHOW_TILES`.
-        shift_distance_nm: Area shift distance in nanometers, used by `SHOW_AREA_SHIFT`.
+        slice_distance_nm: Slice distance in nanometers, used by `SHOW_AREA_SLICES`.
     """
 
     margin_nm: float | None = None
     direction: Direction | None = None
     tile_size_nm: float | None = None
     tile_relative_overlap: float | None = None
-    shift_distance_nm: float | None = None
+    slice_distance_nm: float | None = None
 
 
 class AreaDecoration(ABC):
@@ -263,54 +265,105 @@ class TileDecoration(AreaDecoration):
         return path
 
 
-class AreaShiftDecoration(AreaDecoration):
+class AreaSliceDecoration(AreaDecoration):
     """
-    A dashed outline of where the area moves to after one shift.
+    Dashed lines splitting the area into strips one shift apart.
 
-    The offset is supplied in scene units (image pixels) and applied along
-    `direction` in image space, where `Direction.UP` points toward the top of
-    the image (decreasing y). The outline is unfilled so the underlying image
-    stays visible, and is drawn behind the parent so the area border
-    remains legible where the two overlap.
+    For `Direction.UP`/`Direction.DOWN` the lines run parallel to the x-axis
+    and are spaced `shift_px` apart in y; for `Direction.LEFT`/`Direction.RIGHT`
+    they run parallel to the y-axis and are spaced `shift_px` apart in x.
+    Directions are in image space, where `Direction.UP` points toward the top
+    of the image (decreasing y).
+
+    Lines are anchored at the trailing edge (the edge the area moves away from).
 
     Args:
-        shift_px: Shift distance in scene units (image pixels).
+        slice_dist_px: Slice distance, in scene units (image pixels).
         direction: The direction the area moves in.
     """
 
-    _OFFSETS = {
-        Direction.RIGHT: (1.0, 0.0),
-        Direction.LEFT: (-1.0, 0.0),
-        Direction.DOWN: (0.0, 1.0),
-        Direction.UP: (0.0, -1.0),
-    }
-
-    def __init__(self, shift_px: float, direction: Direction) -> None:
-        self._shift_px = shift_px
+    def __init__(self, slice_dist_px: float, direction: Direction) -> None:
+        self._slice_dist_px = slice_dist_px
         self._direction = direction
-        self._item: QGraphicsRectItem | None = None
+        self._item: QGraphicsPathItem | None = None
 
     def attach(self, rect: ResizableRect) -> None:
-        item = QGraphicsRectItem(rect)
-        item.setPen(SHIFT_PEN)
+        item = QGraphicsPathItem(rect)
+        item.setPen(LINE_PEN)
         item.setBrush(QBrush(Qt.BrushStyle.NoBrush))
         item.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
-        # draws behind the parent
-        item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemStacksBehindParent, True)
         self._item = item
         self.update(rect)
 
     def update(self, rect: ResizableRect) -> None:
         if self._item is not None:
-            dx, dy = self._OFFSETS[self._direction]
-            self._item.setRect(
-                rect.rect().translated(dx * self._shift_px, dy * self._shift_px)
+            self._item.setPath(
+                self._split_path(rect.rect(), self._slice_dist_px, self._direction)
             )
 
     def detach(self) -> None:
         if self._item is not None and (scene := self._item.scene()) is not None:
             scene.removeItem(self._item)
         self._item = None
+
+    def _split_path(
+        self, area: QRectF, shift_px: float, direction: Direction
+    ) -> QPainterPath:
+        """
+        Build a path of lines splitting `area` into strips `shift_px` apart.
+
+        Args:
+            area: The area to split, in scene units (image pixels).
+            shift_px: Line spacing, in scene units (image pixels). If not positive, the path is empty.
+            direction: The direction the area moves in, in image space (`UP` = decreasing y).
+
+        Returns:
+            A path containing one subpath per line; empty if `shift_px` is not
+            positive, no lines fit, or the line count would exceed `_MAX_LINES`.
+        """
+        area = area.normalized()
+        match direction:
+            case Direction.DOWN:
+                start, sign, horizontal = area.top(), 1.0, True
+            case Direction.UP:
+                start, sign, horizontal = area.bottom(), -1.0, True
+            case Direction.RIGHT:
+                start, sign, horizontal = area.left(), 1.0, False
+            case Direction.LEFT:
+                start, sign, horizontal = area.right(), -1.0, False
+
+        extent = area.height() if horizontal else area.width()
+        path = QPainterPath()
+        for offset in self._split_offsets(extent, shift_px):
+            c = start + sign * offset
+            if horizontal:
+                path.moveTo(area.left(), c)
+                path.lineTo(area.right(), c)
+            else:
+                path.moveTo(c, area.top())
+                path.lineTo(c, area.bottom())
+        return path
+
+    def _split_offsets(
+        self, extent: float, step: float, max_lines: int = MAX_LINES
+    ) -> list[float]:
+        """
+        Offsets of split lines measured from the trailing edge of an area.
+
+        Args:
+            extent: Size of the area along the shift axis, in scene units (image pixels).
+            step: Spacing between lines, in scene units (image pixels). If not positive, no lines are returned.
+            max_lines: If more lines than this would be needed, no lines are returned.
+
+        Returns:
+            Offsets from the trailing edge, in scene units (image pixels), in increasing order.
+        """
+        if step <= 0:
+            return []
+        n_lines = max(0, math.ceil(extent / step) - 1)
+        if n_lines > max_lines:
+            return []
+        return [k * step for k in range(1, n_lines + 1)]
 
 
 def build_decoration(
@@ -378,15 +431,15 @@ def build_decoration(
 
             return TileDecoration(tile_px=tile_px, step_px=step_px, txt_log=txt_log)
 
-        case AreaOverlay.SHOW_AREA_SHIFT:
+        case AreaOverlay.SHOW_AREA_SLICES:
             if (
-                data.shift_distance_nm is None
+                data.slice_distance_nm is None
                 or data.direction is None
                 or not pixel_size_nm
             ):
                 return None
-            return AreaShiftDecoration(
-                shift_px=data.shift_distance_nm / pixel_size_nm,
+            return AreaSliceDecoration(
+                slice_dist_px=data.slice_distance_nm / pixel_size_nm,
                 direction=data.direction,
             )
 

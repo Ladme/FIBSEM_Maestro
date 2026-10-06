@@ -74,16 +74,25 @@ class DriftCalculationMode(ABC):
 
     def setup(self, store: ImageStore[Image8Bit] | None = None) -> None:
         """
-        Perform one-time initialization before acquisition begins.
+        Perform one-time initialization when the action is prepared.
 
-        Called once by `DriftCorrection.setup` before the first slice is
-        acquired. Does nothing by default - override to perform initialization
-        such as acquiring reference templates.
+        Called by `DriftCorrection` when the user prepares the action. Does
+        nothing by default; override to perform initialization such as
+        acquiring reference templates.
 
         Args:
-            store: Optional image store to use for template saving. Defaults to current slice.
+            store: Optional image store to write to. Defaults to the current slice.
         """
         pass
+
+    def is_set_up(self) -> bool:
+        """
+        Check whether everything `setup` stores is present for the current slice.
+
+        Returns:
+            `True` by default, for modes that need no setup.
+        """
+        return True
 
     def before_calculate_drift(self, slice_number: int) -> None:
         """
@@ -120,6 +129,22 @@ class DriftCalculationMode(ABC):
 
         Args:
             slice_number: The current slice index.
+        """
+        pass
+
+    def copy_setup(
+        self, source: ImageStore[Image8Bit], target: ImageStore[Image8Bit]
+    ) -> None:
+        """
+        Copy the data stored by `setup` from one slice's store to another's.
+
+        Called when the setup slice (slice 0) is carried into the first
+        acquired slice. Does nothing by default; override if `setup` stores
+        anything.
+
+        Args:
+            source: Store holding the data written by `setup`.
+            target: Store to copy it to.
         """
         pass
 
@@ -162,6 +187,9 @@ class TemplateMatchingDrift(DriftCalculationMode):
     def setup(self, store: ImageStore[Image8Bit] | None = None) -> None:
         self._template_matching.create_templates(store)
 
+    def is_set_up(self) -> bool:
+        return self._template_matching.templates_exist()
+
     def calculate_drift(self) -> Drift:
         drift = self._template_matching.calculate_drift()
         self._last_confidence = drift.confidence
@@ -175,3 +203,8 @@ class TemplateMatchingDrift(DriftCalculationMode):
 
     def if_skipped(self, slice_number: int) -> None:
         self.after_calculate_drift(slice_number)
+
+    def copy_setup(
+        self, source: ImageStore[Image8Bit], target: ImageStore[Image8Bit]
+    ) -> None:
+        self._template_matching.copy_templates(source, target)

@@ -32,7 +32,7 @@ class AreaOverlay(Enum):
     SHOW_MARGIN = "show_margin"
     SHOW_DIRECTION = "show_direction"
     SHOW_TILES = "show_tiles"
-    SHOW_AREA_SHIFT = "show_area_shift"
+    SHOW_AREA_SLICES = "show_area_slices"
 
     @property
     def data_fields(self) -> frozenset[str]:
@@ -43,7 +43,7 @@ class AreaOverlay(Enum):
             AreaOverlay.SHOW_TILES: frozenset(
                 {"tile_size_nm", "tile_relative_overlap"}
             ),
-            AreaOverlay.SHOW_AREA_SHIFT: frozenset({"shift_distance_nm", "direction"}),
+            AreaOverlay.SHOW_AREA_SLICES: frozenset({"slice_distance_nm", "direction"}),
         }[self]
 
 

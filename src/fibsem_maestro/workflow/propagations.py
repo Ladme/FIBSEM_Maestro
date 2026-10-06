@@ -56,46 +56,64 @@ class Propagations:
         props_to_propagate: PropertyNames,
     ) -> None:
         """
-        Registers a propagation rule for the given action.
+        Register a propagation rule.
+
+        Names are resolved when the rule is applied, not here.
 
         Args:
-            action: The parent action that produces the property updates.
-            dependents: Actions that should receive the updated properties.
-            props_to_propagate: Names of the properties to propagate.
-
-        Raises:
-            WorkflowError: If the action or any dependent is not part of the workflow.
+            parent_name: Name of the action whose produced properties propagate.
+            dependent_names: Names of the actions that receive them.
+            props_to_propagate: Names of the properties to propagate. Each must
+                be in the parent's `properties_to_collect`.
         """
         self.rules.append(
-            PropagationRule(
-                parent_name=parent_name,
-                dependent_names=dependent_names,
-                props_to_propagate=props_to_propagate,
-            )
+            PropagationRule(parent_name, dependent_names, props_to_propagate)
         )
 
     def propagate(
-        self, action: Action, all_actions: Actions, text_logger: TextLogger
+        self,
+        parent: Action,
+        produced: GlobalProperties,
+        all_actions: Actions,
+        text_logger: TextLogger,
     ) -> None:
         """
-        Execute all propagation rules for the given action.
+        Propagate a parent's produced properties to its dependents.
+
+        Dependents that already ran in this slice receive the update for the
+        next slice, and the others for the current slice. This follows from
+        each dependent's slice counter.
 
         Args:
-            action: The action that has just finished executing.
+            parent: The action that has just produced properties.
+            produced: The properties the parent wrote to its next slice.
             all_actions: The ordered list of all actions in the workflow.
+            text_logger: Logger for diagnostics.
+
+        Raises:
+            WorkflowError: If a dependent is undefined, or a rule propagates a
+                property the parent did not produce.
         """
         actions_by_name = {a.name: a for a in all_actions}
 
         for rule in self.rules:
-            if rule.parent_name != action.name:
+            if rule.parent_name != parent.name:
                 continue
+
+            try:
+                props = produced.select(rule.props_to_propagate)
+            except KeyError as e:
+                # TODO: add this to GUI hint
+                raise WorkflowError(
+                    f"Rule propagates {rule.props_to_propagate} from '{parent.name}', "
+                    f"but '{parent.name}' did not produce all of them; add them to "
+                    f"its properties to collect."
+                ) from e
 
             text_logger.debug(
                 f"Propagating properties '{rule.props_to_propagate}' "
-                f"from '{action.name}' to its dependents."
+                f"from '{parent.name}' to its dependents."
             )
-
-            props = action.microscope.collect_properties(rule.props_to_propagate)
 
             dependents: list[Action] = []
             for name in rule.dependent_names:

@@ -1,11 +1,17 @@
 # Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
+from matplotlib.figure import Figure
 
 from fibsem_maestro.core.point import Point
 from fibsem_maestro.logging.image.file import FileImageLogger
@@ -496,3 +502,43 @@ def test_save_plot_closes_its_figure_on_failure(logger: FileImageLogger) -> None
         logger.save_plot("sharpness.png", [curve])
 
     assert plt.get_fignums() == []
+
+
+def test_save_image_concurrent_same_name_writes_distinct_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    view = SimpleNamespace(path=lambda: tmp_path)
+    logger = FileImageLogger(lambda: view)  # ty: ignore[invalid-argument-type]
+
+    original_savefig = Figure.savefig
+
+    def slow_savefig(self: Figure, *args: Any, **kwargs: Any) -> None:
+        time.sleep(0.05)  # widen the window between name choice and write
+        original_savefig(self, *args, **kwargs)
+
+    monkeypatch.setattr(Figure, "savefig", slow_savefig)
+
+    n = 16
+    barrier = threading.Barrier(n)
+
+    def work() -> None:
+        barrier.wait()
+        logger.save_image("frame.png", np.zeros((8, 8)))
+
+    with ThreadPoolExecutor(max_workers=n) as pool:
+        for future in [pool.submit(work) for _ in range(n)]:
+            future.result()
+
+    files = list(tmp_path.glob("frame*.png"))
+    assert len(files) == n
+    assert all(f.stat().st_size > 0 for f in files)
+
+
+def test_save_image_without_extension_writes_png(tmp_path: Path) -> None:
+    view = SimpleNamespace(path=lambda: tmp_path)
+    logger = FileImageLogger(lambda: view)  # ty: ignore[invalid-argument-type]
+
+    logger.save_image("frame", np.zeros((8, 8)))
+    logger.save_image("frame", np.zeros((8, 8)))
+
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["frame.png", "frame_2.png"]

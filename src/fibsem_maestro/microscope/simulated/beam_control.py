@@ -344,7 +344,7 @@ class SimulatedBeamControl(BeamControl):
             f"Fake milling in area {milling_area} with depth of {milling_depth} nm."
         )
         self._txt_log.info(
-            f"Fake milling has direction {direction} and uses pattern {str(pattern_type)}."
+            f"Fake milling has direction {direction} and uses a pattern {pattern_type}."
         )
         if do_not_mill:
             self._txt_log.warning(
