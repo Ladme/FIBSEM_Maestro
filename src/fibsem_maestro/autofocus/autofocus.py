@@ -19,6 +19,7 @@ from fibsem_maestro.autofocus.autofocus_context import AutofocusContext
 from fibsem_maestro.autofocus.error import AutofocusError
 from fibsem_maestro.autofocus.jobs_manager import JobsManager
 from fibsem_maestro.autofocus.result import AutofocusResult
+from fibsem_maestro.autofocus.sweep_step import SweepStep
 from fibsem_maestro.autofocus.sweeping import Sweeping
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.point import PixelPoint
@@ -27,6 +28,7 @@ from fibsem_maestro.logging.image.overlay import PolylineOverlay
 from fibsem_maestro.logging.image.plot_element import Curve, PlotElement, VerticalLine
 from fibsem_maestro.logging.logging import with_logging_context
 from fibsem_maestro.microscope.microscope import Microscope
+from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.autofocus_settings import (
     AutofocusSettings,
     AutoscriptFunctionBase,
@@ -73,7 +75,7 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
             executor=ThreadPoolExecutor(self._settings.max_workers),
         )
 
-        self._active_gen: Generator[None, None, None] | None = None
+        self._active_gen: Generator[SweepStep, None, None] | None = None
 
         self._sweep_base_value: Any | None = None
         self._current_step_index = 0
@@ -221,12 +223,16 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
     def _run_step(self) -> StepOutcome:
         if self._active_gen is None:
             self._start_sweep()
-        self._advance()
+        trial = self._advance()
 
-        # mid-sweep these carry the trial value the step has set on the
-        # microscope, which propagation delivers to the linked imaging;
-        # once the sweep is done they carry the best value
-        return Produced(self.collect_properties())
+        props = self.collect_properties()
+        if trial is None:
+            return Produced(props)
+
+        # mid-sweep: the linked imaging must acquire its next frame at the trial value
+        patch = GlobalProperties()
+        patch.set_property(self._settings.target_attribute, trial.value, self.beam_type)
+        return Produced(props, patches={self._settings.linked_imaging: patch})
 
     def _start_sweep(self) -> None:
         """
@@ -259,7 +265,7 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
             AutofocusError: If the imaging does not run every slice, or uses a
                 different beam than the autofocus.
         """
-        if imaging.settings.execution_frequency != 1:
+        if not imaging.settings.execution_frequency.runs_every_slice:
             raise AutofocusError(
                 f"Step mode requires '{imaging.name}' to run every slice "
                 f"(execution frequency 1), got {imaging.settings.execution_frequency}."
@@ -289,19 +295,19 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
             )
         return imaging
 
-    def _advance(self) -> None:
+    def _advance(self) -> SweepStep | None:
         """
         Advance the active sweep by one step.
 
-        When the sweep finishes, the best value is evaluated, applied to the
-        microscope and logged, and the sweep is cleared. Any exception from
-        the mode or the evaluation is re-raised after the sweep is cleared.
+        Returns:
+            The trial step the next acquisition must use, or `None` if the
+            sweep finished and the best value was applied.
         """
         assert self._active_gen is not None
         self._current_step_index += 1
 
         try:
-            next(self._active_gen)
+            trial = next(self._active_gen)
             # wait so that the stored state contains every result; otherwise
             # restoring after an interrupt has to deal with half-finished jobs
             self._jobs.wait()
@@ -311,7 +317,7 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
             self._abort_sweep()
             raise
         else:
-            return
+            return trial
 
         try:
             self._apply_best_and_log(self._jobs.wait_and_collect())
@@ -319,6 +325,8 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
             # clear even if evaluation fails, so the next slice starts afresh
             self._active_gen = None
             self._current_step_index = 0
+
+        return None
 
     def _abort_sweep(self) -> None:
         """Close and discard the active sweep."""

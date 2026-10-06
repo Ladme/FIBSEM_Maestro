@@ -292,6 +292,10 @@ class Workflow:
                 self.propagations.propagate(
                     action, outcome.props, self.actions, self.ctx.text_logger
                 )
+                # explicit patches go last, so they win over rule-based propagation
+                self.propagations.apply_patches(
+                    outcome.patches, self.actions, self.ctx.text_logger
+                )
 
             # advance the slice counter for the action
             self.ctx.text_logger.debug(

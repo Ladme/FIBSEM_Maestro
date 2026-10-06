@@ -1,6 +1,7 @@
 # Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
+from collections.abc import Mapping
 from typing import Self
 
 from pydantic.dataclasses import dataclass
@@ -122,6 +123,35 @@ class Propagations:
                 dependents.append(actions_by_name[name])
 
             self._propagate_to_dependents(all_actions, dependents, props, text_logger)
+
+    def apply_patches(
+        self,
+        patches: Mapping[str, GlobalProperties],
+        all_actions: Actions,
+        text_logger: TextLogger,
+    ) -> None:
+        """
+        Apply explicit property patches to named actions' props files.
+
+        Uses the same slice timing as rule-based propagation: actions that
+        already ran this slice are patched for the next slice, the others for
+        the current one.
+
+        Args:
+            patches: Patches keyed by target action name.
+            all_actions: The ordered list of all actions in the workflow.
+            text_logger: Logger for diagnostics.
+
+        Raises:
+            WorkflowError: If a target action is not defined.
+        """
+        actions_by_name = {a.name: a for a in all_actions}
+        for name, patch in patches.items():
+            if name not in actions_by_name:
+                raise WorkflowError(f"Patch target '{name}' is not defined.")
+            self._propagate_to_dependents(
+                all_actions, [actions_by_name[name]], patch, text_logger
+            )
 
     def _propagate_to_dependents(
         self,
