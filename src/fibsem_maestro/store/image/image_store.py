@@ -49,6 +49,20 @@ class ImageStore(ABC, Generic[T]):
         """
 
     @abstractmethod
+    def delete(self, filename: str) -> None:
+        """
+        Delete a previously written image.
+
+        Args:
+            filename: Filename within the current slice directory. The
+                `.tif` extension is appended automatically if omitted.
+
+        Raises:
+            FileNotFoundError: If no image with that name exists in the
+                current slice directory.
+        """
+
+    @abstractmethod
     def copy_to(self, filename: str, to: ImageStore[T]) -> None:
         """
         Copy the image at the given filename to the target `ImageStore`.

@@ -2,6 +2,7 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
+import re
 from collections.abc import Callable
 from typing import Any
 
@@ -27,6 +28,12 @@ from fibsem_maestro.template_matching.error import TemplateMatchingError
 from fibsem_maestro.template_matching.result import (
     ShiftPrecision,
     TemplateMatchResult,
+)
+
+_TEMPLATE_PREFIX = "template_"
+_TEMPLATE_SUFFIX = ".tif"
+_TEMPLATE_NAME_RE = re.compile(
+    rf"{re.escape(_TEMPLATE_PREFIX)}\d+{re.escape(_TEMPLATE_SUFFIX)}"
 )
 
 
@@ -70,13 +77,15 @@ class TemplateMatching:
         """
         Acquire reference images and save an averaged template for each area.
 
-        Acquires `settings.template_scans` sets of template regions, validates
-        that the crops are consistent across scans, and saves the per-area
-        average as the reference template.
+        All existing templates in the target store are deleted first, including
+        those of areas no longer configured.
+
+        Then `settings.template_scans` sets of template regions are acquired, the
+        crops are validated for consistency, and the per-area average is saved
+        as the reference template.
 
         Args:
-            store: Store to write templates to. If `None`, the current
-                slice's store is used.
+            store: Store to write templates to. If `None`, the current slice's store is used.
 
         Raises:
             TemplateMatchingError: If no template areas are configured, if the
@@ -88,6 +97,10 @@ class TemplateMatching:
             raise TemplateMatchingError(
                 "Cannot create templates: no template matching areas are configured."
             )
+
+        if store is None:
+            store = self._image_store
+        self._delete_templates(store)
 
         # acquire template regions for each scan
         all_scans: list[list[Image8Bit]] = []
@@ -202,6 +215,24 @@ class TemplateMatching:
             return Drift(x=None, y=None, confidence=confidence)
 
         return Drift(x=shift[0], y=shift[1], confidence=confidence)
+
+    def _delete_templates(self, store: ImageStore[Image8Bit]) -> None:
+        """
+        Delete every template in a store, including those of areas no longer configured.
+
+        Templates always form a contiguous run `template_0`, `template_1`, ...:
+        creation saves the areas in order, copying copies them in order, and a
+        failed creation leaves at most a prefix. They are therefore deleted in
+        index order until the first missing one.
+
+        Args:
+            store: Store to delete the templates from.
+        """
+        index = 0
+        while store.exists(name := self._construct_template_name(index)):
+            self._txt_log.debug(f"Deleting template '{name}' from slice {store.slice}.")
+            store.delete(name)
+            index += 1
 
     def _calculate_match(
         self, template: Image8Bit, image: Image8Bit
