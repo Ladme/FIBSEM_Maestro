@@ -33,6 +33,7 @@ from fibsem_maestro.settings.autofocus_settings import (
     AutofocusSettings,
     AutoscriptFunctionBase,
 )
+from fibsem_maestro.settings.reactive import ChangePath
 from fibsem_maestro.workflow.actions import Actions
 
 if TYPE_CHECKING:
@@ -61,6 +62,8 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
     exhausted.
     """
 
+    _STATE_FIELDS = frozenset({"mode", "target_attribute", "beam_type"})
+
     def __init__(
         self,
         name: str,
@@ -83,8 +86,19 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
         # build mode/sweeping/context from current settings
         self._rebuild()
 
-        # rebuild whenever the settings change
-        self._settings.on_change(lambda _: self._rebuild())
+        # rebuild when the settings they are built from change
+        self._settings.on_change_at(self._rebuild_if_affected)
+
+    def _rebuild_if_affected(self, path: ChangePath) -> None:
+        """
+        Rebuild mode, sweeping and context if a change touched their inputs.
+
+        Args:
+            path: Location of the change relative to the settings; an empty path
+                means the settings changed as a whole.
+        """
+        if not path or path[0] in self._STATE_FIELDS:
+            self._rebuild()
 
     def _rebuild(self) -> None:
         """Rebuild mode, sweeping, and autofocus context from current settings."""
@@ -325,6 +339,7 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
             # clear even if evaluation fails, so the next slice starts afresh
             self._active_gen = None
             self._current_step_index = 0
+            self._sweep_base_value = None
 
         return None
 
@@ -334,6 +349,7 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
         self._active_gen.close()
         self._active_gen = None
         self._current_step_index = 0
+        self._sweep_base_value = None
 
     def _apply_best_and_log(self, results: list[AutofocusResult]) -> None:
         """

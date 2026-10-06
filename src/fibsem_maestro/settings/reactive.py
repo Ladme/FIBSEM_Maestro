@@ -4,10 +4,19 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Hashable, Iterable
-from typing import Any, Generic, Self, SupportsIndex, TypeVar
+from typing import Any, Generic, Self, SupportsIndex, TypeAlias, TypeVar
 
 from pydantic import BaseModel, PrivateAttr
 from pydantic_core import core_schema
+
+ChangePath: TypeAlias = tuple[Hashable, ...]
+"""
+Location of a change, relative to the node a hook is registered on.
+
+Field names and dict keys leading to the changed value, e.g. `("mode", "sweeping")`.
+Items of a list contribute `None`, since list positions shift. An empty path
+means the node changed as a whole, e.g. through `update` or `patch`.
+"""
 
 
 class ReactiveNode:
@@ -15,15 +24,22 @@ class ReactiveNode:
     Base class providing shared reactive behavior for models and containers.
 
     A `ReactiveNode` participates in a hierarchical tree of reactive objects.
+    A change to any node is reported to that node and then to every ancestor,
+    bottom-up, so a hook registered on a node sees every change in its subtree.
+
     Each node maintains:
 
-    - A reference to its parent node (which is `None` if it is the root)
-    - A list of change hooks (callbacks) that should fire when the node or any
-      of its reactive descendants is modified
+    - A reference to its parent node (`None` if it is the root)
+    - The key under which it sits in its parent: a field name for a model's
+      field, a dict key for a dict's value, and `None` for a list item or the root
+    - Change hooks receiving the node they were registered on (`on_change`)
+    - Path hooks receiving the location of the change (`on_change_at`)
     """
 
     _parent: ReactiveNode | None
+    _key: Hashable | None
     _hooks: list[Callable[[Self], None]]
+    _path_hooks: list[Callable[[ChangePath], None]]
 
     def __init__(self):
         """
@@ -33,7 +49,9 @@ class ReactiveNode:
         Subclasses should call this explicitly if they override `__init__`.
         """
         self._hooks = []
+        self._path_hooks = []
         self._parent = None
+        self._key = None
 
     def on_change(self, hook: Callable[[Self], None]):
         """
@@ -44,17 +62,35 @@ class ReactiveNode:
         """
         self._hooks.append(hook)
 
-    def _call_hooks(self) -> None:
+    def on_change_at(self, hook: Callable[[ChangePath], None]) -> None:
+        """
+        Register a callback receiving the location of each change below this node.
+
+        Args:
+            hook: A callable receiving the path of the change, relative to this node.
+        """
+        self._path_hooks.append(hook)
+
+    def _call_hooks(self, path: ChangePath = ()) -> None:
         """Invoke hooks on this node and all ancestor nodes, bottom-up."""
         node: ReactiveNode | None = self
         while node is not None:
-            node._call_local_hooks()
+            node._call_local_hooks(path)
+            # seen from the parent, the change lies under this node's key
+            path = (node._key, *path)
             node = node._parent
 
-    def _call_local_hooks(self) -> None:
-        """Invoke hooks registered on this node only, without notifying ancestors."""
+    def _call_local_hooks(self, path: ChangePath = ()) -> None:
+        """
+        Invoke hooks registered on this node only, without notifying ancestors.
+
+        Args:
+            path: Location of the change relative to this node.
+        """
         for hook in self._hooks:
             hook(self)
+        for hook in self._path_hooks:
+            hook(path)
 
 
 class ReactiveModel(BaseModel, ReactiveNode):
@@ -68,7 +104,9 @@ class ReactiveModel(BaseModel, ReactiveNode):
     """
 
     _hooks: list[Callable] = PrivateAttr(default_factory=list)
+    _path_hooks: list[Callable[[ChangePath], None]] = PrivateAttr(default_factory=list)
     _parent: ReactiveNode | None = PrivateAttr(default=None)
+    _key: Hashable | None = PrivateAttr(default=None)
 
     def __init__(self, **data: Any):
         """
@@ -165,12 +203,14 @@ class ReactiveModel(BaseModel, ReactiveNode):
     def __setattr__(self, name: str, value: Any):
         """
         Assign a model field, re-parent children if needed, trigger hooks.
+
+        Hooks receive the field name as the change path.
         """
         super().__setattr__(name, value)
 
         if name in type(self).model_fields:
             propagate_parent(self, self)
-            self._call_hooks()
+            self._call_hooks((name,))
 
     def model_post_init(self, __context: Any):
         """
@@ -220,9 +260,9 @@ class ReactiveDict(dict[K, T], ReactiveNode, Generic[K, T]):
         """
         ReactiveNode.__init__(self)
         dict.__init__(self, *args, **kwargs)
-        for v in self.values():
+        for k, v in self.items():
             if isinstance(v, ReactiveNode):
-                propagate_parent(self, v)
+                propagate_parent(self, v, k)
 
     def __setitem__(self, key: Any, value: T):
         """
@@ -236,17 +276,17 @@ class ReactiveDict(dict[K, T], ReactiveNode, Generic[K, T]):
         """
         super().__setitem__(key, value)
         if isinstance(value, ReactiveNode):
-            propagate_parent(self, value)
-        self._call_hooks()
+            propagate_parent(self, value, key)
+        self._call_hooks((key,))
 
     def update(self, *args: Any, **kwargs: T):
         """
         Update the dictionary with multiple key/value pairs and trigger one event.
         """
         super().update(*args, **kwargs)
-        for v in self.values():
+        for k, v in self.items():
             if isinstance(v, ReactiveNode):
-                propagate_parent(self, v)
+                propagate_parent(self, v, k)
         self._call_hooks()
 
     def pop(self, key: Any, *a: Any) -> T:
@@ -254,7 +294,7 @@ class ReactiveDict(dict[K, T], ReactiveNode, Generic[K, T]):
         Remove a key/value pair and trigger reactive hooks.
         """
         res = super().pop(key, *a)
-        self._call_hooks()
+        self._call_hooks((key,))
         return res
 
     def clear(self) -> None:
@@ -375,32 +415,38 @@ class ReactiveList(list[T], ReactiveNode, Generic[T]):
         return core_schema.no_info_plain_validator_function(cls)
 
 
-def propagate_parent(parent: ReactiveNode, value: Any):
+def propagate_parent(parent: ReactiveNode, value: Any, key: Hashable | None = None):
     """
-    Recursively assign parent pointers for nested reactive objects.
+    Recursively assign parent pointers and keys for nested reactive objects.
 
     Args:
         parent: The node that should be set as the parent.
         value: The reactive object or container being attached.
+        key: The field name or dict key under which `value` sits in `parent`;
+            `None` for list items.
     """
     if isinstance(value, ReactiveModel):
         if value is not parent:
             value._parent = parent
+            value._key = key
         for field in type(value).model_fields:
-            propagate_parent(value, getattr(value, field))
+            propagate_parent(value, getattr(value, field), field)
 
     elif isinstance(value, ReactiveList):
         value._parent = parent
+        value._key = key
         for item in value:
             propagate_parent(value, item)
 
     elif isinstance(value, ReactiveDict):
         value._parent = parent
-        for item in value.values():
-            propagate_parent(value, item)
+        value._key = key
+        for k, item in value.items():
+            propagate_parent(value, item, k)
 
     elif isinstance(value, ReactiveNode):
         value._parent = parent
+        value._key = key
 
 
 def _reactive_copy(value: Any) -> Any:

@@ -27,6 +27,10 @@ class Milling(Action[MillingSettings, MillingState]):
     Performs focused ion beam milling one slice at a time.
     """
 
+    _STATE_FIELDS = frozenset(
+        {"milling_area", "slice_distance", "milling_direction", "beam_type"}
+    )
+
     def __init__(
         self,
         name: str,
@@ -84,7 +88,7 @@ class Milling(Action[MillingSettings, MillingState]):
             self._settings.milling_direction, self._settings.slice_distance
         )
 
-        if self._current_milling_slice:
+        if not self._current_milling_slice.has_size():
             raise MillingError(
                 f"Area to be milled has no size: {self._current_milling_slice}"
             )

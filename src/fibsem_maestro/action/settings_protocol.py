@@ -1,11 +1,13 @@
 # Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
+from collections.abc import Callable
 from typing import Protocol, TypeVar
 
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.frequency import Frequency
 from fibsem_maestro.settings.property_names import PropertyNames
+from fibsem_maestro.settings.reactive import ChangePath
 
 
 class ActionSettingsLike(Protocol):
@@ -30,6 +32,15 @@ class ActionSettingsLike(Protocol):
     @property
     def execution_frequency(self) -> Frequency:
         """How often the action runs."""
+        ...
+
+    def on_change_at(self, hook: Callable[[ChangePath], None]) -> None:
+        """
+        Register a callback receiving the location of each change in the settings.
+
+        Args:
+            hook: A callable receiving the path of the change, relative to the settings.
+        """
         ...
 
 
