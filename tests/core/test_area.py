@@ -416,3 +416,103 @@ def test_has_size(width: float, height: float, expected: bool) -> None:
     area = RelativeArea(origin=RelativePoint(x=0.1, y=0.1), width=width, height=height)
 
     assert area.has_size() is expected
+
+
+_EPS = 1 / 1024
+
+
+def _area(x: float, y: float, width: float, height: float) -> RelativeArea:
+    return RelativeArea(origin=RelativePoint(x=x, y=y), width=width, height=height)
+
+
+@pytest.fixture
+def container() -> RelativeArea:
+    """Spans 0.25 to 0.75 on both axes."""
+    return _area(0.25, 0.25, 0.5, 0.5)
+
+
+def test_contains_identical_area(container: RelativeArea) -> None:
+    assert container.contains(_area(0.25, 0.25, 0.5, 0.5))
+
+
+def test_contains_strictly_inner_area(container: RelativeArea) -> None:
+    assert container.contains(_area(0.375, 0.375, 0.25, 0.25))
+
+
+@pytest.mark.parametrize(
+    "inner",
+    [
+        _area(0.25, 0.375, 0.25, 0.25),  # left edge
+        _area(0.375, 0.25, 0.25, 0.25),  # top edge
+        _area(0.5, 0.375, 0.25, 0.25),  # right edge
+        _area(0.375, 0.5, 0.25, 0.25),  # bottom edge
+    ],
+)
+def test_contains_area_sharing_an_edge(
+    container: RelativeArea, inner: RelativeArea
+) -> None:
+    assert container.contains(inner)
+
+
+@pytest.mark.parametrize(
+    "overhanging",
+    [
+        _area(0.125, 0.375, 0.25, 0.25),  # past the left edge
+        _area(0.375, 0.125, 0.25, 0.25),  # past the top edge
+        _area(0.625, 0.375, 0.25, 0.25),  # past the right edge
+        _area(0.375, 0.625, 0.25, 0.25),  # past the bottom edge
+    ],
+)
+def test_does_not_contain_area_crossing_an_edge(
+    container: RelativeArea, overhanging: RelativeArea
+) -> None:
+    assert not container.contains(overhanging)
+
+
+def test_does_not_contain_disjoint_area(container: RelativeArea) -> None:
+    assert not container.contains(_area(0.0, 0.0, 0.125, 0.125))
+
+
+def test_containment_is_not_symmetric(container: RelativeArea) -> None:
+    larger = _area(0.125, 0.125, 0.75, 0.75)
+
+    assert larger.contains(container)
+    assert not container.contains(larger)
+
+
+# areas overhanging the container by exactly _EPS on one side
+_SLIGHT_OVERHANGS = [
+    _area(0.25 - _EPS, 0.375, 0.25, 0.25),  # left
+    _area(0.375, 0.25 - _EPS, 0.25, 0.25),  # top
+    _area(0.5, 0.375, 0.25 + _EPS, 0.25),  # right
+    _area(0.375, 0.5, 0.25, 0.25 + _EPS),  # bottom
+]
+
+
+@pytest.mark.parametrize("overhanging", _SLIGHT_OVERHANGS)
+def test_tolerance_smaller_than_the_overhang_rejects_it(
+    container: RelativeArea, overhanging: RelativeArea
+) -> None:
+    assert not container.contains(overhanging, tolerance=_EPS / 2)
+
+
+@pytest.mark.parametrize("overhanging", _SLIGHT_OVERHANGS)
+def test_default_tolerance_is_exact(
+    container: RelativeArea, overhanging: RelativeArea
+) -> None:
+    assert not container.contains(overhanging)
+
+
+def test_negative_tolerance_raises(container: RelativeArea) -> None:
+    with pytest.raises(ValueError, match="non-negative"):
+        container.contains(container, tolerance=-_EPS)
+
+
+def test_different_area_type_raises(container: RelativeArea) -> None:
+    class _OtherArea(RelativeArea):
+        """Same fields, different type: stands in for an area in other units."""
+
+    other = _OtherArea(origin=RelativePoint(x=0.375, y=0.375), width=0.25, height=0.25)
+
+    with pytest.raises(TypeError, match="same units"):
+        container.contains(other)
