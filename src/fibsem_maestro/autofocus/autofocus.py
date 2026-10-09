@@ -354,6 +354,8 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
 
     def _abort_sweep(self) -> None:
         """Close and discard the active sweep."""
+        # TODO: the linked imaging keeps the last trial value until the next sweep
+        # this should eventually be fixed, but it breaks the current architecture
         assert self._active_gen is not None
         self._active_gen.close()
         self._active_gen = None
