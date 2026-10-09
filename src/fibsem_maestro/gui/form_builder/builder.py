@@ -359,7 +359,7 @@ class FormBuilder:
                             """X offset applied when grabbing, in nm; None if unresolved."""
                             return scope.value(offset_path, float)
 
-                return AreaSelectWidget(
+                area = AreaSelectWidget(
                     microscope=self._microscope,
                     txt_log=self._txt_log,
                     max_areas=hint.max_areas if hint.max_areas else None,
@@ -367,6 +367,12 @@ class FormBuilder:
                     beam_provider=beam_provider,
                     offset_provider=offset_provider,
                 )
+
+                # loading an image needs the microscope, which a running workflow holds
+                if self._manager is not None:
+                    self._manager.app_state_changed.connect(area.on_app_state_changed)
+                    area.on_app_state_changed(self._manager.state)
+                return area
 
             case WidgetType.RANGE_PAIR:
                 return RangePairWidget(

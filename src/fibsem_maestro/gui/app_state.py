@@ -15,3 +15,8 @@ class AppState(Enum):
 
     def __str__(self) -> str:
         return self.value
+
+    @property
+    def is_running(self) -> bool:
+        """True while the workflow thread executes actions, including while a pause is pending."""
+        return self in (AppState.RUNNING, AppState.STOPPING)

@@ -358,10 +358,15 @@ class ActionPanel(QWidget):
             state: The new app state.
         """
         read_only = state not in _EDITABLE_STATES
-        self._settings_widget.set_read_only(read_only)
+        # danger mode unlocks the settings only; propagations and buttons follow the state
+        self._settings_widget.set_read_only(read_only and not self._manager.danger_mode)
         self._propagations_widget.set_read_only(read_only)
         # the slice, and with it the props file, may have changed while running
         self._update_buttons()
+
+    def on_danger_mode_changed(self, _: bool) -> None:
+        """Re-apply the read-only state after danger mode was turned on or off."""
+        self.on_app_state_changed(self._manager.state)
 
     def on_action_changed(self, action: Action) -> None:
         """

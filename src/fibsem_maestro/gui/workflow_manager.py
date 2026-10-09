@@ -30,6 +30,7 @@ class WorkflowManager(QObject):
     app_state_changed = pyqtSignal(AppState)
     preparedness_changed = pyqtSignal(bool)
     form_issues_changed = pyqtSignal()  # a settings form field turned valid or invalid
+    danger_mode_changed = pyqtSignal(bool)  # settings editable regardless of the state
     workflow_error = pyqtSignal(Exception)
     action_error = pyqtSignal(ActionError)
     workflow_reset = pyqtSignal(
@@ -47,6 +48,7 @@ class WorkflowManager(QObject):
         )
         self._thread = None
         self._worker = None
+        self._danger_mode = False
         self._start_worker()
 
     def _start_worker(self) -> None:
@@ -68,6 +70,28 @@ class WorkflowManager(QObject):
     @property
     def state(self) -> AppState:
         return self._state
+
+    @property
+    def danger_mode(self) -> bool:
+        """
+        Whether settings can be edited in any state, including while the workflow runs.
+
+        Only settings are unlocked; microscope access from the GUI and the
+        structure of the workflow still follow the state.
+        """
+        return self._danger_mode
+
+    def set_danger_mode(self, enabled: bool) -> None:
+        """
+        Turn danger mode on or off.
+
+        Args:
+            enabled: True to allow editing settings in any state.
+        """
+        if enabled == self._danger_mode:
+            return
+        self._danger_mode = enabled
+        self.danger_mode_changed.emit(enabled)
 
     def _set_state(self, state: AppState) -> None:
         self._state = state

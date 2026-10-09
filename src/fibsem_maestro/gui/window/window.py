@@ -23,6 +23,7 @@ from fibsem_maestro.gui.error_dialog.error_dialog import ActionErrorDialog
 from fibsem_maestro.gui.form_builder.builder import FormBuilder
 from fibsem_maestro.gui.form_builder.schema.schema import get_field_infos
 from fibsem_maestro.gui.log_panel.panel import LogPanel
+from fibsem_maestro.gui.window._danger_banner import DangerBanner
 from fibsem_maestro.gui.window._top_bar import TopBar
 from fibsem_maestro.gui.workflow_manager import WorkflowManager
 from fibsem_maestro.logging.text.file import close_all_log_files
@@ -70,6 +71,12 @@ class MainWindow(QMainWindow):
         self._manager.app_state_changed.connect(self._top_bar.on_app_state_changed)
         self._manager.slice_finished.connect(self._top_bar.on_slice_changed)
         root_layout.addWidget(self._top_bar)
+
+        # hazard banner across the window while danger mode is on
+        self._danger_banner = DangerBanner()
+        self._manager.danger_mode_changed.connect(self._danger_banner.setVisible)
+        self._danger_banner.setVisible(self._manager.danger_mode)
+        root_layout.addWidget(self._danger_banner)
 
         # thin separator line below top bar
         separator = QWidget()
@@ -167,6 +174,7 @@ class MainWindow(QMainWindow):
                 form_builder=FormBuilder(),
             )
             self._manager.app_state_changed.connect(panel.on_app_state_changed)
+            self._manager.danger_mode_changed.connect(panel.on_danger_mode_changed)
             self._manager.action_changed.connect(panel.on_action_changed)
             self._panels[action] = panel
             self._stack.addWidget(panel)

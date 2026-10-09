@@ -5,6 +5,7 @@ import shutil
 from pathlib import Path
 
 from PyQt6.QtCore import QSize, Qt, QTimer
+from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
@@ -16,6 +17,7 @@ from PyQt6.QtWidgets import (
 )
 
 from fibsem_maestro.action_context.file import FileActionContext
+from fibsem_maestro.gui.action_panel._icon_button import ICON_SKULL, IconButton
 from fibsem_maestro.gui.app_state import AppState
 from fibsem_maestro.gui.form_builder.builder import FormBuilder
 from fibsem_maestro.gui.window._microscope_dialog import MicroscopeSettingsDialog
@@ -124,6 +126,24 @@ class TopBar(QWidget):
         dir_font.setPointSize(9)
         self._dir_label.setFont(dir_font)
         layout.addWidget(self._dir_label)
+
+        # danger mode
+        layout.addSpacing(12)
+        self._danger_mode_btn = IconButton(
+            ICON_SKULL,
+            "Allow changing settings at any time. A change takes effect the next "
+            "time an action reads it. This can break stuff!",
+            "Danger mode",
+        )
+        self._danger_mode_btn.setCheckable(True)
+        self._danger_mode_btn.setChecked(self._manager.danger_mode)
+        # red while on; appended, so it wins over the hover and pressed looks
+        self._danger_mode_btn.setStyleSheet(
+            self._danger_mode_btn.styleSheet()
+            + "QToolButton#iconButton:checked { background: #c62828; border-color: #c62828; }"
+        )
+        self._danger_mode_btn.toggled.connect(self._manager.set_danger_mode)
+        layout.addWidget(self._danger_mode_btn)
 
         # setup the animation of the states
         self._setup_state_animation()
@@ -344,3 +364,17 @@ class TopBar(QWidget):
                 return "#f44336"
             case AppState.FINISHED:
                 return "#3734eb"
+
+    def _on_danger_mode_changed(self, enabled: bool) -> None:
+        """Show danger mode as a red button with a warning icon while it is on."""
+        style = self._danger_mode_btn.style()
+        if enabled:
+            self._danger_mode_btn.setIcon(
+                style.standardIcon(QStyle.StandardPixmap.SP_MessageBoxWarning)
+            )
+            self._danger_mode_btn.setStyleSheet(
+                "QPushButton { background: #c62828; color: white; font-weight: bold; }"
+            )
+        else:
+            self._danger_mode_btn.setIcon(QIcon())
+            self._danger_mode_btn.setStyleSheet("")
