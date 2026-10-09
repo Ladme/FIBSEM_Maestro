@@ -2,10 +2,10 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 from PyQt6.QtCore import QPointF, QRectF, Qt, QTimer
-from PyQt6.QtGui import QKeyEvent, QMouseEvent, QPainter, QWheelEvent
+from PyQt6.QtGui import QGuiApplication, QKeyEvent, QMouseEvent, QPainter, QWheelEvent
 from PyQt6.QtWidgets import (
     QGraphicsItem,
     QGraphicsScene,
@@ -18,6 +18,7 @@ from fibsem_maestro.gui.form_builder.widgets.area_select._constants import (
 from fibsem_maestro.gui.form_builder.widgets.area_select._rectangle import (
     ResizableRect,
 )
+from fibsem_maestro.gui.form_builder.widgets.area_select.overlay import AreaDecoration
 
 
 class AreaViewer(QGraphicsView):
@@ -25,15 +26,18 @@ class AreaViewer(QGraphicsView):
     Interactive image viewer for drawing rectangular acquisition areas.
 
     Interactions: scroll to zoom, right-drag to pan, left-drag on empty canvas
-    to draw a new area, Delete to remove selected areas. A completed draw or
-    delete invokes `on_edit_finished` once; drawing new rects also wires that
-    callback into them so their later moves and resizes notify too.
+    to draw a new area, Delete to remove selected areas, double-click an area
+    to expand it to the whole image frame, double-click anywhere else to reset
+    the zoom. A completed draw, delete, or expansion invokes `on_edit_finished`
+    once; drawing new rects also wires that callback into them so their later
+    moves and resizes notify too.
 
     Args:
         scene: The graphics scene to display.
         status_callback: Called with a status string on interactions.
         max_areas: Maximum number of areas, or None for unlimited.
         on_edit_finished: Called once whenever a user gesture commits a change.
+        decoration_factory: Builds the decorations for a newly drawn area.
     """
 
     def __init__(
@@ -42,11 +46,13 @@ class AreaViewer(QGraphicsView):
         status_callback: Callable[[str], None],
         max_areas: int | None = None,
         on_edit_finished: Callable[[], None] | None = None,
+        decoration_factory: Callable[[], Sequence[AreaDecoration]] | None = None,
     ) -> None:
         super().__init__(scene)
         self._status_cb = status_callback
         self._max_areas = max_areas
         self._on_edit_finished = on_edit_finished
+        self._decoration_factory = decoration_factory
         self._zoom: float = 1.0
         self._panning = False
         self._pan_start = QPointF()
@@ -55,6 +61,9 @@ class AreaViewer(QGraphicsView):
         self._current_rect: ResizableRect | None = None
         self._image_loaded = False
         self._read_only = False
+        # timestamp (ms) of the last left press this view received, so a
+        # double-click whose first press landed elsewhere can be told apart
+        self._last_left_press_ms: int | None = None
 
         self._status_timer = QTimer(self)
         self._status_timer.setSingleShot(True)
@@ -109,6 +118,9 @@ class AreaViewer(QGraphicsView):
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         """Start panning, forward to an item, or begin drawing a new rect."""
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._last_left_press_ms = event.timestamp()
+
         if event.button() == Qt.MouseButton.RightButton:
             self._panning = True
             self._pan_start = event.position()
@@ -138,6 +150,45 @@ class AreaViewer(QGraphicsView):
             return
 
         super().mousePressEvent(event)
+
+    def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
+        """
+        Expand the area under the cursor to the frame, or else reset the zoom.
+        """
+        if event.button() != Qt.MouseButton.LeftButton:
+            super().mouseDoubleClickEvent(event)
+            return
+
+        event.accept()
+        if not self._is_double_click_of_own_press(event):
+            return
+
+        if (rect := _owning_rect(self.itemAt(event.pos()))) is not None:
+            if rect.expand_to_frame():
+                self._status_message_timed("Area expanded to the full frame.")
+                self._notify_edit_finished()
+            return
+
+        self.reset_zoom()
+        if self._status_message is None:
+            self._status(f"Zoom: {self._zoom:.1%}")
+
+    def _is_double_click_of_own_press(self, event: QMouseEvent) -> bool:
+        """
+        Check that the first click of this double-click was received by this view.
+
+        Args:
+            event: The double-click event.
+
+        Returns:
+            True if this view received a left press within the platform's
+            double-click interval before `event`.
+        """
+        if self._last_left_press_ms is None:
+            return False
+
+        interval = QGuiApplication.styleHints().mouseDoubleClickInterval()
+        return event.timestamp() - self._last_left_press_ms <= interval
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
         """Pan, grow the rect being drawn, or update the coordinate readout."""
@@ -177,6 +228,11 @@ class AreaViewer(QGraphicsView):
                         rect, on_edit_finished=self._on_edit_finished
                     )
                     self.scene().addItem(self._current_rect)
+                    # decorate before the first fit, so the footprint of the
+                    # overlays constrains the area while it is being drawn
+                    if self._decoration_factory is not None:
+                        self._current_rect.apply_decorations(self._decoration_factory())
+                    self._current_rect.set_rect(rect)
             else:
                 self._current_rect.set_rect(rect)
 

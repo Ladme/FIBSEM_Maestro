@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from PyQt6.QtCore import QRectF, Qt
+from PyQt6.QtCore import QMarginsF, QRectF, Qt
 from PyQt6.QtGui import QBrush, QPainterPath, QTransform
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsPathItem, QGraphicsRectItem
 
@@ -62,7 +62,22 @@ class OverlayData:
 class AreaDecoration(ABC):
     """
     A non-interactive visual embellishment drawn on a `ResizableRect`.
+
+    A decoration that draws beyond its area claims that space through
+    `footprint_margins`; the area is then kept far enough inside the frame for
+    the claimed space to fit as well.
     """
+
+    @property
+    def footprint_margins(self) -> QMarginsF:
+        """
+        Space this decoration claims beyond its area, which must stay inside the frame.
+
+        Returns:
+            Per-side extension in scene units (image pixels). Zero by default,
+            for decorations drawn inside the area.
+        """
+        return QMarginsF()
 
     @abstractmethod
     def attach(self, rect: ResizableRect) -> None:
@@ -83,7 +98,9 @@ class MarginDecoration(AreaDecoration):
 
     The margin is supplied in scene units (image pixels), so it expands the
     rectangle uniformly on all sides. It is drawn behind the parent's fill in a
-    fainter colour so the crisp area border stays legible on top.
+    fainter colour so the crisp area border stays legible on top. The halo
+    claims its width as footprint, so the area is kept inside the frame together
+    with its margin.
 
     Args:
         margin_px: Margin width in scene units (image pixels).
@@ -92,6 +109,17 @@ class MarginDecoration(AreaDecoration):
     def __init__(self, margin_px: float) -> None:
         self._margin_px = margin_px
         self._item: QGraphicsRectItem | None = None
+
+    @property
+    def footprint_margins(self) -> QMarginsF:
+        """
+        The margin on every side, in scene units (image pixels).
+
+        Returns:
+            Uniform margins of `margin_px`; a negative margin claims nothing.
+        """
+        m = max(0.0, self._margin_px)
+        return QMarginsF(m, m, m, m)
 
     def attach(self, rect: ResizableRect) -> None:
         item = QGraphicsRectItem(rect)

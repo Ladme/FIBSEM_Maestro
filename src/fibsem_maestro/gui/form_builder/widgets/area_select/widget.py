@@ -30,6 +30,7 @@ from fibsem_maestro.gui.form_builder.widgets.area_select._rectangle import (
 )
 from fibsem_maestro.gui.form_builder.widgets.area_select._viewer import AreaViewer
 from fibsem_maestro.gui.form_builder.widgets.area_select.overlay import (
+    AreaDecoration,
     OverlayData,
     build_decorations,
 )
@@ -149,6 +150,7 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
             self._status_label.setText,
             self._max_areas,
             on_edit_finished=self._handle_edit_finished,
+            decoration_factory=self._build_decorations,
         )
         self._viewer.setFixedHeight(self._EXPANDED_HEIGHT)
         self._viewer.setSizePolicy(
@@ -294,7 +296,8 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         self._viewer.set_image_loaded()
         self._status_label.setText(f"Image: {w}×{h} px")
 
-        # probably not strictly necessary
+        # write back: areas may have been shrunk to fit the new frame and the
+        # footprint of their overlays at the new pixel size
         self._emit()
 
     def _on_scene_changed(self, _) -> None:
@@ -383,18 +386,39 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         self._refresh_decorations()
         self._emit()
 
-    def _refresh_decorations(self) -> None:
-        """Rebuild every rectangle's decorations from the current overlay state."""
+    def _build_decorations(self) -> list[AreaDecoration]:
+        """
+        Build one area's decorations from the current overlays and image scale.
+
+        Returns:
+            Fresh decoration instances; each area needs its own.
+        """
+        return build_decorations(self._overlays, self._pixel_size, self._txt_log)
+
+    def _refresh_decorations(self) -> bool:
+        """
+        Rebuild every rectangle's decorations, then fit each into its new bounds.
+
+        Returns:
+            True if any area was resized or moved to fit the frame less the
+            footprint of its decorations. The caller decides whether to emit.
+        """
+        fitted = False
         for item in self._scene.items():
             if isinstance(item, ResizableRect):
-                item.apply_decorations(
-                    build_decorations(self._overlays, self._pixel_size, self._txt_log)
-                )
+                item.apply_decorations(self._build_decorations())
+                fitted |= item.fit_to_bounds()
+
         self._update_thumbnail()
+        return fitted
 
     def set_overlays(self, overlays: Sequence[tuple[AreaOverlay, OverlayData]]) -> None:
         """
         Replace the decorations drawn on every area and redraw them live.
+
+        Areas that no longer fit the frame together with the new overlays'
+        footprint (e.g. after the margin grew) are shrunk to fit, and that
+        correction is emitted as a change.
 
         Args:
             overlays: Overlay kinds paired with their runtime values (e.g.
@@ -403,7 +427,8 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
                 still shows the overlays that are ready.
         """
         self._overlays = list(overlays)
-        self._refresh_decorations()
+        if self._refresh_decorations():
+            self._emit()
 
     def get_value(self) -> list[RelativeArea]:
         """
@@ -438,10 +463,12 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
 
     def set_value(self, value: list[RelativeArea]) -> None:
         """
-        Replace the current areas (no change emitted).
+        Replace the current areas.
 
         If no image is loaded yet, the areas are stored as pending and realized
-        on the next `convert_image`.
+        on the next `convert_image`. No change is emitted, unless an area had to
+        be shrunk to fit the frame and the footprint of its overlays: that
+        correction is emitted, so the settings match what is shown.
 
         Args:
             value: The areas to display, or empty list to clear.
@@ -453,7 +480,8 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         else:
             for area in regions:
                 self._add_relative_area(area)
-            self._refresh_decorations()
+            if self._refresh_decorations():
+                self._emit()
 
     def set_read_only(self, read_only: bool) -> None:
         """

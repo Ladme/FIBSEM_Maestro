@@ -4,7 +4,7 @@
 
 from collections.abc import Callable, Sequence
 
-from PyQt6.QtCore import QPointF, QRectF, Qt
+from PyQt6.QtCore import QMarginsF, QPointF, QRectF, Qt
 from PyQt6.QtGui import QBrush, QCursor, QPainter, QPainterPath, QPen
 from PyQt6.QtWidgets import (
     QGraphicsEllipseItem,
@@ -124,6 +124,59 @@ class ResizableRect(QGraphicsRectItem):
         self._decorations = list(decorations)
         for decoration in self._decorations:
             decoration.attach(self)
+
+    @property
+    def footprint_margins(self) -> QMarginsF:
+        """
+        Combined space the attached decorations claim beyond this area.
+
+        Returns:
+            The per-side maximum over all decorations, in scene units (image
+            pixels); zero without decorations.
+        """
+        left = top = right = bottom = 0.0
+        for decoration in self._decorations:
+            m = decoration.footprint_margins
+            left, top = max(left, m.left()), max(top, m.top())
+            right, bottom = max(right, m.right()), max(bottom, m.bottom())
+
+        return QMarginsF(left, top, right, bottom)
+
+    def fit_to_bounds(self) -> bool:
+        """
+        Shrink the area into the allowed region if it no longer fits.
+
+        Returns:
+            True if the geometry changed.
+        """
+        if self._read_only or (allowed := self._allowed_bounds()) is None:
+            return False
+
+        current = self.scene_rect()
+        fitted = _fit_rect(current, allowed)
+        if fitted == current:
+            return False
+
+        self.set_rect(self.mapRectFromScene(fitted))
+        return True
+
+    def expand_to_frame(self) -> bool:
+        """
+        Resize the area to the whole image frame, less the decorations' footprint.
+
+        Returns:
+            True if the geometry changed; False if read-only, not in a scene
+            with an image, or already filling the allowed region.
+        """
+        if self._read_only or (allowed := self._allowed_bounds()) is None:
+            return False
+
+        if allowed == self.scene_rect():
+            return False
+
+        self.set_rect(self.mapRectFromScene(allowed))
+
+        return True
 
     def _handle_at(self, pos: QPointF) -> Handle | None:
         """
@@ -310,7 +363,7 @@ class ResizableRect(QGraphicsRectItem):
 
     def itemChange(self, change, value):
         if change == QGraphicsItem.GraphicsItemChange.ItemPositionChange:
-            bounds = self._scene_bounds()
+            bounds = self._allowed_bounds()
             if bounds is not None:
                 r = self.rect()
                 new_pos: QPointF = value
@@ -329,18 +382,18 @@ class ResizableRect(QGraphicsRectItem):
         return super().itemChange(change, value)
 
     def _clamped_rect(self, rect: QRectF) -> QRectF:
-        """Clip a local-coordinate rect to the image extent, edge by edge."""
-        bounds = self._scene_bounds()
+        """
+        Fit a local-coordinate rect into the allowed region, edge by edge.
+
+        Edges beyond the region are clipped; a rect entirely outside it on an
+        axis is moved inside on that axis instead.
+        """
+        bounds = self._allowed_bounds()
         if bounds is None:
             return rect
+
         # pos is unchanged during a resize
-        local = self.mapRectFromScene(bounds)
-        return QRectF(
-            QPointF(max(rect.left(), local.left()), max(rect.top(), local.top())),
-            QPointF(
-                min(rect.right(), local.right()), min(rect.bottom(), local.bottom())
-            ),
-        )
+        return _fit_rect(rect, self.mapRectFromScene(bounds))
 
     def _grab_margin(self) -> float:
         """
@@ -363,10 +416,84 @@ class ResizableRect(QGraphicsRectItem):
     def _scene_bounds(self) -> QRectF | None:
         """Return the image extent in scene coordinates, or None if unavailable."""
         scene = self.scene()
+        if scene is None:
+            return None
+
         bounds = scene.sceneRect()
+
         return None if bounds.isEmpty() else bounds
+
+    def _allowed_bounds(self) -> QRectF | None:
+        """
+        Return the region this area must stay within, in scene coordinates.
+
+        The image frame shrunk by `footprint_margins`. On an axis where the
+        footprint leaves no room, that axis falls back to the plain frame, so
+        the constraint degrades instead of inverting.
+
+        Returns:
+            The allowed region, or None if not in a scene with an image.
+        """
+        frame = self._scene_bounds()
+        if frame is None:
+            return None
+
+        m = self.footprint_margins
+        left, right = frame.left() + m.left(), frame.right() - m.right()
+        if left > right:
+            left, right = frame.left(), frame.right()
+        top, bottom = frame.top() + m.top(), frame.bottom() - m.bottom()
+        if top > bottom:
+            top, bottom = frame.top(), frame.bottom()
+
+        return QRectF(QPointF(left, top), QPointF(right, bottom))
 
 
 def _clamp(v: float, lo: float, hi: float) -> float:
     # hi < lo when the rect is larger than the image: pin to lo
     return lo if hi < lo else min(max(v, lo), hi)
+
+
+def _fit_span(
+    lo: float, hi: float, bound_lo: float, bound_hi: float
+) -> tuple[float, float]:
+    """
+    Fit the interval [lo, hi] into [bound_lo, bound_hi].
+
+    Args:
+        lo: Start of the interval; must not exceed `hi`.
+        hi: End of the interval.
+        bound_lo: Start of the allowed interval; must not exceed `bound_hi`.
+        bound_hi: End of the allowed interval.
+
+    Returns:
+        The overlap of the two intervals if they overlap; otherwise the
+        interval moved inside, against the nearer bound, with its length
+        capped at the allowed length.
+    """
+    new_lo, new_hi = max(lo, bound_lo), min(hi, bound_hi)
+    if new_lo <= new_hi:
+        return new_lo, new_hi
+
+    length = min(hi - lo, bound_hi - bound_lo)
+    if hi < bound_lo:
+        return bound_lo, bound_lo + length
+
+    return bound_hi - length, bound_hi
+
+
+def _fit_rect(rect: QRectF, bounds: QRectF) -> QRectF:
+    """
+    Fit a rectangle into bounds, axis by axis.
+
+    Args:
+        rect: The rectangle to fit; normalized first.
+        bounds: The allowed region, in the same coordinates as `rect`.
+
+    Returns:
+        The fitted rectangle.
+    """
+    r = rect.normalized()
+    left, right = _fit_span(r.left(), r.right(), bounds.left(), bounds.right())
+    top, bottom = _fit_span(r.top(), r.bottom(), bounds.top(), bounds.bottom())
+    return QRectF(QPointF(left, top), QPointF(right, bottom))
