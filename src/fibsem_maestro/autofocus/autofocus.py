@@ -182,9 +182,6 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
         if self._active_gen is not None:
             return True
 
-        sharpness = self._resolve_imaging().wait_for_sharpness()
-        self._ctx.text_logger.debug(f"Last image sharpness: {sharpness}.")
-
         if self._settings.execution_frequency.matches(self._ctx.slice):
             self._ctx.text_logger.info(
                 f"'{self.name}' triggered: slice {self._ctx.slice} matches "
@@ -192,12 +189,16 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
             )
             return True
 
-        limit = self._settings.sharpness_limit
-        if limit is not None and sharpness is not None and sharpness < limit:
-            self._ctx.text_logger.info(
-                f"'{self.name}' triggered: image sharpness ({sharpness:.4f}) "
-                f"is below the limit ({limit:.4f})."
-            )
+        if limit := self._settings.sharpness_limit:
+            # only wait for sharpness calculation from imaging if we actually need it
+            sharpness = self._resolve_imaging().wait_for_sharpness()
+            self._ctx.text_logger.debug(f"Last image sharpness: {sharpness}.")
+
+            if sharpness is not None and sharpness < limit:
+                self._ctx.text_logger.info(
+                    f"'{self.name}' triggered: image sharpness ({sharpness:.4f}) "
+                    f"is below the limit ({limit:.4f})."
+                )
             return True
 
         return False
