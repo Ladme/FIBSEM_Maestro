@@ -1,6 +1,7 @@
 # Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
+import copy
 from typing import Any, cast
 
 from pydantic import ValidationError
@@ -113,28 +114,31 @@ class WriteBack:
 
     def _validated(self, value: Any) -> Any:
         """
-        Validate a new value for this field as the settings class would on assignment.
+        Validate a new value for this field as its owner would on assignment.
 
-        The settings do not validate assignments, so without this the
-        constraints and validators of top-level fields would never run, and an
+        The owner is a pydantic model, a pydantic dataclass, or a plain
+        dataclass. Pydantic owners do not validate assignments, so without this
+        the constraints and validators of their fields would never run, and an
         invalid value would be stored and only fail when the settings file is
-        loaded again. Validation runs on a shallow copy, so the live settings
-        and their hooks are untouched.
+        loaded again. Validation runs on a shallow copy, so the live object and
+        its hooks are untouched. A plain dataclass has no validation to run.
 
         Args:
             value: The value read from the field widget.
 
         Returns:
-            The validated value, possibly coerced (e.g. a list rebuilt).
+            The validated value, possibly coerced (e.g. a list rebuilt); the
+            value unchanged for a plain dataclass.
 
         Raises:
             pydantic.ValidationError: If the value is invalid for this field.
         """
-        probe = self._settings.model_copy()
-        type(self._settings).__pydantic_validator__.validate_assignment(
-            probe, self._fi.name, value
-        )
+        validator = getattr(type(self._settings), "__pydantic_validator__", None)
+        if validator is None:
+            return value
 
+        probe = copy.copy(self._settings)
+        validator.validate_assignment(probe, self._fi.name, value)
         return getattr(probe, self._fi.name)
 
     def _report(
