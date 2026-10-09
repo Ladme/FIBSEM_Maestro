@@ -29,6 +29,7 @@ class WorkflowManager(QObject):
     slice_finished = pyqtSignal(int)
     app_state_changed = pyqtSignal(AppState)
     preparedness_changed = pyqtSignal(bool)
+    form_issues_changed = pyqtSignal()  # a settings form field turned valid or invalid
     workflow_error = pyqtSignal(Exception)
     action_error = pyqtSignal(ActionError)
     workflow_reset = pyqtSignal(
@@ -90,6 +91,9 @@ class WorkflowManager(QObject):
 
     def notify_action_removed(self, action: Action) -> None:
         self.action_removed.emit(action)
+
+    def notify_form_issues_changed(self) -> None:
+        self.form_issues_changed.emit()
 
     def notify_new_workflow(self, path: Path) -> None:
         # abort the current worker and thread, if any

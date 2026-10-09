@@ -4,9 +4,13 @@
 from typing import TypeVar
 
 import yaml
-from pydantic import TypeAdapter
+from pydantic import TypeAdapter, ValidationError
 from PyQt6.QtWidgets import QPlainTextEdit, QWidget
 
+from fibsem_maestro.gui.form_builder.issues import (
+    FieldValidationError,
+    validation_messages,
+)
 from fibsem_maestro.gui.form_builder.widgets.base import BaseWidget
 
 T = TypeVar("T")
@@ -51,12 +55,20 @@ class TextAreaWidget(QPlainTextEdit, BaseWidget[T]):
             The validated value of type `T`.
 
         Raises:
-            yaml.YAMLError: If the text is not valid YAML.
-            pydantic.ValidationError: If the parsed data does not conform to `target_type`.
+            FieldValidationError: If the text is not valid YAML, or the parsed
+                data does not conform to `target_type`.
         """
+        try:
+            data = yaml.safe_load(self.toPlainText())
+        except yaml.YAMLError as e:
+            raise FieldValidationError.of_whole_field(
+                [f"Invalid YAML: {str(e).splitlines()[0]}"]
+            ) from e
 
-        data = yaml.safe_load(self.toPlainText())
-        return self._adapter.validate_python(data)
+        try:
+            return self._adapter.validate_python(data)
+        except ValidationError as e:
+            raise FieldValidationError.of_whole_field(validation_messages(e)) from e
 
     def set_value(self, value: T) -> None:
         """

@@ -6,6 +6,7 @@ from typing import TypeVar, cast
 
 from PyQt6.QtWidgets import QCheckBox, QHBoxLayout, QVBoxLayout, QWidget
 
+from fibsem_maestro.gui.form_builder.issues import FieldIssue
 from fibsem_maestro.gui.form_builder.widgets.base import BaseWidget
 
 T = TypeVar("T")
@@ -44,6 +45,9 @@ class OptionalWidget(QWidget, BaseWidget[T | None]):
         self._checkbox.stateChanged.connect(self._on_toggled)
         self._checkbox.setChecked(enabled_by_default)
         self._inner.setVisible(enabled_by_default)
+
+        # issues reported on the gated editor are shown on this field's row
+        inner.on_issues_changed(self._emit_issues_changed)
 
     def _on_toggled(self, _: int = 0) -> None:
         """Show or hide the inner widget to match the checkbox, then notify."""
@@ -91,6 +95,15 @@ class OptionalWidget(QWidget, BaseWidget[T | None]):
         """
         self._checkbox.setEnabled(not read_only)
         cast("BaseWidget[T]", self._inner).set_read_only(read_only)
+
+    def issues(self) -> list[FieldIssue]:
+        """
+        Return the issues of this field, including those reported on the gated editor.
+
+        Returns:
+            This wrapper's own issues followed by the inner widget's.
+        """
+        return [*super().issues(), *self.inner.issues()]
 
     def highlight_target(self) -> QWidget:
         """Highlight the gated inner editor, not the checkbox row."""

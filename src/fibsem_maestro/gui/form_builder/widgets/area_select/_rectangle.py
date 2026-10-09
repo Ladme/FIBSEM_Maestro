@@ -160,6 +160,16 @@ class ResizableRect(QGraphicsRectItem):
         self.set_rect(self.mapRectFromScene(fitted))
         return True
 
+    def decoration_problems(self) -> list[str]:
+        """
+        Return why attached decorations cannot be drawn, if any cannot.
+
+        Returns:
+            One message per decoration reporting a problem, e.g. a tile grid
+            too dense to draw; empty if every decoration is drawn.
+        """
+        return [p for d in self._decorations if (p := d.problem) is not None]
+
     def expand_to_frame(self) -> bool:
         """
         Resize the area to the whole image frame, less the decorations' footprint.

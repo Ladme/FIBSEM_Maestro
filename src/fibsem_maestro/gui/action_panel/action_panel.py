@@ -27,6 +27,7 @@ from fibsem_maestro.gui.action_panel._props_dialog import PropertiesDialog
 from fibsem_maestro.gui.app_state import AppState
 from fibsem_maestro.gui.common import class_name_to_label
 from fibsem_maestro.gui.form_builder.builder import FormBuilder
+from fibsem_maestro.gui.form_builder.widgets.object import ObjectWidget
 from fibsem_maestro.gui.workflow_manager import WorkflowManager
 
 _EDITABLE_STATES: frozenset[AppState] = frozenset(
@@ -373,6 +374,27 @@ class ActionPanel(QWidget):
             self._name_label.setText(action.name)
             self._beam_label.setText(self._beam_text(action))
             self._update_buttons()
+
+    def has_form_errors(self) -> bool:
+        """
+        Check whether any field of the settings form shows an error.
+
+        An erroneous value is not written to the settings, so the form and the
+        settings disagree until it is fixed.
+
+        Returns:
+            True if a field of the form, at any depth, reports an error.
+        """
+        forms = [
+            child
+            for child in [
+                self._settings_widget,
+                *self._settings_widget.findChildren(ObjectWidget),
+            ]
+            if isinstance(child, ObjectWidget)
+        ]
+
+        return any(form.has_errors() for form in forms)
 
     def reload_values(self) -> None:
         """

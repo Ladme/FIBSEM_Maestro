@@ -137,6 +137,7 @@ class MainWindow(QMainWindow):
         # check if the workflow is ready every time an action or workflow is changed
         self._manager.actions_changed.connect(self._check_workflow_ready)
         self._manager.action_changed.connect(self._check_workflow_ready)
+        self._manager.form_issues_changed.connect(self._check_workflow_ready)
 
         # self._manager.slice_finished.connect(self._reload_panel_values)
         self._manager.slice_finished.connect(self._log_panel.on_slice_changed)
@@ -184,13 +185,18 @@ class MainWindow(QMainWindow):
             "state.yaml", self._manager.workflow.state
         )
 
-    def _check_workflow_ready(self, _: Any) -> None:
+    def _check_workflow_ready(self, _: Any = None) -> None:
         self._manager.preparedness_changed.emit(
             # there must be at least one action and all props must exist
             len(self._manager.workflow.actions) > 0
             and all(
                 action.ctx.props_store.exists("props.yaml")
                 for action in self._manager.workflow.actions
+            )
+            # and no open form may hold a value that failed validation
+            and not any(
+                cast("ActionPanel", panel).has_form_errors()
+                for panel in self._panels.values()
             )
         )
 

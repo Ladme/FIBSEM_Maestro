@@ -22,6 +22,7 @@ from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.point import RelativePoint
+from fibsem_maestro.gui.form_builder.issues import FieldIssue, Severity
 from fibsem_maestro.gui.form_builder.widgets.area_select._mipmap import (
     MipmapPixmapItem,
 )
@@ -33,12 +34,16 @@ from fibsem_maestro.gui.form_builder.widgets.area_select.overlay import (
     AreaDecoration,
     OverlayData,
     build_decorations,
+    overlay_problems,
 )
 from fibsem_maestro.gui.form_builder.widgets.base import BaseWidget
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.form_utils import AreaOverlay
+
+_OVERLAY_ISSUE = "overlay"
+"""Source key of the warning this widget reports when an overlay cannot be drawn."""
 
 
 class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
@@ -393,21 +398,33 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         Returns:
             Fresh decoration instances; each area needs its own.
         """
-        return build_decorations(self._overlays, self._pixel_size, self._txt_log)
+        return build_decorations(self._overlays, self._pixel_size)
 
     def _refresh_decorations(self) -> bool:
         """
         Rebuild every rectangle's decorations, then fit each into its new bounds.
+
+        Also reports, as a warning on this field, every overlay that cannot be
+        drawn: a configuration the criterion would reject, or a decoration that
+        does not fit its area.
 
         Returns:
             True if any area was resized or moved to fit the frame less the
             footprint of its decorations. The caller decides whether to emit.
         """
         fitted = False
+        problems = overlay_problems(self._overlays, self._pixel_size)
         for item in self._scene.items():
             if isinstance(item, ResizableRect):
                 item.apply_decorations(self._build_decorations())
                 fitted |= item.fit_to_bounds()
+                problems.extend(item.decoration_problems())
+
+        unique = list(dict.fromkeys(problems))
+        self.set_issue(
+            _OVERLAY_ISSUE,
+            FieldIssue(Severity.WARNING, "\n".join(unique)) if unique else None,
+        )
 
         self._update_thumbnail()
         return fitted

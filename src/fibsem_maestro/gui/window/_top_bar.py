@@ -79,7 +79,9 @@ class TopBar(QWidget):
         self._run_btn.setIconSize(QSize(icon_size, icon_size))
         self._run_btn.setFixedSize(QSize(icon_size + 8, icon_size + 8))
         self._run_btn.clicked.connect(self._on_run)
-        self._run_btn.setEnabled(self._manager.state is not AppState.EDITING)
+        # whether the workflow may be started or resumed, from `preparedness_changed`
+        self._prepared = self._manager.state is not AppState.EDITING
+        self._update_run_button()
         layout.addWidget(self._run_btn)
 
         status_layout = QHBoxLayout()
@@ -260,36 +262,47 @@ class TopBar(QWidget):
         self._new_btn.setEnabled(state not in (AppState.RUNNING, AppState.STOPPING))
         style = self._run_btn.style()
         match state:
-            case AppState.EDITING:
-                self._run_btn.setIcon(
-                    style.standardIcon(QStyle.StandardPixmap.SP_MediaPlay)
-                )
-
-                self._run_btn.setEnabled(True)
             case AppState.RUNNING:
                 self._run_btn.setIcon(
                     style.standardIcon(QStyle.StandardPixmap.SP_MediaPause)
                 )
-
-                self._run_btn.setEnabled(True)
-            case AppState.PAUSED | AppState.FINISHED | AppState.RELOADED:
+            case (
+                AppState.EDITING
+                | AppState.PAUSED
+                | AppState.FINISHED
+                | AppState.RELOADED
+                | AppState.INTERRUPTED
+            ):
                 self._run_btn.setIcon(
                     style.standardIcon(QStyle.StandardPixmap.SP_MediaPlay)
                 )
-
-                self._run_btn.setEnabled(True)
-            case AppState.INTERRUPTED:
-                self._run_btn.setIcon(
-                    style.standardIcon(QStyle.StandardPixmap.SP_MediaPlay)
-                )
-
-                self._run_btn.setEnabled(False)
+        self._update_run_button()
 
     def on_slice_changed(self, _: int) -> None:
         self._update_status()
 
     def _on_preparedness_changed(self, prepared: bool) -> None:
-        self._run_btn.setEnabled(prepared)
+        self._prepared = prepared
+        self._update_run_button()
+
+    def _update_run_button(self) -> None:
+        """
+        Enable the run button for the current state.
+
+        Pausing a running workflow is always possible. Starting or resuming
+        requires a prepared workflow: actions with stored properties and no
+        settings form holding an invalid value.
+        """
+        match self._manager.state:
+            case AppState.RUNNING:
+                self._run_btn.setEnabled(True)
+            case AppState.INTERRUPTED:
+                self._run_btn.setEnabled(False)
+            case AppState.STOPPING:
+                # the pause is on its way; leave the button as it is
+                pass
+            case _:
+                self._run_btn.setEnabled(self._prepared)
 
     def _update_status(self) -> None:
         """Updates slice number and state label to reflect `_current_state`."""
