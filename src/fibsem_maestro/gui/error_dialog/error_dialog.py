@@ -22,9 +22,9 @@ class ActionErrorDialog(QDialog):
     Modal dialog shown when the workflow raises during a run.
 
     If `action_name` is given, the failure is attributed to that action and
-    the user may restart it, skip it, or terminate the workflow. If it is
-    None, the error is not recoverable per-action and terminating is the
-    only option.
+    the user may restart it, skip it, or skip it and pause the workflow; the
+    run is never abandoned from here. If it is None, the error is not
+    recoverable per-action and terminating is the only option.
 
     The chosen option is available via `choice` after `exec()` returns.
 
@@ -34,6 +34,7 @@ class ActionErrorDialog(QDialog):
     """
 
     choice_made = pyqtSignal(ErrorChoice)
+    skip_and_pause_chosen = pyqtSignal()
 
     def __init__(
         self,
@@ -54,6 +55,7 @@ class ActionErrorDialog(QDialog):
         )
 
         self._choice = ErrorChoice.TERMINATE
+        self._recoverable = action_name is not None
 
         style = self.style()
         assert style is not None
@@ -117,20 +119,29 @@ class ActionErrorDialog(QDialog):
             )
             skip_btn.clicked.connect(lambda: self._choose(ErrorChoice.SKIP))
             button_row.addWidget(skip_btn)
+
+            pause_btn = QPushButton("Skip action and pause")
+            pause_btn.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_MediaPause))
+            pause_btn.setToolTip(
+                f"Leave '{action_name}' unexecuted for this slice and pause the workflow before the next action."
+            )
+            pause_btn.clicked.connect(self._choose_skip_and_pause)
+            pause_btn.setDefault(True)
+            button_row.addWidget(pause_btn)
         else:
             button_row.addStretch()
 
-        terminate_btn = QPushButton("Terminate workflow")
-        terminate_btn.setIcon(
-            style.standardIcon(QStyle.StandardPixmap.SP_DialogCancelButton)
-        )
-        terminate_btn.setStyleSheet("color: #e05252;")
-        terminate_btn.setToolTip(
-            "Abandon the run and close the application. Slices already acquired are kept."
-        )
-        terminate_btn.clicked.connect(lambda: self._choose(ErrorChoice.TERMINATE))
-        terminate_btn.setDefault(True)
-        button_row.addWidget(terminate_btn)
+            terminate_btn = QPushButton("Terminate workflow")
+            terminate_btn.setIcon(
+                style.standardIcon(QStyle.StandardPixmap.SP_DialogCancelButton)
+            )
+            terminate_btn.setStyleSheet("color: #e05252;")
+            terminate_btn.setToolTip(
+                "Abandon the run and close the application. Slices already acquired are kept."
+            )
+            terminate_btn.clicked.connect(lambda: self._choose(ErrorChoice.TERMINATE))
+            terminate_btn.setDefault(True)
+            button_row.addWidget(terminate_btn)
 
         layout.addLayout(button_row)
 
@@ -138,12 +149,19 @@ class ActionErrorDialog(QDialog):
         self.choice_made.emit(choice)
         self.accept()
 
+    def _choose_skip_and_pause(self) -> None:
+        self.skip_and_pause_chosen.emit()
+        self.accept()
+
     @property
     def choice(self) -> ErrorChoice:
         return self._choice
 
     def reject(self) -> None:
-        # closing with Esc or the window X is treated as terminate
+        # a failed action offers no way to abandon the run, so Esc does nothing;
+        # for a general error, Esc is treated as terminate, the only option
+        if self._recoverable:
+            return
         self.choice_made.emit(ErrorChoice.TERMINATE)
         super().reject()
 

@@ -227,9 +227,10 @@ class MainWindow(QMainWindow):
         self.close()
 
     def _on_action_error(self, error: ActionError) -> None:
-        """A specific action failed; offer retry / skip / terminate."""
+        """A specific action failed; offer retry / skip / skip and pause."""
         dialog = ActionErrorDialog(error.message, error.action.name, parent=self)
         dialog.choice_made.connect(self._manager.submit_error_choice)
+        dialog.skip_and_pause_chosen.connect(self._manager.skip_and_pause)
         dialog.finished.connect(dialog.deleteLater)
         self._error_dialog = dialog
         dialog.show()

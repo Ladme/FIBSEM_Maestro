@@ -205,6 +205,18 @@ class WorkflowManager(QObject):
         if choice is not ErrorChoice.TERMINATE:
             self._set_state(AppState.RUNNING)
 
+    def skip_and_pause(self) -> None:
+        """
+        Skip the failed action, then pause the workflow right after it.
+
+        The pause is requested before the worker is released from waiting for
+        the error choice, so it cannot run past its next pause check first.
+        """
+        assert self._worker
+        self._worker.pause()
+        self._worker.submit_error_choice(ErrorChoice.SKIP)
+        self._set_state(AppState.STOPPING)
+
     def _on_actions_changed(self, actions: Actions) -> None:
         # loop through all propagations
         for rule in self.workflow.propagations.rules[:]:
