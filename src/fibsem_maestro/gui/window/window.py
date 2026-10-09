@@ -21,11 +21,13 @@ from fibsem_maestro.gui.action_list_panel.panel import ActionListPanel
 from fibsem_maestro.gui.action_panel.action_panel import ActionPanel
 from fibsem_maestro.gui.error_dialog.error_dialog import ActionErrorDialog
 from fibsem_maestro.gui.form_builder.builder import FormBuilder
+from fibsem_maestro.gui.form_builder.schema.schema import get_field_infos
 from fibsem_maestro.gui.log_panel.panel import LogPanel
 from fibsem_maestro.gui.window._top_bar import TopBar
 from fibsem_maestro.gui.workflow_manager import WorkflowManager
 from fibsem_maestro.logging.text.file import close_all_log_files
 from fibsem_maestro.microscope.microscope import Microscope
+from fibsem_maestro.settings.form_utils import WidgetType
 from fibsem_maestro.workflow.actions import Actions
 from fibsem_maestro.workflow.error import ActionError
 from fibsem_maestro.workflow.workflow import Workflow
@@ -168,6 +170,8 @@ class MainWindow(QMainWindow):
             self._manager.action_changed.connect(panel.on_action_changed)
             self._panels[action] = panel
             self._stack.addWidget(panel)
+            # the new form may already show an error, found while it was built
+            self._check_workflow_ready()
 
         self._stack.setCurrentWidget(self._panels[action])
 
@@ -198,6 +202,8 @@ class MainWindow(QMainWindow):
                 cast("ActionPanel", panel).has_form_errors()
                 for panel in self._panels.values()
             )
+            # and every link must name an action in the workflow, open form or not
+            and not self._has_broken_links()
         )
 
     def _on_workflow_error(self, error: Exception) -> None:
@@ -272,3 +278,31 @@ class MainWindow(QMainWindow):
 
         self._stack.removeWidget(panel)
         panel.deleteLater()
+
+    def _has_broken_links(self) -> bool:
+        """
+        Check whether any action links to an action that is not in the workflow.
+
+        A link is a top-level settings field edited with an action selector; it
+        must name an action of one of the selector's allowed types. The check
+        reads the settings, so actions whose form was never opened (e.g. a
+        fresh duplicate) are covered as well.
+
+        Returns:
+            True if some link names no suitable action.
+        """
+        actions = self._manager.workflow.actions
+        for action in actions:
+            for fi in get_field_infos(type(action.settings)):
+                if fi.hint is None or fi.hint.widget is not WidgetType.ACTION_SELECTOR:
+                    continue
+
+                name = getattr(action.settings, fi.name)
+                if name is None and fi.optional:
+                    continue
+
+                allowed = tuple(fi.hint.action_type_filter)
+                if not any(a.name == name and isinstance(a, allowed) for a in actions):
+                    return True
+
+        return False

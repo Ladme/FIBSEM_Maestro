@@ -2,6 +2,7 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
+from PyQt6.QtCore import QSignalBlocker
 from PyQt6.QtWidgets import QWidget
 
 from fibsem_maestro.action.action import Action
@@ -43,7 +44,7 @@ class ActionSelectWidget(NoScrollComboBox, BaseWidget[str | None]):
         Rebuild the item list from the given actions.
 
         Clears existing items, adds an optional "(none)" entry, then adds
-        each action matching the type filter. Selects `default` if given.
+        each action matching the type filter. Selects `default`.
 
         Args:
             actions: The collection of actions to populate from.
@@ -56,21 +57,27 @@ class ActionSelectWidget(NoScrollComboBox, BaseWidget[str | None]):
         for action in actions:
             if isinstance(action, tuple(self._type_filter)):
                 self.addItem(action.name, userData=action)
-        if default is not None:
-            self.set_value(default)
+
+        self.set_value(default)
 
     def on_actions_changed(self, actions: Actions) -> None:
         """
         Called when the set of available actions changes.
 
-        Repopulates the widget while preserving the current selection.
+        Repopulates the widget while preserving the current selection. Notifies
+        once, and only if the selection changed, e.g. because the selected
+        action was removed.
 
         Args:
             actions: The updated collection of actions.
         """
 
         current = self.currentData()
-        self._populate(actions, current.name if current is not None else None)
+        # rebuilding passes through transient selections that must not be written
+        with QSignalBlocker(self):
+            self._populate(actions, current.name if current is not None else None)
+        if self.currentData() is not current:
+            self._emit()
 
     def on_action_changed(self, action: Action) -> None:
         """
@@ -99,11 +106,14 @@ class ActionSelectWidget(NoScrollComboBox, BaseWidget[str | None]):
 
     def set_value(self, value: str | None) -> None:
         """
-        Select the action with the given name, if present.
+        Select the action with the given name.
+
+        If no such action is offered, nothing is selected ("(none)" for an
+        optional selector given None), so the form never shows a link the
+        settings do not hold; the field then reads as None and is marked.
 
         Args:
-            value: The name of the action to select.
-                Does nothing if no matching action is found.
+            value: The name of the action to select, or None.
         """
 
         for i in range(self.count()):
@@ -111,6 +121,8 @@ class ActionSelectWidget(NoScrollComboBox, BaseWidget[str | None]):
             if action is not None and action.name == value:
                 self.setCurrentIndex(i)
                 return
+
+        self.setCurrentIndex(0 if self._optional and value is None else -1)
 
     def set_read_only(self, read_only: bool) -> None:
         """

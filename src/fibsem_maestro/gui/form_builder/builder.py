@@ -183,6 +183,10 @@ class FormBuilder:
             context.building = False
         self._flush_followers(context)
         self._flush_overlays(context)
+        # validate the values as shown, after followers have picked their variants
+        for write_back in context.write_backs:
+            write_back.check()
+
         return obj
 
     def _build_object(
@@ -240,6 +244,7 @@ class FormBuilder:
                 )
                 widget = self._build_field(fi, value, write_back, field_scope)
                 write_back.bind(widget)
+                scope.context.write_backs.append(write_back)
             else:
                 # nested: reuse the inherited top-level write-back
                 widget = self._build_field(fi, value, on_change, field_scope)

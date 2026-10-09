@@ -63,28 +63,53 @@ class WriteBack:
         if self._widget is None:
             return
 
-        widget = self._widget
-
-        try:
-            value = self._validated(widget.get_value())
-        except FieldValidationError as e:
-            self._report(widget, e.attributed_to(widget))
-            return
-        except ValidationError as e:
-            self._report(widget, [(widget, m) for m in validation_messages(e)])
-            return
-        except Exception as e:
-            # not a validation failure but a fault while reading the form: keep the trace
-            self._txt_log.error(f"Reading field '{self._fi.name}' failed: {e!r}")
-            self._report(widget, [(widget, str(e))])
+        valid, value = self._read_validated(self._widget)
+        if not valid:
             return
 
         setattr(self._settings, self._fi.name, value)
-        self._report(widget, [])
 
         # exactly one write per edit, so the side effect also fires once
         if self._action is not None and self._manager is not None:
             self._manager.action_changed.emit(self._action)
+
+    def check(self) -> None:
+        """
+        Validate the field's current form value and show the result, without writing it.
+
+        Run once the form is built, so a stored value the form cannot show
+        (e.g. a link to an action that is not in the workflow) is marked
+        before any edit.
+        """
+        if self._widget is not None:
+            self._read_validated(self._widget)
+
+    def _read_validated(self, widget: BaseWidget) -> tuple[bool, Any]:
+        """
+        Read and validate the field widget's value, showing any errors on the form.
+
+        Args:
+            widget: The bound field widget.
+
+        Returns:
+            `(True, value)` with the validated value, or `(False, None)` if the value is invalid.
+        """
+        try:
+            value = self._validated(widget.get_value())
+        except FieldValidationError as e:
+            self._report(widget, e.attributed_to(widget))
+            return False, None
+        except ValidationError as e:
+            self._report(widget, [(widget, m) for m in validation_messages(e)])
+            return False, None
+        except Exception as e:
+            # not a validation failure but a fault while reading the form: keep the trace
+            self._txt_log.error(f"Reading field '{self._fi.name}' failed: {e!r}")
+            self._report(widget, [(widget, str(e))])
+            return False, None
+
+        self._report(widget, [])
+        return True, value
 
     def _validated(self, value: Any) -> Any:
         """
