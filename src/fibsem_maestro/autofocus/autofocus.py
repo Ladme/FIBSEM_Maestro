@@ -49,7 +49,8 @@ class AutofocusState(ActionState):
 
 @ACTION_REGISTRY.register("autofocus")
 class Autofocus(Action[AutofocusSettings, AutofocusState]):
-    """Orchestrates the autofocus pipeline for a single configured mode.
+    """
+    Orchestrates the autofocus pipeline for a single configured mode.
 
     Manages the full autofocus lifecycle: deciding when to execute based on
     slice number and image sharpness, setting up the appropriate mode, advancing
@@ -62,7 +63,9 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
     exhausted.
     """
 
-    _STATE_FIELDS = frozenset({"mode", "target_attribute", "beam_type"})
+    _STATE_FIELDS = frozenset(
+        {"mode", "target_attribute", "beam_type", "linked_imaging"}
+    )
 
     def __init__(
         self,
@@ -74,9 +77,10 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
     ):
         super().__init__(name, microscope, settings, ctx, actions)
 
-        self._jobs = JobsManager(
-            executor=ThreadPoolExecutor(self._settings.max_workers),
-        )
+        # the pool is sized from max_workers; _reset_jobs resizes it between sweeps
+        self._executor_workers = self._settings.max_workers
+        self._executor = ThreadPoolExecutor(self._executor_workers)
+        self._jobs = JobsManager(executor=self._executor)
 
         self._active_gen: Generator[SweepStep, None, None] | None = None
 
@@ -145,6 +149,10 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
         )
 
     def set_state(self, state: AutofocusState) -> None:
+        # close a running sweep explicitly
+        if self._active_gen is not None:
+            self._abort_sweep()
+
         self._sweep_base_value = state.sweep_base_value
         self._current_step_index = state.current_step_index
 
@@ -199,7 +207,7 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
                     f"'{self.name}' triggered: image sharpness ({sharpness:.4f}) "
                     f"is below the limit ({limit:.4f})."
                 )
-            return True
+                return True
 
         return False
 
@@ -218,8 +226,7 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
         if isinstance(self._mode, StepMode):
             raise AutofocusError("Test is not supported for step mode")
 
-        # clear any existing jobs
-        self._jobs.wait_and_clear()
+        self._reset_jobs()
 
         if self._ctx.props_store.exists("props.yaml"):
             self._ctx.text_logger.info("Loading saved microscope properties.")
@@ -257,7 +264,8 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
             AutofocusError: If step mode is configured with an unsuitable linked imaging.
         """
         # remove the jobs and results of the previous sweep
-        self._jobs.wait_and_clear()
+        # and update the number of workers
+        self._reset_jobs()
 
         imaging = self._resolve_imaging()
         if isinstance(self._mode, StepMode):
@@ -351,6 +359,22 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
         self._active_gen = None
         self._current_step_index = 0
         self._sweep_base_value = None
+
+    def _reset_jobs(self) -> None:
+        """
+        Discard the previous sweep's jobs and resize the pool if `max_workers` changed.
+
+        Called only between sweeps, so a sweep in progress keeps the pool its jobs run on.
+        """
+        self._jobs.wait_and_clear()
+        if self._executor_workers == self._settings.max_workers:
+            return
+
+        # every job was waited for, so the old pool is idle
+        self._executor.shutdown(wait=False)
+        self._executor_workers = self._settings.max_workers
+        self._executor = ThreadPoolExecutor(self._executor_workers)
+        self._jobs = JobsManager(executor=self._executor)
 
     def _apply_best_and_log(self, results: list[AutofocusResult]) -> None:
         """
