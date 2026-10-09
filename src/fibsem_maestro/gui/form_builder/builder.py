@@ -551,10 +551,15 @@ class FormBuilder:
         """
         nested: dict[str, BaseWidget] = {}
         labels: dict[str, str] = {}
+        descriptions: dict[str, str] = {}
 
         for variant in union_type.variants:
             if variant.label is not None:
                 labels[variant.discriminator_value] = variant.label
+            if description := _variant_description(
+                variant.variant_type, union_type.discriminator_key
+            ):
+                descriptions[variant.discriminator_value] = description
 
             if variant.nested is None:
                 continue
@@ -592,6 +597,7 @@ class FormBuilder:
             build_object=self._variant_builder(on_change, scope),
             nested=nested,
             labels=labels,
+            descriptions=descriptions,
             exclude=exclude,
             show_selector=union_type.follows is None,
         )
@@ -1042,3 +1048,25 @@ class FormBuilder:
             f"{binding.field_name!r} variant; using {binding.fallback!r}."
         )
         binding.union.select(binding.fallback)
+
+
+def _variant_description(variant_type: type, discriminator_key: str) -> str:
+    """
+    Return the hint for a union variant: the description of its discriminator field.
+
+    The discriminator identifies the variant and is never shown as a field of
+    its own, so its `Field(description=...)` describes the variant. For a
+    nested arm, `variant_type` is the inner variants' common base class, which
+    declares the outer discriminator.
+
+    Args:
+        variant_type: The variant's class.
+        discriminator_key: The name of the union's discriminator field.
+
+    Returns:
+        The description, or `""` if the discriminator has none.
+    """
+    for fi in get_field_infos(variant_type):
+        if fi.name == discriminator_key:
+            return fi.description
+    return ""

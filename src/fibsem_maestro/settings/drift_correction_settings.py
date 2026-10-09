@@ -13,7 +13,10 @@ from fibsem_maestro.settings.template_matching_settings import TemplateMatchingS
 
 
 class TemplateMatchingDriftCorrection(TemplateMatchingSettings):
-    type: Literal["template_matching"] = "template_matching"
+    type: Literal["template_matching"] = Field(
+        default="template_matching",
+        description="Calculate the drift using template matching.",
+    )
 
 
 DriftCorrectionMode = Annotated[
@@ -24,7 +27,7 @@ DriftCorrectionMode = Annotated[
 class DriftCorrectionSettings(BaseSettings):
     drift_calculation_mode: DriftCorrectionMode = Field(
         default_factory=TemplateMatchingDriftCorrection,
-        description="Drift correction mode.",
+        description="Method to use to calculate the drift.",
     )
     beam_type: BeamType = Field(
         default=BeamType.ELECTRON,

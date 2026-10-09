@@ -17,11 +17,16 @@ from fibsem_maestro.settings.form_utils import (
 
 
 class StandardMode(BaseSettings):
-    type: Literal["standard"] = "standard"
+    type: Literal["standard"] = Field(
+        default="standard", description="Locates the match to the nearest whole pixel."
+    )
 
 
 class SubpixelMode(BaseSettings):
-    type: Literal["subpixel"] = "subpixel"
+    type: Literal["subpixel"] = Field(
+        default="subpixel",
+        description="Upsamples and fits the correlation peak for sub-pixel precision.",
+    )
     upsampling_factor: Annotated[float, Field(ge=1.0)] = Field(
         default=1.0, description="How many times should the image be upsampled?"
     )
@@ -33,7 +38,11 @@ TemplateMatchingMode = Annotated[
 
 
 class FullFrameMode(BaseSettings):
-    type: Literal["full_frame"] = "full_frame"
+    type: Literal["full_frame"] = Field(
+        default="full_frame",
+        description="Grabs one full frame and crops the areas from it.",
+    )
+
     dummy_scans: int = Field(
         default=0,
         description="The number of dummy scans to perform before starting the main scan for template matching.",
@@ -41,7 +50,10 @@ class FullFrameMode(BaseSettings):
 
 
 class ReducedAreaMode(BaseSettings):
-    type: Literal["reduced_area"] = "reduced_area"
+    type: Literal["reduced_area"] = Field(
+        default="reduced_area",
+        description="Scans only the areas, each as its own reduced-area frame.",
+    )
     full_frame_dummy_scans: int = Field(
         default=0,
         description="The number of full frame dummy scans to perform before starting the main scan for template matching.",
@@ -60,11 +72,11 @@ FrameGrabbingMode = Annotated[
 class TemplateMatchingSettings(BaseSettings):
     matching_mode: TemplateMatchingMode = Field(
         default_factory=StandardMode,
-        description="Template matching mode.",
+        description="How the template matching is performed.",
     )
     frame_grabbing_mode: FrameGrabbingMode = Field(
         default_factory=FullFrameMode,
-        description="Should the areas for template matching be obtained by scanning the full frame and cropping or by using reduced scanning area.",
+        description="How the areas for template matching are obtained.",
     )
     template_scans: Annotated[int, Field(gt=0)] = Field(
         default=1,

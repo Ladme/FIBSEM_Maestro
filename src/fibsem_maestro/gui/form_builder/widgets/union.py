@@ -61,6 +61,8 @@ class DiscriminatedUnionWidget(QWidget, BaseWidget[Any]):
             the variant class. Used for nested unions.
         labels: Radio-button text overrides, keyed by discriminator value.
             Falls back to the variant class name.
+        descriptions: Radio-button tooltips, keyed by discriminator value.
+            Variants without one get no tooltip.
         exclude: Field names to omit from every variant's form, in addition to
             `discriminator_key`. Used to hide the discriminators of enclosing
             unions, which a nested variant class also carries.
@@ -76,6 +78,7 @@ class DiscriminatedUnionWidget(QWidget, BaseWidget[Any]):
         build_object: Callable[[type, list[FieldInfo] | None], ObjectWidget[Any]],
         nested: dict[str, BaseWidget[Any]] | None = None,
         labels: dict[str, str] | None = None,
+        descriptions: dict[str, str] | None = None,
         exclude: frozenset[str] = frozenset(),
         show_selector: bool = True,
         parent: QWidget | None = None,
@@ -95,6 +98,7 @@ class DiscriminatedUnionWidget(QWidget, BaseWidget[Any]):
 
         nested = nested or {}
         labels = labels or {}
+        descriptions = descriptions or {}
 
         self._button_group = QButtonGroup(self)
         radio_row = QHBoxLayout()
@@ -109,6 +113,8 @@ class DiscriminatedUnionWidget(QWidget, BaseWidget[Any]):
             # kept in the layout and the group even when hidden: a button held
             # only by the QButtonGroup is collected and leaves a dangling id
             btn.setVisible(show_selector)
+            if description := descriptions.get(disc_value):
+                btn.setToolTip(description)
             self._button_group.addButton(btn, i)
             radio_row.addWidget(btn)
 

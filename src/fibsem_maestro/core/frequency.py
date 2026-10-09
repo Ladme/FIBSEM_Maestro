@@ -34,7 +34,9 @@ class _FrequencyBase(BaseSettings, ABC):
 class Never(_FrequencyBase):
     """The action never runs."""
 
-    type: Literal["never"] = "never"
+    type: Literal["never"] = Field(
+        default="never", description="Do not run this action."
+    )
 
     def matches(self, slice_index: int) -> bool:
         _ = slice_index
@@ -51,10 +53,13 @@ class Never(_FrequencyBase):
 class Every(_FrequencyBase):
     """The action runs every n-th slice, starting with the first."""
 
-    type: Literal["every"] = "every"
+    type: Literal["every"] = Field(
+        default="every",
+        description="Run this action every n-th slice, starting with the first.",
+    )
     n: Annotated[int, Field(gt=0)] = Field(
         default=1,
-        description="Run the action every n-th slice, starting with the first.",
+        description="Interval in slices; 1 runs the action on every slice.",
     )
 
     def matches(self, slice_index: int) -> bool:

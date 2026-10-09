@@ -14,7 +14,10 @@ from fibsem_maestro.settings.property_names import PropertyNames
 
 
 class ManualMode(BaseSettings):
-    type: Literal["manual"] = "manual"
+    type: Literal["manual"] = Field(
+        default="manual",
+        description="Shifts the image and working distance by fixed amounts.",
+    )
     y_correction: Annotated[float, FieldUnit(suffix="nm")] = Field(
         default=0.0,
         description="Change in beam shift along the y-dimension applied during the correction.",
@@ -26,7 +29,10 @@ class ManualMode(BaseSettings):
 
 
 class DynamicFocusMode(BaseSettings):
-    type: Literal["dynamic_focus"] = "dynamic_focus"
+    type: Literal["dynamic_focus"] = Field(
+        default="dynamic_focus",
+        description="Computes the shifts from the linked milling's slice distance.",
+    )
 
 
 PostMillingCorrectionMode = Annotated[

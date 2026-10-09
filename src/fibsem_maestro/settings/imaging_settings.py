@@ -15,11 +15,17 @@ from fibsem_maestro.settings.property_names import PropertyNames
 
 
 class StandardResolution(BaseSettings):
-    type: Literal["standard"] = "standard"
+    type: Literal["standard"] = Field(
+        default="standard",
+        description="Images at one of the microscope's standard resolutions.",
+    )
 
 
 class ExtendedResolution(BaseSettings):
-    type: Literal["extended"] = "extended"
+    type: Literal["extended"] = Field(
+        default="extended",
+        description="Images the scanning area at any pixel size; takes effect on Prepare.",
+    )
     pixel_size: Annotated[float, Field(gt=0), FieldUnit(suffix="nm")] = Field(
         default=1.0, description="Requested size of each pixel."
     )
