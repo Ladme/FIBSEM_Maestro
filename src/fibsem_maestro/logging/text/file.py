@@ -26,17 +26,21 @@ class FileTextLogger(TextLogger):
     at each log call by invoking `view_provider`, so rotating to a new slice
     requires only updating what `view_provider` returns.
 
-    All loggers produced by `derive()` share the same underlying
-    `_FileTextLoggerRoot` and therefore the same open `FileHandler`.
-    Records are emitted directly to the handler with the display name set
-    per-record, so no Python logger registry entries are created for derived loggers.
-
+    A logger created directly is the root of a logger group; loggers produced
+    by `derive()`, `at()` and `next` join its group. A group shares one
+    `_FileTextLoggerRoot`, and with it the open `FileHandler` and the base
+    name. Each logger stores only its own suffix and resolves its full name
+    on every record, so `rename()` on any logger renames the whole group,
+    including derived loggers created earlier. Records are emitted directly
+    to the handler with the name set per record, so no Python logger
+    registry entries are created.
 
     Args:
         view_provider: Callable returning the `SliceView` to write to.
         name: Logger name embedded in each log record.
         filename: Name of the log file within the slice directory. Defaults to `run.log`.
         level: Logging level. Defaults to `logging.INFO`.
+        _root: Group to join. Internal; set by `derive()` and `at()`.
     """
 
     def __init__(
@@ -49,12 +53,14 @@ class FileTextLogger(TextLogger):
         _root: _FileTextLoggerRoot | None = None,
     ) -> None:
         self._view_provider = view_provider
-        self._name = name
         self._filename = filename
         self._level = level
-        self._root = (
-            _root if _root is not None else _FileTextLoggerRoot(filename, level)
-        )
+        if _root is None:
+            self._root = _FileTextLoggerRoot(filename, level, name)
+            self._suffix = ""
+        else:
+            self._root = _root
+            self._suffix = name
 
     def _emit(
         self,
@@ -76,7 +82,7 @@ class FileTextLogger(TextLogger):
 
         handler = self._root.get_handler(self._view_provider())
         record = logging.LogRecord(
-            name=self._name,
+            name=self.name,
             level=level,
             pathname="",
             lineno=0,
@@ -116,10 +122,10 @@ class FileTextLogger(TextLogger):
             A `FileTextLogger` sharing the same `view_provider` and log
             file, with name `"{this_name}.{name}"`.
         """
-        child_name = f"{self._name}.{name}" if self._name else name
+        suffix = f"{self._suffix}.{name}" if self._suffix else name
         return type(self)(
             self._view_provider,
-            child_name,
+            suffix,
             self._filename,
             self._level,
             _root=self._root,
@@ -140,7 +146,7 @@ class FileTextLogger(TextLogger):
 
         return type(self)(
             lambda: fixed,
-            self._name,
+            self._suffix,
             self._filename,
             self._level,
             _root=self._root,
@@ -153,21 +159,36 @@ class FileTextLogger(TextLogger):
     def close(self) -> None:
         self._root.close()
 
+    @property
+    def name(self) -> str:
+        """
+        The full name embedded in each record.
+
+        Returns:
+            The group's base name followed by this logger's suffix.
+        """
+        base = self._root.name
+        if not self._suffix:
+            return base
+        return f"{base}.{self._suffix}" if base else self._suffix
+
+    def rename(self, name: str) -> None:
+        self._root.name = name
+
 
 class _FileTextLoggerRoot:
     """
-    Owns the single `FileHandler` shared across a `FileTextLogger` and
-    all loggers derived from it.
+    State shared by a logger group: a `FileTextLogger` and all loggers
+    derived from it or viewed from it.
 
-    This object holds all mutable handler state. Derived loggers hold a
-    reference to the root and delegate handler management here, ensuring
-    only one handler is ever open at a time regardless of how many derived
-    loggers exist.
+    Holds the single `FileHandler` of the group, so only one handler is ever
+    open at a time regardless of how many derived loggers exist, and the
+    group's base name, so renaming the group reaches every logger in it.
 
     Args:
-        view_provider: Callable returning the `SliceView` to write to.
         filename: Name of the log file within the slice directory.
         level: Logging level threshold.
+        name: Base name of the logger group.
     """
 
     _FORMAT = "%(asctime)s [%(name)s] %(levelname)s: %(message)s"
@@ -177,9 +198,10 @@ class _FileTextLoggerRoot:
     # be garbage-collected normally instead of being pinned here
     _instances: weakref.WeakSet[_FileTextLoggerRoot] = weakref.WeakSet()
 
-    def __init__(self, filename: str, level: int) -> None:
+    def __init__(self, filename: str, level: int, name: str) -> None:
         self._filename = filename
         self._level = level
+        self.name = name
         self._active_path: Path | None = None
         self._active_handler: logging.FileHandler | None = None
         _FileTextLoggerRoot._instances.add(self)

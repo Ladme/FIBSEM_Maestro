@@ -56,6 +56,16 @@ class MemoryImageStore(ImageStore[T]):
                 f"No image stored for slice {slice_idx!r}, filename {fname!r}"
             ) from None
 
+    def delete(self, filename: str) -> None:
+        key = self._key(filename)
+        try:
+            del self._store[key]
+        except KeyError:
+            slice_idx, fname = key
+            raise FileNotFoundError(
+                f"No image stored for slice {slice_idx!r}, filename {fname!r}"
+            ) from None
+
     def copy_to(self, filename: str, to: ImageStore[T]) -> None:
         image = self.read(filename)
         to.write(filename, image)

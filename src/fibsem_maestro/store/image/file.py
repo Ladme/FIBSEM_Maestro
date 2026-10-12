@@ -55,6 +55,13 @@ class FileImageStore(ImageStore[T]):
         with tifffile.TiffFile(path) as tif:
             return self._cls.from_tiff(tif)
 
+    def delete(self, filename: str) -> None:
+        path = self._path(filename)
+        try:
+            path.unlink()
+        except FileNotFoundError as e:
+            raise FileNotFoundError(f"No image found at {path!r}") from e
+
     def copy_to(self, filename: str, to: ImageStore[T]) -> None:
         src = self._path(filename)
         if not src.exists():

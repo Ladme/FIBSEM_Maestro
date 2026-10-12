@@ -5,6 +5,7 @@
 from collections.abc import Callable
 from typing import Any, cast
 
+from pydantic import ValidationError
 from PyQt6.QtWidgets import (
     QButtonGroup,
     QHBoxLayout,
@@ -14,6 +15,7 @@ from PyQt6.QtWidgets import (
 )
 
 from fibsem_maestro.gui.common import class_name_to_label
+from fibsem_maestro.gui.form_builder.issues import FieldValidationError
 from fibsem_maestro.gui.form_builder.schema.field_info import FieldInfo
 from fibsem_maestro.gui.form_builder.widgets.base import BaseWidget
 from fibsem_maestro.gui.form_builder.widgets.object import ObjectWidget
@@ -59,6 +61,8 @@ class DiscriminatedUnionWidget(QWidget, BaseWidget[Any]):
             the variant class. Used for nested unions.
         labels: Radio-button text overrides, keyed by discriminator value.
             Falls back to the variant class name.
+        descriptions: Radio-button tooltips, keyed by discriminator value.
+            Variants without one get no tooltip.
         exclude: Field names to omit from every variant's form, in addition to
             `discriminator_key`. Used to hide the discriminators of enclosing
             unions, which a nested variant class also carries.
@@ -74,6 +78,7 @@ class DiscriminatedUnionWidget(QWidget, BaseWidget[Any]):
         build_object: Callable[[type, list[FieldInfo] | None], ObjectWidget[Any]],
         nested: dict[str, BaseWidget[Any]] | None = None,
         labels: dict[str, str] | None = None,
+        descriptions: dict[str, str] | None = None,
         exclude: frozenset[str] = frozenset(),
         show_selector: bool = True,
         parent: QWidget | None = None,
@@ -93,6 +98,7 @@ class DiscriminatedUnionWidget(QWidget, BaseWidget[Any]):
 
         nested = nested or {}
         labels = labels or {}
+        descriptions = descriptions or {}
 
         self._button_group = QButtonGroup(self)
         radio_row = QHBoxLayout()
@@ -107,6 +113,8 @@ class DiscriminatedUnionWidget(QWidget, BaseWidget[Any]):
             # kept in the layout and the group even when hidden: a button held
             # only by the QButtonGroup is collected and leaves a dangling id
             btn.setVisible(show_selector)
+            if description := descriptions.get(disc_value):
+                btn.setToolTip(description)
             self._button_group.addButton(btn, i)
             radio_row.addWidget(btn)
 
@@ -157,8 +165,13 @@ class DiscriminatedUnionWidget(QWidget, BaseWidget[Any]):
         Construct the selected variant instance from its fields.
 
         Returns:
-            An instance of the currently selected variant class, or — for a
-            nested arm — of whichever inner variant that arm has selected.
+            An instance of the currently selected variant class, or - for a
+            nested arm - of whichever inner variant that arm has selected.
+
+        Raises:
+            FieldValidationError: If the variant cannot be constructed from the
+                form's values. Problems on fields of the variant's page are
+                attributed to those fields' widgets.
         """
         index = self._button_group.checkedId()
         widget = self._variant_widgets[index]
@@ -170,10 +183,16 @@ class DiscriminatedUnionWidget(QWidget, BaseWidget[Any]):
         variant_cls = self._variant_classes[index]
         data = {self._discriminator_key: self._discriminator_values[index]}
 
-        if index not in self._empty_indices and isinstance(widget, ObjectWidget):
-            data.update(widget.values_dict())
+        page = widget if isinstance(widget, ObjectWidget) else None
+        if index not in self._empty_indices and page is not None:
+            data.update(page.values_dict())
 
-        return variant_cls(**data)
+        try:
+            return variant_cls(**data)
+        except ValidationError as e:
+            raise FieldValidationError.from_validation_error(
+                e, page.field_widget if page is not None else lambda _: None
+            ) from e
 
     def set_value(self, value: Any) -> None:
         """

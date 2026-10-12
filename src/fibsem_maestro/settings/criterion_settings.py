@@ -33,11 +33,15 @@ CriterionName = Annotated[
 
 
 class BasicMode(BaseSettings):
-    type: Literal["basic"] = "basic"
+    type: Literal["basic"] = Field(
+        default="basic", description="Basic sharpness calculation."
+    )
 
 
 class MaskMode(BaseSettings):
-    type: Literal["mask"] = "mask"
+    type: Literal["mask"] = Field(
+        default="mask", description="Sharpness calculation using a mask."
+    )
     mask_name: str = Field(default="mask", description="Name of the mask to use.")
     region_reduction_fn: ReductionName = Field(
         default="mean",
@@ -49,11 +53,15 @@ CriterionCalculationMode = Annotated[BasicMode | MaskMode, Field(discriminator="
 
 
 class SingleTileMode(BaseSettings):
-    type: Literal["single"] = "single"
+    type: Literal["single"] = Field(
+        default="single", description="Calculate sharpness for the whole image."
+    )
 
 
 class MultiTileMode(BaseSettings):
-    type: Literal["multi"] = "multi"
+    type: Literal["multi"] = Field(
+        default="multi", description="Calculate sharpness for individual tiles."
+    )
     tile_reduction_fn: ReductionName = Field(
         default="mean",
         description="Numpy method for calculating final criterion from all tiles.",

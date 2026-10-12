@@ -11,15 +11,16 @@ from fibsem_maestro.gui.form_builder.widgets.base import BaseWidget
 
 class RangePairWidget(QWidget, BaseWidget[tuple[float, float]]):
     """
-    Two float spinners enforcing low <= high at all times.
+    Two float spinners keeping low <= high at all times.
 
-    Each spin box constrains the other's bound so the low value can never
-    exceed the high value. Supports optional outer bounds and a unit suffix.
+    Raising the low value above the high one carries the high value along with
+    it, so a range can be edited low value first. The high value cannot be
+    lowered below the low one. Supports optional outer bounds and a unit suffix.
 
     Args:
         default: The initial (low, high) pair; defaults to (0.0, 0.0).
-        minimum: The lowest value the low spinner allows; defaults to -1e12.
-        maximum: The highest value the high spinner allows; defaults to 1e12.
+        minimum: The lowest value either spinner allows; defaults to -1e12.
+        maximum: The highest value either spinner allows; defaults to 1e12.
         suffix: A unit label to display after the spinners, if any.
         parent: The parent widget, if any.
     """
@@ -38,19 +39,21 @@ class RangePairWidget(QWidget, BaseWidget[tuple[float, float]]):
         layout.setContentsMargins(0, 0, 0, 0)
 
         low, high = default if default is not None else (0.0, 0.0)
+        upper_bound = maximum if maximum is not None else 1e12
 
         self._low = NoScrollDoubleSpinBox()
         self._low.setDecimals(6)
         self._low.setFixedWidth(200)
         self._low.setMinimum(minimum if minimum is not None else -1e12)
-        self._low.setMaximum(high)
+        self._low.setMaximum(upper_bound)
         self._low.setValue(low)
 
         self._high = NoScrollDoubleSpinBox()
         self._high.setDecimals(6)
         self._high.setFixedWidth(200)
-        self._high.setMinimum(low)
-        self._high.setMaximum(maximum if maximum is not None else 1e12)
+        # the low value is the high spinner's floor; raising it pushes the high value up
+        self._high.setMinimum(self._low.value())
+        self._high.setMaximum(upper_bound)
         self._high.setValue(high)
 
         self._low.valueChanged.connect(self._on_low_changed)
@@ -66,24 +69,27 @@ class RangePairWidget(QWidget, BaseWidget[tuple[float, float]]):
 
     def _on_low_changed(self, value: float) -> None:
         """
-        Raise the high spinner's minimum to the new low value, then notify.
+        Make the new low value the high spinner's floor, then notify.
+
+        If the low value now exceeds the high one, the high value is raised to
+        match, so the pair stays valid and the edit is reported once.
 
         Args:
             value: The new low value.
         """
-
-        self._high.setMinimum(value)
+        with QSignalBlocker(self._high):
+            self._high.setMinimum(value)
         self._emit()
 
     def _on_high_changed(self, value: float) -> None:
         """
-        Lower the low spinner's maximum to the new high value, then notify.
+        Notify of the new high value.
 
         Args:
-            value: The new high value.
+            value: The new high value; never below the low value, which is the
+                spinner's minimum.
         """
-
-        self._low.setMaximum(value)
+        _ = value
         self._emit()
 
     def get_value(self) -> tuple[float, float]:
@@ -105,12 +111,10 @@ class RangePairWidget(QWidget, BaseWidget[tuple[float, float]]):
         """
 
         low, high = value
-        # apply both values atomically so the interlocking min/max handlers
-        # don't fire and rewrite each other mid-update
+        # apply both values atomically, so the change is reported once
         with QSignalBlocker(self._low), QSignalBlocker(self._high):
-            self._low.setMaximum(high)
-            self._high.setMinimum(low)
             self._low.setValue(low)
+            self._high.setMinimum(self._low.value())
             self._high.setValue(high)
         self._emit()
 

@@ -8,6 +8,7 @@ from typing import Annotated, Literal
 from pydantic import Field
 
 from fibsem_maestro.core.beam_type import BeamType
+from fibsem_maestro.core.frequency import Every, Frequency
 from fibsem_maestro.imaging.imaging import Imaging
 from fibsem_maestro.properties.beam_properties import BeamProperties
 from fibsem_maestro.settings.base_settings import BaseSettings
@@ -23,7 +24,9 @@ from fibsem_maestro.settings.sweeping_settings import SweepingSettings
 
 
 class BasicMode(BaseSettings):
-    type: Literal["basic"] = "basic"
+    type: Literal["basic"] = Field(
+        default="basic", description="Grab a frame for each value of the sweep."
+    )
     sweeping: SweepingSettings = Field(
         default_factory=SweepingSettings,
         description="Settings for sweeping to be used.",
@@ -35,7 +38,9 @@ class BasicMode(BaseSettings):
 
 
 class LineMode(BaseSettings):
-    type: Literal["line"] = "line"
+    type: Literal["line"] = Field(
+        default="line", description="Perform the sweep while acquiring a single frame."
+    )
     sweeping: SweepingSettings = Field(
         default_factory=SweepingSettings,
         description="Settings for sweeping to be used.",
@@ -69,7 +74,10 @@ class LineMode(BaseSettings):
 
 
 class StepMode(BaseSettings):
-    type: Literal["step"] = "step"
+    type: Literal["step"] = Field(
+        default="step",
+        description="Apply the sweep values to the imaging and analyze the frames it acquires.",
+    )
     sweeping: SweepingSettings = Field(
         default_factory=SweepingSettings,
         description="Settings for sweeping to be used.",
@@ -88,7 +96,9 @@ class AutoscriptFunctionBase(BaseSettings):
         type: Outer discriminator. Identical for every Autoscript variant.
     """
 
-    type: Literal["autoscript"] = "autoscript"
+    type: Literal["autoscript"] = Field(
+        default="autoscript", description="Use the built-in autoscript algorithm."
+    )
 
 
 class AutoscriptAutoFocusMethod(Enum):
@@ -209,17 +219,17 @@ class AutofocusSettings(BaseSettings):
         default=0,
         description="Offset for out of sample focusing on the x-axis.",
     )
-    execution_frequency: Annotated[int, Field(gt=0)] | None = Field(
-        default=None,
-        description="Autofunction runs every N-th slice. If not checked, this condition is not applied.",
+    max_workers: Annotated[int, Field(gt=0)] = Field(
+        default=1,
+        description="Maximal number of threads used for the calculations in this action.",
     )
     sharpness_limit: Annotated[float, Field(gt=0)] | None = Field(
         default=None,
         description="Autofunction runs if image sharpness is below this limit. If not checked, this condition is not applied.",
     )
-    max_workers: Annotated[int, Field(gt=0)] = Field(
-        default=1,
-        description="Maximal number of threads used for the calculations in this action.",
+    execution_frequency: Frequency = Field(
+        default_factory=Every,
+        description="How often the action runs",
     )
     properties_to_collect: PropertyNames = Field(
         default_factory=PropertyNames,

@@ -59,9 +59,12 @@ class MicroscopeSettingsDialog(QDialog):
         )
         self._form.set_value(self._microscope.settings.model_dump())
 
-        # set the form to be read only, if not in editing or paused state
-        read_only = app_state not in {AppState.EDITING, AppState.PAUSED}
-        self._form.set_read_only(read_only)
+        # set the form to be read only, if not in editing or paused state and not in danger mode
+        self._read_only = (
+            app_state not in {AppState.EDITING, AppState.PAUSED}
+            and not self._manager.danger_mode
+        )
+        self._form.set_read_only(self._read_only)
 
         layout.addWidget(self._form)
 
@@ -70,7 +73,7 @@ class MicroscopeSettingsDialog(QDialog):
         layout.addWidget(close_btn)
 
     def _on_close(self) -> None:
-        if self._app_state in {AppState.EDITING, AppState.PAUSED}:
+        if not self._read_only:
             save_last_microscope_profile(self._microscope.settings)
         self._manager.notify_microscope_changed()
         self.accept()

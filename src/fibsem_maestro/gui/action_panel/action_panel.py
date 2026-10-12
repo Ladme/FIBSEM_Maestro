@@ -27,6 +27,7 @@ from fibsem_maestro.gui.action_panel._props_dialog import PropertiesDialog
 from fibsem_maestro.gui.app_state import AppState
 from fibsem_maestro.gui.common import class_name_to_label
 from fibsem_maestro.gui.form_builder.builder import FormBuilder
+from fibsem_maestro.gui.form_builder.widgets.object import ObjectWidget
 from fibsem_maestro.gui.workflow_manager import WorkflowManager
 
 _EDITABLE_STATES: frozenset[AppState] = frozenset(
@@ -238,7 +239,7 @@ class ActionPanel(QWidget):
         try:
             props = self._action.read_properties()
         except Exception as e:
-            self._txt_log.error(
+            self._action.ctx.text_logger.error(
                 f"Reading properties for '{self._action.name}' failed: {e}"
             )
             return
@@ -246,7 +247,7 @@ class ActionPanel(QWidget):
         edited = PropertiesDialog.review(
             properties=props,
             workflow_manager=self._manager,
-            txt_log=self._txt_log,
+            txt_log=self._action.ctx.text_logger,
             title=f"Properties of '{self._action.name}'",
             hint=(
                 f"Properties stored for slice {self._action.ctx.slice}. "
@@ -260,7 +261,7 @@ class ActionPanel(QWidget):
         try:
             self._action.write_properties(edited)
         except Exception as e:
-            self._txt_log.error(
+            self._action.ctx.text_logger.error(
                 f"Saving properties for '{self._action.name}' failed: {e}"
             )
             return
@@ -268,22 +269,15 @@ class ActionPanel(QWidget):
         self._manager.notify_action_changed(self._action)
 
     def _apply_properties(self) -> None:
-        """Set the stored properties of the current slice on the microscope."""
+        """Set the stored properties of the current slice on the microscope, on a worker thread."""
+        # the file may have disappeared since the buttons were last updated
         if not self._action.has_stored_properties():
             self._update_buttons()
             return
 
-        try:
-            self._action.read_and_set_properties()
-        except Exception as e:
-            self._txt_log.error(
-                f"Applying properties for '{self._action.name}' failed: {e}"
-            )
-            return
-
-        self._txt_log.info(
-            f"Applied properties of '{self._action.name}' "
-            f"(slice {self._action.ctx.slice}) to the microscope."
+        self._start_task(
+            self._action.read_and_set_properties,
+            f"Applying properties of '{self._action.name}'",
         )
 
     def _test_action(self) -> None:
@@ -323,6 +317,7 @@ class ActionPanel(QWidget):
         self._task_on_success = on_success
         self._task_failed = False
 
+        self._action.ctx.text_logger.info(f"{description}...")
         self._update_buttons()
         thread.start()
 
@@ -334,7 +329,7 @@ class ActionPanel(QWidget):
             error: The exception raised by the task.
         """
         self._task_failed = True
-        self._txt_log.error(f"{self._task_description} failed: {error}")
+        self._action.ctx.text_logger.error(f"{self._task_description} failed: {error}")
 
     def _on_task_finished(self) -> None:
         """Release the finished task and run its success callback."""
@@ -342,6 +337,9 @@ class ActionPanel(QWidget):
         # `finished` is emitted just before the thread exits; wait so that
         # dropping the last reference cannot destroy a still-running QThread
         self._task_thread.wait()
+
+        if not self._task_failed:
+            self._action.ctx.text_logger.info(f"{self._task_description} completed.")
 
         on_success = None if self._task_failed else self._task_on_success
         self._task_thread = None
@@ -360,10 +358,15 @@ class ActionPanel(QWidget):
             state: The new app state.
         """
         read_only = state not in _EDITABLE_STATES
-        self._settings_widget.set_read_only(read_only)
+        # danger mode unlocks the settings only; propagations and buttons follow the state
+        self._settings_widget.set_read_only(read_only and not self._manager.danger_mode)
         self._propagations_widget.set_read_only(read_only)
         # the slice, and with it the props file, may have changed while running
         self._update_buttons()
+
+    def on_danger_mode_changed(self, _: bool) -> None:
+        """Re-apply the read-only state after danger mode was turned on or off."""
+        self.on_app_state_changed(self._manager.state)
 
     def on_action_changed(self, action: Action) -> None:
         """
@@ -376,6 +379,27 @@ class ActionPanel(QWidget):
             self._name_label.setText(action.name)
             self._beam_label.setText(self._beam_text(action))
             self._update_buttons()
+
+    def has_form_errors(self) -> bool:
+        """
+        Check whether any field of the settings form shows an error.
+
+        An erroneous value is not written to the settings, so the form and the
+        settings disagree until it is fixed.
+
+        Returns:
+            True if a field of the form, at any depth, reports an error.
+        """
+        forms = [
+            child
+            for child in [
+                self._settings_widget,
+                *self._settings_widget.findChildren(ObjectWidget),
+            ]
+            if isinstance(child, ObjectWidget)
+        ]
+
+        return any(form.has_errors() for form in forms)
 
     def reload_values(self) -> None:
         """

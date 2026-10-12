@@ -115,3 +115,19 @@ class ContextualTextLogger(TextLogger):
         them. Closing them here would release file handles still in use by
         the running action.
         """
+
+    def rename(self, name: str) -> None:
+        """
+        Not supported: this logger has no name of its own.
+
+        Its records take their name from whichever logger is active (or the
+        fallback), with this logger's suffix appended. Rename that logger,
+        e.g. through `ActionContext.rename`, and this logger follows.
+
+        Raises:
+            NotImplementedError: Always.
+        """
+        _ = name
+        raise NotImplementedError(
+            "ContextualTextLogger has no name of its own; rename the active logger instead."
+        )

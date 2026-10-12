@@ -10,11 +10,17 @@ from fibsem_maestro.settings.form_utils import FormHint, WidgetType
 
 
 class BasicStrategySettings(BaseSettings):
-    type: Literal["basic"] = "basic"
+    type: Literal["basic"] = Field(
+        default="basic",
+        description="Steps evenly through the range, reversing direction on every cycle.",
+    )
 
 
 class InterleavedStrategySettings(BaseSettings):
-    type: Literal["interleaved"] = "interleaved"
+    type: Literal["interleaved"] = Field(
+        default="interleaved",
+        description="Alternates base and sweep points; switches only if clearly sharper.",
+    )
     min_diff: float = Field(
         default=0.005,
         description="Minimal change in resolution relative to base resolution to consider it relevant.",

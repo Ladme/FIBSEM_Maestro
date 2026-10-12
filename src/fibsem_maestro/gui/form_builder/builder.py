@@ -183,6 +183,10 @@ class FormBuilder:
             context.building = False
         self._flush_followers(context)
         self._flush_overlays(context)
+        # validate the values as shown, after followers have picked their variants
+        for write_back in context.write_backs:
+            write_back.check()
+
         return obj
 
     def _build_object(
@@ -240,6 +244,7 @@ class FormBuilder:
                 )
                 widget = self._build_field(fi, value, write_back, field_scope)
                 write_back.bind(widget)
+                scope.context.write_backs.append(write_back)
             else:
                 # nested: reuse the inherited top-level write-back
                 widget = self._build_field(fi, value, on_change, field_scope)
@@ -354,7 +359,7 @@ class FormBuilder:
                             """X offset applied when grabbing, in nm; None if unresolved."""
                             return scope.value(offset_path, float)
 
-                return AreaSelectWidget(
+                area = AreaSelectWidget(
                     microscope=self._microscope,
                     txt_log=self._txt_log,
                     max_areas=hint.max_areas if hint.max_areas else None,
@@ -362,6 +367,12 @@ class FormBuilder:
                     beam_provider=beam_provider,
                     offset_provider=offset_provider,
                 )
+
+                # loading an image needs the microscope, which a running workflow holds
+                if self._manager is not None:
+                    self._manager.app_state_changed.connect(area.on_app_state_changed)
+                    area.on_app_state_changed(self._manager.state)
+                return area
 
             case WidgetType.RANGE_PAIR:
                 return RangePairWidget(
@@ -540,10 +551,15 @@ class FormBuilder:
         """
         nested: dict[str, BaseWidget] = {}
         labels: dict[str, str] = {}
+        descriptions: dict[str, str] = {}
 
         for variant in union_type.variants:
             if variant.label is not None:
                 labels[variant.discriminator_value] = variant.label
+            if description := _variant_description(
+                variant.variant_type, union_type.discriminator_key
+            ):
+                descriptions[variant.discriminator_value] = description
 
             if variant.nested is None:
                 continue
@@ -581,6 +597,7 @@ class FormBuilder:
             build_object=self._variant_builder(on_change, scope),
             nested=nested,
             labels=labels,
+            descriptions=descriptions,
             exclude=exclude,
             show_selector=union_type.follows is None,
         )
@@ -1031,3 +1048,25 @@ class FormBuilder:
             f"{binding.field_name!r} variant; using {binding.fallback!r}."
         )
         binding.union.select(binding.fallback)
+
+
+def _variant_description(variant_type: type, discriminator_key: str) -> str:
+    """
+    Return the hint for a union variant: the description of its discriminator field.
+
+    The discriminator identifies the variant and is never shown as a field of
+    its own, so its `Field(description=...)` describes the variant. For a
+    nested arm, `variant_type` is the inner variants' common base class, which
+    declares the outer discriminator.
+
+    Args:
+        variant_type: The variant's class.
+        discriminator_key: The name of the union's discriminator field.
+
+    Returns:
+        The description, or `""` if the discriminator has none.
+    """
+    for fi in get_field_infos(variant_type):
+        if fi.name == discriminator_key:
+            return fi.description
+    return ""

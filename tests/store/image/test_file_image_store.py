@@ -488,3 +488,79 @@ def test_next_of_next_advances_twice(
     store.next.next.write("drift", image)
 
     assert (cursor.dir(2) / "drift.tif").is_file()
+
+
+def test_delete_removes_the_file(
+    store: FileImageStore[Image], cursor: SliceCursor, image: Image
+) -> None:
+    store.write("drift", image)
+
+    store.delete("drift")
+
+    assert list(cursor.dir(0).iterdir()) == []
+
+
+def test_delete_normalises_the_filename(
+    store: FileImageStore[Image], cursor: SliceCursor, image: Image
+) -> None:
+    store.write("drift", image)
+
+    store.delete("drift.tif")
+
+    assert list(cursor.dir(0).iterdir()) == []
+
+
+def test_delete_leaves_other_files_in_place(
+    store: FileImageStore[Image], cursor: SliceCursor, image: Image
+) -> None:
+    store.write("before", image)
+    store.write("after", image)
+
+    store.delete("before")
+
+    assert [p.name for p in cursor.dir(0).iterdir()] == ["after.tif"]
+
+
+def test_delete_is_per_slice(
+    store: FileImageStore[Image], cursor: SliceCursor, image: Image
+) -> None:
+    store.write("drift", image)
+    cursor.advance_to(1)
+    store.write("drift", image)
+
+    store.delete("drift")
+
+    assert (cursor.dir(0) / "drift.tif").is_file()
+    assert not (cursor.dir(1) / "drift.tif").exists()
+
+
+def test_delete_through_at_addresses_the_requested_slice(
+    store: FileImageStore[Image], cursor: SliceCursor, image: Image
+) -> None:
+    store.write("drift", image)
+    store.at(3).write("drift", image)
+
+    store.at(3).delete("drift")
+
+    assert (cursor.dir(0) / "drift.tif").is_file()
+    assert not (cursor.dir(3) / "drift.tif").exists()
+
+
+def test_delete_raises_when_the_file_is_missing(store: FileImageStore[Image]) -> None:
+    with pytest.raises(FileNotFoundError, match="No image found"):
+        store.delete("drift")
+
+
+def test_delete_error_names_the_expected_path(store: FileImageStore[Image]) -> None:
+    with pytest.raises(FileNotFoundError, match="drift.tif"):
+        store.delete("drift")
+
+
+def test_delete_does_not_create_the_slice_directory(
+    store: FileImageStore[Image], cursor: SliceCursor
+) -> None:
+    """A failed delete must leave no trace; only writes create directories."""
+    with pytest.raises(FileNotFoundError):
+        store.delete("drift")
+
+    assert not (cursor.action_dir / "slice_0000").exists()

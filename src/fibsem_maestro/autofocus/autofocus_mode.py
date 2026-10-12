@@ -62,9 +62,14 @@ class AutofocusMode(ABC):
         jobs: JobsManager,
         imaging: Imaging | None,
         resume_from: int = 0,
-    ) -> Generator[None, None, None]:
+    ) -> Generator[SweepStep, None, None]:
         """
         Drive the autofocus sweep and submit sharpness evaluation jobs.
+
+        Single-shot modes run the whole sweep without yielding. Multi-slice
+        modes yield once per slice: each yielded step is a trial whose value
+        the linked imaging must use for its next acquisition, and execution
+        resumes on the following slice.
 
         Args:
             ctx: Shared execution environment providing access to the
@@ -74,6 +79,9 @@ class AutofocusMode(ABC):
             imaging: Instance of the Imaging class used to acquire images.
             resume_from: Global index of the sweep to resume from (default 0).
                 Only used by the StepMode.
+
+        Yields:
+            The trial step for the next acquisition (multi-slice modes only).
         """
 
 
@@ -97,7 +105,7 @@ class BasicMode(AutofocusMode):
         jobs: JobsManager,
         imaging: Imaging | None,
         resume_from: int = 0,
-    ) -> Generator[None, None, None]:
+    ) -> Generator[SweepStep, None, None]:
         _ = imaging, resume_from
 
         if (sweeping := ctx.sweeping) is None:
@@ -126,7 +134,7 @@ class LineMode(AutofocusMode):
         jobs: JobsManager,
         imaging: Imaging | None,
         resume_from: int = 0,
-    ) -> Generator[None, None, None]:
+    ) -> Generator[SweepStep, None, None]:
         _ = imaging, resume_from
 
         if (sweeping := ctx.sweeping) is None:
@@ -358,7 +366,7 @@ class StepMode(AutofocusMode):
         jobs: JobsManager,
         imaging: Imaging | None,
         resume_from: int = 0,
-    ) -> Generator[None, None, None]:
+    ) -> Generator[SweepStep, None, None]:
         if not imaging:
             raise AutofocusError(
                 "Linking imaging to autofocus is required for step mode autofocus."
@@ -393,11 +401,11 @@ class StepMode(AutofocusMode):
                 else:
                     jobs.submit(ctx.make_sharpness_job(image, previous_step))
 
-            # set the value that the upcoming acquisition will use
-            sweeping.set_attribute_value(sweep.value)
-
             previous_step = sweep
-            yield
+
+            # the upcoming acquisition must use this step's value; Autofocus
+            # hands it to the linked imaging as an explicit patch
+            yield sweep
 
         # trailing tick: score the image acquired at the final step's value
         assert previous_step is not None
@@ -431,7 +439,7 @@ class AutoscriptMode(AutofocusMode):
         jobs: JobsManager,
         imaging: Imaging | None,
         resume_from: int = 0,
-    ) -> Generator[None, None, None]:
+    ) -> Generator[SweepStep, None, None]:
         _ = jobs, imaging, resume_from
 
         if not isinstance(ctx.microscope.control, AutoscriptMicroscopeControl):

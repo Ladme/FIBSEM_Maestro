@@ -136,3 +136,8 @@ class FileActionContext(ActionContext):
 
         self._action_dir = dir
         self._current_view = self._make_view(self._current_view.slice_index)
+
+    def rename(self, name: str) -> None:
+        # move the directory first: if that fails, nothing has changed
+        self.change_action_dir(self._action_dir.parent / name)
+        self._text_logger.rename(name)

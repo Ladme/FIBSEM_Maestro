@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Generic, TypeVar, final
+from typing import TYPE_CHECKING, ClassVar, Generic, TypeVar, final
 
 from fibsem_maestro.action.outcome import CarriedOver, Produced, StepOutcome
 from fibsem_maestro.action.settings_protocol import ActionSettingsLike
@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from fibsem_maestro.microscope.microscope import Microscope
     from fibsem_maestro.properties.global_properties import GlobalProperties
     from fibsem_maestro.settings.property_names import PropertyNames
+    from fibsem_maestro.settings.reactive import ChangePath
     from fibsem_maestro.store.props.props_store import PropsStore
     from fibsem_maestro.workflow.actions import Actions
 
@@ -50,6 +51,9 @@ class Action(ABC, Generic[TSettings, TState]):
         actions: All actions in the workflow, for resolving linked actions.
     """
 
+    _STATE_FIELDS: ClassVar[frozenset[str]] = frozenset()
+    """Top-level settings fields whose change invalidates the internal state of the action."""
+
     def __init__(
         self,
         name: str,
@@ -63,6 +67,9 @@ class Action(ABC, Generic[TSettings, TState]):
         self._settings = settings
         self._ctx = ctx
         self._actions = actions
+
+        if self._STATE_FIELDS:
+            self._settings.on_change_at(self._on_settings_changed_at)
 
     @classmethod
     def settings_cls(cls) -> type[TSettings]:
@@ -96,9 +103,8 @@ class Action(ABC, Generic[TSettings, TState]):
         properties are captured first, so they reflect the user's setup and
         not whatever the hook leaves on the microscope.
         """
-        self._ctx.text_logger.info(
-            f"Preparing '{self.name}' for slice {self._ctx.slice}."
-        )
+        if (bt := self.beam_type) is not None:
+            self._microscope.set_beam(bt)
         self.write_properties(self.collect_properties())
         self._prepare()
         self._ctx.state_store.write("state.yaml", self.state)
@@ -166,7 +172,7 @@ class Action(ABC, Generic[TSettings, TState]):
         Returns:
             `True` if the action should run for this slice.
         """
-        return matches_frequency(self._ctx.slice, self._settings.execution_frequency)
+        return self._settings.execution_frequency.matches(self._ctx.slice)
 
     def skip(self, reason: str) -> CarriedOver:
         """
@@ -191,6 +197,20 @@ class Action(ABC, Generic[TSettings, TState]):
         Override to carry over additional files or notify collaborators; call `super()`.
         """
         self.write_properties(self.read_properties(), self._ctx.props_store.next)
+
+    def rename(self, name: str) -> None:
+        """
+        Rename the action, together with its directory and its loggers.
+
+        Args:
+            name: The new action name.
+
+        Raises:
+            OSError: If the action directory cannot be moved, e.g.
+                `FileExistsError` if a directory for the new name already exists.
+        """
+        self._ctx.rename(name.replace(" ", "_"))
+        self._name = name
 
     @abstractmethod
     def _run_step(self) -> StepOutcome:
@@ -228,8 +248,14 @@ class Action(ABC, Generic[TSettings, TState]):
     def reset(self) -> None:
         """Reset the action to slice 0 and its default state."""
         self.ctx.reset()
-        # use the default state object associated with the action
+        self.reset_state()
+
+    def reset_state(self) -> None:
+        """
+        Discard the internal state, keeping the slice position.
+        """
         self.set_state(self.state_cls()())
+        self._ctx.state_store.write("state.yaml", self.state)
 
     @with_logging_context
     def initialize_first_slice(self) -> None:
@@ -249,10 +275,6 @@ class Action(ABC, Generic[TSettings, TState]):
     def name(self) -> str:
         """Human-readable identifier of the action."""
         return self._name
-
-    @name.setter
-    def name(self, value: str) -> None:
-        self._name = value
 
     @property
     def name_with_underscores(self) -> str:
@@ -357,16 +379,25 @@ class Action(ABC, Generic[TSettings, TState]):
         """
         return self._ctx.props_store.exists("props.yaml")
 
+    def _on_settings_changed_at(self, path: ChangePath) -> None:
+        """
+        Reset the internal state if a change affected a state-defining field.
 
-def matches_frequency(slice_index: int, frequency: int | None) -> bool:
-    """
-    Check whether a 1-based slice index falls on an execution frequency.
+        Nothing happens while the state is still the default one, e.g. before
+        the workflow has run, since there is nothing to discard.
 
-    Args:
-        slice_index: The slice index; the first acquired slice is 1.
-        frequency: Run every `frequency` slices, or `None` for never.
+        Args:
+            path: Location of the change relative to the settings. An empty
+                path means the settings changed as a whole, which may include
+                a state-defining field, so the state is reset then as well.
+        """
+        if path and path[0] not in self._STATE_FIELDS:
+            return
+        if self.state == self.state_cls()():
+            return
 
-    Returns:
-        `True` if the slice matches. Slice 1 always matches a set frequency.
-    """
-    return frequency is not None and (slice_index - 1) % frequency == 0
+        what = f"'{path[0]}'" if path else "the settings"
+        self._ctx.text_logger.info(
+            f"Resetting internal state of '{self.name}': {what} changed."
+        )
+        self.reset_state()

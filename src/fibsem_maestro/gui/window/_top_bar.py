@@ -5,6 +5,7 @@ import shutil
 from pathlib import Path
 
 from PyQt6.QtCore import QSize, Qt, QTimer
+from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
@@ -16,6 +17,7 @@ from PyQt6.QtWidgets import (
 )
 
 from fibsem_maestro.action_context.file import FileActionContext
+from fibsem_maestro.gui.action_panel._icon_button import ICON_SKULL, IconButton
 from fibsem_maestro.gui.app_state import AppState
 from fibsem_maestro.gui.form_builder.builder import FormBuilder
 from fibsem_maestro.gui.window._microscope_dialog import MicroscopeSettingsDialog
@@ -79,7 +81,9 @@ class TopBar(QWidget):
         self._run_btn.setIconSize(QSize(icon_size, icon_size))
         self._run_btn.setFixedSize(QSize(icon_size + 8, icon_size + 8))
         self._run_btn.clicked.connect(self._on_run)
-        self._run_btn.setEnabled(self._manager.state is not AppState.EDITING)
+        # whether the workflow may be started or resumed, from `preparedness_changed`
+        self._prepared = self._manager.state is not AppState.EDITING
+        self._update_run_button()
         layout.addWidget(self._run_btn)
 
         status_layout = QHBoxLayout()
@@ -122,6 +126,24 @@ class TopBar(QWidget):
         dir_font.setPointSize(9)
         self._dir_label.setFont(dir_font)
         layout.addWidget(self._dir_label)
+
+        # danger mode
+        layout.addSpacing(12)
+        self._danger_mode_btn = IconButton(
+            ICON_SKULL,
+            "Allow changing settings at any time. A change takes effect the next "
+            "time an action reads it. This can break stuff!",
+            "Danger mode",
+        )
+        self._danger_mode_btn.setCheckable(True)
+        self._danger_mode_btn.setChecked(self._manager.danger_mode)
+        # red while on; appended, so it wins over the hover and pressed looks
+        self._danger_mode_btn.setStyleSheet(
+            self._danger_mode_btn.styleSheet()
+            + "QToolButton#iconButton:checked { background: #c62828; border-color: #c62828; }"
+        )
+        self._danger_mode_btn.toggled.connect(self._manager.set_danger_mode)
+        layout.addWidget(self._danger_mode_btn)
 
         # setup the animation of the states
         self._setup_state_animation()
@@ -260,36 +282,47 @@ class TopBar(QWidget):
         self._new_btn.setEnabled(state not in (AppState.RUNNING, AppState.STOPPING))
         style = self._run_btn.style()
         match state:
-            case AppState.EDITING:
-                self._run_btn.setIcon(
-                    style.standardIcon(QStyle.StandardPixmap.SP_MediaPlay)
-                )
-
-                self._run_btn.setEnabled(True)
             case AppState.RUNNING:
                 self._run_btn.setIcon(
                     style.standardIcon(QStyle.StandardPixmap.SP_MediaPause)
                 )
-
-                self._run_btn.setEnabled(True)
-            case AppState.PAUSED | AppState.FINISHED | AppState.RELOADED:
+            case (
+                AppState.EDITING
+                | AppState.PAUSED
+                | AppState.FINISHED
+                | AppState.RELOADED
+                | AppState.INTERRUPTED
+            ):
                 self._run_btn.setIcon(
                     style.standardIcon(QStyle.StandardPixmap.SP_MediaPlay)
                 )
-
-                self._run_btn.setEnabled(True)
-            case AppState.INTERRUPTED:
-                self._run_btn.setIcon(
-                    style.standardIcon(QStyle.StandardPixmap.SP_MediaPlay)
-                )
-
-                self._run_btn.setEnabled(False)
+        self._update_run_button()
 
     def on_slice_changed(self, _: int) -> None:
         self._update_status()
 
     def _on_preparedness_changed(self, prepared: bool) -> None:
-        self._run_btn.setEnabled(prepared)
+        self._prepared = prepared
+        self._update_run_button()
+
+    def _update_run_button(self) -> None:
+        """
+        Enable the run button for the current state.
+
+        Pausing a running workflow is always possible. Starting or resuming
+        requires a prepared workflow: actions with stored properties and no
+        settings form holding an invalid value.
+        """
+        match self._manager.state:
+            case AppState.RUNNING:
+                self._run_btn.setEnabled(True)
+            case AppState.INTERRUPTED:
+                self._run_btn.setEnabled(False)
+            case AppState.STOPPING:
+                # the pause is on its way; leave the button as it is
+                pass
+            case _:
+                self._run_btn.setEnabled(self._prepared)
 
     def _update_status(self) -> None:
         """Updates slice number and state label to reflect `_current_state`."""
@@ -331,3 +364,17 @@ class TopBar(QWidget):
                 return "#f44336"
             case AppState.FINISHED:
                 return "#3734eb"
+
+    def _on_danger_mode_changed(self, enabled: bool) -> None:
+        """Show danger mode as a red button with a warning icon while it is on."""
+        style = self._danger_mode_btn.style()
+        if enabled:
+            self._danger_mode_btn.setIcon(
+                style.standardIcon(QStyle.StandardPixmap.SP_MessageBoxWarning)
+            )
+            self._danger_mode_btn.setStyleSheet(
+                "QPushButton { background: #c62828; color: white; font-weight: bold; }"
+            )
+        else:
+            self._danger_mode_btn.setIcon(QIcon())
+            self._danger_mode_btn.setStyleSheet("")

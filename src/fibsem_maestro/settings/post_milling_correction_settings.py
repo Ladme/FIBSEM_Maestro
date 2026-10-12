@@ -6,6 +6,7 @@ from typing import Annotated, Literal
 from pydantic import Field
 
 from fibsem_maestro.core.beam_type import BeamType
+from fibsem_maestro.core.frequency import Every, Frequency
 from fibsem_maestro.milling.milling import Milling
 from fibsem_maestro.settings.base_settings import BaseSettings
 from fibsem_maestro.settings.form_utils import FieldUnit, FormHint, WidgetType
@@ -13,7 +14,10 @@ from fibsem_maestro.settings.property_names import PropertyNames
 
 
 class ManualMode(BaseSettings):
-    type: Literal["manual"] = "manual"
+    type: Literal["manual"] = Field(
+        default="manual",
+        description="Shifts the image and working distance by fixed amounts.",
+    )
     y_correction: Annotated[float, FieldUnit(suffix="nm")] = Field(
         default=0.0,
         description="Change in beam shift along the y-dimension applied during the correction.",
@@ -25,7 +29,10 @@ class ManualMode(BaseSettings):
 
 
 class DynamicFocusMode(BaseSettings):
-    type: Literal["dynamic_focus"] = "dynamic_focus"
+    type: Literal["dynamic_focus"] = Field(
+        default="dynamic_focus",
+        description="Computes the shifts from the linked milling's slice distance.",
+    )
 
 
 PostMillingCorrectionMode = Annotated[
@@ -45,9 +52,9 @@ class PostMillingCorrectionSettings(BaseSettings):
         default=BeamType.ELECTRON,
         description="Beam to which correction is applied.",
     )
-    execution_frequency: Annotated[int, Field(gt=0)] | None = Field(
-        default=1,
-        description="Run the action every N-th slice. If not checked, the action will never run.",
+    execution_frequency: Frequency = Field(
+        default_factory=Every,
+        description="How often the action runs",
     )
     properties_to_collect: PropertyNames = Field(
         default_factory=PropertyNames,

@@ -18,7 +18,7 @@ from fibsem_maestro.workflow.actions import Actions
 
 
 class MillingState(ActionState):
-    milling_slice: NMArea | None
+    milling_slice: NMArea | None = None
 
 
 @ACTION_REGISTRY.register("milling")
@@ -26,6 +26,10 @@ class Milling(Action[MillingSettings, MillingState]):
     """
     Performs focused ion beam milling one slice at a time.
     """
+
+    _STATE_FIELDS = frozenset(
+        {"milling_area", "slice_distance", "milling_direction", "beam_type"}
+    )
 
     def __init__(
         self,
@@ -83,6 +87,12 @@ class Milling(Action[MillingSettings, MillingState]):
         self._current_milling_slice = self._current_milling_slice.shifted_in_direction(
             self._settings.milling_direction, self._settings.slice_distance
         )
+
+        if not self._current_milling_slice.has_size():
+            raise MillingError(
+                f"Area to be milled has no size: {self._current_milling_slice}"
+            )
+
         self._check_milling_area_in_bounds(
             self._current_milling_slice, self._get_milling_area_nm()
         )

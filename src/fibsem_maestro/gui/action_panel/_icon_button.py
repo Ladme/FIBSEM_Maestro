@@ -28,6 +28,15 @@ ICON_TEST = (
 )
 """Lab flask: test the action outside the acquisition."""
 
+ICON_SKULL = (
+    '<path d="M12 3C7.6 3 4 6.3 4 10.5c0 2.6 1.2 4.5 3 5.7V19a1 1 0 0 0 1 1h8'
+    'a1 1 0 0 0 1-1v-2.8c1.8-1.2 3-3.1 3-5.7C20 6.3 16.4 3 12 3z"/>'
+    '<circle cx="9" cy="11" r="1.5"/><circle cx="15" cy="11" r="1.5"/>'
+    '<path d="M12 14l-1 2h2z"/>'
+    '<path d="M10 18v2"/><path d="M14 18v2"/>'
+)
+"""Skull: danger mode, settings editable at any time."""
+
 _SVG_TEMPLATE = (
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
     'stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'

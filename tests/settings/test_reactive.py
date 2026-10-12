@@ -2,9 +2,14 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
+import copy
+import threading
 from typing import Literal
 
+from pydantic import Field
+
 from fibsem_maestro.settings.reactive import (
+    ChangePath,
     ReactiveDict,
     ReactiveList,
     ReactiveModel,
@@ -1228,3 +1233,139 @@ def test_equality_compares_extra_fields():
 
 def test_models_of_different_classes_are_not_equal():
     assert Parent(child=Child(value=1)) != Child(value=1)
+
+
+class _Inner(ReactiveModel):
+    value: int = 0
+
+
+class _Outer(ReactiveModel):
+    inner: _Inner = Field(default_factory=_Inner)
+    scalar: int = 0
+    items: ReactiveList[int] = Field(default_factory=ReactiveList)
+    table: ReactiveDict[str, int] = Field(default_factory=ReactiveDict)
+
+
+def _record(node: ReactiveNode) -> list[ChangePath]:
+    paths: list[ChangePath] = []
+    node.on_change_at(paths.append)
+    return paths
+
+
+def test_change_at_top_level_field_reports_its_name() -> None:
+    outer = _Outer()
+    paths = _record(outer)
+
+    outer.scalar = 1
+
+    assert paths == [("scalar",)]
+
+
+def test_change_in_nested_model_reports_the_full_path() -> None:
+    outer = _Outer()
+    paths = _record(outer)
+
+    outer.inner.value = 1
+
+    assert paths == [("inner", "value")]
+
+
+def test_path_is_relative_to_the_registering_node() -> None:
+    outer = _Outer()
+    paths = _record(outer.inner)
+
+    outer.inner.value = 1
+
+    assert paths == [("value",)]
+
+
+def test_replaced_nested_model_keeps_reporting_its_path() -> None:
+    outer = _Outer()
+    paths = _record(outer)
+
+    outer.inner = _Inner()
+    outer.inner.value = 2
+
+    assert paths == [("inner",), ("inner", "value")]
+
+
+def test_dict_item_change_reports_its_key() -> None:
+    outer = _Outer()
+    paths = _record(outer)
+
+    outer.table["a"] = 1
+
+    assert paths == [("table", "a")]
+
+
+def test_list_change_reports_the_list() -> None:
+    outer = _Outer()
+    paths = _record(outer)
+
+    outer.items.append(1)
+
+    assert paths == [("items",)]
+
+
+def test_update_reports_a_change_as_a_whole() -> None:
+    outer = _Outer()
+    paths = _record(outer)
+
+    outer.update(_Outer(scalar=3))
+
+    assert paths == [()]
+
+
+class _Settings(ReactiveModel):
+    value: int = 0
+    inner: _Inner = Field(default_factory=_Inner)
+
+
+class _Owner:
+    """Observer holding something deepcopy cannot copy, like an action does."""
+
+    def __init__(self, settings: _Settings) -> None:
+        self._lock = threading.Lock()
+        self.calls = 0
+        settings.on_change(self._on_change)
+
+    def _on_change(self, _: _Settings) -> None:
+        self.calls += 1
+
+
+def test_deepcopy_succeeds_with_a_bound_method_hook() -> None:
+    settings = _Settings()
+    _Owner(settings)
+
+    copied = copy.deepcopy(settings)
+
+    assert copied == settings
+
+
+def test_deepcopy_does_not_carry_the_hooks() -> None:
+    settings = _Settings()
+    owner = _Owner(settings)
+
+    copied = copy.deepcopy(settings)
+    copied.value = 1
+
+    assert owner.calls == 0
+
+
+def test_deepcopy_is_independent_of_the_original() -> None:
+    settings = _Settings()
+
+    copied = copy.deepcopy(settings)
+    copied.inner.value = 1
+
+    assert settings.inner.value == 0
+
+
+def test_deepcopy_rebuilds_parents_for_the_copy() -> None:
+    copied = copy.deepcopy(_Settings())
+    calls: list[_Settings] = []
+    copied.on_change(calls.append)
+
+    copied.inner.value = 1
+
+    assert calls == [copied]

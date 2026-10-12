@@ -22,6 +22,8 @@ from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.point import RelativePoint
+from fibsem_maestro.gui.app_state import AppState
+from fibsem_maestro.gui.form_builder.issues import FieldIssue, Severity
 from fibsem_maestro.gui.form_builder.widgets.area_select._mipmap import (
     MipmapPixmapItem,
 )
@@ -30,14 +32,19 @@ from fibsem_maestro.gui.form_builder.widgets.area_select._rectangle import (
 )
 from fibsem_maestro.gui.form_builder.widgets.area_select._viewer import AreaViewer
 from fibsem_maestro.gui.form_builder.widgets.area_select.overlay import (
+    AreaDecoration,
     OverlayData,
     build_decorations,
+    overlay_problems,
 )
 from fibsem_maestro.gui.form_builder.widgets.base import BaseWidget
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.form_utils import AreaOverlay
+
+_OVERLAY_ISSUE = "overlay"
+"""Source key of the warning this widget reports when an overlay cannot be drawn."""
 
 
 class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
@@ -82,6 +89,8 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         self._pending_regions: list[RelativeArea] = default or []
         self._expanded = False
         self._read_only = False
+        # the workflow uses the microscope while it runs, also in danger mode
+        self._acquisition_allowed = True
 
         self._overlays: list[tuple[AreaOverlay, OverlayData]] = []
         self._pixel_size: float | None = None
@@ -149,6 +158,7 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
             self._status_label.setText,
             self._max_areas,
             on_edit_finished=self._handle_edit_finished,
+            decoration_factory=self._build_decorations,
         )
         self._viewer.setFixedHeight(self._EXPANDED_HEIGHT)
         self._viewer.setSizePolicy(
@@ -156,6 +166,111 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         )
         viewer_layout.addWidget(self._viewer)
         outer.addWidget(self._viewer_container)
+
+    def on_app_state_changed(self, state: AppState) -> None:
+        """
+        Allow loading an image only while the workflow is not using the microscope.
+
+        Independent of read-only mode: in danger mode the areas can be edited
+        during a run, but acquiring an image would drive the microscope from
+        the GUI thread at the same time as the workflow.
+
+        Args:
+            state: The new application state.
+        """
+        self._acquisition_allowed = not state.is_running
+        self._update_load_button()
+
+    def set_overlays(self, overlays: Sequence[tuple[AreaOverlay, OverlayData]]) -> None:
+        """
+        Replace the decorations drawn on every area and redraw them live.
+
+        Areas that no longer fit the frame together with the new overlays'
+        footprint (e.g. after the margin grew) are shrunk to fit, and that
+        correction is emitted as a change.
+
+        Args:
+            overlays: Overlay kinds paired with their runtime values (e.g.
+                margin in nm, arrow direction). An overlay whose values are
+                missing is silently not drawn, so a partially configured form
+                still shows the overlays that are ready.
+        """
+        self._overlays = list(overlays)
+        if self._refresh_decorations():
+            self._emit()
+
+    def get_value(self) -> list[RelativeArea]:
+        """
+        Return the current areas as image-relative fractions.
+
+        Before an image is loaded, returns the pending regions unchanged.
+        Coordinates are clamped to the unit square.
+
+        Returns:
+            The areas currently defined, in scene draw order.
+        """
+        if self._image_size is None:
+            return self._pending_regions
+        w, h = self._image_size
+        result: list[RelativeArea] = []
+
+        # reversed so reloaded workflows keep the original ordering
+        for item in reversed(list(self._scene.items())):
+            if isinstance(item, ResizableRect):
+                sr = item.scene_rect()
+                result.append(
+                    RelativeArea(
+                        origin=RelativePoint(
+                            x=max(0.0, min(1.0, sr.x() / w)),
+                            y=max(0.0, min(1.0, sr.y() / h)),
+                        ),
+                        width=min(1.0, sr.width() / w),
+                        height=min(1.0, sr.height() / h),
+                    )
+                )
+        return result
+
+    def set_value(self, value: list[RelativeArea]) -> None:
+        """
+        Replace the current areas.
+
+        If no image is loaded yet, the areas are stored as pending and realized
+        on the next `convert_image`. No change is emitted, unless an area had to
+        be shrunk to fit the frame and the footprint of its overlays: that
+        correction is emitted, so the settings match what is shown.
+
+        Args:
+            value: The areas to display, or empty list to clear.
+        """
+        self._clear_rects()
+        regions = value or []
+        if self._image_size is None:
+            self._pending_regions = regions
+        else:
+            for area in regions:
+                self._add_relative_area(area)
+            if self._refresh_decorations():
+                self._emit()
+
+    def set_read_only(self, read_only: bool) -> None:
+        """
+        Freeze the areas while leaving navigation and collapse available.
+
+        In read-only mode the user can still expand/collapse, zoom, and pan, but
+        cannot load a new image, draw, delete, move, or resize areas. Resize
+        handles are hidden, since editing is disabled.
+
+        Args:
+            read_only: True to freeze area editing and image loading.
+        """
+        self._read_only = read_only
+
+        self._update_load_button()
+        # toggle stays enabled: collapse/expand is navigation, not editing
+        self._viewer.set_read_only(read_only)
+        for item in self._scene.items():
+            if isinstance(item, ResizableRect):
+                item.set_read_only(read_only)
 
     def _toggle(self) -> None:
         """Toggle between the collapsed thumbnail and the expanded viewer."""
@@ -193,7 +308,7 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         except Exception as e:
             self._status_label.setText(f"Acquisition failed: {e}")
         finally:
-            self._load_btn.setEnabled(True)
+            self._update_load_button()
 
     def _resolve_beam(self) -> BeamControl:
         """
@@ -238,13 +353,24 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
 
     def convert_image(self, image: Image) -> None:
         """
-        Display an image, preserving existing areas and realizing pending ones.
+        Display an image, keeping the current areas in place relative to the frame.
+
+        Areas are scene items in pixels of the displayed image, so they are read
+        back as relative areas before the image is replaced and re-created in
+        pixels of the new one. A reload at a different resolution or aspect
+        ratio therefore keeps every area at the same fraction of the frame.
 
         Args:
             image: The image to display beneath the area overlay.
         """
+
         arr = np.ascontiguousarray(image.to_8bit())
         h, w = arr.shape[:2]
+
+        # read the areas in the old image's pixels before the size changes;
+        # before any image, this returns the pending regions
+        regions = self.get_value()
+
         self._image_size = (w, h)
         self._pixel_size = image.pixel_size
 
@@ -259,9 +385,10 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
 
         self._last_pixmap = QPixmap.fromImage(q_image)
 
-        # replace the background pixmap, keep the area rectangles and all their children
+        # replace the whole scene: the background and the area rectangles,
+        # which are re-created below in pixels of the new image
         for item in list(self._scene.items()):
-            if item.parentItem() is None and not isinstance(item, ResizableRect):
+            if item.parentItem() is None:
                 self._scene.removeItem(item)
 
         # a mipmapped item: Qt's bilinear filter only reads a 2x2 neighbourhood
@@ -274,10 +401,7 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         self._scene.setSceneRect(QRectF(0, 0, w, h))
         self._viewer.reset_zoom()
 
-        self._update_thumbnail()
-
-        # realize any regions deferred while no image was available
-        for area in self._pending_regions:
+        for area in regions:
             self._add_relative_area(area)
         self._pending_regions = []
 
@@ -285,7 +409,8 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         self._viewer.set_image_loaded()
         self._status_label.setText(f"Image: {w}×{h} px")
 
-        # probably not strictly necessary
+        # write back: areas may have been shrunk to fit the new frame and the
+        # footprint of their overlays at the new pixel size
         self._emit()
 
     def _on_scene_changed(self, _) -> None:
@@ -374,94 +499,44 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         self._refresh_decorations()
         self._emit()
 
-    def _refresh_decorations(self) -> None:
-        """Rebuild every rectangle's decorations from the current overlay state."""
-        for item in self._scene.items():
-            if isinstance(item, ResizableRect):
-                item.apply_decorations(
-                    build_decorations(self._overlays, self._pixel_size, self._txt_log)
-                )
-        self._update_thumbnail()
-
-    def set_overlays(self, overlays: Sequence[tuple[AreaOverlay, OverlayData]]) -> None:
+    def _build_decorations(self) -> list[AreaDecoration]:
         """
-        Replace the decorations drawn on every area and redraw them live.
-
-        Args:
-            overlays: Overlay kinds paired with their runtime values (e.g.
-                margin in nm, arrow direction). An overlay whose values are
-                missing is silently not drawn, so a partially configured form
-                still shows the overlays that are ready.
-        """
-        self._overlays = list(overlays)
-        self._refresh_decorations()
-
-    def get_value(self) -> list[RelativeArea]:
-        """
-        Return the current areas as image-relative fractions.
-
-        Before an image is loaded, returns the pending regions unchanged.
-        Coordinates are clamped to the unit square.
+        Build one area's decorations from the current overlays and image scale.
 
         Returns:
-            The areas currently defined, in scene draw order.
+            Fresh decoration instances; each area needs its own.
         """
-        if self._image_size is None:
-            return self._pending_regions
-        w, h = self._image_size
-        result: list[RelativeArea] = []
+        return build_decorations(self._overlays, self._pixel_size)
 
-        # reversed so reloaded workflows keep the original ordering
-        for item in reversed(list(self._scene.items())):
-            if isinstance(item, ResizableRect):
-                sr = item.scene_rect()
-                result.append(
-                    RelativeArea(
-                        origin=RelativePoint(
-                            x=max(0.0, min(1.0, sr.x() / w)),
-                            y=max(0.0, min(1.0, sr.y() / h)),
-                        ),
-                        width=min(1.0, sr.width() / w),
-                        height=min(1.0, sr.height() / h),
-                    )
-                )
-        return result
-
-    def set_value(self, value: list[RelativeArea]) -> None:
+    def _refresh_decorations(self) -> bool:
         """
-        Replace the current areas (no change emitted).
+        Rebuild every rectangle's decorations, then fit each into its new bounds.
 
-        If no image is loaded yet, the areas are stored as pending and realized
-        on the next `convert_image`.
+        Also reports, as a warning on this field, every overlay that cannot be
+        drawn: a configuration the criterion would reject, or a decoration that
+        does not fit its area.
 
-        Args:
-            value: The areas to display, or empty list to clear.
+        Returns:
+            True if any area was resized or moved to fit the frame less the
+            footprint of its decorations. The caller decides whether to emit.
         """
-        self._clear_rects()
-        regions = value or []
-        if self._image_size is None:
-            self._pending_regions = regions
-        else:
-            for area in regions:
-                self._add_relative_area(area)
-            self._refresh_decorations()
-
-    def set_read_only(self, read_only: bool) -> None:
-        """
-        Freeze the areas while leaving navigation and collapse available.
-
-        In read-only mode the user can still expand/collapse, zoom, and pan, but
-        cannot load a new image, draw, delete, move, or resize areas. Resize
-        handles are hidden, since editing is disabled.
-
-        Args:
-            read_only: True to freeze area editing and image loading.
-        """
-        self._read_only = read_only
-
-        self._load_btn.setEnabled(not read_only)
-        # toggle stays enabled: collapse/expand is navigation, not editing
-        self._viewer.set_read_only(read_only)
+        fitted = False
+        problems = overlay_problems(self._overlays, self._pixel_size)
         for item in self._scene.items():
             if isinstance(item, ResizableRect):
-                item.set_read_only(read_only)
+                item.apply_decorations(self._build_decorations())
+                fitted |= item.fit_to_bounds()
+                problems.extend(item.decoration_problems())
+
+        unique = list(dict.fromkeys(problems))
+        self.set_issue(
+            _OVERLAY_ISSUE,
+            FieldIssue(Severity.WARNING, "\n".join(unique)) if unique else None,
+        )
+
+        self._update_thumbnail()
+        return fitted
+
+    def _update_load_button(self) -> None:
+        """Enable Load only when areas may be edited and the microscope is free."""
+        self._load_btn.setEnabled(not self._read_only and self._acquisition_allowed)

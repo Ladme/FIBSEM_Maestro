@@ -29,6 +29,8 @@ class WorkflowManager(QObject):
     slice_finished = pyqtSignal(int)
     app_state_changed = pyqtSignal(AppState)
     preparedness_changed = pyqtSignal(bool)
+    form_issues_changed = pyqtSignal()  # a settings form field turned valid or invalid
+    danger_mode_changed = pyqtSignal(bool)  # settings editable regardless of the state
     workflow_error = pyqtSignal(Exception)
     action_error = pyqtSignal(ActionError)
     workflow_reset = pyqtSignal(
@@ -46,6 +48,7 @@ class WorkflowManager(QObject):
         )
         self._thread = None
         self._worker = None
+        self._danger_mode = False
         self._start_worker()
 
     def _start_worker(self) -> None:
@@ -67,6 +70,28 @@ class WorkflowManager(QObject):
     @property
     def state(self) -> AppState:
         return self._state
+
+    @property
+    def danger_mode(self) -> bool:
+        """
+        Whether settings can be edited in any state, including while the workflow runs.
+
+        Only settings are unlocked; microscope access from the GUI and the
+        structure of the workflow still follow the state.
+        """
+        return self._danger_mode
+
+    def set_danger_mode(self, enabled: bool) -> None:
+        """
+        Turn danger mode on or off.
+
+        Args:
+            enabled: True to allow editing settings in any state.
+        """
+        if enabled == self._danger_mode:
+            return
+        self._danger_mode = enabled
+        self.danger_mode_changed.emit(enabled)
 
     def _set_state(self, state: AppState) -> None:
         self._state = state
@@ -90,6 +115,9 @@ class WorkflowManager(QObject):
 
     def notify_action_removed(self, action: Action) -> None:
         self.action_removed.emit(action)
+
+    def notify_form_issues_changed(self) -> None:
+        self.form_issues_changed.emit()
 
     def notify_new_workflow(self, path: Path) -> None:
         # abort the current worker and thread, if any
@@ -200,6 +228,18 @@ class WorkflowManager(QObject):
         self._worker.submit_error_choice(choice)
         if choice is not ErrorChoice.TERMINATE:
             self._set_state(AppState.RUNNING)
+
+    def skip_and_pause(self) -> None:
+        """
+        Skip the failed action, then pause the workflow right after it.
+
+        The pause is requested before the worker is released from waiting for
+        the error choice, so it cannot run past its next pause check first.
+        """
+        assert self._worker
+        self._worker.pause()
+        self._worker.submit_error_choice(ErrorChoice.SKIP)
+        self._set_state(AppState.STOPPING)
 
     def _on_actions_changed(self, actions: Actions) -> None:
         # loop through all propagations
