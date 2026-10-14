@@ -337,7 +337,10 @@ class Criterion:
 
         try:
             self._img_log.save_image(
-                filename, full_image, overlays, "Image with tiling"
+                filename,
+                full_image,
+                overlays,
+                f"Image with tiling - {self._settings.sharpness_metric.type}",
             )
         except Exception as e:
             self._txt_log.warning(f"Could not log a criterion image with tiles: {e}")
@@ -375,6 +378,7 @@ class Criterion:
                 )
             except Exception as e:
                 self._txt_log.warning(f"Could not log a sharpness map: {e}")
+
         if best_tile is not None:
             try:
                 self._img_log.save_image(
