@@ -54,11 +54,11 @@ class MillingSettings(BaseSettings):
         default=PatternType(""),
         description="Type of pattern to use for milling.",
     )
-    milling_depth: Annotated[float, FieldUnit(suffix="nm")] = Field(
-        default=0.0, description="Depth of the milling."
+    milling_depth: Annotated[float, FieldUnit(suffix="nm"), Field(gt=0)] = Field(
+        default=1.0, description="Depth of the milling."
     )
-    slice_distance: Annotated[float, FieldUnit(suffix="nm")] = Field(
-        default=0.0,
+    slice_distance: Annotated[float, FieldUnit(suffix="nm"), Field(gt=0)] = Field(
+        default=1.0,
         description="Thickness of each slice, i.e., distance to shift the pattern by after each milling step.",
     )
     milling_direction: Annotated[
