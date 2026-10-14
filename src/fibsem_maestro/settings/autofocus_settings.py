@@ -3,10 +3,11 @@
 
 
 from enum import Enum
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
+from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.frequency import Every, Frequency
 from fibsem_maestro.imaging.imaging import Imaging
@@ -14,6 +15,7 @@ from fibsem_maestro.properties.beam_properties import BeamProperties
 from fibsem_maestro.settings.base_settings import BaseSettings
 from fibsem_maestro.settings.criterion_settings import CriterionSettings
 from fibsem_maestro.settings.form_utils import (
+    AcquisitionOffset,
     FieldUnit,
     FormHint,
     NestedUnion,
@@ -22,10 +24,25 @@ from fibsem_maestro.settings.form_utils import (
 from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.settings.sweeping_settings import SweepingSettings
 
+ScanningArea = Annotated[
+    list[RelativeArea],
+    FormHint(
+        widget=WidgetType.AREA_SELECT,
+        max_areas=1,
+        beam_source="beam_type",
+        offset=AcquisitionOffset(source="delta_x"),
+    ),
+]
+"""The area an autofocus mode scans during its sweep; empty for the whole frame."""
+
 
 class BasicMode(BaseSettings):
     type: Literal["basic"] = Field(
         default="basic", description="Grab a frame for each value of the sweep."
+    )
+    scanning_area: ScanningArea = Field(
+        default_factory=list[RelativeArea],
+        description="Area scanned during the sweep.",
     )
     sweeping: SweepingSettings = Field(
         default_factory=SweepingSettings,
@@ -40,6 +57,10 @@ class BasicMode(BaseSettings):
 class LineMode(BaseSettings):
     type: Literal["line"] = Field(
         default="line", description="Perform the sweep while acquiring a single frame."
+    )
+    scanning_area: ScanningArea = Field(
+        default_factory=list[RelativeArea],
+        description="Area scanned during the sweep.",
     )
     sweeping: SweepingSettings = Field(
         default_factory=SweepingSettings,
@@ -73,6 +94,29 @@ class LineMode(BaseSettings):
     )
 
 
+class CustomCriterion(BaseSettings):
+    source: Literal["custom"] = Field(
+        default="custom",
+        description="Scores each frame with a criterion of its own.",
+    )
+    criterion: CriterionSettings = Field(
+        default_factory=CriterionSettings,
+        description="Setting for criterion to be used.",
+    )
+
+
+class ImagingCriterion(BaseSettings):
+    source: Literal["imaging"] = Field(
+        default="imaging",
+        description="Reuses the sharpness the linked imaging calculates for each frame.",
+    )
+
+
+StepCriterion = Annotated[
+    CustomCriterion | ImagingCriterion, Field(discriminator="source")
+]
+
+
 class StepMode(BaseSettings):
     type: Literal["step"] = Field(
         default="step",
@@ -82,10 +126,32 @@ class StepMode(BaseSettings):
         default_factory=SweepingSettings,
         description="Settings for sweeping to be used.",
     )
-    criterion: CriterionSettings = Field(
-        default_factory=CriterionSettings,
-        description="Setting for criterion to be used.",
+    criterion: StepCriterion = Field(
+        default_factory=CustomCriterion,
+        description="Where the sharpness of each frame comes from.",
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _read_bare_criterion(cls, data: Any) -> Any:
+        """
+        Read step-mode settings saved before the criterion source existed.
+
+        A criterion stored without a `source` is a custom criterion.
+
+        Args:
+            data: The raw input being validated.
+
+        Returns:
+            The input, with a bare criterion wrapped as a custom one.
+        """
+        if (
+            isinstance(data, dict)
+            and isinstance(criterion := data.get("criterion"), dict)
+            and "source" not in criterion
+        ):
+            return {**data, "criterion": {"source": "custom", "criterion": criterion}}
+        return data
 
 
 class AutoscriptFunctionBase(BaseSettings):

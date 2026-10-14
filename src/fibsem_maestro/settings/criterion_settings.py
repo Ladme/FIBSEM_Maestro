@@ -14,6 +14,7 @@ from fibsem_maestro.settings.base_settings import BaseSettings
 from fibsem_maestro.settings.form_utils import (
     AcquisitionOffset,
     AreaOverlay,
+    CropSource,
     FieldUnit,
     FormHint,
     OverlaySpec,
@@ -99,6 +100,13 @@ class CriterionSettings(BaseSettings):
             max_areas=1,
             beam_source="beam_type",
             offset=AcquisitionOffset(source="delta_x"),
+            # imaging and the basic and line autofocus modes scan their own
+            # area; step mode scores the frames of its linked imaging
+            crop_sources=(
+                CropSource("scanning_area"),
+                CropSource("mode.scanning_area"),
+                CropSource("scanning_area", via="linked_imaging"),
+            ),
             overlays=(
                 OverlaySpec.of(
                     AreaOverlay.SHOW_TILES,

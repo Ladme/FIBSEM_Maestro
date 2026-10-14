@@ -54,14 +54,6 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
     Collapsed, it shows a thumbnail with a region overlay.
     Expanded, it shows an interactive viewer for drawing, moving, resizing,
     and deleting areas over the last acquired image.
-
-    Args:
-        microscope: Microscope instance used to acquire images, or None.
-        max_areas: Maximum number of areas, or None for unlimited.
-        default: Pre-populated areas, applied once an image is available.
-        beam_provider: Called just before each acquisition to decide which beam
-            to image with. Returning None leaves the active beam untouched.
-        parent: Parent widget.
     """
 
     _THUMBNAIL_HEIGHT = 100
@@ -76,6 +68,7 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         default: list[RelativeArea] | None = None,
         beam_provider: Callable[[], BeamType | None] | None = None,
         offset_provider: Callable[[], float | None] | None = None,
+        crop_provider: Callable[[], RelativeArea | None] | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -96,6 +89,7 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         self._pixel_size: float | None = None
         self._beam_provider = beam_provider
         self._offset_provider = offset_provider
+        self._crop_provider = crop_provider
 
         self.setMinimumWidth(self._MINIMUM_WIDTH)
 
@@ -304,6 +298,10 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
             else:
                 image = beam.get_image()
 
+            # areas are drawn on what the frames they are applied to show
+            if (crop := self._resolve_crop()) is not None:
+                image = image.crop(crop)
+
             self.convert_image(image)
         except Exception as e:
             self._status_label.setText(f"Acquisition failed: {e}")
@@ -350,6 +348,15 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
                 )
             return 0.0
         return offset_nm
+
+    def _resolve_crop(self) -> RelativeArea | None:
+        """
+        Return the scanning area to crop a loaded image to.
+
+        Returns:
+            The area, relative to the grabbed frame, or None to show the whole frame.
+        """
+        return self._crop_provider() if self._crop_provider is not None else None
 
     def convert_image(self, image: Image) -> None:
         """

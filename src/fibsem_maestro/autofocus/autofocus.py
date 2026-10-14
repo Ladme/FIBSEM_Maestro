@@ -21,6 +21,7 @@ from fibsem_maestro.autofocus.jobs_manager import JobsManager
 from fibsem_maestro.autofocus.result import AutofocusResult
 from fibsem_maestro.autofocus.sweep_step import SweepStep
 from fibsem_maestro.autofocus.sweeping import Sweeping
+from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.point import PixelPoint
 from fibsem_maestro.imaging.imaging import Imaging
@@ -33,6 +34,8 @@ from fibsem_maestro.settings.autofocus_settings import (
     AutofocusSettings,
     AutoscriptFunctionBase,
 )
+from fibsem_maestro.settings.autofocus_settings import BasicMode as BasicModeSettings
+from fibsem_maestro.settings.autofocus_settings import LineMode as LineModeSettings
 from fibsem_maestro.settings.reactive import ChangePath
 from fibsem_maestro.workflow.actions import Actions
 
@@ -242,6 +245,24 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
     def wait_for_background_threads(self) -> None:
         self._jobs.wait()
 
+    @with_logging_context
+    def collect_properties(self) -> GlobalProperties:
+        """
+        Collect the relevant properties of the microscope.
+
+        Overrides the default implementation. The scanning area of the basic
+        and line modes replaces the one read from the instrument, so that it is
+        applied with the other properties when the action runs, as Imaging does
+        in standard resolution.
+
+        Returns:
+            The collected properties.
+        """
+        props = super().collect_properties()
+        if (area := self._mode_scanning_area()) is not None:
+            props.set_property("scanning_area", area, self.beam_type)
+        return props
+
     def _run_step(self) -> StepOutcome:
         if self._active_gen is None:
             self._start_sweep()
@@ -293,10 +314,19 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
                 f"Step mode requires '{imaging.name}' to run every slice "
                 f"(execution frequency 1), got {imaging.settings.execution_frequency}."
             )
+
         if imaging.beam_type is not self.beam_type:
             raise AutofocusError(
                 f"Step mode requires '{imaging.name}' to use the same beam as "
                 f"'{self.name}' ({self.beam_type}), got {imaging.beam_type}."
+            )
+
+        if (
+            self._autofocus_ctx.uses_imaging_criterion
+            and imaging.settings.criterion is None
+        ):
+            raise AutofocusError(
+                f"Step mode uses the criterion of '{imaging.name}', but it has none configured."
             )
 
     def _run_sweep_and_apply_best(self) -> None:
@@ -398,6 +428,20 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
         if isinstance(self._mode, LineMode):
             self._log_line_focus_image(results)
 
+    def _mode_scanning_area(self) -> RelativeArea | None:
+        """
+        Return the scanning area configured in the mode, if any.
+
+        Returns:
+            The first scanning area of the basic or line mode, or None when
+            none is set or the mode has none (step and Autoscript modes).
+        """
+        match self._settings.mode:
+            case BasicModeSettings() | LineModeSettings() as mode if mode.scanning_area:
+                return mode.scanning_area[0]
+            case _:
+                return None
+
     def _log_af_curve(
         self, results: list[AutofocusResult], best: float, base: Any | None
     ) -> None:
@@ -467,12 +511,10 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
         if not results:
             return
 
-        try:
-            # assuming the image used for line autofocus is still the current microscope image
-            image = self._autofocus_ctx.microscope.beam.get_image()
-        except Exception as e:
+        # the frame the sweep was evaluated on; the line indices refer to it
+        if (image := self._autofocus_ctx.line_focus_image) is None:
             self._ctx.text_logger.warning(
-                f"Could not retrieve line focus image for logging: {e}"
+                "Line focus image is not available for logging."
             )
             return
 

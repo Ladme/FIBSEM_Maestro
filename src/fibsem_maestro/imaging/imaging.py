@@ -84,32 +84,48 @@ class Imaging(Action[ImagingSettings, ImagingState]):
     def set_state(self, state: ImagingState) -> None:
         self._image_sharpness = state.image_sharpness
 
+        # skip if the acquisition hasn't started yet
+        if self._ctx.slice == 0:
+            return
+
+        # restore the last frame, which a step-mode autofocus may still have to score
+        self._last_acquired_image = self._read_last_frame()
+
         if (
-            # skip if the acquisition hasn't started yet
-            self._ctx.slice != 0
-            and state.image_sharpness is None
+            state.image_sharpness is None
             and self.settings.criterion is not None
+            and self._last_acquired_image is not None
         ):
             self._ctx.text_logger.warning(
-                f"Restoring state of '{self.name}': image sharpness not computed, recovering from frame captured for slice {self._ctx.slice}."
+                f"Restoring state of '{self.name}': image sharpness not computed, "
+                "recovering it from the last frame."
             )
-            # sharpness was not computed before the interrupt - recover it now
-            # by loading the persisted frame and computing synchronously
+            self._calculate_sharpness(self._last_acquired_image, self._ctx.current_view)
+
+    def _read_last_frame(self) -> Image | None:
+        """
+        Read the frame this imaging acquired last, for restoring after an interrupt.
+
+        The current slice has a frame if the interrupt came after the
+        acquisition but before the slice counter advanced; otherwise the last
+        frame is the previous slice's.
+
+        Returns:
+            The frame, or None if neither slice has one (e.g. the imaging did
+            not run on the previous slice).
+        """
+        stores = (self._ctx.frame_store, self._ctx.frame_store.at(self._ctx.slice - 1))
+        for store in stores:
             try:
-                # try to load the frame for the current slice
-                image = self._ctx.frame_store.read(self._microscope.provenance)
+                return store.read(self._microscope.provenance)
             except FileNotFoundError:
-                self._ctx.text_logger.warning(
-                    f"Restoring state of '{self.name}': frame for slice {self._ctx.slice} not found, falling back to slice {self._ctx.slice - 1}."
-                )
-                # if this fails, fall back to the previous slice
-                # this should only happen if the image successfully completes the execution,
-                # but the background thread does not finish the calculation before interrupt
-                image = self._ctx.frame_store.at(self._ctx.slice - 1).read(
-                    self._microscope.provenance
-                )
-            self._last_acquired_image = image
-            self._calculate_sharpness(image, self._ctx.current_view)
+                continue
+
+        self._ctx.text_logger.warning(
+            f"Restoring state of '{self.name}': no frame found for slice "
+            f"{self._ctx.slice} or {self._ctx.slice - 1}."
+        )
+        return None
 
     @property
     def last_acquired_image(self) -> Image | None:
