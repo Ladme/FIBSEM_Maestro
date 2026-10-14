@@ -17,6 +17,9 @@ from fibsem_maestro.gui.form_builder._build_scope import (
 )
 from fibsem_maestro.gui.form_builder._follower_binding import FollowerBinding
 from fibsem_maestro.gui.form_builder._overlay_binding import OverlayBinding
+from fibsem_maestro.gui.form_builder._stale_image_watch import (
+    StaleImageWatch,
+)
 from fibsem_maestro.gui.form_builder._write_back import WriteBack
 from fibsem_maestro.gui.form_builder.schema.constraints import NumericBounds
 from fibsem_maestro.gui.form_builder.schema.field_info import FieldInfo
@@ -403,7 +406,6 @@ class FormBuilder:
 
                 area = AreaSelectWidget(
                     microscope=self._microscope,
-                    txt_log=self._txt_log,
                     max_areas=hint.max_areas if hint.max_areas else None,
                     default=default,
                     beam_provider=beam_provider,
@@ -411,10 +413,17 @@ class FormBuilder:
                     crop_provider=crop_provider,
                 )
 
+                # an offset changed after Load makes the displayed image stale
+                if offset_provider is not None:
+                    watch = StaleImageWatch(area)
+                    area.destroyed.connect(watch.deactivate)
+                    scope.instances[0].on_change_at(watch)
+
                 # loading an image needs the microscope, which a running workflow holds
                 if self._manager is not None:
                     self._manager.app_state_changed.connect(area.on_app_state_changed)
                     area.on_app_state_changed(self._manager.state)
+
                 return area
 
             case WidgetType.RANGE_PAIR:

@@ -28,7 +28,9 @@ from fibsem_maestro.settings.autofocus_settings import (
     AutoscriptAutoSourceTilt,
     AutoscriptAutoStigmator,
     AutoscriptAutoStigmatorMethod,
+    AutoscriptFunctionBase,
 )
+from fibsem_maestro.settings.autofocus_settings import BasicMode as BasicModeSettings
 from fibsem_maestro.settings.autofocus_settings import LineMode as LineModeSettings
 
 if TYPE_CHECKING:
@@ -112,9 +114,10 @@ class BasicMode(AutofocusMode):
         if (sweeping := ctx.sweeping) is None:
             raise AutofocusError("Sweeping for basic mode autofocus is not defined.")
 
-        with ctx.microscope.add_temporary_beam_shift(
-            BeamShift(x=ctx.settings.delta_x, y=0.0)
-        ):
+        mode = ctx.settings.mode
+        assert isinstance(mode, BasicModeSettings)
+
+        with ctx.microscope.add_temporary_beam_shift(BeamShift(x=mode.delta_x, y=0.0)):
             for sweep in sweeping.sweep():
                 ctx.ctx.text_logger.info(
                     f"Autofunction step {sweep.index + 1} "
@@ -141,9 +144,10 @@ class LineMode(AutofocusMode):
         if (sweeping := ctx.sweeping) is None:
             raise AutofocusError("Sweeping for line mode autofocus is not defined.")
 
-        with ctx.microscope.add_temporary_beam_shift(
-            BeamShift(x=ctx.settings.delta_x, y=0.0)
-        ):
+        mode = ctx.settings.mode
+        assert isinstance(mode, LineModeSettings)
+
+        with ctx.microscope.add_temporary_beam_shift(BeamShift(x=mode.delta_x, y=0.0)):
             line_time = self._estimate_line_time(ctx)  # in ns
 
             # generate sweep steps once so both acquisition and processing see the same steps
@@ -478,9 +482,10 @@ class AutoscriptMode(AutofocusMode):
             ctx.microscope.control.autoscript_microscope
         )
 
-        with ctx.microscope.add_temporary_beam_shift(
-            BeamShift(x=ctx.settings.delta_x, y=0.0)
-        ):
+        mode = ctx.settings.mode
+        assert isinstance(mode, AutoscriptFunctionBase)
+
+        with ctx.microscope.add_temporary_beam_shift(BeamShift(x=mode.delta_x, y=0.0)):
             match ctx.settings.mode:
                 case AutoscriptAutoFocus() as mode:
                     self._run_autofocus(ctx, mode, autoscript_microscope)

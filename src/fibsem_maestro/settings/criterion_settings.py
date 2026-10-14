@@ -130,7 +130,7 @@ class CriterionSettings(BaseSettings):
             widget=WidgetType.AREA_SELECT,
             max_areas=1,
             beam_source="beam_type",
-            offset=AcquisitionOffset(source="delta_x"),
+            offset=AcquisitionOffset(source="mode.delta_x"),
             # imaging and the basic and line autofocus modes scan their own
             # area; step mode scores the frames of its linked imaging
             crop_sources=(

@@ -24,13 +24,16 @@ from fibsem_maestro.settings.form_utils import (
 from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.settings.sweeping_settings import SweepingSettings
 
+FocusOffset = Annotated[float, FieldUnit(suffix="nm")]
+"""Beam shift along x, in nm, to focus away from the sample area during the sweep."""
+
 ScanningArea = Annotated[
     list[RelativeArea],
     FormHint(
         widget=WidgetType.AREA_SELECT,
         max_areas=1,
         beam_source="beam_type",
-        offset=AcquisitionOffset(source="delta_x"),
+        offset=AcquisitionOffset(source="mode.delta_x"),
     ),
 ]
 """The area an autofocus mode scans during its sweep; empty for the whole frame."""
@@ -43,6 +46,10 @@ class BasicMode(BaseSettings):
     scanning_area: ScanningArea = Field(
         default_factory=list[RelativeArea],
         description="Area scanned during the sweep.",
+    )
+    delta_x: FocusOffset = Field(
+        default=0.0,
+        description="Offset for out of sample focusing on the x-axis.",
     )
     sweeping: SweepingSettings = Field(
         default_factory=SweepingSettings,
@@ -61,6 +68,10 @@ class LineMode(BaseSettings):
     scanning_area: ScanningArea = Field(
         default_factory=list[RelativeArea],
         description="Area scanned during the sweep.",
+    )
+    delta_x: FocusOffset = Field(
+        default=0.0,
+        description="Offset for out of sample focusing on the x-axis.",
     )
     sweeping: SweepingSettings = Field(
         default_factory=SweepingSettings,
@@ -164,6 +175,10 @@ class AutoscriptFunctionBase(BaseSettings):
 
     type: Literal["autoscript"] = Field(
         default="autoscript", description="Use the built-in autoscript algorithm."
+    )
+    delta_x: FocusOffset = Field(
+        default=0.0,
+        description="Offset for out of sample focusing on the x-axis.",
     )
 
 
@@ -280,10 +295,6 @@ class AutofocusSettings(BaseSettings):
     beam_type: BeamType = Field(
         default=BeamType.ELECTRON,
         description="Beam on which the autofocus should be performed.",
-    )
-    delta_x: Annotated[float, FieldUnit(suffix="nm")] = Field(
-        default=0,
-        description="Offset for out of sample focusing on the x-axis.",
     )
     max_workers: Annotated[int, Field(gt=0)] = Field(
         default=1,
