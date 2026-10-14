@@ -380,6 +380,9 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
             self._current_step_index = 0
             self._sweep_base_value = None
 
+        if self._settings.grab_frame_after:
+            self._save_result_frame("after_autofocus")
+
         return None
 
     def _abort_sweep(self) -> None:

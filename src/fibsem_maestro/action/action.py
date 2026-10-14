@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, ClassVar, Generic, TypeVar, final
 from fibsem_maestro.action.outcome import CarriedOver, Produced, StepOutcome
 from fibsem_maestro.action.settings_protocol import ActionSettingsLike
 from fibsem_maestro.action.state import ActionState
+from fibsem_maestro.core.format import ImageFormat
 from fibsem_maestro.logging.logging import with_logging_context
 
 if TYPE_CHECKING:
@@ -401,3 +402,36 @@ class Action(ABC, Generic[TSettings, TState]):
             f"Resetting internal state of '{self.name}': {what} changed."
         )
         self.reset_state()
+
+    def _save_result_frame(self, label: str) -> None:
+        """
+        Grab a frame in the current microscope state and save it with this action's slice.
+
+        For checking what an action achieved, e.g. the focus after an
+        autofocus. The frame is written next to this action's frames for the
+        current slice, named by `label`, and does not go through the frame
+        store, so it never blocks or replaces a slice frame. A failure is
+        logged rather than raised, since the frame is only diagnostic.
+
+        Args:
+            label: Name part identifying the frame, e.g. `"after_autofocus"`.
+        """
+        if self._ctx.path_to_dir is None:
+            self._ctx.text_logger.warning(
+                f"Frame after '{self.name}' not saved: the action has no directory."
+            )
+            return
+
+        try:
+            image = self._microscope.beam.grab_frame()
+            output_path = self._ctx.current_view.path() / f"{label}.tif"
+            image.save(output_path, ImageFormat.TIF)
+        except Exception as e:
+            self._ctx.text_logger.warning(
+                f"Could not save the frame after '{self.name}': {e}"
+            )
+            return
+
+        self._ctx.text_logger.info(
+            f"Saved the frame after '{self.name}' as {output_path}."
+        )

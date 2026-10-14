@@ -300,6 +300,10 @@ class AutofocusSettings(BaseSettings):
         default=1,
         description="Maximal number of threads used for the calculations in this action.",
     )
+    grab_frame_after: bool = Field(
+        default=False,
+        description="Grab a frame once the best value is applied.",
+    )
     sharpness_limit: Annotated[float, Field(gt=0)] | None = Field(
         default=None,
         description="Autofunction runs if image sharpness is below this limit. If not checked, this condition is not applied.",

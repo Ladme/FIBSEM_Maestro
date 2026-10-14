@@ -33,6 +33,10 @@ class DriftCorrectionSettings(BaseSettings):
         default=BeamType.ELECTRON,
         description="Beam used for drift correction imaging.",
     )
+    grab_frame_after: bool = Field(
+        default=False,
+        description="Grab a frame once the drift is corrected.",
+    )
     stop_at_failure: bool = Field(
         default=True,
         description="If checked and drift correction fails, the execution is stopped. If not checked, warning is printed but execution continues.",
