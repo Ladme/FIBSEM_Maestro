@@ -55,6 +55,10 @@ class BasicMode(BaseSettings):
         default_factory=SweepingSettings,
         description="Settings for sweeping to be used.",
     )
+    max_sweeps: Annotated[int, Field(ge=1)] = Field(
+        default=1,
+        description="Repeat the sweep while the best is at the range edge, up to this many times.",
+    )
     criterion: CriterionSettings = Field(
         default_factory=CriterionSettings,
         description="Setting for criterion to be used.",
@@ -76,6 +80,10 @@ class LineMode(BaseSettings):
     sweeping: SweepingSettings = Field(
         default_factory=SweepingSettings,
         description="Settings for sweeping to be used.",
+    )
+    max_sweeps: Annotated[int, Field(ge=1)] = Field(
+        default=1,
+        description="Repeat the sweep while the best is at the range edge, up to this many times.",
     )
     criterion: CriterionSettings = Field(
         default_factory=CriterionSettings,
@@ -136,6 +144,10 @@ class StepMode(BaseSettings):
     sweeping: SweepingSettings = Field(
         default_factory=SweepingSettings,
         description="Settings for sweeping to be used.",
+    )
+    max_sweeps: Annotated[int, Field(ge=1)] = Field(
+        default=1,
+        description="Repeat the sweep while the best is at the range edge, up to this many times.",
     )
     criterion: StepCriterion = Field(
         default_factory=CustomCriterion,
