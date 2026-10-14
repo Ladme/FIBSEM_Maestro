@@ -1,10 +1,12 @@
 # Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
+import dataclasses
 import os
 from pathlib import Path
 from typing import Any, cast
 
+from pydantic import BaseModel
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QCloseEvent
 from PyQt6.QtWidgets import (
@@ -212,6 +214,11 @@ class MainWindow(QMainWindow):
             )
             # and every link must name an action in the workflow, open form or not
             and not self._has_broken_links()
+            # and every area selector must hold its minimum number of areas
+            and not any(
+                _lacks_areas(action.settings)
+                for action in self._manager.workflow.actions
+            )
         )
 
     def _on_workflow_error(self, error: Exception) -> None:
@@ -315,3 +322,31 @@ class MainWindow(QMainWindow):
                     return True
 
         return False
+
+
+def _lacks_areas(obj: object) -> bool:
+    """
+    Check whether an object, or an object nested in it, has too few areas.
+
+    An area field's minimum is the `min_areas` of its area-selector hint. The
+    check reads the values themselves, so actions whose form was never opened
+    are covered too. An optional area field that is unset is not checked.
+
+    Args:
+        obj: Settings object (pydantic model or dataclass) to check.
+
+    Returns:
+        True if some area field holds fewer areas than its minimum.
+    """
+    for fi in get_field_infos(type(obj)):
+        value = getattr(obj, fi.name, None)
+        hint = fi.hint
+        if hint is not None and hint.widget is WidgetType.AREA_SELECT:
+            if hint.min_areas and value is not None and len(value) < hint.min_areas:
+                return True
+        elif (
+            isinstance(value, BaseModel) or dataclasses.is_dataclass(value)
+        ) and _lacks_areas(value):
+            return True
+
+    return False

@@ -35,6 +35,7 @@ class AreaViewer(QGraphicsView):
     Args:
         scene: The graphics scene to display.
         status_callback: Called with a status string on interactions.
+        min_areas: Number of areas that cannot be deleted below, or None for no minimum.
         max_areas: Maximum number of areas, or None for unlimited.
         on_edit_finished: Called once whenever a user gesture commits a change.
         decoration_factory: Builds the decorations for a newly drawn area.
@@ -44,12 +45,14 @@ class AreaViewer(QGraphicsView):
         self,
         scene: QGraphicsScene,
         status_callback: Callable[[str], None],
+        min_areas: int | None = None,
         max_areas: int | None = None,
         on_edit_finished: Callable[[], None] | None = None,
         decoration_factory: Callable[[], Sequence[AreaDecoration]] | None = None,
     ) -> None:
         super().__init__(scene)
         self._status_cb = status_callback
+        self._min_areas = min_areas
         self._max_areas = max_areas
         self._on_edit_finished = on_edit_finished
         self._decoration_factory = decoration_factory
@@ -275,17 +278,36 @@ class AreaViewer(QGraphicsView):
         super().mouseReleaseEvent(event)
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
-        """Delete selected areas, notifying once if anything was removed."""
+        """
+        Delete selected areas, notifying once if anything was removed.
+
+        A deletion that would leave fewer than `min_areas` areas is refused
+        as a whole, with a status message.
+        """
         if event.key() == Qt.Key.Key_Delete:
-            removed = False
-            for item in self.scene().selectedItems():
-                if isinstance(item, ResizableRect):
-                    self.scene().removeItem(item)
-                    removed = True
             event.accept()
-            if removed:
-                self._notify_edit_finished()
+            selected = [
+                item
+                for item in self.scene().selectedItems()
+                if isinstance(item, ResizableRect)
+            ]
+            if not selected:
+                return
+
+            if (
+                self._min_areas is not None
+                and self._rect_count() - len(selected) < self._min_areas
+            ):
+                self._status_message_timed(
+                    f"Minimum of {self._min_areas} area(s) required."
+                )
+                return
+
+            for item in selected:
+                self.scene().removeItem(item)
+            self._notify_edit_finished()
             return
+
         super().keyPressEvent(event)
 
     def set_image_loaded(self) -> None:

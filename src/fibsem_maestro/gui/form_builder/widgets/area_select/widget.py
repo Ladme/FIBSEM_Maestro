@@ -48,6 +48,9 @@ _OVERLAY_ISSUE = "overlay"
 _STALE_ISSUE = "stale_image"
 """Source key of the warning that the image was loaded at a different offset."""
 
+_MIN_AREAS_ISSUE = "min_areas"
+"""Source key of the error that the field holds fewer areas than required."""
+
 
 class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
     """
@@ -65,6 +68,7 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
     def __init__(
         self,
         microscope: Microscope | None,
+        min_areas: int | None = None,
         max_areas: int | None = None,
         default: list[RelativeArea] | None = None,
         beam_provider: Callable[[], BeamType | None] | None = None,
@@ -76,6 +80,7 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         BaseWidget.__init__(self)
 
         self._microscope = microscope
+        self._min_areas = min_areas
         self._max_areas = max_areas
         self._image_size: tuple[int, int] | None = None
         self._last_pixmap: QPixmap | None = None
@@ -153,6 +158,7 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         self._viewer = AreaViewer(
             self._scene,
             self._status_label.setText,
+            self._min_areas,
             self._max_areas,
             on_edit_finished=self._handle_edit_finished,
             decoration_factory=self._build_decorations,
@@ -163,6 +169,8 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         )
         viewer_layout.addWidget(self._viewer)
         outer.addWidget(self._viewer_container)
+
+        self._check_min_areas()
 
     def on_app_state_changed(self, state: AppState) -> None:
         """
@@ -241,6 +249,7 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         """
         self._clear_rects()
         regions = value or []
+
         if self._image_size is None:
             self._pending_regions = regions
         else:
@@ -248,6 +257,8 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
                 self._add_relative_area(area)
             if self._refresh_decorations():
                 self._emit()
+
+        self._check_min_areas()
 
     def set_read_only(self, read_only: bool) -> None:
         """
@@ -533,7 +544,21 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
     def _handle_edit_finished(self) -> None:
         """Decorate any newly created areas, then emit the change."""
         self._refresh_decorations()
+        self._check_min_areas()
         self._emit()
+
+    def _check_min_areas(self) -> None:
+        """Mark this field as an error while it holds fewer areas than `min_areas`."""
+        if self._min_areas is None:
+            return
+
+        missing = len(self.get_value()) < self._min_areas
+        self.set_issue(
+            _MIN_AREAS_ISSUE,
+            FieldIssue(Severity.ERROR, f"At least {self._min_areas} area(s) required.")
+            if missing
+            else None,
+        )
 
     def _build_decorations(self) -> list[AreaDecoration]:
         """

@@ -406,6 +406,7 @@ class FormBuilder:
 
                 area = AreaSelectWidget(
                     microscope=self._microscope,
+                    min_areas=hint.min_areas if hint.min_areas else None,
                     max_areas=hint.max_areas if hint.max_areas else None,
                     default=default,
                     beam_provider=beam_provider,

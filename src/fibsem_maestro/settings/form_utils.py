@@ -159,6 +159,7 @@ class FormHint:
     choices: Callable[[], list[str]] | None = None
     file_filter: str | None = None
     max_areas: int | None = None
+    min_areas: int | None = None
     action_type_filter: list[type[Action]] = field(default_factory=list)
     overlays: tuple[OverlaySpec, ...] = ()
     # field name feeding the beam source

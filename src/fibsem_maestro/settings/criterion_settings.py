@@ -128,6 +128,7 @@ class CriterionSettings(BaseSettings):
         list[RelativeArea],
         FormHint(
             widget=WidgetType.AREA_SELECT,
+            min_areas=1,
             max_areas=1,
             beam_source="beam_type",
             offset=AcquisitionOffset(source="mode.delta_x"),

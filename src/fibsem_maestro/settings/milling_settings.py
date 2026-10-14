@@ -26,6 +26,7 @@ class MillingSettings(BaseSettings):
         list[RelativeArea],
         FormHint(
             widget=WidgetType.AREA_SELECT,
+            min_areas=1,
             max_areas=1,
             overlays=(
                 OverlaySpec.of(
