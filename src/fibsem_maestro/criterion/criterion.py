@@ -46,14 +46,13 @@ class Criterion:
     The pipeline consists of three stages: area cropping, tiling, and metric
     evaluation. The image is first cropped to a configured region of interest,
     then optionally subdivided into overlapping square tiles, and finally scored
-    using a registered criterion function. Multi-tile scores are reduced to a
-    single value via a NumPy reduction function.
+    using the registered function of the configured metric. Multi-tile scores
+    are reduced to a single value via a NumPy reduction function.
 
     1D images bypass cropping, tiling, and masking entirely and are passed
     directly to the metric function.
 
     Args:
-        name: Human-readable name identifying this criterion instance.
         settings: Criterion configuration.
         txt_log: Logger for diagnostic and status messages.
         img_log: Logger for saving tile overlays, sharpness maps, and best tile images.
@@ -71,9 +70,8 @@ class Criterion:
         self._settings = settings
         self._calculation_mode = settings.calculation_mode
         self._tiling_mode = settings.tiling_mode
-        self._sharpness_metric_fn = CRITERION_FUNCTIONS.get(
-            settings.sharpness_metric_fn
-        )
+        self._metric = settings.sharpness_metric
+        self._sharpness_metric_fn = CRITERION_FUNCTIONS.get(self._metric.type)
 
         if isinstance(self._tiling_mode, MultiTileMode):
             self._tile_reduction_fn = REDUCTORS.get(self._tiling_mode.tile_reduction_fn)
@@ -100,7 +98,7 @@ class Criterion:
         # handle 1D images - no cropping, no tiling, no masking
         if len(image.shape) == 1:
             sharpness = float(
-                self._sharpness_metric_fn(image, self._settings, self._txt_log)
+                self._sharpness_metric_fn(image, self._metric, self._txt_log)
             )
             self._txt_log.info("Finished sharpness calculation.")
             return sharpness
@@ -224,7 +222,7 @@ class Criterion:
 
         try:
             sharpness = float(
-                self._sharpness_metric_fn(tile_img, self._settings, self._txt_log)
+                self._sharpness_metric_fn(tile_img, self._metric, self._txt_log)
             )
             self._txt_log.debug(f"Sharpness for tile {tile}: {sharpness}")
             return sharpness

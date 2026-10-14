@@ -8,7 +8,6 @@ from pydantic import AfterValidator, Field
 
 from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.detail_band import DetailBand
-from fibsem_maestro.criterion.functions import CRITERION_FUNCTIONS
 from fibsem_maestro.criterion.reductors import REDUCTORS
 from fibsem_maestro.settings.base_settings import BaseSettings
 from fibsem_maestro.settings.form_utils import (
@@ -25,11 +24,6 @@ ReductionName = Annotated[
     str,
     AfterValidator(REDUCTORS.validate),
     FormHint(widget=WidgetType.DROPDOWN, choices=lambda: list(REDUCTORS)),
-]
-CriterionName = Annotated[
-    str,
-    AfterValidator(CRITERION_FUNCTIONS.validate),
-    FormHint(widget=WidgetType.DROPDOWN, choices=lambda: list(CRITERION_FUNCTIONS)),
 ]
 
 
@@ -80,11 +74,7 @@ CriterionTilingMode = Annotated[
 ]
 
 
-class CriterionSettings(BaseSettings):
-    sharpness_metric_fn: CriterionName = Field(
-        default="bandpass",
-        description="Criterion calculation function.",
-    )
+class DetailBandMetric(BaseSettings):
     detail: Annotated[
         DetailBand,
         FormHint(widget=WidgetType.DETAIL_BAND),
@@ -92,6 +82,47 @@ class CriterionSettings(BaseSettings):
     ] = Field(
         default=DetailBand(low=1.0, high=1.0),
         description="Bandpass parameters: low and high details to filter out.",
+    )
+
+
+class BandpassMetric(DetailBandMetric):
+    type: Literal["bandpass"] = Field(
+        default="bandpass",
+        description="Mean amplitude of the image band-passed to the detail range.",
+    )
+
+
+class BandpassVarMetric(DetailBandMetric):
+    type: Literal["bandpass_var"] = Field(
+        default="bandpass_var",
+        description="Variance of the image band-passed to the detail range.",
+    )
+
+
+class FftMetric(DetailBandMetric):
+    type: Literal["fft"] = Field(
+        default="fft",
+        description="FFT amplitude in the detail range; works on images and single lines.",
+    )
+
+
+class FrcMetric(BaseSettings):
+    type: Literal["frc"] = Field(
+        default="frc",
+        description="Resolution limit from single-image Fourier ring correlation; no detail range needed.",
+    )
+
+
+SharpnessMetric = Annotated[
+    BandpassMetric | BandpassVarMetric | FftMetric | FrcMetric,
+    Field(discriminator="type"),
+]
+
+
+class CriterionSettings(BaseSettings):
+    sharpness_metric: SharpnessMetric = Field(
+        default_factory=BandpassMetric,
+        description="Metric used to calculate sharpness.",
     )
     area: Annotated[
         list[RelativeArea],
