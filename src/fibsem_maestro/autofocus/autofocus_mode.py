@@ -316,11 +316,18 @@ class LineMode(AutofocusMode):
 
         # identify stripes from the image;
         # each stripe corresponds to one sweeping repetition
-        stripes = list(get_stripes(img_8bit, separator_threshold, min_stripe_width))
-        if not stripes:
+        stripes = [
+            stripe
+            for stripe in get_stripes(img_8bit, separator_threshold, min_stripe_width)
+            if len(stripe) > 0
+        ]
+
+        cycles = len({step.repetition for step in sweep_steps})
+        if len(stripes) != cycles:
             raise AutofocusError(
-                "No stripes found in the line-focus frame. Check the separator "
-                "threshold and the scanning area."
+                f"Expected {cycles} stripe(s) in the line-focus frame, found "
+                f"{len(stripes)}. Check the separator threshold, the minimal "
+                "stripe width and whether the sweep fits into the scanned rows."
             )
 
         # group sweep steps by repetition to match against stripes
