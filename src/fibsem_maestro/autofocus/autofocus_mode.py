@@ -155,7 +155,9 @@ class LineMode(AutofocusMode):
 
             self._variable_sweeping_during_scan(ctx, line_time, sweep_steps)
 
-            line_focus_image = ctx.microscope.beam.get_image()
+            # outside a reduced scanning area the frame holds stale content
+            line_focus_image = ctx.microscope.beam.get_image(crop_to_scanning_area=True)
+            ctx.line_focus_image = line_focus_image
             self._process_image(ctx, jobs, line_focus_image, sweep_steps)
 
         yield from ()
@@ -314,7 +316,12 @@ class LineMode(AutofocusMode):
 
         # identify stripes from the image;
         # each stripe corresponds to one sweeping repetition
-        stripes = get_stripes(img_8bit, separator_threshold, min_stripe_width)
+        stripes = list(get_stripes(img_8bit, separator_threshold, min_stripe_width))
+        if not stripes:
+            raise AutofocusError(
+                "No stripes found in the line-focus frame. Check the separator "
+                "threshold and the scanning area."
+            )
 
         # group sweep steps by repetition to match against stripes
         sweep_groups = groupby(sweep_steps, key=lambda step: step.repetition)
