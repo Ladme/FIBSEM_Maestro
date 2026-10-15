@@ -86,6 +86,7 @@ class TemplateMatchingSettings(BaseSettings):
         list[RelativeArea],
         FormHint(
             widget=WidgetType.AREA_SELECT,
+            min_areas=1,
             max_areas=None,
             overlays=(
                 OverlaySpec.of(AreaOverlay.SHOW_MARGIN, margin_nm="correction_margin"),

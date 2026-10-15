@@ -47,8 +47,9 @@ class EnumWidget(NoScrollComboBox, BaseWidget[T | None]):
             )
             self._values.append(choice)
 
-        if default is not None and default in self._values:
-            self.setCurrentIndex(self._values.index(default))
+        # a default that is not offered selects nothing rather than leaving
+        # Qt's automatic first entry, which the settings do not hold
+        self._select(default)
 
         self.setFixedWidth(200)
         self.currentIndexChanged.connect(lambda _: self._emit())
@@ -65,14 +66,23 @@ class EnumWidget(NoScrollComboBox, BaseWidget[T | None]):
 
     def set_value(self, value: T | None) -> None:
         """
-        Select the given value, if it is among the choices.
+        Select the given value.
 
         Args:
-            value: The value to select. Does nothing if not present.
+            value: The value to select. If it is not among the choices,
+                nothing is selected and the widget reads as None, so the
+                form never shows a value the settings do not hold.
         """
+        self._select(value)
 
-        if value in self._values:
-            self.setCurrentIndex(self._values.index(value))
+    def _select(self, value: T | None) -> None:
+        """
+        Select a value, or nothing if it is not among the choices.
+
+        Args:
+            value: The value to select; None selects "(none)" if present.
+        """
+        self.setCurrentIndex(self._values.index(value) if value in self._values else -1)
 
     def set_read_only(self, read_only: bool) -> None:
         """

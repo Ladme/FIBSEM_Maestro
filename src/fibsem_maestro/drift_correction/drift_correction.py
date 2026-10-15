@@ -124,6 +124,9 @@ class DriftCorrection(Action[DriftCorrectionSettings, DriftCorrectionState]):
                 self._calculate_correcting_beam_shift()
             )
 
+        if self._settings.grab_frame_after:
+            self._save_result_frame("after_drift_correction")
+
         self._drift_calc.after_calculate_drift(self._ctx.slice)
         return Produced(self.collect_properties())
 

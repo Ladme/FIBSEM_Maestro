@@ -263,7 +263,16 @@ class LogPanel(QWidget):
             self._append_line(line)
 
     def _on_poll(self) -> None:
-        """Poll log files for new lines (only when watching current slice)."""
+        """
+        Offer newly created slices, and poll the selected slice's log files for new lines.
+
+        Any slice is polled, not only the current one: a slice ahead of the
+        workflow's counter is still being written. A finished slice simply
+        yields nothing new.
+        """
+        if self._has_new_slice():
+            self._rebuild_slices()
+
         if self._slice_combo.currentText() != "current":
             return
 
@@ -287,6 +296,31 @@ class LogPanel(QWidget):
         new_lines.sort(key=lambda log: log.timestamp)
         for line in new_lines:
             self._append_line(line)
+
+    def _has_new_slice(self) -> bool:
+        """
+        Check whether a slice directory beyond the listed ones has appeared.
+
+        Actions advance their own slice counters, and a slice directory is
+        created by the first file written into it, e.g. a log line written
+        while the workflow is paused. Only the slice after the highest listed
+        one is looked for, so the check costs one lookup per source.
+
+        Returns:
+            True if some source has a directory for that slice.
+        """
+        listed = [
+            int(text)
+            for i in range(self._slice_combo.count())
+            if (text := self._slice_combo.itemText(i)).isdigit()
+        ]
+
+        candidate = f"slice_{max(listed, default=-1) + 1:04d}"
+        return any(
+            (source_dir := self._source_dir(source)) is not None
+            and (source_dir / candidate).is_dir()
+            for source in self._source_names()
+        )
 
     def _append_line(self, line: LogLine) -> None:
         color = LEVEL_COLORS.get(line.level, "#cccccc")

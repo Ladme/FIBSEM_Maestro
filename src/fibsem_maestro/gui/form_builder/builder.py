@@ -2,11 +2,13 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 from collections.abc import Callable
+from dataclasses import replace
 from enum import Enum
 from functools import partial
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 from fibsem_maestro.action.action import Action
+from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.gui.form_builder._build_scope import (
     BuildContext,
@@ -15,6 +17,9 @@ from fibsem_maestro.gui.form_builder._build_scope import (
 )
 from fibsem_maestro.gui.form_builder._follower_binding import FollowerBinding
 from fibsem_maestro.gui.form_builder._overlay_binding import OverlayBinding
+from fibsem_maestro.gui.form_builder._stale_image_watch import (
+    StaleImageWatch,
+)
 from fibsem_maestro.gui.form_builder._write_back import WriteBack
 from fibsem_maestro.gui.form_builder.schema.constraints import NumericBounds
 from fibsem_maestro.gui.form_builder.schema.field_info import FieldInfo
@@ -58,11 +63,30 @@ from fibsem_maestro.gui.form_builder.widgets.union import DiscriminatedUnionWidg
 from fibsem_maestro.gui.workflow_manager import WorkflowManager
 from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.settings.base_settings import BaseSettings
-from fibsem_maestro.settings.form_utils import AreaOverlay, OverlaySpec, WidgetType
+from fibsem_maestro.settings.form_utils import (
+    AreaOverlay,
+    CropSource,
+    OverlaySpec,
+    WidgetType,
+)
 
 if TYPE_CHECKING:
     from fibsem_maestro.core.pattern_type import PatternType
     from fibsem_maestro.microscope.microscope import Microscope
+
+
+class _Crop(NamedTuple):
+    """
+    A resolved preview crop.
+
+    Attributes:
+        area: The scanning area to crop to, or None for the whole frame.
+        linked: True if the area came from a linked action's settings, whose
+            frames are taken at that action's own position.
+    """
+
+    area: RelativeArea | None
+    linked: bool
 
 
 class FormBuilder:
@@ -344,6 +368,21 @@ class FormBuilder:
                             """The beam this selector images with, or None."""
                             return resolve_beam(scope, beam_source)
 
+                crop_sources: tuple[CropSource, ...] = ()
+                crop_provider = None
+                if hint.crop_sources:
+                    if not scope.instances:
+                        self._warn(
+                            f"Field {fi.name!r} declares crop sources but is not "
+                            "bound to live settings; the whole frame is shown."
+                        )
+                    else:
+                        crop_sources = hint.crop_sources
+
+                        def crop_provider() -> RelativeArea | None:
+                            """The scanning area to crop the preview to, or None."""
+                            return self._resolve_crop(scope, crop_sources).area
+
                 offset_provider = None
                 if (offset := hint.offset) is not None:
                     if not scope.instances:
@@ -357,21 +396,35 @@ class FormBuilder:
 
                         def offset_provider() -> float | None:
                             """X offset applied when grabbing, in nm; None if unresolved."""
+                            # frames acquired by a linked action are taken at its position
+                            if (
+                                crop_sources
+                                and self._resolve_crop(scope, crop_sources).linked
+                            ):
+                                return 0.0
                             return scope.value(offset_path, float)
 
                 area = AreaSelectWidget(
                     microscope=self._microscope,
-                    txt_log=self._txt_log,
+                    min_areas=hint.min_areas if hint.min_areas else None,
                     max_areas=hint.max_areas if hint.max_areas else None,
                     default=default,
                     beam_provider=beam_provider,
                     offset_provider=offset_provider,
+                    crop_provider=crop_provider,
                 )
+
+                # an offset changed after Load makes the displayed image stale
+                if offset_provider is not None:
+                    watch = StaleImageWatch(area)
+                    area.destroyed.connect(watch.deactivate)
+                    scope.instances[0].on_change_at(watch)
 
                 # loading an image needs the microscope, which a running workflow holds
                 if self._manager is not None:
                     self._manager.app_state_changed.connect(area.on_app_state_changed)
                     area.on_app_state_changed(self._manager.state)
+
                 return area
 
             case WidgetType.RANGE_PAIR:
@@ -1048,6 +1101,56 @@ class FormBuilder:
             f"{binding.field_name!r} variant; using {binding.fallback!r}."
         )
         binding.union.select(binding.fallback)
+
+    def _resolve_crop(
+        self, scope: BuildScope, sources: tuple[CropSource, ...]
+    ) -> _Crop:
+        """
+        Find the scanning area an area selector's preview is cropped to.
+
+        Sources are tried in order against the live settings; the first that
+        resolves to a list decides, even an empty one (the whole frame).
+
+        Args:
+            scope: The scope of the area selector's field.
+            sources: The field's crop sources.
+
+        Returns:
+            The crop, and whether it came from a linked action's settings.
+        """
+        for source in sources:
+            if source.via is None:
+                areas = scope.value(source.path, list)
+            else:
+                areas = self._linked_value(scope, source.via, source.path)
+
+            if areas is not None:
+                return _Crop(areas[0] if areas else None, source.via is not None)
+        return _Crop(None, False)
+
+    def _linked_value(self, scope: BuildScope, via: str, path: str) -> list | None:
+        """
+        Resolve a path in the settings of the action a link field names.
+
+        Args:
+            scope: The scope the link field is resolved from.
+            via: Path to the field holding the linked action's name.
+            path: Path to resolve in that action's settings.
+
+        Returns:
+            The list found there, or None if the link or the path does not resolve.
+        """
+        if self._manager is None or (name := scope.value(via, str)) is None:
+            return None
+
+        action = next(
+            (a for a in self._manager.workflow.actions if a.name == name), None
+        )
+
+        if action is None:
+            return None
+
+        return replace(scope, instances=(action.settings,)).value(path, list)
 
 
 def _variant_description(variant_type: type, discriminator_key: str) -> str:

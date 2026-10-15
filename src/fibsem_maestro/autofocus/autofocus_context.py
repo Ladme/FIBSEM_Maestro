@@ -11,13 +11,19 @@ from fibsem_maestro.autofocus.error import AutofocusError
 from fibsem_maestro.autofocus.result import AutofocusResult
 from fibsem_maestro.autofocus.sweep_step import SweepStep
 from fibsem_maestro.autofocus.sweeping import Sweeping
+from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.criterion.criterion import Criterion
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.autofocus_settings import (
     AutofocusSettings,
-    AutoscriptFunctionBase,
+    CustomCriterion,
+    ImagingCriterion,
 )
+from fibsem_maestro.settings.autofocus_settings import BasicMode as BasicModeSettings
+from fibsem_maestro.settings.autofocus_settings import LineMode as LineModeSettings
+from fibsem_maestro.settings.autofocus_settings import StepMode as StepModeSettings
+from fibsem_maestro.settings.criterion_settings import CriterionSettings
 
 
 class AutofocusContext:
@@ -44,6 +50,9 @@ class AutofocusContext:
         self.sweeping = sweeping
         self.ctx = ctx
         self.settings = settings
+
+        # the frame a line-mode sweep was evaluated on, kept for logging after the sweep
+        self.line_focus_image: Image | None = None
 
     def make_sharpness_job(
         self, image: Image, sweep: SweepStep
@@ -74,6 +83,7 @@ class AutofocusContext:
             or if the criterion is not defined.
         """
         ctx_snapshot = contextvars.copy_context()
+        criterion_settings = self.criterion
         current_view = self.ctx.current_view
         text_logger = self.ctx.text_logger.at(current_view.slice_index)
         image_logger = self.ctx.image_logger.at(current_view.slice_index)
@@ -81,12 +91,7 @@ class AutofocusContext:
         def fn() -> AutofocusResult:
             def _run() -> AutofocusResult:
                 try:
-                    assert not isinstance(self.settings.mode, AutoscriptFunctionBase)
-                    criterion = Criterion(
-                        self.settings.mode.criterion,
-                        text_logger,
-                        image_logger,
-                    )
+                    criterion = Criterion(criterion_settings, text_logger, image_logger)
                     value = float(criterion.calculate_sharpness(image))
                     if np.isnan(value):
                         raise AutofocusError("Sharpness calculation returned NaN")
@@ -103,3 +108,44 @@ class AutofocusContext:
             return ctx_snapshot.run(_run)
 
         return fn
+
+    @property
+    def scanning_area(self) -> RelativeArea | None:
+        """
+        The area the configured mode scans during its sweep.
+
+        Returns:
+            The basic or line mode's scanning area, or None to leave the beam's
+            current scanning area unchanged (no area set, or another mode).
+        """
+        match self.settings.mode:
+            case BasicModeSettings() | LineModeSettings() as mode if mode.scanning_area:
+                return mode.scanning_area[0]
+            case _:
+                return None
+
+    @property
+    def criterion(self) -> CriterionSettings:
+        """
+        The criterion the autofocus scores frames with.
+
+        Raises:
+            AutofocusError: If the configured mode has no criterion of its own
+                (Autoscript, or step mode using the imaging's criterion).
+        """
+        match self.settings.mode:
+            case BasicModeSettings() | LineModeSettings() as mode:
+                return mode.criterion
+            case StepModeSettings(criterion=CustomCriterion() as custom):
+                return custom.criterion
+            case _:
+                raise AutofocusError("The autofocus mode has no criterion of its own.")
+
+    @property
+    def uses_imaging_criterion(self) -> bool:
+        """True if step mode reuses the sharpness its linked imaging calculates."""
+        mode = self.settings.mode
+
+        return isinstance(mode, StepModeSettings) and isinstance(
+            mode.criterion, ImagingCriterion
+        )

@@ -10,15 +10,23 @@ import numpy as np
 from scipy.ndimage import gaussian_filter
 
 from fibsem_maestro.core.registry import Registry
+from fibsem_maestro.criterion.frc import frc_cutoff_frequency
+from fibsem_maestro.settings.criterion_settings import (
+    SharpnessMetric,
+)
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
     from fibsem_maestro.core.image import Image
     from fibsem_maestro.logging.text.text_logger import TextLogger
-    from fibsem_maestro.settings.criterion_settings import CriterionSettings
+    from fibsem_maestro.settings.criterion_settings import (
+        DetailBandMetric,
+        FrcMetric,
+    )
 
-CriterionFunction = Callable[["Image", "CriterionSettings", "TextLogger"], np.floating]
+CriterionFunction = Callable[["Image", SharpnessMetric, "TextLogger"], np.floating]
+"""A metric: image, the metric's own settings variant, and a logger to a sharpness."""
 
 # registry of criterion functions
 CRITERION_FUNCTIONS = Registry[CriterionFunction]("criterion function")
@@ -26,63 +34,60 @@ CRITERION_FUNCTIONS = Registry[CriterionFunction]("criterion function")
 
 @CRITERION_FUNCTIONS.register("bandpass")
 def bandpass_criterion(
-    img: Image, settings: CriterionSettings, _logger: TextLogger
+    img: Image, metric: DetailBandMetric, _logger: TextLogger
 ) -> np.floating:
     """
     Compute the mean absolute response of a band-pass filtered image.
 
     Args:
         img (Image): Input image.
-        settings (CriterionSettings): Criterion configuration.
+        metric (DetailBandMetric): Metric settings with the detail band.
         _logger (TextLogger): Logger to use for textual logging.
 
     Returns:
         np.floating: Mean of the absolute band-passed image.
     """
-    img_low = gauss_filter(img, img.pixel_size, settings.detail.low)
-    img_high = gauss_filter(img, img.pixel_size, settings.detail.high)
+    img_low = gauss_filter(img, img.pixel_size, metric.detail.low)
+    img_high = gauss_filter(img, img.pixel_size, metric.detail.high)
 
     return np.mean(abs(img_high - img_low))
 
 
 @CRITERION_FUNCTIONS.register("bandpass_var")
 def bandpass_var_criterion(
-    img: Image, settings: CriterionSettings, _logger: TextLogger
+    img: Image, metric: DetailBandMetric, _logger: TextLogger
 ) -> np.floating:
     """
     Compute the variance of the band-pass filtered image.
 
     Args:
         img (Image): Input image.
-        settings (CriterionSettings): Criterion configuration.
+        metric (DetailBandMetric): Metric settings with the detail band.
         _logger (TextLogger): Logger to use for textual logging.
 
     Returns:
         np.floating: Variance of the band-passed image.
     """
-    img_low = gauss_filter(img, img.pixel_size, settings.detail.low)
-    img_high = gauss_filter(img, img.pixel_size, settings.detail.high)
+    img_low = gauss_filter(img, img.pixel_size, metric.detail.low)
+    img_high = gauss_filter(img, img.pixel_size, metric.detail.high)
 
     return np.var(img_high - img_low)
 
 
 @CRITERION_FUNCTIONS.register("fft_1d")
 def fft_1d_criterion(
-    img: Image, settings: CriterionSettings, _logger: TextLogger
+    img: Image, metric: DetailBandMetric, _logger: TextLogger
 ) -> np.floating:
     """
     Compute the 1D FFT amplitude sum within a frequency band.
 
     Args:
         img (Image): 1D image or signal vector.
-        settings (CriterionSettings): Criterion configuration.
+        metric (DetailBandMetric): Metric settings with the detail band.
         _logger (TextLogger): Logger to use for textual logging.
 
     Returns:
         np.floating: Sum of FFT amplitudes in the allowed frequency band.
-
-    Raises:
-        ValueError: If the input image is not 1-dimensional.
     """
     # remove 0 frequency
     img0 = img - np.mean(img)
@@ -97,7 +102,7 @@ def fft_1d_criterion(
     freq = freq[freq > 0]
 
     # filter frequencies
-    low_frequency, high_frequency = settings.detail.to_frequency_range()
+    low_frequency, high_frequency = metric.detail.to_frequency_range()
     band_i = np.where((freq < high_frequency) & (freq > low_frequency))[0]
 
     # sum of amplitudes of all filtered frequencies
@@ -106,21 +111,18 @@ def fft_1d_criterion(
 
 @CRITERION_FUNCTIONS.register("fft_2d")
 def fft_2d_criterion(
-    img: Image, settings: CriterionSettings, _logger: TextLogger
+    img: Image, metric: DetailBandMetric, _logger: TextLogger
 ) -> np.floating:
     """
     Compute the 2D FFT amplitude sum within a radial frequency band.
 
     Args:
         img (Image): 2D image.
-        settings (CriterionSettings): Criterion configuration.
+        metric (DetailBandMetric): Metric settings with the detail band.
         _logger (TextLogger): Logger to use for textual logging.
 
     Returns:
         np.floating: Sum of FFT amplitudes in the radial frequency band.
-
-    Raises:
-        ValueError: If the input image is not 2-dimensional.
     """
     # remove 0 frequency
     img0 = img - np.mean(img)
@@ -138,7 +140,7 @@ def fft_2d_criterion(
     freq = np.sqrt(freq1**2 + freq2**2)
 
     # lowest and highest detail frequency
-    low_frequency, high_frequency = settings.detail.to_frequency_range()
+    low_frequency, high_frequency = metric.detail.to_frequency_range()
 
     # make freq filter and filter frequency
     band_mask = (freq >= low_frequency) & (freq <= high_frequency)
@@ -147,7 +149,7 @@ def fft_2d_criterion(
 
 @CRITERION_FUNCTIONS.register("fft")
 def fft_criterion(
-    img: Image, settings: CriterionSettings, logger: TextLogger
+    img: Image, metric: DetailBandMetric, logger: TextLogger
 ) -> np.floating:
     """
     FFT-based criterion for both 1D and 2D images.
@@ -158,7 +160,7 @@ def fft_criterion(
 
     Args:
         img (Image): Input image (1D or 2D).
-        settings (CriterionSettings): Criterion configuration.
+        metric (DetailBandMetric): Metric settings with the detail band.
         logger (TextLogger): Logger to use for textual logging.
 
     Returns:
@@ -168,40 +170,39 @@ def fft_criterion(
         NotImplementedError: If the input dimensionality is not 1 or 2.
     """
     if np.ndim(img) == 1:
-        return fft_1d_criterion(img, settings, logger)
+        return fft_1d_criterion(img, metric, logger)
     if np.ndim(img) == 2:
-        return fft_2d_criterion(img, settings, logger)
+        return fft_2d_criterion(img, metric, logger)
 
     raise NotImplementedError(
         "Only 1D and 2D images are currently supported for focus criterion."
     )
 
 
-# @CRITERION_FUNCTIONS.register("frc")
-# def frc_criterion(
-#    img: Image, settings: CriterionSettings, logger: TextLogger
-# ) -> np.floating:
-#    """
-#    Compute the focal quality based on Fourier Ring Correlation (FRC).
-#
-#    Args:
-#        img (Image): Input image.
-#        settings (CriterionSettings): Criterion configuration (unused).
-#        logger (TextLogger): Logger to use for textual logging.
-#
-#    Returns:
-#        np.floating: FRC score, or `np.nan` if FRC computation fails.
-#    """
-#    _ = settings
-#    # TODO: check that the frc has the same polarity as other criteria
-#
-#    try:
-#        res = frc(img, img.pixel_size)
-#    except Exception as e:
-#        logger.warning(f"FRC error on current tile: {e}")
-#        return cast("np.floating", np.nan)
-#
-#    return res
+@CRITERION_FUNCTIONS.register("frc")
+def frc_criterion(img: Image, metric: FrcMetric, _logger: TextLogger) -> np.floating:
+    """
+    Compute the single-image Fourier ring correlation cut-off frequency.
+
+    Unlike the band-pass and FFT criteria it needs no detail band: the
+    cut-off is where the signal shared by two half-images of diagonal pixel
+    neighbours drops to noise level.
+
+    Args:
+        img (Image): 2-D image.
+        metric (FrcMetric): Metric settings (no parameters yet).
+        _logger (TextLogger): Logger to use for textual logging.
+
+    Returns:
+        np.floating: Cut-off frequency in 1/nm; higher values indicate a
+            sharper image.
+
+    Raises:
+        ValueError: If the image is not 2-D, is smaller than 16x16 pixels,
+            or has no structure.
+    """
+    _ = metric
+    return np.float64(frc_cutoff_frequency(img, img.pixel_size))
 
 
 def gauss_filter(x: Image, px_size: float, detail: float) -> NDArray[np.floating]:

@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from fibsem_maestro.autofocus.error import AutofocusError
+from fibsem_maestro.autofocus.result import AutofocusResult
 from fibsem_maestro.autofocus.sweep_step import SweepStep
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.image_tools import get_stripes
@@ -27,7 +28,9 @@ from fibsem_maestro.settings.autofocus_settings import (
     AutoscriptAutoSourceTilt,
     AutoscriptAutoStigmator,
     AutoscriptAutoStigmatorMethod,
+    AutoscriptFunctionBase,
 )
+from fibsem_maestro.settings.autofocus_settings import BasicMode as BasicModeSettings
 from fibsem_maestro.settings.autofocus_settings import LineMode as LineModeSettings
 
 if TYPE_CHECKING:
@@ -111,9 +114,10 @@ class BasicMode(AutofocusMode):
         if (sweeping := ctx.sweeping) is None:
             raise AutofocusError("Sweeping for basic mode autofocus is not defined.")
 
-        with ctx.microscope.add_temporary_beam_shift(
-            BeamShift(x=ctx.settings.delta_x, y=0.0)
-        ):
+        mode = ctx.settings.mode
+        assert isinstance(mode, BasicModeSettings)
+
+        with ctx.microscope.add_temporary_beam_shift(BeamShift(x=mode.delta_x, y=0.0)):
             for sweep in sweeping.sweep():
                 ctx.ctx.text_logger.info(
                     f"Autofunction step {sweep.index + 1} "
@@ -140,9 +144,10 @@ class LineMode(AutofocusMode):
         if (sweeping := ctx.sweeping) is None:
             raise AutofocusError("Sweeping for line mode autofocus is not defined.")
 
-        with ctx.microscope.add_temporary_beam_shift(
-            BeamShift(x=ctx.settings.delta_x, y=0.0)
-        ):
+        mode = ctx.settings.mode
+        assert isinstance(mode, LineModeSettings)
+
+        with ctx.microscope.add_temporary_beam_shift(BeamShift(x=mode.delta_x, y=0.0)):
             line_time = self._estimate_line_time(ctx)  # in ns
 
             # generate sweep steps once so both acquisition and processing see the same steps
@@ -390,16 +395,10 @@ class StepMode(AutofocusMode):
                 f"(repetition {sweep.repetition + 1}): value {sweep.value}"
             )
 
-            # score the image from the previous slice, taken at the previous step's value
+            # score the frame from the previous slice, taken at the previous step's value
             # this is skipped on the first tick
             if previous_step is not None:
-                if (image := imaging.last_acquired_image) is None:
-                    ctx.ctx.text_logger.warning(
-                        f"Last acquired image is not available for {imaging.name}. "
-                        "Skipping sharpness evaluation for this sweep."
-                    )
-                else:
-                    jobs.submit(ctx.make_sharpness_job(image, previous_step))
+                self._score_last_frame(ctx, jobs, imaging, previous_step)
 
             previous_step = sweep
 
@@ -407,15 +406,47 @@ class StepMode(AutofocusMode):
             # hands it to the linked imaging as an explicit patch
             yield sweep
 
-        # trailing tick: score the image acquired at the final step's value
+        # trailing tick: score the frame acquired at the final step's value
         assert previous_step is not None
-        if (image := imaging.last_acquired_image) is None:
-            ctx.ctx.text_logger.warning(
-                f"Last acquired image is not available for {imaging.name}. "
-                "Skipping sharpness evaluation for this sweep."
+        self._score_last_frame(ctx, jobs, imaging, previous_step)
+
+    @staticmethod
+    def _score_last_frame(
+        ctx: AutofocusContext, jobs: JobsManager, imaging: Imaging, step: SweepStep
+    ) -> None:
+        """
+        Submit the sharpness of the imaging's last frame, acquired at `step`'s value.
+
+        With the imaging criterion, the sharpness the imaging calculated for
+        that frame is used as is; otherwise the frame is scored with the
+        autofocus's own criterion.
+
+        Args:
+            ctx: Shared execution environment.
+            jobs: Job manager collecting the sweep's results.
+            imaging: The linked imaging that acquired the frame.
+            step: The sweep step the frame was acquired at.
+        """
+        if ctx.uses_imaging_criterion:
+            if (sharpness := imaging.wait_for_sharpness()) is None:
+                raise AutofocusError(
+                    f"Sharpness of the last frame of '{imaging.name}' is not "
+                    f"available for sweep step {step.index + 1}."
+                )
+
+            ctx.ctx.text_logger.info(
+                f"Sharpness from {imaging.name} for sweep {step}: {sharpness}"
             )
-        else:
-            jobs.submit(ctx.make_sharpness_job(image, previous_step))
+            jobs.submit(lambda: AutofocusResult(sharpness, step))
+            return
+
+        if (image := imaging.last_acquired_image) is None:
+            raise AutofocusError(
+                f"Last acquired image of '{imaging.name}' is not available for "
+                f"sweep step {step.index + 1}."
+            )
+
+        jobs.submit(ctx.make_sharpness_job(image, step))
 
 
 @AUTOFOCUS_MODES.register("autoscript")
@@ -451,9 +482,10 @@ class AutoscriptMode(AutofocusMode):
             ctx.microscope.control.autoscript_microscope
         )
 
-        with ctx.microscope.add_temporary_beam_shift(
-            BeamShift(x=ctx.settings.delta_x, y=0.0)
-        ):
+        mode = ctx.settings.mode
+        assert isinstance(mode, AutoscriptFunctionBase)
+
+        with ctx.microscope.add_temporary_beam_shift(BeamShift(x=mode.delta_x, y=0.0)):
             match ctx.settings.mode:
                 case AutoscriptAutoFocus() as mode:
                     self._run_autofocus(ctx, mode, autoscript_microscope)

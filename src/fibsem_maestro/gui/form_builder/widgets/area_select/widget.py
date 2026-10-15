@@ -38,13 +38,18 @@ from fibsem_maestro.gui.form_builder.widgets.area_select.overlay import (
     overlay_problems,
 )
 from fibsem_maestro.gui.form_builder.widgets.base import BaseWidget
-from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.form_utils import AreaOverlay
 
 _OVERLAY_ISSUE = "overlay"
 """Source key of the warning this widget reports when an overlay cannot be drawn."""
+
+_STALE_ISSUE = "stale_image"
+"""Source key of the warning that the image was loaded at a different offset."""
+
+_MIN_AREAS_ISSUE = "min_areas"
+"""Source key of the error that the field holds fewer areas than required."""
 
 
 class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
@@ -54,14 +59,6 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
     Collapsed, it shows a thumbnail with a region overlay.
     Expanded, it shows an interactive viewer for drawing, moving, resizing,
     and deleting areas over the last acquired image.
-
-    Args:
-        microscope: Microscope instance used to acquire images, or None.
-        max_areas: Maximum number of areas, or None for unlimited.
-        default: Pre-populated areas, applied once an image is available.
-        beam_provider: Called just before each acquisition to decide which beam
-            to image with. Returning None leaves the active beam untouched.
-        parent: Parent widget.
     """
 
     _THUMBNAIL_HEIGHT = 100
@@ -71,31 +68,36 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
     def __init__(
         self,
         microscope: Microscope | None,
-        txt_log: TextLogger | None,
+        min_areas: int | None = None,
         max_areas: int | None = None,
         default: list[RelativeArea] | None = None,
         beam_provider: Callable[[], BeamType | None] | None = None,
         offset_provider: Callable[[], float | None] | None = None,
+        crop_provider: Callable[[], RelativeArea | None] | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         BaseWidget.__init__(self)
 
         self._microscope = microscope
-        self._txt_log = txt_log
+        self._min_areas = min_areas
         self._max_areas = max_areas
         self._image_size: tuple[int, int] | None = None
         self._last_pixmap: QPixmap | None = None
         self._pending_regions: list[RelativeArea] = default or []
         self._expanded = False
         self._read_only = False
+
         # the workflow uses the microscope while it runs, also in danger mode
         self._acquisition_allowed = True
+        # acquisition offset of the displayed image, in nm; None before any Load
+        self._loaded_offset: float | None = None
 
         self._overlays: list[tuple[AreaOverlay, OverlayData]] = []
         self._pixel_size: float | None = None
         self._beam_provider = beam_provider
         self._offset_provider = offset_provider
+        self._crop_provider = crop_provider
 
         self.setMinimumWidth(self._MINIMUM_WIDTH)
 
@@ -156,6 +158,7 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         self._viewer = AreaViewer(
             self._scene,
             self._status_label.setText,
+            self._min_areas,
             self._max_areas,
             on_edit_finished=self._handle_edit_finished,
             decoration_factory=self._build_decorations,
@@ -166,6 +169,8 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         )
         viewer_layout.addWidget(self._viewer)
         outer.addWidget(self._viewer_container)
+
+        self._check_min_areas()
 
     def on_app_state_changed(self, state: AppState) -> None:
         """
@@ -244,6 +249,7 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         """
         self._clear_rects()
         regions = value or []
+
         if self._image_size is None:
             self._pending_regions = regions
         else:
@@ -251,6 +257,8 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
                 self._add_relative_area(area)
             if self._refresh_decorations():
                 self._emit()
+
+        self._check_min_areas()
 
     def set_read_only(self, read_only: bool) -> None:
         """
@@ -293,18 +301,32 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
             beam = self._resolve_beam()
             offset_x = self._resolve_offset()
 
-            # we only need to apply the offset if it is non-zero
-            # in which case we always need to grab a new frame
-            if offset_x != 0.0:
+            # load avoids an extra frame where it can: with no offset, the
+            # microscope's last frame is assumed to be the current view
+            # a new frame is grabbed when an offset applies, and also when
+            # this widget's previous Load used one, since the last frame
+            # may then be a shifted one
+            #
+            # the assumption can still be wrong: anything else that acquired
+            # with a shifted beam since (another area selector with an offset,
+            # a basic or line autofocus sweep or test) leaves its frame as the
+            # last one, and a Load here then shows that frame instead of the
+            # current view
+            if offset_x != 0.0 or self._loaded_offset not in (None, 0.0):
                 with self._microscope.add_temporary_beam_shift(
                     BeamShift(x=offset_x, y=0), beam
                 ):
                     image = beam.grab_frame()
-            # otherwise, we can just use the cached image
             else:
                 image = beam.get_image()
 
+            # areas are drawn on what the frames they are applied to show
+            if (crop := self._resolve_crop()) is not None:
+                image = image.crop(crop)
+
             self.convert_image(image)
+            self._loaded_offset = offset_x
+            self.check_stale()
         except Exception as e:
             self._status_label.setText(f"Acquisition failed: {e}")
         finally:
@@ -334,22 +356,47 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
         Return the x offset to apply while grabbing, in nanometres.
 
         Returns:
-            The declared offset, or 0.0 when none is declared or a declared one
-            cannot be resolved. An unresolvable offset is logged, since it means
-            the image is grabbed somewhere other than the form intends.
+            The declared offset, or 0.0 when none is declared or the declared
+            one does not resolve: the field it names exists only where an
+            offset applies (e.g. not in imaging or step-mode autofocus).
         """
         if self._offset_provider is None:
             return 0.0
 
         offset_nm = self._offset_provider()
-        if offset_nm is None:
-            if self._txt_log is not None:
-                self._txt_log.warning(
-                    "Area selector declares an acquisition offset that could not "
-                    "be resolved; grabbing at the current beam position."
-                )
-            return 0.0
-        return offset_nm
+        return 0.0 if offset_nm is None else offset_nm
+
+    def _resolve_crop(self) -> RelativeArea | None:
+        """
+        Return the scanning area to crop a loaded image to.
+
+        Returns:
+            The area, relative to the grabbed frame, or None to show the whole frame.
+        """
+        return self._crop_provider() if self._crop_provider is not None else None
+
+    def check_stale(self) -> None:
+        """
+        Warn on this field if the acquisition offset changed since the image was loaded.
+
+        The areas stay relative to the image as loaded, so the warning asks
+        for a new Load rather than changing anything. Called after each Load
+        and whenever the settings change.
+        """
+        if self._loaded_offset is None:
+            return
+
+        current = self._resolve_offset()
+        self.set_issue(
+            _STALE_ISSUE,
+            None
+            if current == self._loaded_offset
+            else FieldIssue(
+                Severity.WARNING,
+                f"Image loaded at an offset of {self._loaded_offset:g} nm, the "
+                f"offset is now {current:g} nm. Load it again.",
+            ),
+        )
 
     def convert_image(self, image: Image) -> None:
         """
@@ -497,7 +544,21 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
     def _handle_edit_finished(self) -> None:
         """Decorate any newly created areas, then emit the change."""
         self._refresh_decorations()
+        self._check_min_areas()
         self._emit()
+
+    def _check_min_areas(self) -> None:
+        """Mark this field as an error while it holds fewer areas than `min_areas`."""
+        if self._min_areas is None:
+            return
+
+        missing = len(self.get_value()) < self._min_areas
+        self.set_issue(
+            _MIN_AREAS_ISSUE,
+            FieldIssue(Severity.ERROR, f"At least {self._min_areas} area(s) required.")
+            if missing
+            else None,
+        )
 
     def _build_decorations(self) -> list[AreaDecoration]:
         """

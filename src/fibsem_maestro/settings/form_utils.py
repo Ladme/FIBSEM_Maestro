@@ -132,17 +132,41 @@ class AcquisitionOffset:
     source: str
 
 
+@dataclass(frozen=True)
+class CropSource:
+    """
+    Where an area selector finds the scanning area its preview is cropped to.
+
+    Areas drawn on a cropped preview are relative to the scanned area, which is
+    what the frames they are applied to show.
+
+    Attributes:
+        path: Dotted path to a `list[RelativeArea]`; its first area is the crop
+            and an empty list means the whole frame. Resolved against the
+            settings declaring the hint, then outward toward the form root.
+        via: Name of a field holding the name of another action. If set, `path`
+            is resolved in that action's settings instead: the frames come from
+            that action, so the preview is taken without the acquisition offset.
+    """
+
+    path: str
+    via: str | None = None
+
+
 @dataclass
 class FormHint:
     widget: WidgetType
     choices: Callable[[], list[str]] | None = None
     file_filter: str | None = None
     max_areas: int | None = None
+    min_areas: int | None = None
     action_type_filter: list[type[Action]] = field(default_factory=list)
     overlays: tuple[OverlaySpec, ...] = ()
     # field name feeding the beam source
     beam_source: str | None = None
     offset: AcquisitionOffset | None = None
+    # tried in order; the first that resolves to a list decides, even an empty one
+    crop_sources: tuple[CropSource, ...] = ()
 
 
 @dataclass
