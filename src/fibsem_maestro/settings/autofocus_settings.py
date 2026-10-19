@@ -45,7 +45,7 @@ class BasicMode(BaseSettings):
     )
     scanning_area: ScanningArea = Field(
         default_factory=list[RelativeArea],
-        description="Area scanned during the sweep.",
+        description="Area scanned during the sweep. The whole frame if none is set.",
     )
     delta_x: FocusOffset = Field(
         default=0.0,
@@ -71,7 +71,7 @@ class LineMode(BaseSettings):
     )
     scanning_area: ScanningArea = Field(
         default_factory=list[RelativeArea],
-        description="Area scanned during the sweep.",
+        description="Area scanned during the sweep. The whole frame if none is set.",
     )
     delta_x: FocusOffset = Field(
         default=0.0,
@@ -187,6 +187,10 @@ class AutoscriptFunctionBase(BaseSettings):
 
     type: Literal["autoscript"] = Field(
         default="autoscript", description="Use the built-in autoscript algorithm."
+    )
+    scanning_area: ScanningArea = Field(
+        default_factory=list[RelativeArea],
+        description="Area scanned during the sweep. The whole frame if none is set.",
     )
     delta_x: FocusOffset = Field(
         default=0.0,

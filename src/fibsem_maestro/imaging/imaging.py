@@ -4,7 +4,8 @@
 
 import contextvars
 import threading
-from contextlib import ExitStack
+from collections.abc import Iterator
+from contextlib import ExitStack, contextmanager
 from pathlib import Path
 
 from fibsem_maestro.action.action import Action
@@ -19,12 +20,11 @@ from fibsem_maestro.core.image import Image
 from fibsem_maestro.criterion.criterion import Criterion
 from fibsem_maestro.imaging.error import ImagingError
 from fibsem_maestro.logging.logging import with_logging_context
+from fibsem_maestro.microscope.error import MicroscopeError
 from fibsem_maestro.microscope.microscope import Microscope
-from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.imaging_settings import (
     ExtendedResolution,
     ImagingSettings,
-    StandardResolution,
 )
 from fibsem_maestro.slice.slice_view import SliceView
 from fibsem_maestro.workflow.actions import Actions
@@ -40,14 +40,13 @@ class Imaging(Action[ImagingSettings, ImagingState]):
     Orchestrates a single image acquisition cycle on the electron microscope.
     """
 
-    # beam properties altered by `_set_extended_resolution_props`
-    # pixel size and vertical field width are derived from horizontal field width and
-    # resolution, so restoring those two restores them as well
+    # beam properties the extended-resolution geometry alters and restores;
+    # pixel size and vertical field width follow from horizontal field width
+    # and resolution, so restoring those two restores them as well
     _EXTENDED_RESOLUTION_STATE: tuple[str, ...] = (
         "beam_shift",
         "horizontal_field_width",
         "resolution",
-        "scanning_area",
     )
 
     def __init__(
@@ -80,6 +79,19 @@ class Imaging(Action[ImagingSettings, ImagingState]):
         return ImagingState(
             image_sharpness=self._image_sharpness,
         )
+
+    @property
+    def scanning_area(self) -> RelativeArea | None:
+        """
+        The configured area in standard resolution; None in extended resolution.
+
+        Extended resolution scans the full frame and images the area by
+        shifting and shrinking the field of view instead (see `_extended_geometry`).
+        """
+        if isinstance(self._settings.resolution_mode, ExtendedResolution):
+            return None
+
+        return self._first_scanning_area()
 
     def set_state(self, state: ImagingState) -> None:
         self._image_sharpness = state.image_sharpness
@@ -137,12 +149,15 @@ class Imaging(Action[ImagingSettings, ImagingState]):
             ImagingError,
             f"Frame for slice {self._ctx.slice} for action '{self.name}' already exists.",
         )
-        self._last_acquired_image = self._microscope.beam.grab_frame(
-            self._ctx.frame_store
-        )
 
-        # in extended resolution the props already carry the geometry
-        props = self._collect_properties_in_current_geometry()
+        with self._extended_geometry():
+            self._last_acquired_image = self._microscope.beam.grab_frame(
+                self._ctx.frame_store
+            )
+
+        # collected after the extended geometry is undone, so that the props
+        # hold the base field of view and the base beam position
+        props = self.collect_properties()
         self._start_sharpness_calculation(self._last_acquired_image)
         return Produced(props)
 
@@ -177,30 +192,22 @@ class Imaging(Action[ImagingSettings, ImagingState]):
         """
         Acquire a single test frame and save it alongside the slice frames.
 
-        If persisted properties exist they are read and applied to the
-        microscope; otherwise the external action properties and the first
-        configured scanning area are applied temporarily for the duration of
-        the acquisition.
+        The frame is taken as during acquisition: within the scanning area, or
+        in extended resolution with its geometry. Persisted properties are
+        applied first if they exist.
         """
-        with ExitStack() as stack:
+        if (bt := self.beam_type) is not None:
+            self._microscope.set_beam(bt)
+
+        with self._scanning_area_applied():
             if self._ctx.props_store.exists("props.yaml"):
                 self._ctx.text_logger.info("Loading saved microscope properties.")
                 self.read_and_set_properties()
             else:
                 self._ctx.text_logger.info("No saved microscope properties found.")
-                # the external action properties and the scanning area from
-                # settings must be applied to the microscope only for the
-                # duration of this acquisition.
-                if (scanning_area := self._first_scanning_area()) is not None:
-                    stack.enter_context(
-                        self._microscope.set_temporary_beam_property(
-                            "scanning_area",
-                            scanning_area,
-                            self._settings.beam_type,
-                        )
-                    )
 
-            output_path = self._grab_test_frame()
+            with self._extended_geometry():
+                output_path = self._grab_test_frame()
 
         self._ctx.text_logger.info(
             f"Completed test for {self.name}. Acquired image saved as {output_path}."
@@ -231,225 +238,6 @@ class Imaging(Action[ImagingSettings, ImagingState]):
         output_path = Path(str(self._ctx.frame_store.path())).with_suffix(".test.tif")
         image.save(output_path, ImageFormat.TIF)
         return output_path
-
-    @with_logging_context
-    def collect_properties(self) -> GlobalProperties:
-        """
-        Collect the relevant properties of the microscope.
-
-        Overrides the default implementation. In extended resolution mode the
-        geometry is established before collecting, so that the collected
-        properties describe the region to image rather than the current frame.
-
-        This is the entry point for a manual collection, after the user has set
-        the microscope up by hand. `execute` uses
-        `_collect_properties_in_current_geometry` instead, since the properties
-        it reads already carry the geometry.
-
-        Returns:
-            The collected properties.
-        """
-        return self._collect(apply_extended_geometry=True)
-
-    def _collect_properties_in_current_geometry(self) -> GlobalProperties:
-        """
-        Collect the relevant properties without altering the microscope geometry.
-
-        In extended resolution mode the beam shift is additive and the field of
-        view shrink absolute, so the geometry is established once and then
-        carried in the collected properties. Re-applying it on every slice would
-        compound the shift and shrink the field of view further each time.
-
-        Returns:
-            The collected properties.
-        """
-        return self._collect(apply_extended_geometry=False)
-
-    def _collect(self, apply_extended_geometry: bool) -> GlobalProperties:
-        """
-        Dispatch property collection according to the configured resolution mode.
-
-        Args:
-            apply_extended_geometry: Whether to establish the extended
-                resolution geometry before collecting. Ignored in standard
-                resolution mode, which never alters the geometry.
-
-        Returns:
-            The collected properties.
-        """
-        self._ctx.text_logger.debug(
-            f"Collecting microscope properties for {self.name}."
-        )
-
-        scanning_area = self._first_scanning_area()
-        if scanning_area is not None:
-            self._ctx.text_logger.debug(
-                f"Scanning area specified in FIBSEM Maestro: {scanning_area}."
-            )
-
-        match self._settings.resolution_mode:
-            case StandardResolution():
-                return self._collect_standard_properties(scanning_area)
-            case ExtendedResolution() as mode:
-                return self._collect_extended_properties(
-                    scanning_area, mode, apply_extended_geometry
-                )
-
-    def _collect_standard_properties(
-        self, scanning_area: RelativeArea | None
-    ) -> GlobalProperties:
-        """
-        Collect properties in standard resolution mode.
-
-        The microscope geometry is not altered. The scanning area configured in
-        FIBSEM Maestro replaces the one read from the instrument, so that it is
-        applied on the next slice; the remaining scan parameters are recorded as
-        read, whatever area they were set for.
-
-        Args:
-            scanning_area: Scanning area from the settings, or `None` when none
-                is configured.
-
-        Returns:
-            The collected properties.
-        """
-        # Autoscript supports only a fixed set of resolutions for its beams, so
-        # extended resolution is emulated outside the instrument: the beam
-        # control holds the requested value and shadows what Autoscript reports;
-        # standard mode must clear that emulation before collecting, or it would
-        # record the extended resolution and carry it into the next slice; other
-        # vendors may set arbitrary resolutions directly, in which case this is a no-op.
-        self._microscope.beam.clear_extended_resolution()
-
-        props = self._microscope.collect_properties(
-            self._settings.properties_to_collect
-        )
-
-        if scanning_area is not None:
-            props.set_property("scanning_area", scanning_area, self._settings.beam_type)
-
-        return props
-
-    def _collect_extended_properties(
-        self,
-        scanning_area: RelativeArea | None,
-        mode: ExtendedResolution,
-        apply_geometry: bool,
-    ) -> GlobalProperties:
-        """
-        Collect properties in extended resolution mode.
-
-        When `apply_geometry` is True, the extended resolution geometry is
-        established, the resulting properties collected, and the microscope
-        restored to the state it was in on entry. Otherwise the properties are
-        collected as they stand: within a run they already carry the geometry.
-
-        Args:
-            scanning_area: Scanning area from the settings, or `None` to fall
-                back to the one currently set on the instrument.
-            mode: The extended resolution settings.
-            apply_geometry: Whether to establish the geometry before collecting.
-
-        Returns:
-            The collected properties.
-        """
-        if not apply_geometry:
-            return self._microscope.collect_properties(
-                self._settings.properties_to_collect
-            )
-
-        with ExitStack() as stack:
-            for name in self._EXTENDED_RESOLUTION_STATE:
-                stack.enter_context(
-                    self._microscope.set_temporary_beam_property(
-                        name,
-                        getattr(self._microscope.beam, name),
-                        self._settings.beam_type,
-                    )
-                )
-
-            self._set_extended_resolution_props(
-                scanning_area
-                if scanning_area is not None
-                else self._microscope.beam.scanning_area,
-                mode.pixel_size,
-            )
-
-            props = self._microscope.collect_properties(
-                self._settings.properties_to_collect
-            )
-
-        # extended resolution replaces area selection with beam shift + FOV
-        props.set_property(
-            "scanning_area", RelativeArea.full(), self._settings.beam_type
-        )
-
-        self._microscope.beam.clear_extended_resolution()
-
-        return props
-
-    def _set_extended_resolution_props(
-        self, scanning_area: RelativeArea, new_pixel_size: float
-    ) -> None:
-        """
-        Configure the beam for extended resolution imaging.
-
-        When a non-full-frame scanning area is configured, shifts the beam to
-        the center of that area and resizes the field of view to match its
-        physical dimensions. The pixel size is always updated to
-        `new_pixel_size`, regardless of whether a scanning area is configured.
-
-        The beam shift is additive and the field of view shrink absolute, so
-        this must be called only when the geometry is being established, not on
-        every collection.
-
-        The scanning area is deliberately left as it is: the caller collects the
-        properties before restoring it, so that the scan parameters Autoscript
-        maintains separately for a reduced area are preserved. Restoring the
-        altered beam state is the caller's responsibility.
-
-        Args:
-            scanning_area: The scanning area to image, relative to the full frame.
-            new_pixel_size: The target pixel size in nanometers.
-        """
-        # image only the scanning area
-        if not scanning_area.is_full_frame():
-            self._ctx.text_logger.debug(
-                "Setting scanning area using extended resolution."
-            )
-
-            # shift the beam to the center of the scanning area
-            img_res = self._microscope.beam.resolution
-            pixel_size = self._microscope.beam.pixel_size
-            area_nm = scanning_area.to_nanometers(img_res, pixel_size)
-            image_to_beam_shift = self._microscope.beam.image_to_beam_shift
-
-            shift = BeamShift(
-                image_to_beam_shift[0]
-                * (
-                    area_nm.origin.x
-                    - (img_res.width // 2 * pixel_size)
-                    + area_nm.width / 2.0
-                ),
-                image_to_beam_shift[1]
-                * (
-                    area_nm.origin.y
-                    - (img_res.height // 2 * pixel_size)
-                    + area_nm.height / 2.0
-                ),
-            )
-
-            self._microscope.add_beam_shift_with_verification(shift)
-
-            # set the FOV to the scanning area
-            # HFW must be set before VFW: the VFW setter derives the new
-            # resolution from the pixel size that setting HFW has just changed
-            self._microscope.beam.horizontal_field_width = area_nm.width
-            self._microscope.beam.vertical_field_width = area_nm.height
-
-        # set resolution based on the new pixel size
-        # this is done even if scanning area is not specified
-        self._microscope.beam.pixel_size = new_pixel_size
 
     def wait_for_sharpness(self) -> float | None:
         """
@@ -496,3 +284,106 @@ class Imaging(Action[ImagingSettings, ImagingState]):
             text_logger.debug(f"Image sharpness: {self._image_sharpness}.")
         except Exception as e:
             text_logger.warning(f"Could not calculate image sharpness: {e}")
+
+    @contextmanager
+    def _extended_geometry(self) -> Iterator[None]:
+        """
+        Image the scanning area at the extended-resolution pixel size for the enclosed block.
+
+        Does nothing in standard resolution. The geometry is derived anew from
+        the settings and the base geometry on the microscope, and undone on
+        exit: the emulated resolution is cleared, then resolution, field width
+        and beam shift are restored to their base values.
+
+        Yields:
+            None. The base geometry is restored even if the block raises.
+
+        Raises:
+            MicroscopeError: If the offset to the area's centre exceeds the
+                beam-shift range on top of the current beam shift.
+        """
+        mode = self._settings.resolution_mode
+        if not isinstance(mode, ExtendedResolution):
+            yield
+            return
+
+        beam = self._microscope.beam
+        with ExitStack() as stack:
+            for name in self._EXTENDED_RESOLUTION_STATE:
+                # save the current values of the beam properties so that they are restored on exit
+                stack.enter_context(
+                    self._microscope.set_temporary_beam_property(
+                        name, getattr(beam, name), self._settings.beam_type
+                    )
+                )
+
+            # on exit, first clear the extended resolution
+            stack.callback(beam.clear_extended_resolution)
+
+            self._set_extended_geometry(
+                self._first_scanning_area() or RelativeArea.full(), mode.pixel_size
+            )
+            yield
+
+    def _set_extended_geometry(
+        self, scanning_area: RelativeArea, new_pixel_size: float
+    ) -> None:
+        """
+        Shift and shrink the field of view onto the scanning area at a new pixel size.
+
+        The offset to the area's centre is added to the current beam shift, so
+        the area follows the drift corrections the base geometry carries. It
+        is a plain beam shift: a fallback stage move would displace the sample
+        on every frame.
+
+        Args:
+            scanning_area: The area to image, relative to the base frame.
+            new_pixel_size: The target pixel size in nanometers.
+        """
+        beam = self._microscope.beam
+
+        if not scanning_area.is_full_frame():
+            img_res = beam.resolution
+            pixel_size = beam.pixel_size
+            area_nm = scanning_area.to_nanometers(img_res, pixel_size)
+            image_to_beam_shift = beam.image_to_beam_shift
+
+            shift = BeamShift(
+                image_to_beam_shift[0]
+                * (
+                    area_nm.origin.x
+                    - (img_res.width // 2 * pixel_size)
+                    + area_nm.width / 2.0
+                ),
+                image_to_beam_shift[1]
+                * (
+                    area_nm.origin.y
+                    - (img_res.height // 2 * pixel_size)
+                    + area_nm.height / 2.0
+                ),
+            )
+
+            try:
+                # we cannot use stage position fallback because stage position
+                # does not get reverted and it would clash with drift correction
+                self._microscope.add_beam_shift_without_stage_fallback(shift, beam)
+            except MicroscopeError as e:
+                raise ImagingError(
+                    f"Extended resolution needs a beam shift of {shift} to reach the "
+                    "scanning area, which exceeds the beam-shift range. Move the area "
+                    "closer to the image centre, increase the magnification, or "
+                    "centre the area with the stage."
+                ) from e
+
+            # HFW must be set before VFW: the VFW setter derives the new
+            # resolution from the pixel size that setting HFW has just changed
+            beam.horizontal_field_width = area_nm.width
+            beam.vertical_field_width = area_nm.height
+
+        # set resolution based on the new pixel size, even for the full frame
+        beam.pixel_size = new_pixel_size
+
+        self._ctx.text_logger.info(
+            f"Extended resolution geometry: beam shift {beam.beam_shift}, "
+            f"field width {beam.horizontal_field_width} nm, resolution {beam.resolution}."
+        )

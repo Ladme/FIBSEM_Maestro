@@ -4,17 +4,22 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from contextlib import contextmanager
 from typing import TYPE_CHECKING, ClassVar, Generic, TypeVar, final
 
 from fibsem_maestro.action.outcome import CarriedOver, Produced, StepOutcome
 from fibsem_maestro.action.settings_protocol import ActionSettingsLike
 from fibsem_maestro.action.state import ActionState
+from fibsem_maestro.core.area import RelativeArea
+from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.format import ImageFormat
 from fibsem_maestro.logging.logging import with_logging_context
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from fibsem_maestro.action_context.action_context import ActionContext
-    from fibsem_maestro.core.beam_type import BeamType
+    from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
     from fibsem_maestro.microscope.microscope import Microscope
     from fibsem_maestro.properties.global_properties import GlobalProperties
     from fibsem_maestro.settings.property_names import PropertyNames
@@ -106,6 +111,10 @@ class Action(ABC, Generic[TSettings, TState]):
         """
         if (bt := self.beam_type) is not None:
             self._microscope.set_beam(bt)
+
+        # capture the scan parameters as set for full-frame scanning; the
+        # microscope GUI's own reduced area is ignored, as during execution
+        self._clear_scanning_area()
         self.write_properties(self.collect_properties())
         self._prepare()
         self._ctx.state_store.write("state.yaml", self.state)
@@ -149,8 +158,9 @@ class Action(ABC, Generic[TSettings, TState]):
         self._ctx.text_logger.info(
             f"Started '{self.name}' for slice {self._ctx.slice}."
         )
-        self.read_and_set_properties()
-        outcome = self._run_step()
+        with self._scanning_area_applied():
+            self.read_and_set_properties()
+            outcome = self._run_step()
 
         match outcome:
             case Produced(props=props):
@@ -312,6 +322,32 @@ class Action(ABC, Generic[TSettings, TState]):
     def state(self) -> TState:
         """Internal state of the action."""
 
+    @property
+    def scanning_area(self) -> RelativeArea | None:
+        """
+        Area this action scans on its beam, relative to the full frame.
+
+        Applied for the whole execution. The default is None: the action scans
+        the full frame, whatever reduced area the microscope's own GUI has set.
+        Actions with a configurable area override this.
+        """
+        return None
+
+    def _beam_control(self) -> BeamControl | None:
+        """
+        Return the control of the action's beam.
+
+        Returns:
+            The electron or ion beam, or None for actions using both or neither.
+        """
+        match self.beam_type:
+            case BeamType.ELECTRON:
+                return self._microscope.electron_beam
+            case BeamType.ION:
+                return self._microscope.ion_beam
+            case _:
+                return None
+
     @with_logging_context
     def read_properties(self, store: PropsStore | None = None) -> GlobalProperties:
         """
@@ -435,3 +471,37 @@ class Action(ABC, Generic[TSettings, TState]):
         self._ctx.text_logger.info(
             f"Saved the frame after '{self.name}' as {output_path}."
         )
+
+    @contextmanager
+    def _scanning_area_applied(self) -> Iterator[None]:
+        """
+        Scan the action's scanning area for the enclosed block, then the full frame again.
+
+        Must be entered before the stored properties are applied: Autoscript
+        keeps separate scan parameters for reduced-area scanning, so the
+        properties have to land in the mode that will actually scan. Actions
+        without a beam of their own leave the scanning area alone.
+
+        Yields:
+            None. The full frame is restored even if the block raises.
+        """
+        beam = self._beam_control()
+        if beam is None:
+            yield
+            return
+
+        beam.scanning_area = self.scanning_area or RelativeArea.full()
+        try:
+            yield
+        finally:
+            try:
+                self._clear_scanning_area()
+            except Exception as e:
+                self._ctx.text_logger.warning(
+                    f"Could not clear the scanning area of '{self.name}': {e}"
+                )
+
+    def _clear_scanning_area(self) -> None:
+        """Make the action's beam scan the full frame, discarding any reduced area."""
+        if (beam := self._beam_control()) is not None:
+            beam.scanning_area = RelativeArea.full()

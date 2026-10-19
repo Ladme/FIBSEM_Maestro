@@ -229,6 +229,60 @@ class Microscope:
         beam = beam or self.beam
         return self.set_beam_shift_with_verification(beam.beam_shift + delta, beam)
 
+    def set_beam_shift_without_stage_fallback(
+        self, new_beam_shift: BeamShift, beam: BeamControl | None = None
+    ) -> None:
+        """
+        Apply a beam shift and verify it, never moving the stage instead.
+
+        For shifts that must not be replaced by a stage move, such as offsets
+        applied to every frame, where a fallback stage move would displace the
+        sample each time.
+
+        Args:
+            new_beam_shift: The desired beam shift in nanometers.
+            beam: The beam to shift. Defaults to the currently active beam.
+
+        Raises:
+            MicroscopeError: If the shift cannot be set or ends up further than
+                `beam_shift_tolerance` from the target. The beam may then be
+                partly shifted; callers restore it.
+        """
+        beam = beam or self.beam
+        try:
+            beam.beam_shift = new_beam_shift
+            actual_beam_shift = beam.beam_shift
+        except Exception as e:
+            raise MicroscopeError(
+                f"Could not set beam shift to {new_beam_shift}: {e}"
+            ) from e
+
+        dist = distance.euclidean(
+            actual_beam_shift.to_tuple(), new_beam_shift.to_tuple()
+        )
+        if dist > self._settings.beam_shift_tolerance:
+            raise MicroscopeError(
+                f"Beam shift {new_beam_shift} is out of range; the beam reached "
+                f"{actual_beam_shift}."
+            )
+
+    def add_beam_shift_without_stage_fallback(
+        self, delta: BeamShift, beam: BeamControl | None = None
+    ) -> None:
+        """
+        Add a beam shift delta to the current shift, never moving the stage instead.
+
+        Args:
+            delta: The beam shift increment in nanometers.
+            beam: The beam to shift. Defaults to the currently active beam.
+
+        Raises:
+            MicroscopeError: If the resulting shift is out of range (see
+                `set_beam_shift_without_stage_fallback`).
+        """
+        beam = beam or self.beam
+        self.set_beam_shift_without_stage_fallback(beam.beam_shift + delta, beam)
+
     @property
     def prop_names(self) -> PropertyNames:
         """
