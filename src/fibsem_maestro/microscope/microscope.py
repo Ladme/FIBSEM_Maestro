@@ -480,26 +480,55 @@ class Microscope:
         """
         Temporarily shift the beam by the specified offset.
 
+        Out-of-range shifts fall back to a stage move, which resets the beam
+        shift to zero; undoing only the offset would then leave the stage
+        displaced. The original stage position and beam shift are therefore
+        restored as they were.
+
         Args:
-            offset: The offset to shift the beam by.
+            offset: The offset to shift the beam by, in nanometers.
+            beam: The beam to shift. Defaults to the currently active beam.
 
         Yields:
             None: Control is yielded to the caller with the beam shifted.
         """
-        self.add_beam_shift_with_verification(offset, beam)
+        beam = beam or self.beam
+        base_shift = beam.beam_shift
+        base_stage = self._control.stage_position
         self._txt_log.debug(
             f"Temporarily shifting beam by x = {offset.x}, y = {offset.y}."
         )
 
+        # assume a stage move until the shift reports otherwise, so that a
+        # failure halfway through the fallback still restores the stage
+        stage_may_have_moved = True
         try:
-            yield
-        finally:
-            try:
-                restore = offset.inverted()
-                self._txt_log.debug(
-                    f"Restoring beam shift. Changing by x = {restore.x}, y = {restore.y}."
+            stage_may_have_moved = not self.add_beam_shift_with_verification(
+                offset, beam
+            )
+
+            if stage_may_have_moved:
+                self._txt_log.info(
+                    "Temporary beam shift is out of range; the stage was moved "
+                    "instead and will be moved back afterwards."
                 )
-                self.add_beam_shift_with_verification(restore, beam)
+            yield
+
+        finally:
+            if stage_may_have_moved:
+                try:
+                    self._txt_log.debug(f"Restoring stage position to {base_stage}.")
+                    self.set_stage_position_with_verification(base_stage)
+                except Exception as e:
+                    self._txt_log.warning(f"Could not restore stage position: {e}")
+
+            try:
+                self._txt_log.debug(f"Restoring beam shift to {base_shift}.")
+                if not self.set_beam_shift_with_verification(base_shift, beam):
+                    self._txt_log.warning(
+                        f"Could not restore beam shift {base_shift}; the stage "
+                        "was moved instead."
+                    )
             except Exception as e:
                 self._txt_log.warning(f"Could not restore beam shift: {e}")
 
