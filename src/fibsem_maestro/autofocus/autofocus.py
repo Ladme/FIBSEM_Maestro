@@ -161,6 +161,23 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
             last_edge=self._last_edge,
         )
 
+    @property
+    def scanning_area(self) -> RelativeArea | None:
+        """
+        The scanning area of the basic, line or Autoscript mode, if set.
+
+        Step mode has none: its frames come from the linked imaging.
+        """
+        match self._settings.mode:
+            case (
+                (
+                    BasicModeSettings() | LineModeSettings() | AutoscriptFunctionBase()
+                ) as mode
+            ) if mode.scanning_area:
+                return mode.scanning_area[0]
+            case _:
+                return None
+
     def set_state(self, state: AutofocusState) -> None:
         # close a running sweep explicitly
         if self._active_gen is not None:
@@ -243,37 +260,20 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
 
         self._reset_jobs()
 
-        if self._ctx.props_store.exists("props.yaml"):
-            self._ctx.text_logger.info("Loading saved microscope properties.")
-            self.read_and_set_properties()
-        else:
-            self._ctx.text_logger.info("No saved microscope properties found.")
+        with self._scanning_area_applied():
+            if self._ctx.props_store.exists("props.yaml"):
+                self._ctx.text_logger.info("Loading saved microscope properties.")
+                self.read_and_set_properties()
+            else:
+                self._ctx.text_logger.info("No saved microscope properties found.")
 
-        self._run_sweep_and_apply_best()
+            self._run_sweep_and_apply_best()
 
-        # the updated value may not be displayed in the microscope GUI until we start scanning
-        self._microscope.beam.grab_frame()
+            # the updated value may not be displayed in the microscope GUI until we start scanning
+            self._microscope.beam.grab_frame()
 
     def wait_for_background_threads(self) -> None:
         self._jobs.wait()
-
-    @with_logging_context
-    def collect_properties(self) -> GlobalProperties:
-        """
-        Collect the relevant properties of the microscope.
-
-        Overrides the default implementation. The scanning area of the basic
-        and line modes replaces the one read from the instrument, so that it is
-        applied with the other properties when the action runs, as Imaging does
-        in standard resolution.
-
-        Returns:
-            The collected properties.
-        """
-        props = super().collect_properties()
-        if (area := self._mode_scanning_area()) is not None:
-            props.set_property("scanning_area", area, self.beam_type)
-        return props
 
     def _run_step(self) -> StepOutcome:
         if self._active_gen is None:
@@ -542,20 +542,6 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
         """Reset the sweep count and edge, so that the next autofocus run starts afresh."""
         self._sweeps_done = 0
         self._last_edge = None
-
-    def _mode_scanning_area(self) -> RelativeArea | None:
-        """
-        Return the scanning area configured in the mode, if any.
-
-        Returns:
-            The first scanning area of the basic or line mode, or None when
-            none is set or the mode has none (step and Autoscript modes).
-        """
-        match self._settings.mode:
-            case BasicModeSettings() | LineModeSettings() as mode if mode.scanning_area:
-                return mode.scanning_area[0]
-            case _:
-                return None
 
     def _apply_best_and_log(self, results: list[AutofocusResult]) -> float | None:
         """

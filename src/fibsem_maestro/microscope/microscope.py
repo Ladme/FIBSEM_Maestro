@@ -229,6 +229,60 @@ class Microscope:
         beam = beam or self.beam
         return self.set_beam_shift_with_verification(beam.beam_shift + delta, beam)
 
+    def set_beam_shift_without_stage_fallback(
+        self, new_beam_shift: BeamShift, beam: BeamControl | None = None
+    ) -> None:
+        """
+        Apply a beam shift and verify it, never moving the stage instead.
+
+        For shifts that must not be replaced by a stage move, such as offsets
+        applied to every frame, where a fallback stage move would displace the
+        sample each time.
+
+        Args:
+            new_beam_shift: The desired beam shift in nanometers.
+            beam: The beam to shift. Defaults to the currently active beam.
+
+        Raises:
+            MicroscopeError: If the shift cannot be set or ends up further than
+                `beam_shift_tolerance` from the target. The beam may then be
+                partly shifted; callers restore it.
+        """
+        beam = beam or self.beam
+        try:
+            beam.beam_shift = new_beam_shift
+            actual_beam_shift = beam.beam_shift
+        except Exception as e:
+            raise MicroscopeError(
+                f"Could not set beam shift to {new_beam_shift}: {e}"
+            ) from e
+
+        dist = distance.euclidean(
+            actual_beam_shift.to_tuple(), new_beam_shift.to_tuple()
+        )
+        if dist > self._settings.beam_shift_tolerance:
+            raise MicroscopeError(
+                f"Beam shift {new_beam_shift} is out of range; the beam reached "
+                f"{actual_beam_shift}."
+            )
+
+    def add_beam_shift_without_stage_fallback(
+        self, delta: BeamShift, beam: BeamControl | None = None
+    ) -> None:
+        """
+        Add a beam shift delta to the current shift, never moving the stage instead.
+
+        Args:
+            delta: The beam shift increment in nanometers.
+            beam: The beam to shift. Defaults to the currently active beam.
+
+        Raises:
+            MicroscopeError: If the resulting shift is out of range (see
+                `set_beam_shift_without_stage_fallback`).
+        """
+        beam = beam or self.beam
+        self.set_beam_shift_without_stage_fallback(beam.beam_shift + delta, beam)
+
     @property
     def prop_names(self) -> PropertyNames:
         """
@@ -426,26 +480,55 @@ class Microscope:
         """
         Temporarily shift the beam by the specified offset.
 
+        Out-of-range shifts fall back to a stage move, which resets the beam
+        shift to zero; undoing only the offset would then leave the stage
+        displaced. The original stage position and beam shift are therefore
+        restored as they were.
+
         Args:
-            offset: The offset to shift the beam by.
+            offset: The offset to shift the beam by, in nanometers.
+            beam: The beam to shift. Defaults to the currently active beam.
 
         Yields:
             None: Control is yielded to the caller with the beam shifted.
         """
-        self.add_beam_shift_with_verification(offset, beam)
+        beam = beam or self.beam
+        base_shift = beam.beam_shift
+        base_stage = self._control.stage_position
         self._txt_log.debug(
             f"Temporarily shifting beam by x = {offset.x}, y = {offset.y}."
         )
 
+        # assume a stage move until the shift reports otherwise, so that a
+        # failure halfway through the fallback still restores the stage
+        stage_may_have_moved = True
         try:
-            yield
-        finally:
-            try:
-                restore = offset.inverted()
-                self._txt_log.debug(
-                    f"Restoring beam shift. Changing by x = {restore.x}, y = {restore.y}."
+            stage_may_have_moved = not self.add_beam_shift_with_verification(
+                offset, beam
+            )
+
+            if stage_may_have_moved:
+                self._txt_log.info(
+                    "Temporary beam shift is out of range; the stage was moved "
+                    "instead and will be moved back afterwards."
                 )
-                self.add_beam_shift_with_verification(restore, beam)
+            yield
+
+        finally:
+            if stage_may_have_moved:
+                try:
+                    self._txt_log.debug(f"Restoring stage position to {base_stage}.")
+                    self.set_stage_position_with_verification(base_stage)
+                except Exception as e:
+                    self._txt_log.warning(f"Could not restore stage position: {e}")
+
+            try:
+                self._txt_log.debug(f"Restoring beam shift to {base_shift}.")
+                if not self.set_beam_shift_with_verification(base_shift, beam):
+                    self._txt_log.warning(
+                        f"Could not restore beam shift {base_shift}; the stage "
+                        "was moved instead."
+                    )
             except Exception as e:
                 self._txt_log.warning(f"Could not restore beam shift: {e}")
 

@@ -404,7 +404,26 @@ class BeamControl(ABC):
     @property
     @abstractmethod
     def scanning_area(self) -> RelativeArea:
-        """Active scanning area expressed in relative coordinates."""
+        """
+        Active scanning area expressed in relative coordinates.
+
+        The scanning area is beam state, but deliberately NOT a microscope
+        property: it is not part of `BeamProperties`, so it is never collected,
+        stored in props files or propagated between actions. Each action takes
+        its scanning area from its own settings and sets it here when it runs.
+        Edits in the GUI therefore take effect on the next run, like any other
+        action setting, instead of only after the properties are collected
+        again, which was the confusing part of treating the area as a property.
+
+        Why it still lives on the beam rather than being passed to each
+        acquisition: Autoscript keeps a separate set of scan parameters for
+        reduced-area scanning. Switching to a reduced area swaps in that whole
+        set and replaces the values applied before it. The area therefore has to
+        be set on the beam before the action's properties are applied, so that
+        they land in the parameter set that will actually scan. Continuous
+        acquisition (`start_acquisition`) and the Autoscript autofunctions also
+        scan in whatever mode is active, without taking an area per call.
+        """
 
     @scanning_area.setter
     @abstractmethod

@@ -301,20 +301,31 @@ class AreaSelectWidget(QWidget, BaseWidget[list[RelativeArea]]):
             beam = self._resolve_beam()
             offset_x = self._resolve_offset()
 
-            # load avoids an extra frame where it can: with no offset, the
-            # microscope's last frame is assumed to be the current view
-            # a new frame is grabbed when an offset applies, and also when
-            # this widget's previous Load used one, since the last frame
-            # may then be a shifted one
+            # Load avoids an extra frame where it can: with no offset and the
+            # full frame scanned, the microscope's last frame is assumed to be
+            # the current view. A fresh full-frame image is grabbed when an
+            # offset applies, when this widget's previous Load used one (the
+            # last frame is then the shifted one), or when the microscope's own
+            # GUI has a reduced area set, which previews ignore as actions do.
             #
-            # the assumption can still be wrong: anything else that acquired
+            # The assumption can still be wrong: anything else that acquired
             # with a shifted beam since (another area selector with an offset,
             # a basic or line autofocus sweep or test) leaves its frame as the
             # last one, and a Load here then shows that frame instead of the
-            # current view
-            if offset_x != 0.0 or self._loaded_offset not in (None, 0.0):
-                with self._microscope.add_temporary_beam_shift(
-                    BeamShift(x=offset_x, y=0), beam
+            # current view. Only grabbing a fresh frame on every Load avoids
+            # this, at the cost of an extra frame (and ion dose) each time.
+            if (
+                offset_x != 0.0
+                or self._loaded_offset not in (None, 0.0)
+                or not beam.scanning_area.is_full_frame()
+            ):
+                with (
+                    self._microscope.set_temporary_beam_property(
+                        "scanning_area", RelativeArea.full(), beam.beam_type()
+                    ),
+                    self._microscope.add_temporary_beam_shift(
+                        BeamShift(x=offset_x, y=0), beam
+                    ),
                 ):
                     image = beam.grab_frame()
             else:
