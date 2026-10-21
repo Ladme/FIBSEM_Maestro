@@ -43,6 +43,10 @@ class ActionSelectWidget(NoScrollComboBox, FieldEditor[str | None]):
         self._catalog = actions
         self._type_filter = tuple(type_filter)
         self._optional = optional
+        # an optional link to an action that is not (or no longer) offered: kept as
+        # the value, so the form never writes None over it
+        self._dangling: str | None = None
+
         self._populate(actions.actions, default)
         self.setFixedWidth(200)
         self.currentIndexChanged.connect(lambda _: self._emit())
@@ -95,14 +99,17 @@ class ActionSelectWidget(NoScrollComboBox, FieldEditor[str | None]):
         """
 
         current = self.currentData()
+        value = self.get_value()
         # rebuilding passes through transient selections that must not be written
         with QSignalBlocker(self):
-            self._populate(
-                self._catalog.actions, current.name if current is not None else None
-            )
+            self._populate(self._catalog.actions, value)
+
+        selected = self.currentData()
+
         # identity, not name: after an import a different action may carry the
         # same name, and the link must then be re-validated and written
-        if self.currentData() is not current:
+        replaced = selected is not None and selected is not current
+        if replaced or self.get_value() != value:
             self._emit()
 
     def _on_action_renamed(self, action: Action, old_name: str) -> None:
@@ -125,17 +132,20 @@ class ActionSelectWidget(NoScrollComboBox, FieldEditor[str | None]):
         Returns:
             The selected action's name, or None if no action is selected.
         """
-
         action = self.currentData()
-        return action.name if action is not None else None
+        if action is not None:
+            return action.name
+        if self._optional and self.currentIndex() == -1:
+            return self._dangling
+        return None
 
     def set_value(self, value: str | None) -> None:
         """
         Select the action with the given name.
 
-        If no such action is offered, nothing is selected ("(none)" for an
-        optional selector given None), so the form never shows a link the
-        settings do not hold; the field then reads as None and is marked.
+        If no such action is offered, nothing is selected. A required selector
+        then reads None and is marked; an optional one keeps reading `value`,
+        so the link survives until the user picks something else.
 
         Args:
             value: The name of the action to select, or None.
@@ -144,9 +154,11 @@ class ActionSelectWidget(NoScrollComboBox, FieldEditor[str | None]):
         for i in range(self.count()):
             action = self.itemData(i)
             if action is not None and action.name == value:
+                self._dangling = None
                 self.setCurrentIndex(i)
                 return
 
+        self._dangling = value
         self.setCurrentIndex(0 if self._optional and value is None else -1)
 
     def set_read_only(self, read_only: bool) -> None:

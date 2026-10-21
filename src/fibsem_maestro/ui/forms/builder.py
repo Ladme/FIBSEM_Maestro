@@ -123,7 +123,13 @@ class Form(QObject):
 
     def set_value(self, value: Any) -> None:
         """
-        Show the fields of `value`; every changed field is committed as if edited.
+        Show the fields of `value` in the form.
+
+        Whether a shown value is also committed to the live object depends on
+        the field's editor: most editors report a value set this way like an
+        edit, so it is committed; the area selector does not (it commits only
+        a correction it had to make to fit areas to the frame). Use this to
+        refresh what the form shows; to change the live object, assign to it.
 
         Args:
             value: An instance of the form's class, or a dict of field values.
