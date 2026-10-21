@@ -7,7 +7,7 @@ from typing import Protocol, TypeVar
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.frequency import Frequency
 from fibsem_maestro.settings.property_names import PropertyNames
-from fibsem_maestro.settings.reactive import ChangePath
+from fibsem_maestro.settings.reactive import ChangePath, Unsubscribe
 
 
 class ActionSettingsLike(Protocol):
@@ -34,12 +34,15 @@ class ActionSettingsLike(Protocol):
         """How often the action runs."""
         ...
 
-    def on_change_at(self, hook: Callable[[ChangePath], None]) -> None:
+    def on_change_at(self, hook: Callable[[ChangePath], None]) -> Unsubscribe:
         """
         Register a callback receiving the location of each change in the settings.
 
         Args:
             hook: A callable receiving the path of the change, relative to the settings.
+
+        Returns:
+            A callable that removes this registration.
         """
         ...
 

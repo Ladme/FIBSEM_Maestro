@@ -4,7 +4,7 @@
 import re
 from pathlib import Path
 from time import sleep
-from typing import Protocol, Self
+from typing import ClassVar, Protocol, Self
 
 from fibsem_maestro.action.action import Action
 from fibsem_maestro.action.outcome import Produced, StepOutcome
@@ -41,6 +41,9 @@ class WorkflowCallbacks(Protocol):
 
 
 class Workflow:
+    MAX_SLICE: ClassVar[int] = 9999
+    """The last slice a workflow ever acquires."""
+
     def __init__(
         self,
         microscope: Microscope,
@@ -233,12 +236,16 @@ class Workflow:
 
         return cls(microscope, actions, propagations, workflow_ctx, notifier)
 
-    def run(self, n_slices: int) -> None:
+    def run(self, last_slice: int = MAX_SLICE) -> None:
         """
-        Runs the full acquisition workflow.
+        Runs the acquisition workflow, continuing from the current slice.
+
+        The run ends normally after `last_slice` has been acquired, or before
+        starting a slice for which any action reports a completion reason
+        (see `completion_reasons`).
 
         Args:
-            n_slices: The number of slices to acquire.
+            last_slice: The last slice to acquire, at most `MAX_SLICE`.
         """
         with logging_context(self.ctx.text_logger):
             if self.ctx.slice == 0:
@@ -260,7 +267,14 @@ class Workflow:
                         )
                         raise WorkflowError(e) from e
 
-            for _ in range(n_slices):
+            while self.ctx.slice <= min(last_slice, self.MAX_SLICE):
+                # completion is checked only between slices, so a slice that has
+                # started (e.g. the one that used up the milling area) always ends
+                if reasons := self.completion_reasons():
+                    self.ctx.text_logger.info(
+                        "Workflow finished: " + "; ".join(reasons)
+                    )
+                    return
                 self._run_slice()
 
     def _run_slice(self) -> None:
@@ -271,15 +285,11 @@ class Workflow:
         sleep(0.001)
 
         # check for issues with action preparation
-        issues = [
-            f"'{action.name}': {issue}"
-            for action in self.actions
-            for issue in action.preparation_issues()
-        ]
+        issues = self.preparation_issues()
         if issues:
             raise WorkflowError("Actions are not ready to run:\n" + "\n".join(issues))
 
-        while (action := self._next_pending_action()) is not None:
+        while (action := self.next_pending_action()) is not None:
             # execute the action
             outcome = self._execute_with_recovery(action)
 
@@ -347,7 +357,34 @@ class Workflow:
         if self.callbacks:
             self.callbacks.notify_slice_finished()
 
-    def _next_pending_action(self) -> Action | None:
+    def preparation_issues(self) -> list[str]:
+        """
+        Describe what must still be prepared before the workflow can run a slice.
+
+        Returns:
+            One `"'<action name>': <issue>"` line per issue; empty if ready.
+        """
+        return [
+            f"'{action.name}': {issue}"
+            for action in self.actions
+            for issue in action.preparation_issues()
+        ]
+
+    def completion_reasons(self) -> list[str]:
+        """
+        Describe why the acquisition is complete, according to the actions.
+
+        Returns:
+            One `"'<action name>': <reason>"` line per action reporting a reason;
+            empty if the acquisition may continue.
+        """
+        return [
+            f"'{action.name}': {reason}"
+            for action in self.actions
+            if (reason := action.completion_reason()) is not None
+        ]
+
+    def next_pending_action(self) -> Action | None:
         """
         Finds the first action that has not yet run for the current slice.
 

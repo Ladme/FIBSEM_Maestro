@@ -130,10 +130,30 @@ class Action(ABC, Generic[TSettings, TState]):
         """
         Describe what must still be prepared before the action can execute.
 
+        The GUI evaluates this after every edit, so implementations must be
+        cheap: no microscope access and no image I/O (checking that a file
+        exists is fine).
+
         Returns:
             Human-readable problems; empty if the action is ready. The default reports none.
         """
         return []
+
+    def completion_reason(self) -> str | None:
+        """
+        Tell whether this action considers the acquisition complete.
+
+        The workflow checks this before every slice and finishes, without an
+        error, when any action reports a reason. The GUI evaluates this after
+        every edit, so implementations must be cheap: no microscope access and
+        no image I/O.
+
+        Returns:
+            A human-readable reason, e.g. "the milling area is used up; change it
+            to continue", or None if the acquisition may continue. The default
+            is None.
+        """
+        return None
 
     @final
     @with_logging_context
