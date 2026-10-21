@@ -346,6 +346,15 @@ class Imaging(Action[ImagingSettings, ImagingState]):
             img_res = beam.resolution
             pixel_size = beam.pixel_size
             area_nm = scanning_area.to_nanometers(img_res, pixel_size)
+            # the microscope squeezes frames taller than their field width
+            # instead of scanning further vertically, so such an area cannot be
+            # imaged with its own width as the field width
+            if area_nm.height > area_nm.width:
+                raise ImagingError(
+                    "Extended resolution cannot image a scanning area taller than "
+                    "it is wide. Make the area at least as wide as it is tall."
+                )
+
             image_to_beam_shift = beam.image_to_beam_shift
 
             shift = BeamShift(
