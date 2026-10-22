@@ -326,13 +326,13 @@ class TemplateMatching:
         _, max_val, _, max_loc = cv2.minMaxLoc(heatmap)
         best_x_int, best_y_int = max_loc
 
-        # restrict the guassian fit to a local neighborhood around the integer peak
-        neighborhood = int(10 * upsampling_factor)
+        # restrict the gaussian fit to a symmetric neighbourhood of the integer peak
+        neighborhood = int(np.ceil(10 * upsampling_factor))
 
         # extract a 1D profile along the x-axis at the best y position and fit a gaussian
         # to find the sub-pixel x-coordinate of the peak
         x_start = max(0, best_x_int - neighborhood)
-        x_end = min(heatmap.shape[1], best_x_int + neighborhood)
+        x_end = min(heatmap.shape[1], best_x_int + neighborhood + 1)
         x_indices = np.arange(x_start, x_end)
         x_profile = heatmap[best_y_int, x_start:x_end].squeeze()
         best_x = self._fit_subpixel_peak(x_profile, x_indices, best_x_int, max_val, "x")
@@ -340,15 +340,15 @@ class TemplateMatching:
         # extract a 1D profile along the y-axis at the best x position and fit a gaussian
         # to find the sub-pixel y-coordinate of the peak
         y_start = max(0, best_y_int - neighborhood)
-        y_end = min(heatmap.shape[0], best_y_int + neighborhood)
+        y_end = min(heatmap.shape[0], best_y_int + neighborhood + 1)
         y_indices = np.arange(y_start, y_end)
         y_profile = heatmap[y_start:y_end, best_x_int].squeeze()
         best_y = self._fit_subpixel_peak(y_profile, y_indices, best_y_int, max_val, "y")
 
-        # convert upsampled coordinates to pixels of the original image
-        # and express them as an offset from the image center
-        best_x = best_x / upsampling_factor - heatmap.shape[1] / (2 * upsampling_factor)
-        best_y = best_y / upsampling_factor - heatmap.shape[0] / (2 * upsampling_factor)
+        # without drift the peak lies at the centre of the heatmap, (size - 1) / 2;
+        # express the peak as an offset from it, in pixels of the original image
+        best_x = (best_x - (heatmap.shape[1] - 1) / 2.0) / upsampling_factor
+        best_y = (best_y - (heatmap.shape[0] - 1) / 2.0) / upsampling_factor
 
         return TemplateMatchResult(
             dx=best_x,
