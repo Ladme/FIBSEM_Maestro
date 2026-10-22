@@ -141,6 +141,8 @@ class Microscope:
                 f"target={new_stage_position}, actual={actual_position}, dist={dist:.3f} > tol={self._settings.stage_tolerance}"
             )
 
+        # intentionally NOT raising an Exception even if setting the stage fails
+
     def move_stage_position_with_verification(self, delta: StagePosition) -> None:
         """
         Move the stage by a relative offset and verify the result.
