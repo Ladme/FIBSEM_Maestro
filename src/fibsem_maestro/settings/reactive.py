@@ -19,6 +19,9 @@ Items of a list contribute `None`, since list positions shift. An empty path
 means the node changed as a whole, e.g. through `update` or `patch`.
 """
 
+Unsubscribe: TypeAlias = Callable[[], None]
+"""Removes the hook it was returned for. Calling it more than once does nothing."""
+
 
 class ReactiveNode:
     """
@@ -54,23 +57,31 @@ class ReactiveNode:
         self._parent = None
         self._key = None
 
-    def on_change(self, hook: Callable[[Self], None]):
+    def on_change(self, hook: Callable[[Self], None]) -> Unsubscribe:
         """
         Register a callback invoked when this node or any of its reactive descendants changes.
 
         Args:
             hook: A callable receiving the node where the hook was registered.
+
+        Returns:
+            A callable that removes this registration.
         """
         self._hooks.append(hook)
+        return _unsubscriber(self._hooks, hook)
 
-    def on_change_at(self, hook: Callable[[ChangePath], None]) -> None:
+    def on_change_at(self, hook: Callable[[ChangePath], None]) -> Unsubscribe:
         """
         Register a callback receiving the location of each change below this node.
 
         Args:
             hook: A callable receiving the path of the change, relative to this node.
+
+        Returns:
+            A callable that removes this registration.
         """
         self._path_hooks.append(hook)
+        return _unsubscriber(self._path_hooks, hook)
 
     def _call_hooks(self, path: ChangePath = ()) -> None:
         """Invoke hooks on this node and all ancestor nodes, bottom-up."""
@@ -88,10 +99,40 @@ class ReactiveNode:
         Args:
             path: Location of the change relative to this node.
         """
-        for hook in self._hooks:
+        # iterate over copies: a hook may unsubscribe itself (or another hook)
+        # while being called, which must not skip the hook after it
+        for hook in list(self._hooks):
             hook(self)
-        for hook in self._path_hooks:
+        for hook in list(self._path_hooks):
             hook(path)
+
+
+def _unsubscriber(hooks: list[Any], hook: Callable[..., None]) -> Unsubscribe:
+    """
+    Create the callable that removes one registration of `hook` from `hooks`.
+
+    Args:
+        hooks: The hook list the hook was appended to.
+        hook: The registered hook.
+
+    Returns:
+        An idempotent callable removing that registration.
+    """
+    removed = False
+
+    def unsubscribe() -> None:
+        nonlocal removed
+        if removed:
+            return
+        removed = True
+        # remove by identity: bound methods compare equal when they wrap the same
+        # function and object, and the same hook may be registered more than once
+        for index, registered in enumerate(hooks):
+            if registered is hook:
+                del hooks[index]
+                return
+
+    return unsubscribe
 
 
 class ReactiveModel(BaseModel, ReactiveNode):

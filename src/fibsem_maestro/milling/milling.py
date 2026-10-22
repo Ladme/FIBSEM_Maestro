@@ -9,7 +9,7 @@ from fibsem_maestro.action.outcome import Produced, StepOutcome
 from fibsem_maestro.action.registry import ACTION_REGISTRY
 from fibsem_maestro.action.state import ActionState
 from fibsem_maestro.action_context.action_context import ActionContext
-from fibsem_maestro.core.area import NMArea
+from fibsem_maestro.core.area import NMArea, RelativeArea
 from fibsem_maestro.core.direction import Direction
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.milling.error import MillingError
@@ -19,6 +19,11 @@ from fibsem_maestro.workflow.actions import Actions
 
 class MillingState(ActionState):
     milling_slice: NMArea | None = None
+    used_up_area: RelativeArea | None = None
+    """The designated milling area whose end was reached, or None."""
+
+
+_AREA_USED_UP = "the milling area is used up; change it to continue"
 
 
 @ACTION_REGISTRY.register("milling")
@@ -41,6 +46,7 @@ class Milling(Action[MillingSettings, MillingState]):
     ):
         super().__init__(name, microscope, settings, ctx, actions)
         self._current_milling_slice: NMArea | None = None
+        self._used_up_area: RelativeArea | None = None
 
     @classmethod
     def settings_cls(cls) -> type[MillingSettings]:
@@ -52,10 +58,42 @@ class Milling(Action[MillingSettings, MillingState]):
 
     @property
     def state(self) -> MillingState:
-        return MillingState(milling_slice=self._current_milling_slice)
+        return MillingState(
+            milling_slice=self._current_milling_slice,
+            used_up_area=self._used_up_area,
+        )
 
     def set_state(self, state: MillingState) -> None:
         self._current_milling_slice = state.milling_slice
+        self._used_up_area = state.used_up_area
+
+    def reset_state(self) -> None:
+        """
+        Discard the milling position, but remember a used-up milling area.
+
+        Changing the slice distance, direction or beam therefore restarts milling
+        at the leading edge without lifting the end of the acquisition; only a
+        different milling area does.
+        """
+        self.set_state(MillingState(used_up_area=self._used_up_area))
+        self._ctx.state_store.write("state.yaml", self.state)
+
+    def reset(self) -> None:
+        """Reset the action to slice 0 and its default state, forgetting a used-up area."""
+        self._used_up_area = None
+        super().reset()
+
+    def completion_reason(self) -> str | None:
+        """
+        Report the end of the acquisition once the milling area is used up.
+
+        Returns:
+            The reason while the used-up area is still the designated milling
+            area, otherwise None.
+        """
+        if self._is_area_used_up():
+            return _AREA_USED_UP
+        return None
 
     def test(self) -> None:
         raise MillingError(f"Testing is not implemented for {self.name}")
@@ -66,9 +104,16 @@ class Milling(Action[MillingSettings, MillingState]):
                 f"Expected exactly one milling area, got {len(self._settings.milling_area)}."
             )
 
+        if self._is_area_used_up():
+            raise MillingError("The milling area is used up; change it to continue.")
+
+        milling_area_nm = self._get_milling_area_nm()
         if self._current_milling_slice is None:
             self._set_current_milling_slice()
         assert self._current_milling_slice is not None
+
+        # never mill outside the designated area, whatever state was stored
+        self._check_milling_area_in_bounds(self._current_milling_slice, milling_area_nm)
 
         self._ctx.text_logger.debug(
             f"Area to be milled in this slice in nanometers: {self._current_milling_slice}."
@@ -93,12 +138,15 @@ class Milling(Action[MillingSettings, MillingState]):
                 f"Area to be milled has no size: {self._current_milling_slice}"
             )
 
-        self._check_milling_area_in_bounds(
-            self._current_milling_slice, self._get_milling_area_nm()
-        )
-        self._ctx.text_logger.debug(
-            f"Area to be milled in the next slice in nanometers: {self._current_milling_slice}."
-        )
+        if milling_area_nm.contains(self._current_milling_slice, tolerance=0.1):
+            self._ctx.text_logger.debug(
+                f"Area to be milled in the next slice in nanometers: {self._current_milling_slice}."
+            )
+        else:
+            # the next slice would leave the area: this slice was the last one; the
+            # workflow finishes before the next slice (see `completion_reason`)
+            self._used_up_area = self._settings.milling_area[0]
+            self._ctx.text_logger.info("The milling area is used up.")
 
         return Produced(self.collect_properties())
 
@@ -129,7 +177,17 @@ class Milling(Action[MillingSettings, MillingState]):
             height=slice_dist,
         )
 
+    def _is_area_used_up(self) -> bool:
+        areas = self._settings.milling_area
+        return (
+            self._used_up_area is not None
+            and len(areas) == 1
+            and self._used_up_area == areas[0]
+        )
+
     @staticmethod
     def _check_milling_area_in_bounds(area: NMArea, bounds: NMArea) -> None:
         if not bounds.contains(area, tolerance=0.1):
-            raise MillingError("Reached the boundaries of the designated milling area")
+            raise MillingError(
+                f"The slice to be milled ({area}) lies outside the designated milling area."
+            )

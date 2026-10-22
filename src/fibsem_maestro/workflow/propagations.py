@@ -31,6 +31,20 @@ class PropagationRule:
     dependent_names: list[str]
     props_to_propagate: PropertyNames
 
+    def is_complete(self) -> bool:
+        """
+        Whether the rule has at least one dependent and at least one property.
+
+        Incomplete rules are kept, so that they can be finished later, but they
+        propagate nothing.
+
+        Returns:
+            True if the rule would propagate something.
+        """
+        names = self.props_to_propagate
+        has_properties = bool(names.microscope or names.electron_beam or names.ion_beam)
+        return bool(self.dependent_names) and has_properties
+
 
 class Propagations:
     """
@@ -93,6 +107,8 @@ class Propagations:
             all_actions: The ordered list of all actions in the workflow.
             text_logger: Logger for diagnostics.
 
+        Rules without dependents or without properties are skipped.
+
         Raises:
             WorkflowError: If a dependent is undefined, or a rule propagates a
                 property the parent did not produce.
@@ -103,10 +119,13 @@ class Propagations:
             if rule.parent_name != parent.name:
                 continue
 
+            # an incomplete rule (still being set up in the GUI) propagates nothing
+            if not rule.is_complete():
+                continue
+
             try:
                 props = produced.select(rule.props_to_propagate)
             except KeyError as e:
-                # TODO: add this to GUI hint
                 raise WorkflowError(
                     f"Rule propagates {rule.props_to_propagate} from '{parent.name}', "
                     f"but '{parent.name}' did not produce all of them; add them to "
@@ -154,6 +173,23 @@ class Propagations:
             self._propagate_to_dependents(
                 all_actions, [actions_by_name[name]], patch, text_logger
             )
+
+    def rename_action(self, old_name: str, new_name: str) -> None:
+        """
+        Replace an action's name in every rule, as parent and as dependent.
+
+        The rules are edited in place, so references to them stay valid.
+
+        Args:
+            old_name: The action's previous name.
+            new_name: The action's new name.
+        """
+        for rule in self.rules:
+            if rule.parent_name == old_name:
+                rule.parent_name = new_name
+            rule.dependent_names[:] = [
+                new_name if name == old_name else name for name in rule.dependent_names
+            ]
 
     def copy_rules_from(self, source_name: str, new_parent_name: str) -> None:
         """

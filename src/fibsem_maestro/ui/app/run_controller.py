@@ -1,0 +1,485 @@
+# Released under GPL-3.0 License.
+# Copyright (c) 2024-2026 CEMCOF
+
+"""The run state machine and the worker thread executing the workflow."""
+
+from __future__ import annotations
+
+import threading
+from typing import TYPE_CHECKING
+
+from PyQt6.QtCore import (
+    Q_ARG,
+    QMetaObject,
+    QObject,
+    Qt,
+    QThread,
+    pyqtSignal,
+    pyqtSlot,
+)
+
+from fibsem_maestro.ui.app.errors import NotAllowedError
+from fibsem_maestro.ui.app.run_state import AppState
+from fibsem_maestro.workflow.error_choice import ErrorChoice
+from fibsem_maestro.workflow.workflow import Workflow
+
+if TYPE_CHECKING:
+    from fibsem_maestro.ui.app.microscope_tasks import MicroscopeTasks
+    from fibsem_maestro.ui.app.session import WorkflowSession
+    from fibsem_maestro.workflow.error import ActionError
+
+
+class AbortedError(Exception):
+    """Indicates that the workflow was aborted before completion."""
+
+
+class _RunWorker(QObject):
+    """
+    Executes one run of the workflow on its own thread (implements `WorkflowCallbacks`).
+
+    The GUI thread controls it through `pause`, `resume`, `submit_error_choice`
+    and `abort`, which only set flags and `threading.Event`s. It never touches
+    widgets or services; it only emits.
+
+    Args:
+        workflow: The workflow to run.
+    """
+
+    paused = pyqtSignal()
+    action_finished = pyqtSignal(object)
+    """The `Action` that has just finished."""
+    slice_finished = pyqtSignal(int)
+    """The workflow's slice counter after the slice."""
+    action_error = pyqtSignal(object)
+    """An `ActionError`; the worker then waits for `submit_error_choice`."""
+    finished = pyqtSignal()
+    """`Workflow.run` returned normally."""
+    failed = pyqtSignal(object)
+    """The exception that ended the run."""
+    done = pyqtSignal()
+    """The run is over, whatever the outcome; always the last signal."""
+
+    def __init__(self, workflow: Workflow) -> None:
+        super().__init__()
+        self._workflow = workflow
+        self._pause_requested = False
+        self._resume_event = threading.Event()
+        # start in resumed state
+        self._resume_event.set()
+
+        self._error_event = threading.Event()
+        self._error_choice: ErrorChoice | None = None
+
+        self._aborted = False
+
+    def notify_action_finished(self, finished_action_index: int) -> None:
+        """Announce the action that has just finished."""
+        self.action_finished.emit(self._workflow.actions[finished_action_index])
+
+    def notify_slice_finished(self) -> None:
+        """Announce the workflow's slice counter after a slice."""
+        self.slice_finished.emit(self._workflow.ctx.slice)
+
+    def notify_is_paused(self) -> None:
+        """Announce that the requested pause has taken effect."""
+        self.paused.emit()
+
+    def is_pause_requested(self) -> bool:
+        """Whether the workflow should pause after the current action."""
+        return self._pause_requested
+
+    def wait_for_resume(self) -> None:
+        """
+        Block until resumed or aborted.
+
+        Raises:
+            AbortedError: If the run was aborted while paused.
+        """
+        while not self._resume_event.wait(timeout=0.1):
+            pass
+
+        if self._aborted:
+            raise AbortedError()
+
+    def request_error_choice(self, error: ActionError) -> ErrorChoice:
+        """
+        Ask the GUI how to handle a failed action.
+
+        Called on the worker thread. Blocks until the GUI thread answers via
+        submit_error_choice, or the workflow is aborted.
+
+        Args:
+            error: The failure.
+
+        Returns:
+            The user's choice.
+
+        Raises:
+            AbortedError: If the run was aborted while waiting.
+        """
+        self._error_choice = None
+        self._error_event.clear()
+        self.action_error.emit(error)
+
+        while not self._error_event.wait(timeout=0.1):
+            pass
+
+        if self._aborted:
+            raise AbortedError()
+
+        assert self._error_choice is not None
+        return self._error_choice
+
+    def submit_error_choice(self, choice: ErrorChoice) -> None:
+        """Called on the GUI thread to unblock request_error_choice."""
+        self._error_choice = choice
+        self._error_event.set()
+
+    def pause(self) -> None:
+        """Request a pause after the current action."""
+        self._pause_requested = True
+        self._resume_event.clear()
+
+    def resume(self) -> None:
+        """Release a pause (or cancel a pending one)."""
+        self._pause_requested = False
+        self._resume_event.set()
+
+    def abort(self) -> None:
+        """Make a paused or waiting run end with `AbortedError`."""
+        self._aborted = True
+        # unblock wait_for_resume and request_error_choice
+        self._resume_event.set()
+        self._error_event.set()
+
+    @pyqtSlot(int)
+    def run(self, last_slice: int) -> None:
+        """
+        Run the workflow up to `last_slice`, with this worker as its callbacks.
+
+        Invoked on the worker's thread. Emits `finished` if the workflow
+        returned normally, `failed` if it raised (an abort ends it silently),
+        and `done` last in every case.
+
+        Args:
+            last_slice: The last slice to acquire.
+        """
+        try:
+            self._workflow.set_callbacks(self)
+            self._workflow.run(last_slice)
+            self.finished.emit()
+        except AbortedError:
+            # clean exit
+            pass
+        except Exception as e:
+            self.failed.emit(e)
+        finally:
+            self.done.emit()
+
+
+class _ActiveRun:
+    """
+    The thread, worker and workflow of the current run.
+
+    Args:
+        thread: The run's thread.
+        worker: The run's worker, living on `thread`.
+        workflow: The workflow being run; `worker` is its callbacks.
+    """
+
+    def __init__(self, thread: QThread, worker: _RunWorker, workflow: Workflow) -> None:
+        self.thread = thread
+        # the worker has no Qt parent (it was moved to the thread), so this
+        # reference keeps its Python wrapper, and the C++ object, alive until
+        # the thread's `finished` deletes it
+        self.worker = worker
+        self.workflow = workflow
+
+
+class RunController(QObject):
+    """
+    Owns the run state (`AppState`) and the worker thread of the current run.
+
+    One fresh thread and worker exist per run; none exists while editing. The
+    microscope task runner is locked exactly while RUNNING or STOPPING. Calls
+    not allowed in the current state raise `NotAllowedError`.
+
+    Args:
+        session: The workflow session; its workflow is read when a run starts.
+        tasks: The microscope task runner, locked while the workflow executes.
+        parent: Optional Qt parent.
+    """
+
+    state_changed = pyqtSignal(object)
+    """The new `AppState`."""
+    action_finished = pyqtSignal(object)
+    """The `Action` that just finished on the worker."""
+    slice_finished = pyqtSignal(int)
+    """The workflow's slice counter after the slice."""
+    action_failed = pyqtSignal(object)
+    """An `ActionError`; the worker waits for `choose()` or `skip_and_pause()`."""
+    workflow_failed = pyqtSignal(object)
+    """The exception that ended the run."""
+
+    def __init__(
+        self,
+        session: WorkflowSession,
+        tasks: MicroscopeTasks,
+        parent: QObject | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self._session = session
+        self._tasks = tasks
+        self._state = AppState.EDITING if session.slice == 0 else AppState.RELOADED
+        self._active: _ActiveRun | None = None
+        # True while the worker waits in request_error_choice
+        self._awaiting_choice = False
+
+    @property
+    def state(self) -> AppState:
+        """The current run state."""
+        return self._state
+
+    def start(self) -> None:
+        """
+        Start a run from EDITING, RELOADED or FINISHED on a fresh worker thread.
+
+        The run continues from wherever the workflow is and stops after
+        `Workflow.MAX_SLICE` at the latest.
+
+        Raises:
+            NotAllowedError: In any other state, or while a microscope task runs.
+        """
+        if self._state not in (AppState.EDITING, AppState.RELOADED, AppState.FINISHED):
+            raise NotAllowedError(f"Cannot start the workflow while {self._state}.")
+
+        self._refuse_if_task_busy()
+
+        if self._active is not None and self._state is AppState.FINISHED:
+            # `finished` is handled before `done`; join the run that just ended
+            self._join_and_release()
+
+        assert self._active is None
+
+        workflow = self._session.workflow
+        thread = QThread()
+        thread.setObjectName("workflow-run")
+        worker = _RunWorker(workflow)
+        worker.moveToThread(thread)
+
+        worker.paused.connect(self._on_paused)
+        worker.action_finished.connect(self._on_action_finished)
+        worker.slice_finished.connect(self._on_slice_finished)
+        worker.action_error.connect(self._on_action_error)
+        worker.finished.connect(self._on_finished)
+        worker.failed.connect(self._on_failed)
+        worker.done.connect(self._on_done)
+        # deleted on its own thread while that thread's event loop still runs; a
+        # worker deleteLater-ed after wait() would never be deleted
+        thread.finished.connect(worker.deleteLater)
+
+        self._active = _ActiveRun(thread, worker, workflow)
+        self._awaiting_choice = False
+        thread.start()
+        self._set_state(AppState.RUNNING)
+        QMetaObject.invokeMethod(
+            worker,
+            "run",
+            Qt.ConnectionType.QueuedConnection,
+            Q_ARG(int, Workflow.MAX_SLICE),
+        )
+
+    def pause(self) -> None:
+        """
+        Request a pause; it takes effect after the current action (RUNNING -> STOPPING).
+
+        Raises:
+            NotAllowedError: If not RUNNING.
+        """
+        if self._state is not AppState.RUNNING or self._active is None:
+            raise NotAllowedError(f"Cannot pause the workflow while {self._state}.")
+        self._active.worker.pause()
+        self._set_state(AppState.STOPPING)
+
+    def resume(self) -> None:
+        """
+        Resume a paused run (PAUSED -> RUNNING).
+
+        Raises:
+            NotAllowedError: If not PAUSED, or while a microscope task runs.
+        """
+        if self._state is not AppState.PAUSED or self._active is None:
+            raise NotAllowedError(f"Cannot resume the workflow while {self._state}.")
+        self._refuse_if_task_busy()
+        self._active.worker.resume()
+        self._set_state(AppState.RUNNING)
+
+    def choose(self, choice: ErrorChoice) -> None:
+        """
+        Answer a failed action with Retry or Skip (INTERRUPTED -> RUNNING).
+
+        A pause still pending from before the error then takes effect as usual.
+
+        Args:
+            choice: `ErrorChoice.RETRY` or `ErrorChoice.SKIP`.
+
+        Raises:
+            NotAllowedError: If no action error awaits a choice, while a
+                microscope task runs, or for `ErrorChoice.TERMINATE` (an
+                interrupted run is abandoned with `abort()`).
+        """
+        if choice is ErrorChoice.TERMINATE:
+            raise NotAllowedError("Terminate is not a choice for a failed action.")
+
+        active = self._require_awaiting_choice()
+        self._refuse_if_task_busy()
+        self._awaiting_choice = False
+        active.worker.submit_error_choice(choice)
+        self._set_state(AppState.RUNNING)
+
+    def skip_and_pause(self) -> None:
+        """
+        Skip the failed action, then pause the workflow right after it (INTERRUPTED -> STOPPING).
+
+        The pause is requested before the worker is released from waiting for
+        the error choice, so it cannot run past its next pause check first.
+
+        Raises:
+            NotAllowedError: If no action error awaits a choice, or while a
+                microscope task runs.
+        """
+        active = self._require_awaiting_choice()
+        self._refuse_if_task_busy()
+        self._awaiting_choice = False
+        active.worker.pause()
+        active.worker.submit_error_choice(ErrorChoice.SKIP)
+        self._set_state(AppState.STOPPING)
+
+    def abort(self) -> None:
+        """
+        Unblock and join a worker that is paused or waiting for an error choice.
+
+        Idempotent; does nothing without a worker. The state is unchanged.
+
+        Raises:
+            NotAllowedError: While RUNNING or STOPPING: an action cannot be
+                stopped half-way.
+        """
+        if self._state.is_running:
+            raise NotAllowedError("Cannot abort the workflow while an action executes.")
+        if self._active is None:
+            return
+        self._active.worker.abort()
+        self._join_and_release()
+
+    def set_editing(self) -> None:
+        """
+        Return to EDITING after a reset or a new workflow.
+
+        Raises:
+            NotAllowedError: While RUNNING or STOPPING, or while a worker still
+                exists (call `abort()` first).
+        """
+        if self._state.is_running or self._active is not None:
+            raise NotAllowedError(f"Cannot return to editing while {self._state}.")
+        self._awaiting_choice = False
+        self._set_state(AppState.EDITING)
+
+    def _on_paused(self) -> None:
+        if not self._from_active_worker():
+            return
+        # also from RUNNING: a pause still pending after an error choice
+        if self._state.is_running:
+            self._set_state(AppState.PAUSED)
+        else:
+            self._ignore("paused")
+
+    def _on_action_finished(self, action: object) -> None:
+        if self._from_active_worker():
+            self.action_finished.emit(action)
+
+    def _on_slice_finished(self, slice_index: int) -> None:
+        if self._from_active_worker():
+            self.slice_finished.emit(slice_index)
+
+    def _on_action_error(self, error: ActionError) -> None:
+        if not self._from_active_worker():
+            return
+        if self._state.is_running:
+            self._awaiting_choice = True
+            self._set_state(AppState.INTERRUPTED)
+            self.action_failed.emit(error)
+        else:
+            self._ignore("action_error")
+
+    def _on_finished(self) -> None:
+        if not self._from_active_worker():
+            return
+        if self._state.is_running:
+            self._set_state(AppState.FINISHED)
+        else:
+            self._ignore("finished")
+
+    def _on_failed(self, error: Exception) -> None:
+        if not self._from_active_worker():
+            return
+        if self._state.is_running:
+            self._set_state(AppState.INTERRUPTED)
+            self.workflow_failed.emit(error)
+        else:
+            self._ignore("failed")
+
+    def _on_done(self) -> None:
+        if self._from_active_worker():
+            self._join_and_release()
+
+    def _join_and_release(self) -> None:
+        """
+        Stop the run's thread, wait for it and let Qt delete it.
+
+        Afterwards the workflow no longer holds the worker as its callbacks.
+        """
+        assert self._active is not None
+        active = self._active
+        thread = active.thread
+        thread.quit()
+        # Blocking the GUI thread here cannot hang: this is only called when
+        # the worker's `run` has returned or is returning (after `done`, after
+        # `finished`) or right after `abort()` released its only blocking
+        # waits (paused or awaiting a choice; never while an action executes).
+        # The worker never waits for the GUI thread (its signals are queued),
+        # so its event loop reaches `quit` promptly.
+        thread.wait()
+        thread.deleteLater()
+        if active.workflow.callbacks is active.worker:
+            # the worker is deleted with its thread; nothing may call into it
+            active.workflow.callbacks = None
+        self._active = None
+        self._awaiting_choice = False
+
+    def _from_active_worker(self) -> bool:
+        # a late signal of a previous run must not disturb the current one
+        return self._active is not None and self.sender() is self._active.worker
+
+    def _require_awaiting_choice(self) -> _ActiveRun:
+        if (
+            self._state is not AppState.INTERRUPTED
+            or not self._awaiting_choice
+            or self._active is None
+        ):
+            raise NotAllowedError("No failed action is waiting for a choice.")
+        return self._active
+
+    def _refuse_if_task_busy(self) -> None:
+        if self._tasks.busy:
+            raise NotAllowedError("A microscope task is running.")
+
+    def _set_state(self, state: AppState) -> None:
+        self._state = state
+        self._tasks.set_locked(state.is_running)
+        self.state_changed.emit(state)
+
+    def _ignore(self, event: str) -> None:
+        self._session.text_logger().debug(
+            f"Ignoring the run event '{event}' in state '{self._state}'."
+        )

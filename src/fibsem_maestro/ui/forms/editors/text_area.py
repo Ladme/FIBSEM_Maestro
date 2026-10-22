@@ -1,0 +1,95 @@
+# Released under GPL-3.0 License.
+# Copyright (c) 2024-2026 CEMCOF
+
+"""Fallback editor: the value as YAML text."""
+
+from typing import TypeVar
+
+import yaml
+from pydantic import TypeAdapter, ValidationError
+from PyQt6.QtWidgets import QPlainTextEdit, QWidget
+
+from fibsem_maestro.ui.forms.editor import FieldEditor
+from fibsem_maestro.ui.forms.issues import FieldValidationError
+from fibsem_maestro.ui.schema.validation import validation_messages
+
+T = TypeVar("T")
+
+
+class TextAreaWidget(QPlainTextEdit, FieldEditor[T]):
+    """
+    Fallback editor for values with no dedicated widget.
+
+    The value is edited as YAML text and validated back into `target_type`
+    on read, so `get_value` returns a fully-typed object (a dataclass, a
+    pydantic model, or anything pydantic can validate) rather than raw text.
+
+    Args:
+        target_type: The type to load the YAML into (e.g. a dataclass or model).
+        default: An initial value, rendered to YAML for editing.
+        parent: The parent widget, if any.
+    """
+
+    def __init__(
+        self,
+        target_type: type[T],
+        default: T | None = None,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        FieldEditor.__init__(self)
+        self._adapter: TypeAdapter[T] = TypeAdapter(target_type)
+
+        self.setFixedHeight(96)
+
+        if default is not None:
+            self.set_value(default)
+
+        self.textChanged.connect(self._emit)
+
+    def get_value(self) -> T:
+        """
+        Parse the YAML text and validate it into `target_type`.
+
+        Returns:
+            The validated value of type `T`.
+
+        Raises:
+            FieldValidationError: If the text is not valid YAML, or the parsed
+                data does not conform to `target_type`.
+        """
+        try:
+            data = yaml.safe_load(self.toPlainText())
+        except yaml.YAMLError as e:
+            raise FieldValidationError.of_whole_field(
+                [f"Invalid YAML: {str(e).splitlines()[0]}"]
+            ) from e
+
+        try:
+            return self._adapter.validate_python(data)
+        except ValidationError as e:
+            raise FieldValidationError.of_whole_field(validation_messages(e)) from e
+
+    def set_value(self, value: T) -> None:
+        """
+        Render a value to YAML and display it for editing.
+
+        Args:
+            value: The value to serialize; None clears the field.
+        """
+
+        if value is None:
+            self.setPlainText("")
+            return
+
+        data = self._adapter.dump_python(value, mode="json")
+        self.setPlainText(yaml.safe_dump(data, sort_keys=False).rstrip())
+
+    def set_read_only(self, read_only: bool) -> None:
+        """
+        Enable or disable editing of the text.
+
+        Args:
+            read_only: If True, make the field read-only.
+        """
+        self.setReadOnly(read_only)
