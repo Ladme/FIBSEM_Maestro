@@ -545,11 +545,6 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         self._txt_log.debug(f"Setting beam current ({self._modality}): {value} nA.")
         self._beam.beam_current.value = value * 1e-9
 
-    @property
-    def minimal_dwell(self) -> float:
-        # in s
-        return 25e-9
-
     def manufacturer_prop(self, name: str) -> Any:
         property = self._manufacturer_properties.get(name)
         value = property.get()
