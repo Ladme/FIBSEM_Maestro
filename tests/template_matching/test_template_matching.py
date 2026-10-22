@@ -25,6 +25,7 @@ from fibsem_maestro.settings.template_matching_settings import (
 )
 from fibsem_maestro.store.image.memory import MemoryImageStore
 from fibsem_maestro.template_matching.area_provider import AreaProvider
+from fibsem_maestro.template_matching.error import TemplateMatchingError
 from fibsem_maestro.template_matching.template_matching import TemplateMatching
 
 if TYPE_CHECKING:
@@ -155,3 +156,35 @@ def test_reduced_area_drift_correction_near_frame_edge_measures_no_drift(
     one_pixel = beam.pixel_size
     assert abs(beam.beam_shift.x) < one_pixel
     assert abs(beam.beam_shift.y) < one_pixel
+
+
+def test_template_scans_that_drifted_apart_are_rejected() -> None:
+    settings = TemplateMatchingSettings(
+        areas=[AREA], template_scans=2, maximal_drift=1.0
+    )
+    matcher = _matcher(settings, [_scene(), _scene(8.0, 0.0)])
+    with pytest.raises(TemplateMatchingError, match="drift"):
+        matcher.create_templates()
+
+
+def test_identical_template_scans_are_accepted() -> None:
+    settings = TemplateMatchingSettings(
+        areas=[AREA], template_scans=2, maximal_drift=1.0
+    )
+    matcher = _matcher(settings, [_scene(), _scene()])
+    matcher.create_templates()
+    assert matcher.templates_exist()
+
+
+def test_template_scan_drift_limit_is_in_nanometers() -> None:
+    # 3 px at 10 nm/px is 30 nm: above a 20 nm limit, below a 50 nm one
+    too_strict = TemplateMatchingSettings(
+        areas=[AREA], template_scans=2, maximal_drift=20.0
+    )
+    with pytest.raises(TemplateMatchingError, match="drift"):
+        _matcher(too_strict, [_scene(), _scene(3.0, 0.0)]).create_templates()
+
+    lenient = TemplateMatchingSettings(
+        areas=[AREA], template_scans=2, maximal_drift=50.0
+    )
+    _matcher(lenient, [_scene(), _scene(3.0, 0.0)]).create_templates()
