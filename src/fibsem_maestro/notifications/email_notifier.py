@@ -7,6 +7,9 @@ from email.message import EmailMessage
 from fibsem_maestro.notifications.notification_service import NotificationService
 from fibsem_maestro.settings.notification_settings import SMTPEmailSettings
 
+SMTP_TIMEOUT_S = 30.0
+"""Longest wait for the SMTP server, in seconds; the workflow waits for notifications."""
+
 
 class SMTPEmailNotifier(NotificationService):
     """
@@ -56,7 +59,9 @@ class SMTPEmailNotifier(NotificationService):
         msg["Subject"] = subject
         msg.set_content(body)
 
-        with smtplib.SMTP(self._settings.host, self._settings.port) as server:
+        with smtplib.SMTP(
+            self._settings.host, self._settings.port, timeout=SMTP_TIMEOUT_S
+        ) as server:
             server.starttls()
             server.login(self._settings.username, self._settings.password)
             server.send_message(msg)
