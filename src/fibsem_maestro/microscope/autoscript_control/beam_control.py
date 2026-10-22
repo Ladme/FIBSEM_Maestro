@@ -48,6 +48,21 @@ BeamT = TypeVar(
 
 
 class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
+    _LIMITED_VARIABLES: dict[str, tuple[str, int | None, float]] = {
+        # variable: (Autoscript attribute, axis of a 2D value or None, scale to Maestro units)
+        "working_distance": ("working_distance", None, 1e9),  # m -> nm
+        "horizontal_field_width": ("horizontal_field_width", None, 1e9),  # m -> nm
+        "beam_current": ("beam_current", None, 1e9),  # A -> nA
+        "stigmator_x": ("stigmator", 0, 1.0),
+        "stigmator_y": ("stigmator", 1, 1.0),
+        "lens_alignment_x": ("lens_alignment", 0, 1e9),  # m -> nm
+        "lens_alignment_y": ("lens_alignment", 1, 1e9),  # m -> nm
+        "source_tilt_x": ("source_tilt", 0, math.degrees(1.0)),  # rad -> deg
+        "source_tilt_y": ("source_tilt", 1, math.degrees(1.0)),  # rad -> deg
+        "beam_shift_x": ("beam_shift", 0, 1e9),  # m -> nm
+        "beam_shift_y": ("beam_shift", 1, 1e9),  # m -> nm
+    }
+
     def __init__(
         self,
         autoscript_microscope: SdbMicroscopeClient,
@@ -562,6 +577,34 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
     def txt_log(self) -> TextLogger:
         return self._txt_log
 
+    def limits(self, var: str) -> tuple[float, float]:
+        """
+        Return the range the instrument accepts for a variable, in Maestro units.
+
+        Read from Autoscript, so it is right for the connected instrument and beam.
+        Variables Autoscript reports no range for are unbounded, as in the other
+        beam controls.
+
+        Args:
+            var: Name of the variable, e.g. `working_distance` or `stigmator_x`.
+
+        Returns:
+            A `(min, max)` tuple.
+        """
+        if (entry := self._LIMITED_VARIABLES.get(var)) is None:
+            return (-math.inf, math.inf)
+
+        attribute, axis, scale = entry
+        if (setting := getattr(self._beam, attribute, None)) is None:
+            return (-math.inf, math.inf)
+
+        limits = setting.limits
+        if axis is not None:
+            limits = limits.limits_x if axis == 0 else limits.limits_y
+
+        low, high = limits.min * scale, limits.max * scale
+        return (min(low, high), max(low, high))
+
 
 class AutoscriptElectronBeamControl(AutoscriptBeamControl[ElectronBeamAs]):
     @classmethod
@@ -619,24 +662,6 @@ class AutoscriptElectronBeamControl(AutoscriptBeamControl[ElectronBeamAs]):
     def image_to_beam_shift(self) -> tuple[int, int]:
         return (-1, 1)
 
-    def limits(self, var: str) -> tuple[float, float]:
-        # TODO: maybe this should not be hardcoded?
-        match var:
-            case "working_distance":
-                return (500_000.0, 70_000_000.0)
-            case "stigmator_x":
-                return (-0.99, 0.88)
-            case "stigmator_y":
-                return (-0.99, 0.77)
-            case "lens_alignment_x":
-                return (-720_052.0, 697_917.0)
-            case "lens_alignment_y":
-                return (-691_406.25, 689_453.125)
-            case _:
-                raise MicroscopeError(
-                    f"{var} is not a valid microscope variable for an electron beam"
-                )
-
 
 class AutoscriptIonBeamControl(AutoscriptBeamControl[IonBeamAs]):
     @classmethod
@@ -689,6 +714,3 @@ class AutoscriptIonBeamControl(AutoscriptBeamControl[IonBeamAs]):
     @property
     def image_to_beam_shift(self) -> tuple[int, int]:
         return (-1, 1)
-
-    def limits(self, var: str) -> tuple[float, float]:
-        raise MicroscopeError(f"{var} is not valid microscope variable for an ion beam")
