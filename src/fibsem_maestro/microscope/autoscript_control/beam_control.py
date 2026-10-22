@@ -441,7 +441,7 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         # change the resolution of the image so that the requested vertical field width is achieved
         # without changing the pixel size
         pixel_size = self.pixel_size
-        self.resolution = Resolution(self.resolution.width, int(value / pixel_size))
+        self.resolution = Resolution(self.resolution.width, round(value / pixel_size))
         self._txt_log.info(
             f"Extended resolution set to: {str(self.resolution)} (via setting vertical field width)."
         )
@@ -457,8 +457,8 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         # change the resolution of the image so that the pixel size matches the provided value
         # but the field width is not changed
         self.resolution = Resolution(
-            int(self.horizontal_field_width / value),
-            int(self.vertical_field_width / value),
+            round(self.horizontal_field_width / value),
+            round(self.vertical_field_width / value),
         )
         self._txt_log.info(
             f"Extended resolution set to: {str(self.resolution)} (via setting pixel size)."
