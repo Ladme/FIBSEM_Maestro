@@ -275,10 +275,10 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
             f"Milling area in patterning coordinates: center = [{center_x}, {center_y}], width = {milling_area_m.width}, height = {milling_area_m.height}"
         )
 
-        if "ccs" in str(pattern_type):
+        if "ccs" in str(pattern_type).lower():
             self._txt_log.debug("Using cleaning cross section pattern.")
             pattern_fn = self._microscope.patterning.create_cleaning_cross_section
-        elif "rcs" in str(pattern_type):
+        elif "rcs" in str(pattern_type).lower():
             self._txt_log.debug("Using regular cross section pattern.")
             pattern_fn = self._microscope.patterning.create_regular_cross_section
         else:
