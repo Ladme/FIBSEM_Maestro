@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import logging
 import sys
+import threading
 import weakref
 from typing import TYPE_CHECKING, Self
 
@@ -80,7 +81,6 @@ class FileTextLogger(TextLogger):
         if level < self._level:
             return
 
-        handler = self._root.get_handler(self._view_provider())
         record = logging.LogRecord(
             name=self.name,
             level=level,
@@ -90,7 +90,7 @@ class FileTextLogger(TextLogger):
             args=(),
             exc_info=exc_info,
         )
-        handler.handle(record)
+        self._root.emit(self._view_provider(), record)
 
     def info(self, msg: str) -> None:
         self._emit(logging.INFO, msg)
@@ -204,7 +204,22 @@ class _FileTextLoggerRoot:
         self.name = name
         self._active_path: Path | None = None
         self._active_handler: logging.FileHandler | None = None
+        # loggers of one group write from several threads (e.g. background
+        # sharpness jobs logging to an earlier slice), and rotating the shared
+        # handler must not close it under another thread's record
+        self._lock = threading.RLock()
         _FileTextLoggerRoot._instances.add(self)
+
+    def emit(self, view: SliceView, record: logging.LogRecord) -> None:
+        """
+        Write a record to the log file of the given slice.
+
+        Args:
+            view: The slice view whose log file receives the record.
+            record: The record to write.
+        """
+        with self._lock:
+            self.get_handler(view).handle(record)
 
     def get_handler(self, view: SliceView) -> logging.FileHandler:
         """
@@ -216,20 +231,21 @@ class _FileTextLoggerRoot:
         Returns:
             An open `FileHandler` pointed at that slice's log file.
         """
-        path = view.path() / self._filename
+        with self._lock:
+            path = view.path() / self._filename
 
-        if self._active_handler is not None and path == self._active_path:
-            return self._active_handler
+            if self._active_handler is not None and path == self._active_path:
+                return self._active_handler
 
-        if self._active_handler is not None:
-            self._active_handler.close()
+            if self._active_handler is not None:
+                self._active_handler.close()
 
-        handler = logging.FileHandler(path)
-        handler.setLevel(self._level)
-        handler.setFormatter(logging.Formatter(self._FORMAT))
-        self._active_handler = handler
-        self._active_path = path
-        return handler
+            handler = logging.FileHandler(path)
+            handler.setLevel(self._level)
+            handler.setFormatter(logging.Formatter(self._FORMAT))
+            self._active_handler = handler
+            self._active_path = path
+            return handler
 
     def close(self) -> None:
         """
@@ -238,10 +254,11 @@ class _FileTextLoggerRoot:
         The next log call reopens a handler for the then-current slice, so
         closing is safe at any time. It merely releases the file until the next write.
         """
-        if self._active_handler is not None:
-            self._active_handler.close()
-        self._active_handler = None
-        self._active_path = None
+        with self._lock:
+            if self._active_handler is not None:
+                self._active_handler.close()
+            self._active_handler = None
+            self._active_path = None
 
     @classmethod
     def close_all(cls) -> None:
