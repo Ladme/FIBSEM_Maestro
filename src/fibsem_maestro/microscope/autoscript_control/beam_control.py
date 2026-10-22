@@ -491,7 +491,7 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         # while Autoscript 4.13 does support getting scanning_area via `scanning.mode.reduced_area`,
         # older Autoscript versions do not - we need a workaround for those versions
         try:
-            if self._beam.scanning.mode.value is ScanningMode.REDUCED_AREA:
+            if self._beam.scanning.mode.value == ScanningMode.REDUCED_AREA:
                 area = RelativeArea.from_autoscript(
                     self._beam.scanning.mode.reduced_area.value
                 )
