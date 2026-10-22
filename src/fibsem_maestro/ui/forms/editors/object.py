@@ -9,7 +9,7 @@ from functools import partial
 from html import escape
 from typing import Any, TypeVar, cast
 
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QGridLayout, QLabel, QWidget
 
@@ -53,8 +53,8 @@ def _model_to_dict(value: Any) -> dict[str, Any] | None:
         Field name to value, or None if `value` is neither.
     """
     # pydantic model
-    if hasattr(value, "model_fields"):
-        return {name: getattr(value, name) for name in value.model_fields}
+    if isinstance(value, BaseModel):
+        return {name: getattr(value, name) for name in type(value).model_fields}
     # plain dataclass
     if dataclasses.is_dataclass(value) and not isinstance(value, type):
         return {f.name: getattr(value, f.name) for f in dataclasses.fields(value)}
