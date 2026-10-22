@@ -19,6 +19,7 @@ from fibsem_maestro.microscope.abstract_control.microscope_control import (
 )
 from fibsem_maestro.microscope.error import MicroscopeError
 from fibsem_maestro.microscope.registry import MICROSCOPE_CONTROLS
+from fibsem_maestro.properties.beam_properties import BeamProperties
 from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.properties.microscope_properties import MicroscopeProperties
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
@@ -349,24 +350,31 @@ class Microscope:
         if properties.electron_beam is not None and (
             beam is None or beam is BeamType.ELECTRON
         ):
-            # beam shift has to be handled on this level since stage movement can be required
-            if (beam_shift := properties.electron_beam.beam_shift) is not None:
-                self.set_beam_shift_with_verification(
-                    beam_shift, self._control.electron_beam
-                )
-                properties.electron_beam.beam_shift = None
-
-            self._control.electron_beam.set_properties(properties.electron_beam)
+            self._set_beam_properties(
+                properties.electron_beam, self._control.electron_beam
+            )
 
         # set properties of the ion beam
         if properties.ion_beam is not None and (beam is None or beam is BeamType.ION):
-            if (beam_shift := properties.ion_beam.beam_shift) is not None:
-                self.set_beam_shift_with_verification(
-                    beam_shift, self._control.ion_beam
-                )
-                properties.ion_beam.beam_shift = None
+            self._set_beam_properties(properties.ion_beam, self._control.ion_beam)
 
-            self._control.ion_beam.set_properties(properties.ion_beam)
+    def _set_beam_properties(self, props: BeamProperties, beam: BeamControl) -> None:
+        """
+        Apply beam properties, handling the beam shift here.
+
+        The beam shift is set by the microscope rather than the beam control,
+        since it may fall back to a stage move. `props` is left unchanged.
+
+        Args:
+            props: The properties to apply.
+            beam: The beam to apply them to.
+        """
+        if props.beam_shift is not None:
+            self.set_beam_shift_with_verification(props.beam_shift, beam)
+
+        remaining = props.model_copy(deep=True)
+        remaining.beam_shift = None
+        beam.set_properties(remaining)
 
     def collect_properties(
         self, properties_to_collect: PropertyNames
