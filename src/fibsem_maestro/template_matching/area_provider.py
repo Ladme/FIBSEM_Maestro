@@ -6,6 +6,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
+from fibsem_maestro.core.area import PixelArea
+from fibsem_maestro.core.point import PixelPoint
 from fibsem_maestro.core.registry import Registry
 from fibsem_maestro.settings.template_matching_settings import (
     FullFrameMode,
@@ -153,15 +155,21 @@ class ReducedAreaProvider(AreaProvider):
             self._microscope.beam.grab_frame()
 
         regions = []
-        resolution = self._microscope.beam.resolution
-        pixel_size = self._microscope.beam.pixel_size
+        beam = self._microscope.beam
+        resolution = beam.resolution
+        frame = PixelArea(
+            origin=PixelPoint(0, 0), width=resolution.width, height=resolution.height
+        )
+        # the same margin in pixels as the full-frame provider uses
+        margin_px = int(self._settings.correction_margin / beam.pixel_size)
+
         for area in self._settings.areas:
-            # include the correction margin in the area to scan
-            area_nm = area.to_nanometers(resolution, pixel_size)
-            search_area_nm = area_nm.expanded(self._settings.correction_margin)
-            search_area = search_area_nm.to_relative(resolution, pixel_size)
+            # include the correction margin in the area to scan, but only scan
+            # what lies inside the frame
+            wanted = area.to_pixels(resolution).expanded(margin_px)
+            scanned = wanted.intersection(frame)
             with self._microscope.set_temporary_beam_property(
-                "scanning_area", search_area
+                "scanning_area", scanned.to_relative(resolution)
             ):
                 # grab dummy frames
                 for i in range(
@@ -172,8 +180,12 @@ class ReducedAreaProvider(AreaProvider):
                     )
                     self._microscope.beam.grab_frame()
 
-                frame = self._microscope.beam.grab_frame()
-            regions.append(frame.to_8bit())
+                region = self._microscope.beam.grab_frame().to_8bit()
+
+            # the matcher expects the template in the centre of the search region,
+            # so the part outside the frame is filled with replicated edge pixels,
+            # as in the full-frame provider
+            regions.append(region.padded_to(scanned, wanted))
         return regions
 
     def acquire_template_regions(self) -> list[Image8Bit]:
