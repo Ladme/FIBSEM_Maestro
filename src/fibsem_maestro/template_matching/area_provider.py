@@ -22,6 +22,14 @@ if TYPE_CHECKING:
 
 AREA_PROVIDERS = Registry[type["AreaProvider"]]("area provider")
 
+_SCAN_PARAMETERS = ("resolution", "dwell_time", "line_integration", "bit_depth")
+"""
+Beam properties a reduced-area scan must share with the full frame.
+
+The resolution is included because the scanned area is computed on the
+full-frame pixel grid.
+"""
+
 
 class AreaProvider(ABC):
     """
@@ -146,16 +154,21 @@ class ReducedAreaProvider(AreaProvider):
         return None
 
     def acquire_search_regions(self) -> list[Image8Bit]:
-        # grab full image dummy frames
         assert isinstance(self._settings.frame_grabbing_mode, ReducedAreaMode)
-        for i in range(self._settings.frame_grabbing_mode.full_frame_dummy_scans):
-            self._txt_log.info(
-                f"Performing full frame dummy scan {i + 1}/{self._settings.frame_grabbing_mode.full_frame_dummy_scans}."
-            )
-            self._microscope.beam.grab_frame()
-
-        regions = []
+        mode = self._settings.frame_grabbing_mode
         beam = self._microscope.beam
+
+        # grab full image dummy frames
+        for i in range(mode.full_frame_dummy_scans):
+            self._txt_log.info(
+                f"Performing full frame dummy scan {i + 1}/{mode.full_frame_dummy_scans}."
+            )
+            beam.grab_frame()
+
+        # switching to a reduced area swaps in its own scan parameters
+        # TODO: this should be done differently, it breaks architecture
+        scan_parameters = beam.collect_properties(list(_SCAN_PARAMETERS))
+
         resolution = beam.resolution
         frame = PixelArea(
             origin=PixelPoint(0, 0), width=resolution.width, height=resolution.height
@@ -163,6 +176,7 @@ class ReducedAreaProvider(AreaProvider):
         # the same margin in pixels as the full-frame provider uses
         margin_px = int(self._settings.correction_margin / beam.pixel_size)
 
+        regions = []
         for area in self._settings.areas:
             # include the correction margin in the area to scan, but only scan
             # what lies inside the frame
@@ -171,16 +185,16 @@ class ReducedAreaProvider(AreaProvider):
             with self._microscope.set_temporary_beam_property(
                 "scanning_area", scanned.to_relative(resolution)
             ):
-                # grab dummy frames
-                for i in range(
-                    self._settings.frame_grabbing_mode.reduced_area_dummy_scans
-                ):
-                    self._txt_log.info(
-                        f"Performing reduced area dummy scan {i + 1}/{self._settings.frame_grabbing_mode.reduced_area_dummy_scans}."
-                    )
-                    self._microscope.beam.grab_frame()
+                beam.set_properties(scan_parameters)
 
-                region = self._microscope.beam.grab_frame().to_8bit()
+                # grab dummy frames
+                for i in range(mode.reduced_area_dummy_scans):
+                    self._txt_log.info(
+                        f"Performing reduced area dummy scan {i + 1}/{mode.reduced_area_dummy_scans}."
+                    )
+                    beam.grab_frame()
+
+                region = beam.grab_frame().to_8bit()
 
             # the matcher expects the template in the centre of the search region,
             # so the part outside the frame is filled with replicated edge pixels,
@@ -189,9 +203,15 @@ class ReducedAreaProvider(AreaProvider):
         return regions
 
     def acquire_template_regions(self) -> list[Image8Bit]:
+        beam = self._microscope.beam
+        # switching to a reduced area swaps in its own scan parameters
+        # TODO: this should be done differently, it breaks architecture
+        parameters = beam.collect_properties(list(_SCAN_PARAMETERS))
+
         regions = []
         for area in self._settings.areas:
             with self._microscope.set_temporary_beam_property("scanning_area", area):
+                beam.set_properties(parameters)
                 frame = self._microscope.beam.grab_frame()
             regions.append(frame.to_8bit())
         return regions
