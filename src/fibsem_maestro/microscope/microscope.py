@@ -147,13 +147,34 @@ class Microscope:
         """
         Move the stage by a relative offset and verify the result.
 
-        Adds `delta` to the current stage position and delegates to
-        `set_stage_position_with_verification`.
+        The first attempt moves by `delta`; each further attempt moves by the
+        remaining XY error. Axes that `delta` leaves unchanged are therefore never
+        commanded. As in `set_stage_position_with_verification`, only the XY
+        position is verified, against `stage_tolerance`.
 
         Args:
             delta: The relative stage movement in nanometers and degrees.
         """
-        self.set_stage_position_with_verification(self._control.stage_position + delta)
+        target = self._control.stage_position + delta
+        step = delta
+
+        for attempt in range(1, self._settings.stage_trials + 1):
+            actual_position = self._control.try_move_stage_position(step)
+
+            dist = distance.euclidean(actual_position.to_xy(), target.to_xy())
+            if dist <= self._settings.stage_tolerance:
+                return
+
+            self._txt_log.warning(
+                f"Stage off target (attempt {attempt}/{self._settings.stage_trials}): "
+                f"target={target}, actual={actual_position}, dist={dist:.3f} > tol={self._settings.stage_tolerance}"
+            )
+            # correct only the remaining XY error, which is all that is verified
+            step = StagePosition(
+                x=target.x - actual_position.x, y=target.y - actual_position.y
+            )
+
+        # intentionally NOT raising an Exception even if setting the stage fails
 
     def set_beam_shift_with_verification(
         self, new_beam_shift: BeamShift, beam: BeamControl | None = None
@@ -528,7 +549,12 @@ class Microscope:
             if stage_may_have_moved:
                 try:
                     self._txt_log.debug(f"Restoring stage position to {base_stage}.")
-                    self.set_stage_position_with_verification(base_stage)
+                    current = self._control.stage_position
+                    self.move_stage_position_with_verification(
+                        StagePosition(
+                            x=base_stage.x - current.x, y=base_stage.y - current.y
+                        )
+                    )
                 except Exception as e:
                     self._txt_log.warning(f"Could not restore stage position: {e}")
 

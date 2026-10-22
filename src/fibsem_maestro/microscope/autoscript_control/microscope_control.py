@@ -121,7 +121,7 @@ class AutoscriptMicroscopeControl(MicroscopeControl):
     def try_move_stage_position(self, delta: StagePosition) -> StagePosition:
         self._txt_log.debug(f"Current stage position: {self.stage_position}.")
 
-        delta_autoscript = delta.to_stage_position_autoscript()
+        delta_autoscript = delta.to_stage_delta_autoscript()
         self._microscope.specimen.stage.relative_move(delta_autoscript)
 
         self._txt_log.debug(f"Moving stage by {delta}.")
