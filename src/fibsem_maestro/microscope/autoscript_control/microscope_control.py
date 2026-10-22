@@ -4,6 +4,7 @@
 from functools import cached_property
 from typing import Any
 
+from autoscript_sdb_microscope_client.enumerations import CoordinateSystem
 from autoscript_sdb_microscope_client.sdb_microscope_client import SdbMicroscopeClient
 
 from fibsem_maestro.core.pattern_type import PatternType
@@ -29,12 +30,22 @@ class AutoscriptMicroscopeControl(MicroscopeControl):
     def __init__(self, ip_address: str, port: int | None, txt_log: TextLogger):
         self._txt_log = txt_log
         self._microscope = SdbMicroscopeClient()
+
         if port:
             self._microscope.connect(ip_address, port)
             self._txt_log.info(f"Connecting to {ip_address}:{port}.")
         else:
             self._microscope.connect(ip_address)
             self._txt_log.info(f"Connecting to {ip_address}.")
+
+        # Maestro reads and moves the stage in specimen coordinates with the Z
+        # axis unlinked from the working distance
+        stage = self._microscope.specimen.stage
+        stage.set_default_coordinate_system(CoordinateSystem.SPECIMEN)
+        stage.unlink()
+        self._txt_log.info(
+            "Stage set to specimen coordinates with Z unlinked from the working distance."
+        )
 
         self._manufacturer_properties = AutoscriptManufacturerPropertiesRegistry(
             self._microscope
@@ -60,9 +71,6 @@ class AutoscriptMicroscopeControl(MicroscopeControl):
 
     @property
     def stage_position(self) -> StagePosition:
-        # TODO: shouldn't we link back?
-        self._microscope.specimen.stage.unlink()
-
         p = StagePosition.from_stage_position_autoscript(
             self._microscope.specimen.stage.current_position
         )
@@ -103,9 +111,6 @@ class AutoscriptMicroscopeControl(MicroscopeControl):
 
     def try_set_stage_position(self, pos: StagePosition) -> StagePosition:
         self._txt_log.debug(f"Current stage position: {self.stage_position}.")
-
-        # TODO: shouldn't we link back?
-        self._microscope.specimen.stage.unlink()
         pos_autoscript = pos.to_stage_position_autoscript()
 
         self._microscope.specimen.stage.absolute_move(pos_autoscript)
@@ -114,7 +119,6 @@ class AutoscriptMicroscopeControl(MicroscopeControl):
         return self.stage_position
 
     def try_move_stage_position(self, delta: StagePosition) -> StagePosition:
-        # TODO: shouldn't the stage be unlinked?
         self._txt_log.debug(f"Current stage position: {self.stage_position}.")
 
         delta_autoscript = delta.to_stage_position_autoscript()
