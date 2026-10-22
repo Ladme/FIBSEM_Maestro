@@ -326,13 +326,13 @@ class TemplateMatching:
         _, max_val, _, max_loc = cv2.minMaxLoc(heatmap)
         best_x_int, best_y_int = max_loc
 
-        # restrict the guassian fit to a local neighborhood around the integer peak
-        neighborhood = int(10 * upsampling_factor)
+        # restrict the gaussian fit to a symmetric neighbourhood of the integer peak
+        neighborhood = int(np.ceil(10 * upsampling_factor))
 
         # extract a 1D profile along the x-axis at the best y position and fit a gaussian
         # to find the sub-pixel x-coordinate of the peak
         x_start = max(0, best_x_int - neighborhood)
-        x_end = min(heatmap.shape[1], best_x_int + neighborhood)
+        x_end = min(heatmap.shape[1], best_x_int + neighborhood + 1)
         x_indices = np.arange(x_start, x_end)
         x_profile = heatmap[best_y_int, x_start:x_end].squeeze()
         best_x = self._fit_subpixel_peak(x_profile, x_indices, best_x_int, max_val, "x")
@@ -340,15 +340,15 @@ class TemplateMatching:
         # extract a 1D profile along the y-axis at the best x position and fit a gaussian
         # to find the sub-pixel y-coordinate of the peak
         y_start = max(0, best_y_int - neighborhood)
-        y_end = min(heatmap.shape[0], best_y_int + neighborhood)
+        y_end = min(heatmap.shape[0], best_y_int + neighborhood + 1)
         y_indices = np.arange(y_start, y_end)
         y_profile = heatmap[y_start:y_end, best_x_int].squeeze()
         best_y = self._fit_subpixel_peak(y_profile, y_indices, best_y_int, max_val, "y")
 
-        # convert upsampled coordinates to pixels of the original image
-        # and express them as an offset from the image center
-        best_x = best_x / upsampling_factor - heatmap.shape[1] / (2 * upsampling_factor)
-        best_y = best_y / upsampling_factor - heatmap.shape[0] / (2 * upsampling_factor)
+        # without drift the peak lies at the centre of the heatmap, (size - 1) / 2;
+        # express the peak as an offset from it, in pixels of the original image
+        best_x = (best_x - (heatmap.shape[1] - 1) / 2.0) / upsampling_factor
+        best_y = (best_y - (heatmap.shape[0] - 1) / 2.0) / upsampling_factor
 
         return TemplateMatchResult(
             dx=best_x,
@@ -360,11 +360,12 @@ class TemplateMatching:
     def _validate_template_scan_consistency(
         self, scans: list[Image8Bit], area_index: int
     ) -> None:
-        """Validate that all scans of a template area are mutually consistent.
+        """
+        Validate that all scans of a template area are mutually consistent.
 
-        Compares each unique pair of scans using normalized cross-correlation.
-        Raises if any pair has a confidence below `settings.min_confidence`
-        or a drift exceeding `settings.maximal_drift`.
+        Compares each unique pair of scans. Raises if any pair drifted apart by
+        more than `settings.maximal_drift` (nm) or has a confidence below
+        `settings.min_confidence`.
 
         Args:
             scans: Cropped 8-bit images of the area from each acquired frame.
@@ -380,7 +381,20 @@ class TemplateMatching:
         self._txt_log.debug("Validating consistency of template scans.")
         for i in range(len(scans)):
             for j in range(i + 1, len(scans)):
-                # we intentionally always use pixel template match
+                drift_nm = _shift_between_px(scans[i], scans[j]) * scans[i].pixel_size
+                self._txt_log.debug(f"Scans {i} x {j}: drift={drift_nm:.1f} nm")
+
+                if (
+                    max_drift := self._settings.maximal_drift
+                ) is not None and drift_nm > max_drift:
+                    raise TemplateMatchingError(
+                        f"Cannot create template for area {area_index}: "
+                        f"drift between scan {i} and scan {j} is "
+                        f"{drift_nm:.1f} nm, exceeding the maximum of "
+                        f"{max_drift:.1f} nm."
+                    )
+
+                # same-sized images give the correlation at zero offset only
                 result = self._calculate_match(scans[i], scans[j])
                 self._txt_log.debug(
                     f"Scans {i} x {j}: confidence={result.confidence:.3f}"
@@ -394,17 +408,6 @@ class TemplateMatching:
                         f"confidence between scan {i} and scan {j} is "
                         f"{result.confidence:.3f}, below the required "
                         f"minimum of {self._settings.min_confidence:.3f}."
-                    )
-
-                drift = np.sqrt(result.dx**2 + result.dy**2)
-                if (
-                    max_drift := self._settings.maximal_drift
-                ) is not None and drift > max_drift:
-                    raise TemplateMatchingError(
-                        f"Cannot create template for area {area_index}: "
-                        f"drift between scan {i} and scan {j} is "
-                        f"{drift:.1f} px, exceeding the maximum of "
-                        f"{max_drift:.1f} px."
                     )
 
     def _save_averaged_template(
@@ -799,3 +802,25 @@ def gauss(x: NDArray[np.floating[Any]], *p: float) -> NDArray[np.floating[Any]]:
         raise ValueError(f"Expected 4 Gaussian parameters (a, b, c, d), got {len(p)}.")
     a, b, c, d = p
     return a * np.exp(-np.power((x - b), 2.0) / (2.0 * c**2)) + d
+
+
+def _shift_between_px(a: Image8Bit, b: Image8Bit) -> float:
+    """
+    Measure how far the content of `b` is shifted against `a`, in pixels.
+
+    Uses phase correlation, which, unlike template matching, works on two
+    images of the same size.
+
+    Args:
+        a: Reference image.
+        b: Image of the same size.
+
+    Returns:
+        The length of the shift in pixels.
+    """
+    window = cv2.createHanningWindow((a.shape[1], a.shape[0]), cv2.CV_32F)
+    (dx, dy), _ = cv2.phaseCorrelate(
+        np.asarray(a, dtype=np.float32), np.asarray(b, dtype=np.float32), window
+    )
+
+    return float(np.hypot(dx, dy))

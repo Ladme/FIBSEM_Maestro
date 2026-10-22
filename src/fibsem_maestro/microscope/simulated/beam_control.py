@@ -93,7 +93,6 @@ class SimulatedBeamControl(BeamControl):
             "source_tilt_y": (-5.0, 5.0),
             "horizontal_field_width": (1_000.0, 5_000_000_000.0),
             "vertical_field_width": (1_000.0, 5_000_000_000.0),
-            "dwell_time": (50, 10_000),  # in ns
         }
 
     @classmethod
@@ -469,11 +468,6 @@ class SimulatedBeamControl(BeamControl):
     @property
     def image_to_beam_shift(self) -> tuple[float, float]:
         return self._image_to_beam_shift
-
-    @property
-    def minimal_dwell(self) -> float:
-        lo, _ = self.limits("dwell_time")
-        return float(lo)
 
     @property
     def acquired_image_extension(self) -> str:

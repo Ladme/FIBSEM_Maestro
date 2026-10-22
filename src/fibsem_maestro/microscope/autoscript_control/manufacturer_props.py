@@ -11,6 +11,15 @@ from fibsem_maestro.microscope.abstract_control.manufacturer_props import (
     ManufacturerProperty,
 )
 
+_SHARED_MEMBERS = frozenset({"application_client"})
+"""
+Members that point at shared infrastructure rather than at a part of the owner.
+
+Every Autoscript proxy keeps a reference to the client it was created by.
+Following it would make the whole microscope reachable from any beam, under
+paths that depend on traversal order.
+"""
+
 
 class AutoscriptManufacturerPropertiesRegistry(ManufacturerPropertiesRegistry):
     """
@@ -190,6 +199,8 @@ def find_manufacturer_properties(root: object) -> list[ManufacturerProperty]:
             )
 
         for member_name, child in _iter_instance_members(obj):
+            if member_name in _SHARED_MEMBERS:
+                continue
             if _is_traversable_instance(child):
                 child_path = f"{obj_path}.{member_name}" if obj_path else member_name
                 stack.append((child, child_path))

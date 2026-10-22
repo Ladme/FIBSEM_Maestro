@@ -169,7 +169,7 @@ def _make_striped_image(
 
 def test_get_stripes_yields_rows_between_separators():
     img = _make_striped_image(
-        stripe_rows=list(range(1, 9)),
+        stripe_rows=list(range(1, 10)),
         separator_rows=[0, 10],
         width=32,
         total_rows=12,
@@ -178,12 +178,12 @@ def test_get_stripes_yields_rows_between_separators():
     stripes = list(get_stripes(img, separate_value=1, minimal_stripe_width=3))
 
     assert len(stripes) == 1
-    assert np.array_equal(stripes[0], np.arange(1, 9, dtype=int))
+    assert np.array_equal(stripes[0], np.arange(1, 10, dtype=int))
 
 
 def test_get_stripes_yields_multiple_stripes():
     img = _make_striped_image(
-        stripe_rows=list(range(1, 4)) + list(range(6, 10)),
+        stripe_rows=list(range(1, 5)) + list(range(6, 11)),
         separator_rows=[0, 5, 11],
         width=32,
         total_rows=13,
@@ -192,13 +192,13 @@ def test_get_stripes_yields_multiple_stripes():
     stripes = list(get_stripes(img, separate_value=1, minimal_stripe_width=3))
 
     assert len(stripes) == 2
-    assert np.array_equal(stripes[0], np.arange(1, 4, dtype=int))
-    assert np.array_equal(stripes[1], np.arange(6, 10, dtype=int))
+    assert np.array_equal(stripes[0], np.arange(1, 5, dtype=int))
+    assert np.array_equal(stripes[1], np.arange(6, 11, dtype=int))
 
 
 def test_get_stripes_excludes_narrow_regions():
     img = _make_striped_image(
-        stripe_rows=list(range(1, 2)) + list(range(3, 9)),
+        stripe_rows=list(range(1, 2)) + list(range(3, 10)),
         separator_rows=[0, 2, 10],
         width=32,
         total_rows=12,
@@ -207,7 +207,7 @@ def test_get_stripes_excludes_narrow_regions():
     stripes = list(get_stripes(img, separate_value=1, minimal_stripe_width=3))
 
     assert len(stripes) == 1
-    assert np.array_equal(stripes[0], np.arange(3, 9, dtype=int))
+    assert np.array_equal(stripes[0], np.arange(3, 10, dtype=int))
 
 
 def test_get_stripes_yields_nothing_when_no_separators():

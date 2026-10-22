@@ -4,6 +4,7 @@
 import math
 import time
 from abc import abstractmethod
+from functools import cached_property
 from typing import Any, Generic, TypeVar
 
 from autoscript_sdb_microscope_client.enumerations import (
@@ -48,6 +49,21 @@ BeamT = TypeVar(
 
 
 class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
+    _LIMITED_VARIABLES: dict[str, tuple[str, int | None, float]] = {
+        # variable: (Autoscript attribute, axis of a 2D value or None, scale to Maestro units)
+        "working_distance": ("working_distance", None, 1e9),  # m -> nm
+        "horizontal_field_width": ("horizontal_field_width", None, 1e9),  # m -> nm
+        "beam_current": ("beam_current", None, 1e9),  # A -> nA
+        "stigmator_x": ("stigmator", 0, 1.0),
+        "stigmator_y": ("stigmator", 1, 1.0),
+        "lens_alignment_x": ("lens_alignment", 0, 1e9),  # m -> nm
+        "lens_alignment_y": ("lens_alignment", 1, 1e9),  # m -> nm
+        "source_tilt_x": ("source_tilt", 0, math.degrees(1.0)),  # rad -> deg
+        "source_tilt_y": ("source_tilt", 1, math.degrees(1.0)),  # rad -> deg
+        "beam_shift_x": ("beam_shift", 0, 1e9),  # m -> nm
+        "beam_shift_y": ("beam_shift", 1, 1e9),  # m -> nm
+    }
+
     def __init__(
         self,
         autoscript_microscope: SdbMicroscopeClient,
@@ -62,16 +78,6 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         self._extended_resolution: Resolution | None = (
             None  # extended resolution is set only if the required resolution is not standard
         )
-        self._standard_resolutions = (
-            Resolution(1024, 884),
-            Resolution(1536, 1024),
-            Resolution(2048, 1768),
-            Resolution(3072, 2048),
-            Resolution(4096, 3536),
-            Resolution(512, 442),
-            Resolution(6144, 4096),
-            Resolution(768, 512),
-        )  # available resolutions supported in standard mode
 
         # fallback for line integration
         # only used if the linked Autoscript version does not support setting line_integration via scanning
@@ -94,6 +100,11 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
     @abstractmethod
     def _modality(self) -> str:
         pass
+
+    @cached_property
+    def _standard_resolutions(self) -> frozenset[str]:
+        """Resolutions the instrument scans natively, as "WIDTHxHEIGHT"."""
+        return frozenset(self._beam.scanning.resolution.available_values)
 
     @abstractmethod
     def select_modality(self):
@@ -264,10 +275,10 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
             f"Milling area in patterning coordinates: center = [{center_x}, {center_y}], width = {milling_area_m.width}, height = {milling_area_m.height}"
         )
 
-        if "ccs" in str(pattern_type):
+        if "ccs" in str(pattern_type).lower():
             self._txt_log.debug("Using cleaning cross section pattern.")
             pattern_fn = self._microscope.patterning.create_cleaning_cross_section
-        elif "rcs" in str(pattern_type):
+        elif "rcs" in str(pattern_type).lower():
             self._txt_log.debug("Using regular cross section pattern.")
             pattern_fn = self._microscope.patterning.create_regular_cross_section
         else:
@@ -390,7 +401,7 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
     @resolution.setter
     def resolution(self, value: Resolution) -> None:
         resolution = str(value)
-        if value in self._standard_resolutions:
+        if resolution in self._standard_resolutions:
             self._txt_log.debug(
                 f"Setting standard resolution to ({self._modality}): {resolution}."
             )
@@ -441,7 +452,7 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         # change the resolution of the image so that the requested vertical field width is achieved
         # without changing the pixel size
         pixel_size = self.pixel_size
-        self.resolution = Resolution(self.resolution.width, int(value / pixel_size))
+        self.resolution = Resolution(self.resolution.width, round(value / pixel_size))
         self._txt_log.info(
             f"Extended resolution set to: {str(self.resolution)} (via setting vertical field width)."
         )
@@ -457,8 +468,8 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         # change the resolution of the image so that the pixel size matches the provided value
         # but the field width is not changed
         self.resolution = Resolution(
-            int(self.horizontal_field_width / value),
-            int(self.vertical_field_width / value),
+            round(self.horizontal_field_width / value),
+            round(self.vertical_field_width / value),
         )
         self._txt_log.info(
             f"Extended resolution set to: {str(self.resolution)} (via setting pixel size)."
@@ -480,7 +491,7 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         # while Autoscript 4.13 does support getting scanning_area via `scanning.mode.reduced_area`,
         # older Autoscript versions do not - we need a workaround for those versions
         try:
-            if self._beam.scanning.mode.value is ScanningMode.REDUCED_AREA:
+            if self._beam.scanning.mode.value == ScanningMode.REDUCED_AREA:
                 area = RelativeArea.from_autoscript(
                     self._beam.scanning.mode.reduced_area.value
                 )
@@ -534,11 +545,6 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         self._txt_log.debug(f"Setting beam current ({self._modality}): {value} nA.")
         self._beam.beam_current.value = value * 1e-9
 
-    @property
-    def minimal_dwell(self) -> float:
-        # in s
-        return 25e-9
-
     def manufacturer_prop(self, name: str) -> Any:
         property = self._manufacturer_properties.get(name)
         value = property.get()
@@ -561,6 +567,34 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
     @property
     def txt_log(self) -> TextLogger:
         return self._txt_log
+
+    def limits(self, var: str) -> tuple[float, float]:
+        """
+        Return the range the instrument accepts for a variable, in Maestro units.
+
+        Read from Autoscript, so it is right for the connected instrument and beam.
+        Variables Autoscript reports no range for are unbounded, as in the other
+        beam controls.
+
+        Args:
+            var: Name of the variable, e.g. `working_distance` or `stigmator_x`.
+
+        Returns:
+            A `(min, max)` tuple.
+        """
+        if (entry := self._LIMITED_VARIABLES.get(var)) is None:
+            return (-math.inf, math.inf)
+
+        attribute, axis, scale = entry
+        if (setting := getattr(self._beam, attribute, None)) is None:
+            return (-math.inf, math.inf)
+
+        limits = setting.limits
+        if axis is not None:
+            limits = limits.limits_x if axis == 0 else limits.limits_y
+
+        low, high = limits.min * scale, limits.max * scale
+        return (min(low, high), max(low, high))
 
 
 class AutoscriptElectronBeamControl(AutoscriptBeamControl[ElectronBeamAs]):
@@ -619,24 +653,6 @@ class AutoscriptElectronBeamControl(AutoscriptBeamControl[ElectronBeamAs]):
     def image_to_beam_shift(self) -> tuple[int, int]:
         return (-1, 1)
 
-    def limits(self, var: str) -> tuple[float, float]:
-        # TODO: maybe this should not be hardcoded?
-        match var:
-            case "working_distance":
-                return (500_000.0, 70_000_000.0)
-            case "stigmator_x":
-                return (-0.99, 0.88)
-            case "stigmator_y":
-                return (-0.99, 0.77)
-            case "lens_alignment_x":
-                return (-720_052.0, 697_917.0)
-            case "lens_alignment_y":
-                return (-691_406.25, 689_453.125)
-            case _:
-                raise MicroscopeError(
-                    f"{var} is not a valid microscope variable for an electron beam"
-                )
-
 
 class AutoscriptIonBeamControl(AutoscriptBeamControl[IonBeamAs]):
     @classmethod
@@ -689,6 +705,3 @@ class AutoscriptIonBeamControl(AutoscriptBeamControl[IonBeamAs]):
     @property
     def image_to_beam_shift(self) -> tuple[int, int]:
         return (-1, 1)
-
-    def limits(self, var: str) -> tuple[float, float]:
-        raise MicroscopeError(f"{var} is not valid microscope variable for an ion beam")

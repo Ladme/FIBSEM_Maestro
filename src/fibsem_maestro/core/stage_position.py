@@ -115,6 +115,39 @@ class StagePosition:
             coordinate_system="Specimen",
         )
 
+    def to_stage_delta_autoscript(self) -> StagePositionAs:
+        """
+        Convert this position, read as a relative move, to an AutoScript StagePosition.
+
+        Axes with a zero change are left unset, so the move does not command them.
+        Positions in metres, angles in radians, specimen coordinates.
+
+        Returns:
+            StagePositionAs: The relative move, for `relative_move`.
+
+        Raises:
+            AutoscriptNotAvailableError: If the Autoscript library is not installed.
+        """
+        try:
+            from autoscript_sdb_microscope_client.structures import (
+                StagePosition as StagePositionAs,
+            )
+        except ImportError as e:
+            raise AutoscriptNotAvailableError() from e
+
+        def changed(value: float, scale: float) -> float | None:
+            return value * scale if value != 0.0 else None
+
+        # type-checker ignores: autoscript's stage position does allow None, but it's type hints say otherwise
+        return StagePositionAs(
+            x=changed(self.x, 1e-9),  # ty: ignore[invalid-argument-type]
+            y=changed(self.y, 1e-9),  # ty: ignore[invalid-argument-type]
+            z=changed(self.z, 1e-9),  # ty: ignore[invalid-argument-type]
+            r=changed(math.radians(self.rotation), 1.0),  # ty: ignore[invalid-argument-type]
+            t=changed(math.radians(self.tilt), 1.0),  # ty: ignore[invalid-argument-type]
+            coordinate_system="Specimen",
+        )
+
     def __add__(self, other: StagePosition) -> StagePosition:
         """
         Adds two StagePosition instances element-wise.

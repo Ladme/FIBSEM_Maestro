@@ -217,56 +217,84 @@ class InterleavedSweepingStrategy(SweepingStrategy):
 
     def evaluate(self, results: list[AutofocusResult]) -> float:
         """
-        Evaluate autofocus results using baseline-relative resolution improvements.
+        Select the sweep value that is clearly sharper than the base around it.
 
-        For each candidate, the resolution improvement relative to the
-        preceding baseline is computed. Only improvements exceeding a
-        minimum relative threshold are considered.
+        Each candidate step is compared with the mean sharpness of the nearest
+        base steps before and after it, so that slow drift during the sweep
+        cancels out. Results sharing a step (line mode) are averaged first. A
+        candidate counts only if it beats that baseline by more than
+        `min_diff` relative to it. Missing results (failed jobs) are tolerated.
+
+        The base value is the value measured most often; ties go to the
+        earliest step, which is a base step by construction.
 
         Args:
-            results (list[AutofocusResult]):
-                Measured resolutions.
+            results: Results collected during the sweep.
 
         Returns:
-            float:
-                The sweep value with the highest mean resolution improvement.
-                If no sweep value shows a significant improvement, the
-                baseline sweep value is returned.
+            The candidate with the highest mean improvement, or the base value
+            if no candidate is clearly sharper.
 
         Raises:
-            AutofocusError:
-                If fewer than two results are provided.
+            AutofocusError: If no results are provided.
         """
-        # sort results based on sweep index so that each result can
-        # be compared to an immediately preceeding result
-        sorted_results = sorted(results, key=lambda r: r.sweep.index)
+        if not results:
+            raise AutofocusError("No autofocus results provided")
 
-        if len(sorted_results) < 2:
-            raise AutofocusError(
-                "Need at least two results to compute delta resolutions."
-            )
-
-        delta_sum: dict[float, float] = defaultdict(float)
-        delta_count: dict[float, int] = defaultdict(int)
-
-        # iterate over consecutive (baseline, candidate) result pairs
-        for base, curr in zip(sorted_results[:-1], sorted_results[1:]):
-            # calculate resolution improvement relative to the preceding baseline
-            delta = curr.sharpness - base.sharpness
-
-            # keep only improvements that exceed the minimum relative threshold
-            if delta > base.sharpness * self._settings.min_diff:
-                delta_sum[curr.sweep.value] += delta
-                delta_count[curr.sweep.value] += 1
-
-        # if no sweep value produced a significant improvement over its baseline, fall back to base
-        if not delta_sum:
-            return sorted_results[0].sweep.value
-
-        # calculate mean resolution for each sweep value
-        mean_delta_by_sweep = {
-            sweep: delta_sum[sweep] / delta_count[sweep] for sweep in delta_sum
+        # average the results of each sweep step (line mode yields one result per line)
+        by_step: dict[int, list[AutofocusResult]] = defaultdict(list)
+        for r in results:
+            by_step[r.sweep.index].append(r)
+        steps = sorted(by_step)
+        value_of = {i: by_step[i][0].sweep.value for i in steps}
+        sharpness_of = {
+            i: float(np.mean([r.sharpness for r in by_step[i]])) for i in steps
         }
 
-        # select the sweep value with the highest mean resolution improvement
-        return max(mean_delta_by_sweep, key=lambda k: mean_delta_by_sweep[k])
+        # the base is measured between all candidates, so it is the most frequent value;
+        # on a tie, the value measured first wins, since every sweep starts with the base
+        counts: dict[float, int] = defaultdict(int)
+        for i in steps:
+            counts[value_of[i]] += 1
+        base = max(counts, key=lambda v: (counts[v], -_first_step(value_of, v)))
+        base_steps = [i for i in steps if value_of[i] == base]
+
+        improvement_sum: dict[float, float] = defaultdict(float)
+        improvement_count: dict[float, int] = defaultdict(int)
+        for i in steps:
+            if value_of[i] == base:
+                continue
+
+            # compare with the nearest base step on each side, so that slow drift
+            # during the sweep cancels out; either may be missing (sweep end, failed job)
+            before = [b for b in base_steps if b < i]
+            after = [b for b in base_steps if b > i]
+            neighbours = ([before[-1]] if before else []) + (
+                [after[0]] if after else []
+            )
+            if not neighbours:
+                continue
+
+            baseline = float(np.mean([sharpness_of[b] for b in neighbours]))
+            improvement = sharpness_of[i] - baseline
+
+            # only clearly sharper candidates count; abs() keeps the threshold
+            # positive for metrics that can be negative
+            if improvement > abs(baseline) * self._settings.min_diff:
+                # a value is measured once per cycle, so collect all of its improvements
+                improvement_sum[value_of[i]] += improvement
+                improvement_count[value_of[i]] += 1
+
+        # nothing is clearly sharper: keep the base
+        if not improvement_sum:
+            return base
+
+        mean_improvement = {
+            v: improvement_sum[v] / improvement_count[v] for v in improvement_sum
+        }
+        return max(mean_improvement, key=lambda v: mean_improvement[v])
+
+
+def _first_step(value_of: dict[int, float], value: float) -> int:  # module level
+    """Return the first sweep step measured at `value`."""
+    return min(i for i, v in value_of.items() if v == value)

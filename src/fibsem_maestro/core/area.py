@@ -164,6 +164,41 @@ class _Area(BaseModel, Generic[T, U]):
         """
         return self.width > 0 and self.height > 0
 
+    def intersection(self, other: Self) -> Self:
+        """
+        Get the part of this area that also lies inside `other`.
+
+        Both areas must be the same type, i.e. expressed in the same units.
+
+        Args:
+            other: The area to intersect with.
+
+        Returns:
+            An area of the same type covering the overlap. If the areas do not
+            overlap, its width and height are zero (see `has_size`) and its
+            origin carries no meaning.
+
+        Raises:
+            TypeError: If `other` is not the same area type as this area.
+        """
+        if type(other) is not type(self):
+            raise TypeError(
+                f"Cannot intersect {type(self).__name__} with {type(other).__name__}; "
+                "convert both areas to the same units first."
+            )
+
+        left = max(self.origin.x, other.origin.x)
+        top = max(self.origin.y, other.origin.y)
+        right = min(self.origin.x + self.width, other.origin.x + other.width)
+        bottom = min(self.origin.y + self.height, other.origin.y + other.height)
+
+        # type-checker ignores - type checker does not see that U must have the same type as the inner fields of self.origin
+        return type(self)(
+            origin=type(self.origin)(x=left, y=top),  # ty: ignore[invalid-argument-type]
+            width=max(right - left, 0),
+            height=max(bottom - top, 0),
+        )
+
 
 class RelativeArea(_Area[RelativePoint, float]):
     """

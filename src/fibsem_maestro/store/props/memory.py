@@ -37,12 +37,14 @@ class MemoryPropsStore(PropsStore):
         return (self._slice_provider(), filename)
 
     def write(self, filename: str, props: GlobalProperties) -> None:
-        self._store[self._key(filename)] = props
+        # store a copy, like the file store does, so later edits of `props`
+        # and of what `read` returns never reach the stored slice
+        self._store[self._key(filename)] = props.model_copy(deep=True)
 
     def read(self, filename: str) -> GlobalProperties:
         key = self._key(filename)
         try:
-            return self._store[key]
+            return self._store[key].model_copy(deep=True)
         except KeyError:
             slice_idx, fname = key
             raise FileNotFoundError(

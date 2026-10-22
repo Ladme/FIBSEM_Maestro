@@ -9,10 +9,10 @@ import numpy as np
 import pytest
 import tifffile
 
-from fibsem_maestro.core.area import RelativeArea
+from fibsem_maestro.core.area import PixelArea, RelativeArea
 from fibsem_maestro.core.format import ImageFormat
 from fibsem_maestro.core.image import Image, Image8Bit, ImageError
-from fibsem_maestro.core.point import RelativePoint
+from fibsem_maestro.core.point import PixelPoint, RelativePoint
 from fibsem_maestro.core.provenance import Provenance
 
 
@@ -704,3 +704,28 @@ def test_crop_with_padding_zero_padding_returns_copy():
     result = img.crop_with_padding(area, padding_nm=0.0)
 
     assert not np.shares_memory(result, img)
+
+
+def _px(x: int, y: int, w: int, h: int) -> PixelArea:
+    return PixelArea(origin=PixelPoint(x, y), width=w, height=h)
+
+
+def test_padded_to_replicates_edges_into_missing_border():
+    image = Image8Bit(np.arange(6, dtype=np.uint8).reshape(2, 3), 2.0)
+    padded = image.padded_to(_px(1, 1, 3, 2), _px(0, 0, 5, 4))
+    assert padded.shape == (4, 5)
+    assert padded.pixel_size == 2.0
+    assert padded[0].tolist() == [0, 0, 1, 2, 2]
+    assert padded[3].tolist() == [3, 3, 4, 5, 5]
+
+
+def test_padded_to_absorbs_one_pixel_larger_image():
+    image = Image8Bit(np.zeros((3, 4), np.uint8), 1.0)
+    assert image.padded_to(_px(0, 0, 3, 2), _px(0, 0, 3, 2)).shape == (2, 3)
+
+
+def test_padded_to_target_starting_inside_covered_raises():
+    with pytest.raises(ValueError):
+        Image8Bit(np.zeros((2, 2), np.uint8), 1.0).padded_to(
+            _px(0, 0, 2, 2), _px(1, 0, 2, 2)
+        )

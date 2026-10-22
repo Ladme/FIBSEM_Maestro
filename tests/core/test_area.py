@@ -516,3 +516,21 @@ def test_contains_different_area_type_raises(container: RelativeArea) -> None:
 
     with pytest.raises(TypeError, match="same units"):
         container.contains(other)
+
+
+def _px(x: int, y: int, w: int, h: int) -> PixelArea:
+    return PixelArea(origin=PixelPoint(x, y), width=w, height=h)
+
+
+def test_intersection_of_partially_overlapping_areas_is_the_overlap():
+    assert _px(-5, 10, 20, 20).intersection(_px(0, 0, 100, 25)) == _px(0, 10, 15, 15)
+
+
+def test_intersection_of_disjoint_areas_has_no_size():
+    assert not _px(0, 0, 10, 10).intersection(_px(20, 20, 5, 5)).has_size()
+
+
+def test_intersection_keeps_float_units():
+    a = NMArea(origin=NMPoint(0.5, 0.5), width=2.0, height=2.0)
+    b = NMArea(origin=NMPoint(1.0, 0.0), width=5.0, height=1.0)
+    assert a.intersection(b) == NMArea(origin=NMPoint(1.0, 0.5), width=1.5, height=0.5)

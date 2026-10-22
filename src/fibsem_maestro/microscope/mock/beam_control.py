@@ -61,8 +61,6 @@ class MockBeamControl(BeamControl):
             "beam.inner.parameter": 0.0,
         }
 
-        self._minimal_dwell: float = 0.0
-
         self._current_image: Image | None = None
 
         self._blanked = False
@@ -270,10 +268,6 @@ class MockBeamControl(BeamControl):
     @property
     def image_to_beam_shift(self) -> tuple[float, float]:
         return self._image_to_beam_shift
-
-    @property
-    def minimal_dwell(self) -> float:
-        return self._minimal_dwell
 
     def limits(self, var: str) -> tuple[float, float]:
         mock_limits: dict[str, tuple[float, float]] = {

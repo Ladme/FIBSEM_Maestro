@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from cv2.typing import MatLike
     from numpy.typing import NDArray
 
-    from fibsem_maestro.core.area import RelativeArea
+    from fibsem_maestro.core.area import PixelArea, RelativeArea
 
 TDType = TypeVar("TDType", bound=np.generic)
 
@@ -370,6 +370,43 @@ class _ImageBase(np.ndarray[Any, np.dtype[TDType]], Generic[TDType]):
         """
         shape = self.shape
         return Resolution(shape[1], shape[0])
+
+    def padded_to(self, covered: PixelArea, target: PixelArea) -> Self:
+        """
+        Extend the image so that it covers a larger area, replicating edge pixels.
+
+        Both areas are in pixels of the same, larger frame. Only the origin of
+        `covered` is used: the image's own shape is trusted over the size of
+        `covered`, so a one-pixel rounding difference (e.g. in a reduced area
+        scanned by the microscope) is absorbed at the right and bottom edges.
+
+        Args:
+            covered: The area of the frame this image shows.
+            target: The area of the frame the result must cover. Its origin
+                must not lie right of or below the origin of `covered`.
+
+        Returns:
+            A copy with shape `(target.height, target.width)` and the same pixel size.
+
+        Raises:
+            ValueError: If `target` starts right of or below `covered`.
+        """
+        top = covered.origin.y - target.origin.y
+        left = covered.origin.x - target.origin.x
+        if top < 0 or left < 0:
+            raise ValueError(
+                f"The target area {target} must start at or before the covered "
+                f"area {covered}."
+            )
+
+        bottom = max(target.height - top - self.shape[0], 0)
+        right = max(target.width - left - self.shape[1], 0)
+        padded = np.pad(self, ((top, bottom), (left, right)), mode="edge")
+
+        return type(self)(
+            np.ascontiguousarray(padded[: target.height, : target.width]),
+            self.pixel_size,
+        )
 
 
 class Image(_ImageBase[np.integer[Any]]):

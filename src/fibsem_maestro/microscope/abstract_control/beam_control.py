@@ -462,11 +462,6 @@ class BeamControl(ABC):
     def image_to_beam_shift(self) -> tuple[float, float]:
         """Per-axis scale factors for converting image coordinates to beam shift."""
 
-    @property
-    @abstractmethod
-    def minimal_dwell(self) -> float:
-        """Minimum supported dwell time in seconds."""
-
     @abstractmethod
     def limits(self, var: str) -> tuple[float, float]:
         """

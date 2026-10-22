@@ -2,7 +2,6 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
-import contextlib
 import threading
 from collections.abc import Callable
 from concurrent.futures import Executor, Future, ThreadPoolExecutor
@@ -15,8 +14,11 @@ class JobsManager:
     """
     Manages concurrent resolution calculation jobs during an autofocus sweep.
 
-    Submits resolution calculations to a thread pool as images are acquired,
-    collects results asynchronously, and returns them once all jobs complete.
+    Submits resolution calculations to a thread pool as images are acquired
+    and collects their results. Results are read from the futures themselves,
+    never from done-callbacks: a callback may run after `Future.result()` has
+    already returned in another thread, so a result stored by a callback can
+    be missing when the jobs are reported as finished.
 
     Args:
         executor: Optional external executor. If omitted, an internal
@@ -30,33 +32,22 @@ class JobsManager:
         self._own_executor = executor is None
         self._executor: Executor = executor or ThreadPoolExecutor()
 
+        self._lock = threading.Lock()
         self._pending: list[Future[AutofocusResult]] = []
-        self._pending_lock = threading.Lock()
         self._results: list[AutofocusResult] = []
-        self._results_lock = threading.Lock()
 
     def submit(self, fn: Callable[[], AutofocusResult]) -> None:
         """
         Submit a callable for asynchronous resolution calculation.
 
-        The callable is executed in the thread pool. Its result is collected
-        automatically upon completion. Exceptions raised by the callable are
-        silently discarded.
+        Exceptions raised by the callable are discarded when collecting: a
+        failed job contributes no result.
 
         Args:
             fn: A zero-argument callable returning an AutofocusResult.
         """
         future = self._executor.submit(fn)
-
-        def _on_done(f: Future[AutofocusResult]) -> None:
-            try:
-                self._results.append(f.result())
-            except Exception:
-                return
-
-        future.add_done_callback(_on_done)
-
-        with self._pending_lock:
+        with self._lock:
             self._pending.append(future)
 
     def wait_and_collect(self) -> list[AutofocusResult]:
@@ -64,58 +55,68 @@ class JobsManager:
         Block until all submitted jobs finish and return the results.
 
         Returns:
-            All successfully computed AutofocusResult instances, in completion
-            order. Failed jobs are silently excluded.
+            All successfully computed AutofocusResult instances. Failed jobs
+            are excluded.
         """
-        self._drain()
-        with self._results_lock:
+        self._collect(wait=True)
+        with self._lock:
             return list(self._results)
 
     def collect_completed(self) -> list[AutofocusResult]:
         """
-        Return results from already-finished jobs without waiting or clearing.
-
-        Unlike `wait_and_collect`, this method does not block - it only
-        returns results that have already been computed and stored by the
-        done callback. Pending jobs are left untouched.
+        Return results of already-finished jobs without waiting or clearing.
 
         Returns:
-            All AutofocusResult instances computed so far, in completion order.
+            All AutofocusResult instances computed so far.
         """
-        with self._results_lock:
+        self._collect(wait=False)
+        with self._lock:
             return list(self._results)
 
     def wait(self) -> None:
         """
         Block until all submitted jobs finish, but do not return their results.
         """
-        self._drain()
+        self._collect(wait=True)
 
     def wait_and_clear(self) -> None:
         """
         Block until all pending jobs finish, then discard all results.
         """
-        self._drain()
-        with self._results_lock:
+        self._collect(wait=True)
+        with self._lock:
             self._results = []
 
-    def _drain(self) -> None:
+    def _collect(self, wait: bool) -> None:
         """
-        Wait for all pending futures to complete.
+        Move the results of finished jobs from the pending futures to the results.
 
-        Drains the pending queue in batches until no futures remain.
-        Exceptions are suppressed here as they are already handled in the
-        done callback registered in submit.
+        Args:
+            wait: Wait for every pending job, including those submitted while
+                waiting; otherwise take only the jobs finished by now.
         """
         while True:
-            with self._pending_lock:
-                if not self._pending:
-                    return
-                pending, self._pending = self._pending, []
+            with self._lock:
+                if wait:
+                    batch, self._pending = self._pending, []
+                else:
+                    finished = [(f, f.done()) for f in self._pending]
+                    batch = [f for f, done in finished if done]
+                    self._pending = [f for f, done in finished if not done]
 
-            for future in pending:
-                with contextlib.suppress(Exception):
-                    future.result()  # errors already handled in callback
+            if not batch:
+                return
+
+            for future in batch:
+                try:
+                    result = future.result()
+                except Exception:
+                    continue  # the job logged its own failure
+                with self._lock:
+                    self._results.append(result)
+
+            if not wait:
+                return
 
     def __enter__(self) -> Self:
         """Enter the context manager, returning this instance."""

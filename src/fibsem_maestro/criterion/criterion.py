@@ -165,15 +165,26 @@ class Criterion:
 
             self._txt_log.debug(f"Number of tiles for criterion: {len(tiles)}.")
 
+            if not tiles:
+                raise CriterionError(
+                    "No tile fits into the criterion area. Decrease the tile size "
+                    "or enlarge the area."
+                )
+
             sharpnesses: list[float] = []
             for tile in tiles:
                 sharpnesses.append(self._calculate_sharpness_for_tile(cropped, tile))
 
-            final_sharpness = float(
-                self._tile_reduction_fn([x for x in sharpnesses if not np.isnan(x)])
-            )
+            scored = [x for x in sharpnesses if np.isfinite(x)]
+            if not scored:
+                raise CriterionError("The sharpness of no tile could be calculated.")
+
+            final_sharpness = float(self._tile_reduction_fn(scored))
 
             self._txt_log.debug(f"Final sharpness for image: {final_sharpness}.")
+
+        if not np.isfinite(final_sharpness):
+            raise CriterionError(f"The calculated sharpness is {final_sharpness}.")
 
         # get the tile with the best sharpness
         best_tile = (

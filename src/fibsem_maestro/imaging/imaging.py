@@ -171,6 +171,10 @@ class Imaging(Action[ImagingSettings, ImagingState]):
         Args:
             image: The image to evaluate.
         """
+        # a calculation still running belongs to the previous frame; let it
+        # finish first, or it would overwrite the result for this frame
+        self.wait_for_sharpness()
+
         self._image_sharpness = None
         if self._settings.criterion is None:
             self._ctx.text_logger.debug(

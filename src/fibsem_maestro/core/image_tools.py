@@ -88,8 +88,8 @@ def get_stripes(
 
     Args:
         img: An 8-bit grayscale image.
-        separate_value: Threshold on the row-sum projection. Rows with
-            summed intensity lower than this value are considered separator ("dark") rows.
+        separate_value: Threshold on the mean intensity of a row. Rows darker
+            than this are considered separator ("dark") rows.
         minimal_stripe_width: Minimum distance (in rows) between two separator
             rows required to consider the region a valid stripe.
 
@@ -97,16 +97,15 @@ def get_stripes(
         1D NumPy array of row indices belonging to the stripe, excluding the
         separator rows.
     """
-    # sum intensities per row
-    row_sums = np.sum(img, axis=1)
+    # mean intensity per row, independent of the image width
+    row_means = np.mean(img, axis=1)
 
     # separator rows are those that are dark enough
-    separator_rows = np.where(row_sums < separate_value)[0]
+    separator_rows = np.where(row_means < separate_value)[0]
 
     # each stripe is the region between two consecutive separator rows
     for top, bottom in zip(separator_rows[:-1], separator_rows[1:]):
         # if separators are far enough apart, we treat the region as a stripe
         if (bottom - top) >= minimal_stripe_width:
-            # exclude the separator rows themselves
-            rows = np.arange(top + 1, bottom - 1, dtype=int)
-            yield rows
+            # every row strictly between the two separator rows
+            yield np.arange(top + 1, bottom, dtype=int)
