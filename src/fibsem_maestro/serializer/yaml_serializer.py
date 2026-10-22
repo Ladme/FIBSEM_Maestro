@@ -3,6 +3,8 @@
 
 import contextlib
 import inspect
+import os
+import tempfile
 from enum import Enum
 from pathlib import Path, PurePath
 from typing import Any
@@ -79,8 +81,23 @@ class YamlSerializer(Serializer):
             yaml.YAMLError: If serialization fails.
             OSError: If the file cannot be opened or written to.
         """
-        with file.open("w") as output:
-            yaml.dump(data, output, Dumper=_MaestroDumper)
+        # serialise fully before touching the file, then replace it in one
+        # step: a failure or a crash never leaves a truncated file, and of two
+        # concurrent writers one wins whole instead of their output interleaving
+        text = yaml.dump(data, Dumper=_MaestroDumper)
+        handle, temporary_name = tempfile.mkstemp(
+            dir=file.parent, prefix=f".{file.name}.", suffix=".tmp"
+        )
+        temporary = Path(temporary_name)
+
+        try:
+            with os.fdopen(handle, "w") as output:
+                output.write(text)
+                output.flush()
+                os.fsync(output.fileno())
+            temporary.replace(file)
+        finally:
+            temporary.unlink(missing_ok=True)
 
 
 def enum_representer(dumper: _MaestroDumper, data: Enum) -> yaml.nodes.Node:

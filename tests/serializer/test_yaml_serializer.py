@@ -442,3 +442,19 @@ def test_global_loader_does_not_gain_the_object_constructor():
 
     with pytest.raises(ConstructorError):
         yaml.load(document, Loader=CSafeLoader)
+
+
+def test_failed_yaml_write_keeps_previous_content(tmp_path: Path) -> None:
+    file = tmp_path / "state.yaml"
+    YamlSerializer.write(file, {"slice": 7})
+
+    with pytest.raises(Exception):
+        YamlSerializer.write(file, {"slice": 8, "broken": object()})
+
+    assert YamlSerializer.load(file) == {"slice": 7}
+
+
+def test_yaml_write_leaves_no_temporary_files(tmp_path: Path) -> None:
+    YamlSerializer.write(tmp_path / "state.yaml", {"slice": 7})
+    YamlSerializer.write(tmp_path / "state.yaml", {"slice": 8})
+    assert [p.name for p in tmp_path.iterdir()] == ["state.yaml"]
