@@ -4,6 +4,7 @@
 import math
 import time
 from abc import abstractmethod
+from functools import cached_property
 from typing import Any, Generic, TypeVar
 
 from autoscript_sdb_microscope_client.enumerations import (
@@ -77,16 +78,6 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         self._extended_resolution: Resolution | None = (
             None  # extended resolution is set only if the required resolution is not standard
         )
-        self._standard_resolutions = (
-            Resolution(1024, 884),
-            Resolution(1536, 1024),
-            Resolution(2048, 1768),
-            Resolution(3072, 2048),
-            Resolution(4096, 3536),
-            Resolution(512, 442),
-            Resolution(6144, 4096),
-            Resolution(768, 512),
-        )  # available resolutions supported in standard mode
 
         # fallback for line integration
         # only used if the linked Autoscript version does not support setting line_integration via scanning
@@ -109,6 +100,11 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
     @abstractmethod
     def _modality(self) -> str:
         pass
+
+    @cached_property
+    def _standard_resolutions(self) -> frozenset[str]:
+        """Resolutions the instrument scans natively, as "WIDTHxHEIGHT"."""
+        return frozenset(self._beam.scanning.resolution.available_values)
 
     @abstractmethod
     def select_modality(self):
@@ -405,7 +401,7 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
     @resolution.setter
     def resolution(self, value: Resolution) -> None:
         resolution = str(value)
-        if value in self._standard_resolutions:
+        if resolution in self._standard_resolutions:
             self._txt_log.debug(
                 f"Setting standard resolution to ({self._modality}): {resolution}."
             )

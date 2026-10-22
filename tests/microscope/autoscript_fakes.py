@@ -35,6 +35,17 @@ class _WorkingDistance(_Value):
 
 
 class _Resolution:
+    available_values = [
+        "512x442",
+        "768x512",
+        "1024x884",
+        "1536x1024",
+        "2048x1768",
+        "3072x2048",
+        "4096x3536",
+        "6144x4096",
+    ]
+
     def __init__(self, value: str) -> None:
         self._value = value
 
