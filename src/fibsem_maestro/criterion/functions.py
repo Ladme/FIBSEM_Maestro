@@ -180,7 +180,7 @@ def fft_criterion(
 
 
 @CRITERION_FUNCTIONS.register("frc")
-def frc_criterion(img: Image, metric: FrcMetric, _logger: TextLogger) -> np.floating:
+def frc_criterion(img: Image, metric: FrcMetric, logger: TextLogger) -> np.floating:
     """
     Compute the single-image Fourier ring correlation cut-off frequency.
 
@@ -202,7 +202,8 @@ def frc_criterion(img: Image, metric: FrcMetric, _logger: TextLogger) -> np.floa
             or has no structure.
     """
     _ = metric
-    return np.float64(frc_cutoff_frequency(img, img.pixel_size))
+    logger.debug("Starting frc criterion calculation.")
+    return np.float64(frc_cutoff_frequency(img, img.pixel_size, logger))
 
 
 def gauss_filter(x: Image, px_size: float, detail: float) -> NDArray[np.floating]:

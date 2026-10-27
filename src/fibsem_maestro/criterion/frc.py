@@ -6,6 +6,8 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
+from fibsem_maestro.logging.text.text_logger import TextLogger
+
 FRC_THRESHOLD = 1.0 / 7.0
 """FRC value below which a ring counts as noise (the 1/7 criterion)."""
 
@@ -13,7 +15,9 @@ MIN_FRC_SIDE_PX = 16
 """Smallest image side, in pixels; 8 px half-images still give 4 rings."""
 
 
-def frc_cutoff_frequency(img: NDArray[Any], pixel_size: float) -> float:
+def frc_cutoff_frequency(
+    img: NDArray[Any], pixel_size: float, logger: TextLogger
+) -> float:
     """
     Return the spatial frequency at which an image's single-image FRC drops below 1/7.
 
@@ -52,19 +56,23 @@ def frc_cutoff_frequency(img: NDArray[Any], pixel_size: float) -> float:
     window = np.outer(np.hanning(half_side), np.hanning(half_side))
     half_a = (square[0::2, 0::2] - square[0::2, 0::2].mean()) * window
     half_b = (square[1::2, 1::2] - square[1::2, 1::2].mean()) * window
+    logger.debug(f"half_a = {half_a}, half_b = {half_b}")
 
-    frc = _ring_correlation(half_a, half_b)
+    logger.debug("Starting ring correlation.")
+    frc = _ring_correlation(half_a, half_b, logger)
+    logger.debug(f"frc = {frc}")
     if not np.all(np.isfinite(frc)):
         raise ValueError("FRC is undefined for an image without structure.")
 
     # ring r of an n-pixel half-image lies at r / n cycles per half-image pixel;
     # half-image pixels are converted with sqrt(2) * pixel_size
     cycles_per_half_px = _first_crossing(frc, FRC_THRESHOLD) / half_side
+    logger.debug(f"cycle_per_half_px = {cycles_per_half_px}")
     return float(cycles_per_half_px / (np.sqrt(2.0) * pixel_size))
 
 
 def _ring_correlation(
-    a: NDArray[np.float64], b: NDArray[np.float64]
+    a: NDArray[np.float64], b: NDArray[np.float64], logger: TextLogger
 ) -> NDArray[np.float64]:
     """
     Compute the FRC of two equal square images for rings up to the inscribed circle.
@@ -81,14 +89,19 @@ def _ring_correlation(
     fa = np.fft.fftshift(np.fft.fft2(a))
     fb = np.fft.fftshift(np.fft.fft2(b))
 
+    logger.debug(f"n = {n}, fa = {fa}, fb = {fb}")
+
     y, x = np.indices(a.shape)
     radius = np.rint(np.hypot(y - n // 2, x - n // 2)).astype(np.intp)
     inside = radius < n // 2
     rings = radius[inside]
 
+    logger.debug(f"radius = {radius}, inside = {inside}")
+
     cross = np.bincount(rings, np.real(fa * np.conj(fb))[inside], minlength=n // 2)
     power_a = np.bincount(rings, (np.abs(fa) ** 2)[inside], minlength=n // 2)
     power_b = np.bincount(rings, (np.abs(fb) ** 2)[inside], minlength=n // 2)
+    logger.debug(f"cross = {cross}, power_a = {power_a}, power_b = {power_b}")
     with np.errstate(divide="ignore", invalid="ignore"):
         return cross / np.sqrt(power_a * power_b)
 
