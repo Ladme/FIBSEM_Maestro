@@ -203,7 +203,7 @@ def frc_criterion(img: Image, metric: FrcMetric, logger: TextLogger) -> np.float
     """
     _ = metric
     logger.debug("Starting frc criterion calculation.")
-    return np.float64(frc_cutoff_frequency(img, img.pixel_size, logger))
+    return np.float64(frc_cutoff_frequency(img, img.pixel_size))
 
 
 def gauss_filter(x: Image, px_size: float, detail: float) -> NDArray[np.floating]:
