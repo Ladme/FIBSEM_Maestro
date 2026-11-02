@@ -9,41 +9,48 @@ from typing import Any
 from fibsem_maestro.autofocus import InterleavedSweepingStrategy
 from fibsem_maestro.autofocus.jobs_manager import JobsManager
 from fibsem_maestro.autofocus.result import AutofocusResult
-from fibsem_maestro.autofocus.sweep_step import SweepStep
-from fibsem_maestro.settings.sweeping_settings import InterleavedStrategySettings
+from fibsem_maestro.autofocus.sweep_space import LinearSweepSpace
+from fibsem_maestro.autofocus.sweep_step import SweepPoint, SweepStep
+from fibsem_maestro.settings.sweeping_settings import (
+    InterleavedStrategy as InterleavedStrategySettings,
+)
+
+SPACE = LinearSweepSpace("working_distance", (-2.0, 2.0), 3)
+BASE: SweepPoint = (0.0,)
 
 
 def _interleaved_results(
-    values: list[float], sharpness: dict[float, float]
+    values: list[SweepPoint], sharpness: dict[float, float]
 ) -> list[AutofocusResult]:
     return [
-        AutofocusResult(sharpness[v], SweepStep(0, v, i)) for i, v in enumerate(values)
+        AutofocusResult(sharpness[v[0]], SweepStep(0, v, i))
+        for i, v in enumerate(values)
     ]
 
 
 def test_interleaved_picks_candidate_sharper_than_base() -> None:
     strategy = InterleavedSweepingStrategy(InterleavedStrategySettings(min_diff=0.0))
-    values = [float(v) for v in strategy.generate(0.0, (-2.0, 2.0), 3, 0)]
+    values = strategy.generate(SPACE, BASE, 0)
     # -2 is much worse than the base, +2 is the only value sharper than the base
     sharpness = {0.0: 10.0, -2.0: 2.0, 2.0: 11.0}
-    assert strategy.evaluate(_interleaved_results(values, sharpness)) == 2.0
+    assert strategy.evaluate(_interleaved_results(values, sharpness)).best == (2.0,)
 
 
 def test_interleaved_keeps_base_when_nothing_is_sharper() -> None:
     strategy = InterleavedSweepingStrategy(InterleavedStrategySettings(min_diff=0.0))
-    values = [float(v) for v in strategy.generate(0.0, (-2.0, 2.0), 3, 0)]
+    values = strategy.generate(SPACE, BASE, 0)
     sharpness = {0.0: 10.0, -2.0: 2.0, 2.0: 9.0}
-    assert strategy.evaluate(_interleaved_results(values, sharpness)) == 0.0
+    assert strategy.evaluate(_interleaved_results(values, sharpness)).best == (0.0,)
 
 
 def test_interleaved_tolerates_a_missing_result() -> None:
     strategy = InterleavedSweepingStrategy(InterleavedStrategySettings(min_diff=0.0))
-    values = [float(v) for v in strategy.generate(0.0, (-2.0, 2.0), 3, 0)]
+    values = strategy.generate(SPACE, BASE, 0)
     sharpness = {0.0: 10.0, -2.0: 2.0, 2.0: 11.0}
     results = _interleaved_results(values, sharpness)
     # the job scoring the second base frame failed and was dropped
     del results[2]
-    assert strategy.evaluate(results) == 2.0
+    assert strategy.evaluate(results).best == (2.0,)
 
 
 class _LateCallbackFuture:
@@ -91,7 +98,7 @@ class LateCallbackExecutor(Executor):
 def test_jobs_manager_returns_every_finished_result() -> None:
     jobs = JobsManager(executor=LateCallbackExecutor())
     for i in range(3):
-        jobs.submit(lambda i=i: AutofocusResult(float(i), SweepStep(0, float(i), i)))
+        jobs.submit(lambda i=i: AutofocusResult(float(i), SweepStep(0, (float(i),), i)))
 
     results = jobs.wait_and_collect()
 
@@ -105,5 +112,5 @@ def test_jobs_manager_drops_failed_jobs() -> None:
         raise RuntimeError("criterion failed")
 
     jobs.submit(fail)
-    jobs.submit(lambda: AutofocusResult(1.0, SweepStep(0, 1.0, 1)))
+    jobs.submit(lambda: AutofocusResult(1.0, SweepStep(0, (1.0,), 1)))
     assert [r.sharpness for r in jobs.wait_and_collect()] == [1.0]

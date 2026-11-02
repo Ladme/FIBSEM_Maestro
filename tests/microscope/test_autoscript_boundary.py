@@ -10,7 +10,9 @@ from fibsem_maestro.microscope.autoscript_control.beam_control import (
 )
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
-from fibsem_maestro.settings.sweeping_settings import SweepingSettings
+from fibsem_maestro.settings.sweeping_settings import (
+    LinearSweeping as LinearSweepingSettings,
+)
 
 pytest.importorskip("autoscript_sdb_microscope_client")
 
@@ -45,8 +47,9 @@ def test_ion_beam_working_distance_can_be_swept(
 ) -> None:
     sweeping = Sweeping(
         autoscript_microscope.ion_beam,
-        SweepingSettings(range=(-1000.0, 1000.0), steps=3),
-        "working_distance",
+        LinearSweepingSettings(
+            target_attribute="working_distance", range=(-1000.0, 1000.0), steps=3
+        ),
         MemoryTextLogger(lambda: 0),
     )
     assert len(list(sweeping.sweep())) == 3
@@ -58,11 +61,12 @@ def test_sweep_values_outside_instrument_limits_are_skipped(
     # the fake ion beam allows 1-60 mm; 16.5 mm +- 50 mm leaves one valid value
     sweeping = Sweeping(
         autoscript_microscope.ion_beam,
-        SweepingSettings(range=(-50e6, 50e6), steps=3),
-        "working_distance",
+        LinearSweepingSettings(
+            target_attribute="working_distance", range=(-50e6, 50e6), steps=3
+        ),
         MemoryTextLogger(lambda: 0),
     )
-    assert [s.value for s in sweeping.sweep()] == pytest.approx([16.5e6])
+    assert [s.value[0] for s in sweeping.sweep()] == pytest.approx([16.5e6])
 
 
 def test_autoscript_reapplying_pixel_size_keeps_standard_resolution(

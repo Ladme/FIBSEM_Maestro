@@ -30,7 +30,6 @@ class AutofocusContext:
     def __init__(
         self,
         microscope: Microscope,
-        target_attribute: str,
         sweeping: Sweeping | None,
         settings: AutofocusSettings,
         ctx: ActionContext,
@@ -40,13 +39,11 @@ class AutofocusContext:
 
         Args:
             microscope: The microscope instance.
-            target_attribute: Attribute which is optimized during autofocus.
-            sweeping: Controller for sweeping the target beam attribute.
+            sweeping: Controller for sweeping the target beam attributes.
             settings: Autofocus configuration.
             ctx: Context providing slice navigation and access logging and storage.
         """
         self.microscope = microscope
-        self.target_attribute = target_attribute
         self.sweeping = sweeping
         self.ctx = ctx
         self.settings = settings

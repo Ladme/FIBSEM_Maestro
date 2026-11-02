@@ -1,6 +1,7 @@
 # Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
+
 from __future__ import annotations
 
 import time
@@ -17,9 +18,6 @@ from fibsem_maestro.autofocus.sweep_step import SweepStep
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.image_tools import get_stripes
 from fibsem_maestro.core.registry import Registry
-from fibsem_maestro.microscope.autoscript_control.microscope_control import (
-    AutoscriptMicroscopeControl,
-)
 from fibsem_maestro.settings.autofocus_settings import (
     AutoscriptAutoFocus,
     AutoscriptAutoFocusMethod,
@@ -121,7 +119,7 @@ class BasicMode(AutofocusMode):
             for sweep in sweeping.sweep():
                 ctx.ctx.text_logger.info(
                     f"Autofunction step {sweep.index + 1} "
-                    f"(repetition {sweep.repetition + 1}): value {sweep.value}"
+                    f"(repetition {sweep.repetition + 1}): {sweeping.describe(sweep.value)}"
                 )
                 sweeping.set_attribute_value(sweep.value)
                 image = ctx.microscope.beam.grab_frame()
@@ -406,7 +404,7 @@ class StepMode(AutofocusMode):
 
             ctx.ctx.text_logger.info(
                 f"Autofunction step {sweep.index + 1} "
-                f"(repetition {sweep.repetition + 1}): value {sweep.value}"
+                f"(repetition {sweep.repetition + 1}): {sweeping.describe(sweep.value)}"
             )
 
             # score the frame from the previous slice, taken at the previous step's value
@@ -487,6 +485,15 @@ class AutoscriptMode(AutofocusMode):
     ) -> Generator[SweepStep, None, None]:
         _ = jobs, imaging, resume_from
 
+        try:
+            from fibsem_maestro.microscope.autoscript_control.microscope_control import (
+                AutoscriptMicroscopeControl,
+            )
+        except ImportError as e:
+            raise AutofocusError(
+                "Autoscript auto-functions need Autoscript, which is not available."
+            ) from e
+
         if not isinstance(ctx.microscope.control, AutoscriptMicroscopeControl):
             raise AutofocusError(
                 "Microscope must be an Autoscript-controlled microscope."
@@ -564,6 +571,7 @@ class AutoscriptMode(AutofocusMode):
                     reduced_area=reduced_area,  # ty:ignore[invalid-argument-type]
                     maximum_iterations=mode.maximum_iterations,  # ty:ignore[invalid-argument-type]
                     working_distance_step=wd_step_as,  # ty:ignore[invalid-argument-type]
+                    number_of_frames=mode.number_of_frames,  # ty:ignore[invalid-argument-type]
                 )
 
                 with self._secondary_electrons(autoscript_microscope):
@@ -593,7 +601,9 @@ class AutoscriptMode(AutofocusMode):
 
         match mode.method:
             case AutoscriptAutoStigmatorMethod.STANDARD:
-                settings = RunAutoStigmatorSettings()
+                settings = RunAutoStigmatorSettings(
+                    reduced_area=reduced_area  # ty:ignore[invalid-argument-type]
+                )
             case AutoscriptAutoStigmatorMethod.ONGETAL:
                 settings = RunAutoStigmatorSettings(
                     method="OngEtAl",
@@ -605,6 +615,7 @@ class AutoscriptMode(AutofocusMode):
                     reduced_area=reduced_area,  # ty:ignore[invalid-argument-type]
                     maximum_iterations=mode.maximum_iterations,  # ty:ignore[invalid-argument-type]
                     stigmation_step=mode.stigmation_step,  # ty:ignore[invalid-argument-type]
+                    number_of_frames=mode.number_of_frames,  # ty:ignore[invalid-argument-type]
                 )
 
         autoscript_microscope.auto_functions.run_auto_stigmator(settings)

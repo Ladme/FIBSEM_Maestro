@@ -11,7 +11,6 @@ from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.frequency import Every, Frequency
 from fibsem_maestro.imaging.imaging import Imaging
-from fibsem_maestro.properties.beam_properties import BeamProperties
 from fibsem_maestro.settings.base_settings import BaseSettings
 from fibsem_maestro.settings.criterion_settings import CriterionSettings
 from fibsem_maestro.settings.form_utils import (
@@ -22,7 +21,10 @@ from fibsem_maestro.settings.form_utils import (
     WidgetType,
 )
 from fibsem_maestro.settings.property_names import PropertyNames
-from fibsem_maestro.settings.sweeping_settings import SweepingSettings
+from fibsem_maestro.settings.sweeping_settings import (
+    LinearSweeping,
+    SweepingSettings,
+)
 
 FocusOffset = Annotated[float, FieldUnit(suffix="nm")]
 """Beam shift along x, in nm, to focus away from the sample area during the sweep."""
@@ -52,8 +54,8 @@ class BasicMode(BaseSettings):
         description="Offset for out of sample focusing on the x-axis.",
     )
     sweeping: SweepingSettings = Field(
-        default_factory=SweepingSettings,
-        description="Settings for sweeping to be used.",
+        default_factory=LinearSweeping,
+        description="What is swept and how the best value is chosen.",
     )
     max_sweeps: Annotated[int, Field(ge=1)] = Field(
         default=1,
@@ -78,8 +80,8 @@ class LineMode(BaseSettings):
         description="Offset for out of sample focusing on the x-axis.",
     )
     sweeping: SweepingSettings = Field(
-        default_factory=SweepingSettings,
-        description="Settings for sweeping to be used.",
+        default_factory=LinearSweeping,
+        description="What is swept and how the best value is chosen.",
     )
     max_sweeps: Annotated[int, Field(ge=1)] = Field(
         default=1,
@@ -142,8 +144,8 @@ class StepMode(BaseSettings):
         description="Apply the sweep values to the imaging and analyze the frames it acquires.",
     )
     sweeping: SweepingSettings = Field(
-        default_factory=SweepingSettings,
-        description="Settings for sweeping to be used.",
+        default_factory=LinearSweeping,
+        description="What is swept and how the best value is chosen.",
     )
     max_sweeps: Annotated[int, Field(ge=1)] = Field(
         default=1,
@@ -204,7 +206,9 @@ class AutoscriptAutoFocusMethod(Enum):
 
 
 class AutoscriptAutoFocus(AutoscriptFunctionBase):
-    target_attribute: Literal["working_distance"] = "working_distance"
+    target_attribute: Literal["working_distance"] = Field(
+        default="working_distance", description="Autofocus (working distance)."
+    )
     method: AutoscriptAutoFocusMethod = Field(
         default=AutoscriptAutoFocusMethod.STANDARD,
         description="Autofocus algorithm to use.",
@@ -231,7 +235,9 @@ class AutoscriptAutoStigmatorMethod(Enum):
 
 
 class AutoscriptAutoStigmator(AutoscriptFunctionBase):
-    target_attribute: Literal["stigmator"] = "stigmator"
+    target_attribute: Literal["stigmator"] = Field(
+        default="stigmator", description="Autostigmator."
+    )
     method: AutoscriptAutoStigmatorMethod = Field(
         default=AutoscriptAutoStigmatorMethod.STANDARD,
         description="Autostigmator algorithm to use.",
@@ -257,7 +263,9 @@ class AutoscriptAutoLensAlignmentModulationType(Enum):
 
 
 class AutoscriptAutoLensAlignment(AutoscriptFunctionBase):
-    target_attribute: Literal["lens_alignment"] = "lens_alignment"
+    target_attribute: Literal["lens_alignment"] = Field(
+        default="lens_alignment", description="Auto lens alignment."
+    )
     modulation_type: AutoscriptAutoLensAlignmentModulationType = Field(
         default=AutoscriptAutoLensAlignmentModulationType.AUTOMATIC,
         description="Modulation type for lens alignment adjustment",
@@ -269,7 +277,9 @@ class AutoscriptAutoLensAlignment(AutoscriptFunctionBase):
 
 
 class AutoscriptAutoSourceTilt(AutoscriptFunctionBase):
-    target_attribute: Literal["source_tilt"] = "source_tilt"
+    target_attribute: Literal["source_tilt"] = Field(
+        default="source_tilt", description="Auto source tilt."
+    )
 
 
 AutoscriptMode = Annotated[
@@ -278,7 +288,7 @@ AutoscriptMode = Annotated[
     | AutoscriptAutoLensAlignment
     | AutoscriptAutoSourceTilt,
     Field(discriminator="target_attribute"),
-    NestedUnion(label="autoscript mode", follows="target_attribute"),
+    NestedUnion(label="autoscript mode"),
 ]
 
 AutofocusMode = Annotated[
@@ -292,17 +302,6 @@ class AutofocusSettings(BaseSettings):
         str, FormHint(widget=WidgetType.ACTION_SELECTOR, action_type_filter=[Imaging])
     ] = Field(
         default="", description="Name of the imaging action linked to this autofocus."
-    )
-    target_attribute: Annotated[
-        str,
-        FormHint(
-            widget=WidgetType.PROPERTY_SELECTOR,
-            # manufacturer properties are added dynamically
-            choices=lambda: list(BeamProperties.model_fields.keys()),
-        ),
-    ] = Field(
-        default="working_distance",
-        description="Attribute to optimize.",
     )
     mode: AutofocusMode = Field(
         default_factory=BasicMode,

@@ -12,7 +12,7 @@ from numpy.typing import NDArray
 
 from fibsem_maestro.logging.image.image_logger import ImageLogger
 from fibsem_maestro.logging.image.overlay import Overlay
-from fibsem_maestro.logging.image.plot_element import PlotElement
+from fibsem_maestro.logging.image.plot import Plot
 
 
 @dataclass
@@ -43,18 +43,12 @@ class SavedPlot:
     Attributes:
         slice_index: The slice during which this plot was saved.
         filename: The filename supplied by the caller.
-        elements: The plot elements supplied by the caller.
-        title: The title supplied by the caller, or `None`.
-        xlabel: The x-axis label supplied by the caller, or `None`.
-        ylabel: The y-axis label supplied by the caller, or `None`.
+        plot: The plot supplied by the caller.
     """
 
     slice_index: int
     filename: str
-    elements: list[PlotElement]
-    title: str | None
-    xlabel: str | None
-    ylabel: str | None
+    plot: Plot
 
 
 class MemoryImageLogger(ImageLogger):
@@ -127,24 +121,10 @@ class MemoryImageLogger(ImageLogger):
             )
         )
 
-    def save_plot(
-        self,
-        filename: str,
-        elements: Sequence[PlotElement],
-        title: str | None = None,
-        xlabel: str | None = None,
-        ylabel: str | None = None,
-    ) -> None:
+    def save_plot(self, filename: str, plot: Plot) -> None:
         idx = self._slice_provider()
         self._plots[idx].append(
-            SavedPlot(
-                slice_index=idx,
-                filename=filename,
-                elements=list(elements),
-                title=title,
-                xlabel=xlabel,
-                ylabel=ylabel,
-            )
+            SavedPlot(slice_index=idx, filename=filename, plot=plot)
         )
 
     def at(self, slice_index: int) -> Self:

@@ -9,7 +9,7 @@ from typing import Any, Self
 from numpy.typing import NDArray
 
 from fibsem_maestro.logging.image.overlay import Overlay
-from fibsem_maestro.logging.image.plot_element import PlotElement
+from fibsem_maestro.logging.image.plot import Plot
 
 
 class ImageLogger(ABC):
@@ -18,7 +18,7 @@ class ImageLogger(ABC):
 
     Implementations provide mechanisms for saving diagnostic images with
     optional geometric overlays and for saving plots composed of one or
-    more curves.
+    more panels.
     """
 
     @abstractmethod
@@ -41,23 +41,13 @@ class ImageLogger(ABC):
         """
 
     @abstractmethod
-    def save_plot(
-        self,
-        filename: str,
-        elements: Sequence[PlotElement],
-        title: str | None = None,
-        xlabel: str | None = None,
-        ylabel: str | None = None,
-    ) -> None:
+    def save_plot(self, filename: str, plot: Plot) -> None:
         """
-        Save a plot composed of one or more curves.
+        Save a plot of one or more panels.
 
         Args:
             filename: Output filename, relative to the logger's output directory.
-            elements: A sequence of PlotElement objects defining the data to plot.
-            title: Optional plot title.
-            xlabel: Optional label for the x-axis.
-            ylabel: Optional label for the y-axis.
+            plot: The plot to save.
         """
 
     @abstractmethod

@@ -1,6 +1,7 @@
 # Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
+
 import re
 import threading
 from collections.abc import Callable, Iterator, Sequence
@@ -11,7 +12,8 @@ from typing import Any, BinaryIO, Self
 import matplotlib as mpl
 from matplotlib.figure import Figure
 
-from fibsem_maestro.logging.image.plot_element import Curve, PlotElement, VerticalLine
+from fibsem_maestro.logging.image.plot import Plot
+from fibsem_maestro.logging.image.plot_renderer import render_plot
 from fibsem_maestro.slice.slice_view import SliceView
 
 mpl.use("Agg")
@@ -89,58 +91,20 @@ class FileImageLogger(ImageLogger):
 
         self._write(fig, directory / filename)
 
-    def save_plot(
-        self,
-        filename: str,
-        elements: Sequence[PlotElement],
-        title: str | None = None,
-        xlabel: str | None = None,
-        ylabel: str | None = None,
-    ) -> None:
+    def save_plot(self, filename: str, plot: Plot) -> None:
         """
-        Render and save a multi-curve plot as a PNG.
+        Render and save a plot as a PNG.
 
         Args:
             filename: Output filename with extension, relative to the current slice directory.
-            elements: Sequence of `PlotElement` objects defining the data.
-            title: Optional title rendered above the plot.
-            xlabel: Optional x-axis label.
-            ylabel: Optional y-axis label.
+            plot: The plot to render.
+
+        Raises:
+            TypeError: If an element's type has no renderer.
+            ValueError: If Matplotlib rejects the data.
         """
         directory = self._view_provider().path()
-
-        fig, ax = self._new_figure()
-        for element in elements:
-            match element:
-                case Curve():
-                    if element.x is None:
-                        ax.plot(
-                            element.y,
-                            color=element.color,
-                            linewidth=element.linewidth,
-                        )
-                    else:
-                        ax.plot(
-                            element.x,
-                            element.y,
-                            color=element.color,
-                            linewidth=element.linewidth,
-                        )
-                case VerticalLine():
-                    ax.axvline(
-                        x=element.x,
-                        color=element.color,
-                        linewidth=element.linewidth,
-                    )
-
-        if title:
-            ax.set_title(title)
-        if xlabel:
-            ax.set_xlabel(xlabel)
-        if ylabel:
-            ax.set_ylabel(ylabel)
-
-        self._write(fig, directory / filename)
+        self._write(render_plot(plot), directory / filename)
 
     def at(self, slice_index: int) -> Self:
         """
