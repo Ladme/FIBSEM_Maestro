@@ -222,8 +222,8 @@ class InterleavedSweepingStrategy(SweepingStrategy):
         Each candidate step is compared with the mean sharpness of the nearest
         base steps before and after it, so that slow drift during the sweep
         cancels out. Results sharing a step (line mode) are averaged first. A
-        candidate counts only if it beats that baseline by more than
-        `min_diff` relative to it. Missing results (failed jobs) are tolerated.
+        candidate counts only if it beats that baseline by more than `min_diff`.
+        Missing results (failed jobs) are tolerated.
 
         The base value is the value measured most often; ties go to the
         earliest step, which is a base step by construction.
@@ -265,7 +265,7 @@ class InterleavedSweepingStrategy(SweepingStrategy):
             if value_of[i] == base:
                 continue
 
-            # compare with the nearest base step on each side, so that slow drift
+            # compare with the nearest base step on EACH side, so that slow drift
             # during the sweep cancels out; either may be missing (sweep end, failed job)
             before = [b for b in base_steps if b < i]
             after = [b for b in base_steps if b > i]
@@ -278,9 +278,7 @@ class InterleavedSweepingStrategy(SweepingStrategy):
             baseline = float(np.mean([sharpness_of[b] for b in neighbours]))
             improvement = sharpness_of[i] - baseline
 
-            # only clearly sharper candidates count; abs() keeps the threshold
-            # positive for metrics that can be negative
-            if improvement > abs(baseline) * self._settings.min_diff:
+            if improvement > self._settings.min_diff:
                 # a value is measured once per cycle, so collect all of its improvements
                 improvement_sum[value_of[i]] += improvement
                 improvement_count[value_of[i]] += 1

@@ -1,3 +1,6 @@
+# Released under GPL-3.0 License.
+# Copyright (c) 2024-2026 CEMCOF
+
 import threading
 from collections.abc import Callable
 from concurrent.futures import Executor

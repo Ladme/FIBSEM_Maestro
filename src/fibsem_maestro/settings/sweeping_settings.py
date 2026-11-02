@@ -23,7 +23,8 @@ class InterleavedStrategySettings(BaseSettings):
     )
     min_diff: float = Field(
         default=0.005,
-        description="Minimal change in resolution relative to base resolution to consider it relevant.",
+        ge=0.0,
+        description="Minimal sharpness gain over the base required to switch to a candidate.",
     )
 
 
