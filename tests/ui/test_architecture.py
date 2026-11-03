@@ -115,7 +115,8 @@ def import_violations(
 
 def location(path: Path, node: ast.AST) -> str:
     """`file:line` of a node, relative to the repository."""
-    return f"{path.relative_to(PACKAGE_DIR.parents[1])}:{getattr(node, 'lineno', 0)}"
+    relative = path.relative_to(PACKAGE_DIR.parents[1]).as_posix()
+    return f"{relative}:{getattr(node, 'lineno', 0)}"
 
 
 def imports(

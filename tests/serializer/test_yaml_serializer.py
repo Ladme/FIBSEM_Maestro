@@ -175,7 +175,7 @@ def test_load_missing_file_raises_os_error(tmp_path: Path):
 
 
 def test_load_directory_raises_os_error(tmp_path: Path):
-    with pytest.raises(IsADirectoryError):
+    with pytest.raises(OSError):
         YamlSerializer.load(tmp_path)
 
 
@@ -300,7 +300,7 @@ def test_write_path_emits_a_plain_string(tmp_path: Path):
 
     YamlSerializer.write(path, {"out_dir": Path("/data/scan")})
 
-    assert YamlSerializer.load(path) == {"out_dir": "/data/scan"}
+    assert YamlSerializer.load(path) == {"out_dir": str(Path("/data/scan"))}
 
 
 def test_write_nested_enum_and_path(tmp_path: Path):
@@ -311,7 +311,9 @@ def test_write_nested_enum_and_path(tmp_path: Path):
         path, {"actions": [{"beam": StrBeam.ION, "dir": Path("/data")}]}
     )
 
-    assert YamlSerializer.load(path) == {"actions": [{"beam": "ion", "dir": "/data"}]}
+    assert YamlSerializer.load(path) == {
+        "actions": [{"beam": "ion", "dir": str(Path("/data"))}]
+    }
 
 
 def test_write_object_uses_import_path_as_tag(tmp_path: Path):

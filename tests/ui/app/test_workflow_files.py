@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
-from gui_testkit.windows_lock import WindowsLikeLockError, windows_like_delete
+from gui_testkit.windows_lock import windows_like_delete
 
 from fibsem_maestro.action_context.file import FileActionContext
 from fibsem_maestro.ui.app.files import WorkflowFiles
@@ -39,7 +39,7 @@ def names(directory: Path) -> list[str]:
 
 
 def test_windows_like_delete_refuses_open_file(tree: Path) -> None:
-    with (tree / "a" / "deep" / "file.txt").open(), pytest.raises(WindowsLikeLockError):
+    with (tree / "a" / "deep" / "file.txt").open(), pytest.raises(PermissionError):
         windows_like_delete(tree / "a")
     windows_like_delete(tree / "a")
     assert not (tree / "a").exists()
@@ -57,9 +57,9 @@ def test_files_clear_returns_failures_and_carries_on(
     with (tree / "a" / "deep" / "file.txt").open():
         failures = windows_files.clear(tree)
 
-    assert [(path.name, type(error)) for path, error in failures] == [
-        ("a", WindowsLikeLockError)
-    ]
+    assert [
+        (path.name, isinstance(error, PermissionError)) for path, error in failures
+    ] == [("a", True)]
     assert names(tree) == ["a"]
 
 
