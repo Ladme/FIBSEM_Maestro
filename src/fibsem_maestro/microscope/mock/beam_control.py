@@ -9,6 +9,7 @@ import numpy as np
 from fibsem_maestro.core.area import NMArea, RelativeArea
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
+from fibsem_maestro.core.detector_mode import DetectorMode
 from fibsem_maestro.core.direction import Direction
 from fibsem_maestro.core.format import ImageFormat
 from fibsem_maestro.core.image import Image
@@ -37,6 +38,8 @@ class MockBeamControl(BeamControl):
         self._lens_alignment = LensAlignment(0.0, 0.0)
         self._beam_shift = BeamShift(0.0, 0.0)
         self._beam_current: float = 0.0
+
+        self._detector_mode = DetectorMode.DEFAULT
 
         self._detector_contrast: float = 0.0
         self._detector_brightness: float = 0.0
@@ -101,6 +104,14 @@ class MockBeamControl(BeamControl):
     @beam_shift.setter
     def beam_shift(self, value: BeamShift) -> None:
         self._beam_shift = value
+
+    @property
+    def detector_mode(self) -> DetectorMode:
+        return self._detector_mode
+
+    @detector_mode.setter
+    def detector_mode(self, value: DetectorMode) -> None:
+        self._detector_mode = value
 
     @property
     def detector_contrast(self) -> float:

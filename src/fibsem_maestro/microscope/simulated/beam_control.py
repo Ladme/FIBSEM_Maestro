@@ -10,6 +10,7 @@ import numpy as np
 from fibsem_maestro.core.area import NMArea, RelativeArea
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
+from fibsem_maestro.core.detector_mode import DetectorMode
 from fibsem_maestro.core.direction import Direction
 from fibsem_maestro.core.format import ImageFormat
 from fibsem_maestro.core.image import Image
@@ -51,6 +52,8 @@ class SimulatedBeamControl(BeamControl):
         self._lens_alignment = LensAlignment(x=0.0, y=0.0)  # nm
         self._beam_shift = BeamShift(x=0.0, y=0.0)  # nm
         self._beam_current: float = 0.0  # nm
+
+        self._detector_mode = DetectorMode.DEFAULT
 
         self._detector_contrast = 0.5
         self._detector_brightness = 0.5
@@ -157,6 +160,17 @@ class SimulatedBeamControl(BeamControl):
             raise MicroscopeError(
                 f"Beam shift out of range: {self._beam_shift} (limits: x {limit_x}, y {limit_y})"
             )
+
+    @property
+    def detector_mode(self) -> DetectorMode:
+        value = self._detector_mode
+        self._txt_log.debug(f"Getting detector mode: {value}.")
+        return value
+
+    @detector_mode.setter
+    def detector_mode(self, value: DetectorMode) -> None:
+        self._txt_log.debug(f"Setting detector mode: {value}.")
+        self._detector_mode = value
 
     @property
     def detector_contrast(self) -> float:

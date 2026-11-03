@@ -9,6 +9,7 @@ from typing import Any
 from fibsem_maestro.core.area import NMArea, RelativeArea
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
+from fibsem_maestro.core.detector_mode import DetectorMode
 from fibsem_maestro.core.direction import Direction
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
@@ -156,6 +157,21 @@ class BeamControl(ABC):
 
         Args:
             value: New beam shift in nanometers.
+        """
+
+    @property
+    @abstractmethod
+    def detector_mode(self) -> DetectorMode:
+        """Signal the active detector of this beam records."""
+
+    @detector_mode.setter
+    @abstractmethod
+    def detector_mode(self, value: DetectorMode) -> None:
+        """
+        Set the signal the active detector of this beam records.
+
+        Args:
+            value: The detector mode; must be available on the active detector.
         """
 
     @property

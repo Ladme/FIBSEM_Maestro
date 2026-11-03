@@ -25,6 +25,7 @@ from autoscript_sdb_microscope_client.structures import AdornedImage, GrabFrameS
 from fibsem_maestro.core.area import NMArea, RelativeArea
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
+from fibsem_maestro.core.detector_mode import DetectorMode
 from fibsem_maestro.core.direction import Direction
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
@@ -138,6 +139,36 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
     def beam_shift(self, value: BeamShift) -> None:
         self._txt_log.debug(f"Setting beam shift ({self._modality}): {value}.")
         self._beam.beam_shift.value = value.to_point_autoscript()
+
+    @property
+    def detector_mode(self) -> DetectorMode:
+        self.select_modality()
+
+        raw = self._microscope.detector.mode.value
+        try:
+            value = DetectorMode(raw)
+        except ValueError as e:
+            raise MicroscopeError(
+                f"Unknown detector mode '{raw}' reported by the microscope ({self._modality})."
+            ) from e
+
+        self._txt_log.debug(f"Getting detector mode ({self._modality}): {value}.")
+        return value
+
+    @detector_mode.setter
+    def detector_mode(self, value: DetectorMode) -> None:
+        self.select_modality()
+
+        # the available modes depend on the active detector
+        available = self._microscope.detector.mode.available_values
+        if value.value not in available:
+            raise MicroscopeError(
+                f"Detector mode '{value.value}' is not available on the active "
+                f"detector ({self._modality}); available: {', '.join(available)}."
+            )
+
+        self._txt_log.debug(f"Setting detector mode ({self._modality}) to: {value}.")
+        self._microscope.detector.mode.value = value.value
 
     @property
     def detector_contrast(self) -> float:
