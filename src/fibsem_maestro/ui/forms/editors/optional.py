@@ -3,12 +3,14 @@
 
 """A checkbox gating an editor: unchecked means None."""
 
-from typing import Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from PyQt6.QtWidgets import QCheckBox, QHBoxLayout, QVBoxLayout, QWidget
 
 from fibsem_maestro.ui.forms.editor import FieldEditor
-from fibsem_maestro.ui.forms.issues import FieldIssue
+
+if TYPE_CHECKING:
+    from fibsem_maestro.ui.forms.issues import FieldIssue
 
 T = TypeVar("T")
 

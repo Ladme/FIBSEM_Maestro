@@ -38,7 +38,7 @@ def has_numpy_reduction_signature(func: NumpyFunction) -> bool:
 
     try:
         sig = inspect.signature(func)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return False
 
     params = list(sig.parameters.values())

@@ -2,18 +2,18 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
-from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from fibsem_maestro.core.point import Point
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from fibsem_maestro.core.point import Point
 
 
 @dataclass(frozen=True)
 class Overlay:
     """Base class for overlay elements drawn on images."""
-
-    pass
 
 
 @dataclass(frozen=True)

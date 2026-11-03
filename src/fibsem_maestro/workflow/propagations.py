@@ -2,18 +2,22 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 import copy
-from collections.abc import Mapping
 from dataclasses import replace
-from typing import Self
+from typing import TYPE_CHECKING, Self
 
 from pydantic.dataclasses import dataclass
 
-from fibsem_maestro.action.action import Action
-from fibsem_maestro.logging.text.text_logger import TextLogger
-from fibsem_maestro.properties.global_properties import GlobalProperties
-from fibsem_maestro.settings.property_names import PropertyNames
-from fibsem_maestro.workflow.actions import Actions
+# Pydantic evaluates PropagationRule's annotations (it is a field of WorkflowState)
+from fibsem_maestro.settings.property_names import PropertyNames  # noqa: TC001
 from fibsem_maestro.workflow.error import WorkflowError
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from fibsem_maestro.action.action import Action
+    from fibsem_maestro.logging.text.text_logger import TextLogger
+    from fibsem_maestro.properties.global_properties import GlobalProperties
+    from fibsem_maestro.workflow.actions import Actions
 
 
 @dataclass

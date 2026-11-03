@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from PyQt6.QtCore import QObject, Qt, QThread, pyqtSignal, pyqtSlot
 
@@ -22,7 +22,7 @@ T = TypeVar("T")
 
 
 @dataclass(frozen=True)
-class MicroscopeTask(Generic[T]):
+class MicroscopeTask[T]:
     """
     One piece of microscope work requested from the GUI.
 
@@ -114,11 +114,11 @@ class MicroscopeTasks(QObject):
         # the PyQt6 stubs omit connect's connection-type parameter
         queued = Qt.ConnectionType.QueuedConnection
         # PyQt stubs are incorrect, ignore them
-        self._dispatch.connect(self._worker.execute, queued)  # ty: ignore[too-many-positional-arguments]
-        self._worker.completed.connect(self._on_completed, queued)  # ty: ignore[too-many-positional-arguments]
+        self._dispatch.connect(self._worker.execute, queued)
+        self._worker.completed.connect(self._on_completed, queued)
         # queued even though both live on the GUI thread: a refusal is reported on
         # the next event-loop turn, after the caller connected to the handle
-        self._refused.connect(self._on_refused, queued)  # ty: ignore[too-many-positional-arguments]
+        self._refused.connect(self._on_refused, queued)
 
         self._thread.start()
 

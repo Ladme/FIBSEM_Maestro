@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Generic, Self, TypeVar
+from typing import TYPE_CHECKING, Self, TypeVar
 
 from pydantic import BaseModel
 
@@ -20,7 +20,9 @@ T = TypeVar("T", PixelPoint, RelativePoint, NMPoint, MPoint)
 U = TypeVar("U", int, float)
 
 
-class _Area(BaseModel, Generic[T, U]):
+class _Area[T: (PixelPoint, RelativePoint, NMPoint, MPoint), U: (int, float)](
+    BaseModel
+):
     """
     Represents an area of an image.
 
@@ -218,8 +220,8 @@ class RelativeArea(_Area[RelativePoint, float]):
         """
         return PixelArea(
             origin=self.origin.to_pixels(resolution),
-            width=int(round(self.width * resolution.width)),
-            height=int(round(self.height * resolution.height)),
+            width=round(self.width * resolution.width),
+            height=round(self.height * resolution.height),
         )
 
     def to_nanometers(self, resolution: Resolution, pixel_size_nm: float) -> NMArea:
@@ -404,8 +406,8 @@ class NMArea(_Area[NMPoint, float]):
         """
         return PixelArea(
             origin=self.origin.to_pixels(pixel_size_nm),
-            width=int(round(self.width / pixel_size_nm)),
-            height=int(round(self.height / pixel_size_nm)),
+            width=round(self.width / pixel_size_nm),
+            height=round(self.height / pixel_size_nm),
         )
 
     def to_meters(self) -> MArea:
@@ -453,8 +455,8 @@ class MArea(_Area[MPoint, float]):
         """
         return PixelArea(
             origin=self.origin.to_pixels(pixel_size_m),
-            width=int(round(self.width / pixel_size_m)),
-            height=int(round(self.height / pixel_size_m)),
+            width=round(self.width / pixel_size_m),
+            height=round(self.height / pixel_size_m),
         )
 
     def to_nanometers(self) -> NMArea:

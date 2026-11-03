@@ -3,14 +3,17 @@
 
 
 import shutil
-from collections.abc import Callable
-from pathlib import Path
-from typing import Self
+from typing import TYPE_CHECKING, Self
 
 from fibsem_maestro.serializer.yaml_serializer import YamlSerializer
-from fibsem_maestro.settings.base_settings import BaseSettings
 from fibsem_maestro.slice.slice_view import SliceView
 from fibsem_maestro.store.settings.settings_store import SettingsStore
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from pathlib import Path
+
+    from fibsem_maestro.settings.base_settings import BaseSettings
 
 
 class FileSettingsStore(SettingsStore):

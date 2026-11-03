@@ -3,32 +3,36 @@
 
 
 import re
-from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import cv2
 import numpy as np
-from numpy.typing import NDArray
 from scipy.optimize import curve_fit
 
 from fibsem_maestro.core.drift import Drift
 from fibsem_maestro.core.image import Image8Bit
 from fibsem_maestro.core.point import PixelPoint
-from fibsem_maestro.logging.image.image_logger import ImageLogger
 from fibsem_maestro.logging.image.overlay import RectangleOverlay
-from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.settings.template_matching_settings import (
     StandardMode,
     SubpixelMode,
     TemplateMatchingSettings,
 )
-from fibsem_maestro.store.image.image_store import ImageStore
-from fibsem_maestro.template_matching.area_provider import AreaProvider
 from fibsem_maestro.template_matching.error import TemplateMatchingError
 from fibsem_maestro.template_matching.result import (
     ShiftPrecision,
     TemplateMatchResult,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from numpy.typing import NDArray
+
+    from fibsem_maestro.logging.image.image_logger import ImageLogger
+    from fibsem_maestro.logging.text.text_logger import TextLogger
+    from fibsem_maestro.store.image.image_store import ImageStore
+    from fibsem_maestro.template_matching.area_provider import AreaProvider
 
 _TEMPLATE_PREFIX = "template_"
 _TEMPLATE_SUFFIX = ".tif"

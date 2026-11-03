@@ -3,12 +3,14 @@
 
 
 import functools
-from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from fibsem_maestro.logging.text.text_logger import TextLogger
+if TYPE_CHECKING:
+    from collections.abc import Callable, Generator
+
+    from fibsem_maestro.logging.text.text_logger import TextLogger
 
 _current_text_logger: ContextVar[TextLogger | None] = ContextVar(
     "_current_text_logger", default=None
@@ -54,7 +56,7 @@ def get_current_logger() -> TextLogger | None:
 
 
 @contextmanager
-def logging_context(logger: TextLogger) -> Generator[None, None, None]:
+def logging_context(logger: TextLogger) -> Generator[None]:
     """
     Context manager that temporarily sets the active `TextLogger`.
 

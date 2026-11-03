@@ -4,12 +4,13 @@
 """Editor choosing one value from a fixed list (enums, literals, hinted dropdowns)."""
 
 from enum import Enum
-from typing import TypeVar
-
-from PyQt6.QtWidgets import QWidget
+from typing import TYPE_CHECKING, TypeVar
 
 from fibsem_maestro.ui.forms.editor import FieldEditor
 from fibsem_maestro.ui.forms.editors._no_scroll import NoScrollComboBox
+
+if TYPE_CHECKING:
+    from PyQt6.QtWidgets import QWidget
 
 T = TypeVar("T")
 

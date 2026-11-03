@@ -4,7 +4,7 @@
 """Connecting to the microscope and building the workflow, off the GUI thread."""
 
 from dataclasses import dataclass
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 
@@ -12,15 +12,19 @@ from fibsem_maestro.action_context.file import FileActionContext
 from fibsem_maestro.logging.text.contextual import ContextualTextLogger
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.notifications.email_notifier import SMTPEmailNotifier
-from fibsem_maestro.notifications.notification_service import NotificationService
 from fibsem_maestro.notifications.null_notifier import NullNotifier
-from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
-from fibsem_maestro.settings.notification_settings import SMTPEmailSettings
 from fibsem_maestro.ui.app.catalogs import MicroscopeCatalogs
 from fibsem_maestro.ui.app.session import SessionSeed
 from fibsem_maestro.workflow.actions import Actions
 from fibsem_maestro.workflow.propagations import Propagations
 from fibsem_maestro.workflow.workflow import Workflow
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from fibsem_maestro.notifications.notification_service import NotificationService
+    from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
+    from fibsem_maestro.settings.notification_settings import SMTPEmailSettings
 
 
 @dataclass(frozen=True)

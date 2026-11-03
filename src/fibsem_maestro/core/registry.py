@@ -2,8 +2,10 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
-from collections.abc import Callable, Iterator
-from typing import Generic, TypeVar, cast
+from typing import TYPE_CHECKING, TypeVar, cast
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
 
 T = TypeVar("T")
 TObj = TypeVar("TObj")
@@ -13,7 +15,7 @@ class RegistryError(Exception):
     """Raised when a registry operation fails."""
 
 
-class Registry(Generic[T]):
+class Registry[T]:
     """
     Maps string names to objects (classes, functions, or other values).
 

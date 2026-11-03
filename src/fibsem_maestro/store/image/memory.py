@@ -2,14 +2,16 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
-from collections.abc import Callable
-from typing import Any, Self, TypeVar
+from typing import TYPE_CHECKING, Any, Self, TypeVar
 
 from fibsem_maestro.core.image import _ImageBase
 from fibsem_maestro.store.image.image_store import (
     ImageStore,
     _normalize_tif,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 T = TypeVar("T", bound=_ImageBase[Any])
 

@@ -95,7 +95,7 @@ def messages(editor: FieldEditor[Any]) -> list[str]:
     return [issue.message for issue in editor.issues()]
 
 
-def children(
+def children[TWidget: QWidget](
     widget: object, kind: type[TWidget], direct_only: bool = False
 ) -> list[TWidget]:
     """

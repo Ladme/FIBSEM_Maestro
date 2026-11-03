@@ -6,32 +6,32 @@ build-backend = "setuptools.build_meta"
 name = "fibsem-maestro"
 description = "Software for (cryo) volume-EM acquisition."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 dependencies = [
     "colorama>=0.4.6",
-    "matplotlib>=3.8.1",
-    "numpy==2.2.5",
-    "opencv-python-headless>=4.13.0.92",
-    "pillow>=12.0.0",
-    "pydantic==2.12.4",
+    "matplotlib>=3.11.2",
+    "numpy==2.5.4",
+    "opencv-python-headless>=5.0.0.93",
+    "pillow>=13.0.0",
+    "pydantic==2.14.2",
     "pyyaml==6.0.3",
-    "scipy==1.15.3",
-    "tifffile==2025.3.13",
-    "pyqt6>=6.4.2",
-    "pyqt6-qt6<6.5",
+    "scipy==1.18.1",
+    "tifffile==2026.10.15",
+    "pyqt6>=6.12.0",
     "qdarkstyle>=3.2.3",
 ]
+
 dynamic = ["version"]
 
 [dependency-groups]
 dev = [
     "codecov>=2.1.13",
-    "pre-commit>=4.6.2",
-    "pytest>=9.0.1",
+    "pre-commit>=4.7.0",
+    "pytest>=9.2.0",
     "pytest-cov>=7.1.0",
     "pytest-qt>=4.5.0",
-    "ruff>=0.14.6",
-    "ty>=0.0.81",
+    "ruff>=0.17.3",
+    "ty>=0.0.96",
 ]
 
 [tool.setuptools_scm]
@@ -59,10 +59,20 @@ extend-select = [
     "NPY", # Some numpy-specific things
     "ARG", # Catch incorrect use of arguments
 ]
-ignore = ["E501"]
+ignore = ["E501", "BLE001", "S112", "B017"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/microscope/test_autoscript_boundary.py" = ["E402"]
+
+[tool.ruff.lint.flake8-type-checking]
+# Pydantic evaluates model annotations at runtime, so their imports must stay real
+runtime-evaluated-base-classes = [
+    "pydantic.BaseModel",
+    "fibsem_maestro.settings.reactive.ReactiveModel",
+    "fibsem_maestro.settings.base_settings.BaseSettings",
+    "fibsem_maestro.action.state.ActionState",
+    "fibsem_maestro.settings.template_matching_settings.TemplateMatchingSettings",
+]
 
 [tool.ty.src]
 exclude = ["src/fibsem_maestro_original", "src/criterion_playground.py"]

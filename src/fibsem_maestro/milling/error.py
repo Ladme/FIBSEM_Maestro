@@ -4,5 +4,3 @@
 
 class MillingError(Exception):
     """Raised when a milling error occurs."""
-
-    pass

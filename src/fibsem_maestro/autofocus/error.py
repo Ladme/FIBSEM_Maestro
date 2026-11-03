@@ -6,5 +6,3 @@ class AutofocusError(Exception):
     """
     Exception raised for errors related to autofocus usage.
     """
-
-    pass

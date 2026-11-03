@@ -3,9 +3,12 @@
 
 import smtplib
 from email.message import EmailMessage
+from typing import TYPE_CHECKING
 
 from fibsem_maestro.notifications.notification_service import NotificationService
-from fibsem_maestro.settings.notification_settings import SMTPEmailSettings
+
+if TYPE_CHECKING:
+    from fibsem_maestro.settings.notification_settings import SMTPEmailSettings
 
 SMTP_TIMEOUT_S = 30.0
 """Longest wait for the SMTP server, in seconds; the workflow waits for notifications."""

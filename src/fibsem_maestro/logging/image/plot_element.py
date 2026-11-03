@@ -2,9 +2,11 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
-from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 LineStyle = Literal["solid", "dashed", "dotted"]
 

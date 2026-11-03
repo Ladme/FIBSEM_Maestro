@@ -3,7 +3,10 @@
 
 """Errors raised by the application layer; the views translate them into message boxes."""
 
-from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class NotAllowedError(Exception):

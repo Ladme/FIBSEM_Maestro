@@ -2,7 +2,7 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -10,19 +10,21 @@ from fibsem_maestro.core.area import NMArea, RelativeArea
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.detector_mode import DetectorMode
-from fibsem_maestro.core.direction import Direction
 from fibsem_maestro.core.format import ImageFormat
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
-from fibsem_maestro.core.pattern_type import PatternType
 from fibsem_maestro.core.provenance import Provenance
 from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
-from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
 from fibsem_maestro.microscope.error import MicroscopeError
-from fibsem_maestro.store.frame.frame_store import FrameStore
+
+if TYPE_CHECKING:
+    from fibsem_maestro.core.direction import Direction
+    from fibsem_maestro.core.pattern_type import PatternType
+    from fibsem_maestro.logging.text.text_logger import TextLogger
+    from fibsem_maestro.store.frame.frame_store import FrameStore
 
 
 class MockBeamControl(BeamControl):

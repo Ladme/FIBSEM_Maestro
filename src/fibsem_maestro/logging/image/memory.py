@@ -3,16 +3,20 @@
 
 
 from collections import defaultdict
-from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Any, Self
+from typing import TYPE_CHECKING, Any, Self
 
 import numpy as np
-from numpy.typing import NDArray
 
 from fibsem_maestro.logging.image.image_logger import ImageLogger
-from fibsem_maestro.logging.image.overlay import Overlay
-from fibsem_maestro.logging.image.plot import Plot
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
+
+    from numpy.typing import NDArray
+
+    from fibsem_maestro.logging.image.overlay import Overlay
+    from fibsem_maestro.logging.image.plot import Plot
 
 
 @dataclass

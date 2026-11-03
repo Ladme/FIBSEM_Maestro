@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 if TYPE_CHECKING:
     from PyQt6.QtWidgets import QWidget
@@ -25,7 +25,7 @@ T = TypeVar("T")
 
 
 # not an ABC: combined with QWidget subclasses, ABCMeta conflicts with sip's metaclass
-class FieldEditor(Generic[T]):
+class FieldEditor[T]:
     """
     Interface of a field editor, mixed into a `QWidget` subclass.
 

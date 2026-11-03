@@ -1,12 +1,18 @@
 # Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
-from collections.abc import Iterator
+
+import itertools
+from typing import TYPE_CHECKING
 
 import numpy as np
-from numpy.typing import NDArray
 
 from fibsem_maestro.core.image import Image, Image8Bit
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from numpy.typing import NDArray
 
 
 def center_padding(image: Image, target_shape: tuple[int, int]) -> Image:
@@ -104,7 +110,7 @@ def get_stripes(
     separator_rows = np.where(row_means < separate_value)[0]
 
     # each stripe is the region between two consecutive separator rows
-    for top, bottom in zip(separator_rows[:-1], separator_rows[1:]):
+    for top, bottom in itertools.pairwise(separator_rows):
         # if separators are far enough apart, we treat the region as a stripe
         if (bottom - top) >= minimal_stripe_width:
             # every row strictly between the two separator rows

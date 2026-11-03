@@ -2,7 +2,7 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
-from collections.abc import Callable, Sequence
+from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import QMarginsF, QPointF, QRectF, Qt
 from PyQt6.QtGui import QBrush, QCursor, QPainter, QPainterPath, QPen
@@ -30,7 +30,11 @@ from fibsem_maestro.ui.forms.editors.area_select._handle import (
     Handle,
     apply_handle_drag,
 )
-from fibsem_maestro.ui.forms.editors.area_select.overlays import AreaDecoration
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
+
+    from fibsem_maestro.ui.forms.editors.area_select.overlays import AreaDecoration
 
 
 class ResizableRect(QGraphicsRectItem):
@@ -218,19 +222,23 @@ class ResizableRect(QGraphicsRectItem):
 
     def paint(
         self,
-        painter: QPainter,
-        option: QStyleOptionGraphicsItem,
+        painter: QPainter | None,
+        option: QStyleOptionGraphicsItem | None,
         widget: QWidget | None = None,
     ) -> None:
         """Paint the rectangle, styling its border by selection state."""
+        assert option is not None
+
         self.setPen(RECT_PEN_SELECTED if self.isSelected() else RECT_PEN_NORMAL)
 
         styled = QStyleOptionGraphicsItem(option)
         styled.state &= ~QStyle.StateFlag.State_Selected
         super().paint(painter, styled, widget)
 
-    def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
+    def mousePressEvent(self, event: QGraphicsSceneMouseEvent | None) -> None:
         """Begin a handle-resize or body-move gesture."""
+        assert event is not None
+
         if self._read_only:
             event.ignore()
             return
@@ -251,16 +259,18 @@ class ResizableRect(QGraphicsRectItem):
             self._body_drag_start = event.scenePos()
             self._body_drag_origin = self.pos()
 
-        if not self.isSelected() and self.scene() is not None:
-            self.scene().clearSelection()
+        if not self.isSelected() and (scene := self.scene()) is not None:
+            scene.clearSelection()
 
         self.setSelected(True)
         event.accept()
 
-    def mouseMoveEvent(self, event: QGraphicsSceneMouseEvent) -> None:
+    def mouseMoveEvent(self, event: QGraphicsSceneMouseEvent | None) -> None:
         """Apply an in-progress resize or move."""
+        assert event is not None
+
         if self._drag_handle is not None and self._drag_start_scene is not None:
-            delta = event.scenePos() - self._drag_start_scene  # type: ignore
+            delta = event.scenePos() - self._drag_start_scene
             assert self._drag_start_rect is not None
             new_rect = apply_handle_drag(
                 self._drag_start_rect, self._drag_handle, delta
@@ -271,7 +281,7 @@ class ResizableRect(QGraphicsRectItem):
             return
 
         if self._body_drag_start is not None and self._body_drag_origin is not None:
-            delta = event.scenePos() - self._body_drag_start  # type: ignore
+            delta = event.scenePos() - self._body_drag_start
             self.setPos(self._body_drag_origin + delta)
             self._moved_during_drag = True
             event.accept()
@@ -279,8 +289,10 @@ class ResizableRect(QGraphicsRectItem):
 
         super().mouseMoveEvent(event)
 
-    def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent) -> None:
+    def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent | None) -> None:
         """End the gesture and notify once if the geometry actually changed."""
+        assert event is not None
+
         moved = self._moved_during_drag and (
             self._drag_handle is not None or self._body_drag_start is not None
         )

@@ -2,19 +2,13 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 import contextvars
-from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 import numpy as np
 
-from fibsem_maestro.action_context.action_context import ActionContext
 from fibsem_maestro.autofocus.error import AutofocusError
 from fibsem_maestro.autofocus.result import AutofocusResult
-from fibsem_maestro.autofocus.sweep_step import SweepStep
-from fibsem_maestro.autofocus.sweeping import Sweeping
-from fibsem_maestro.core.area import RelativeArea
-from fibsem_maestro.core.image import Image
 from fibsem_maestro.criterion.criterion import Criterion
-from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.autofocus_settings import (
     AutofocusSettings,
     CustomCriterion,
@@ -23,7 +17,17 @@ from fibsem_maestro.settings.autofocus_settings import (
 from fibsem_maestro.settings.autofocus_settings import BasicMode as BasicModeSettings
 from fibsem_maestro.settings.autofocus_settings import LineMode as LineModeSettings
 from fibsem_maestro.settings.autofocus_settings import StepMode as StepModeSettings
-from fibsem_maestro.settings.criterion_settings import CriterionSettings
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from fibsem_maestro.action_context.action_context import ActionContext
+    from fibsem_maestro.autofocus.sweep_step import SweepStep
+    from fibsem_maestro.autofocus.sweeping import Sweeping
+    from fibsem_maestro.core.area import RelativeArea
+    from fibsem_maestro.core.image import Image
+    from fibsem_maestro.microscope.microscope import Microscope
+    from fibsem_maestro.settings.criterion_settings import CriterionSettings
 
 
 class AutofocusContext:

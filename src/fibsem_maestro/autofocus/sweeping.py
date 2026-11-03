@@ -2,16 +2,20 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
-from collections.abc import Iterator
+from typing import TYPE_CHECKING
 
 from fibsem_maestro.autofocus import SWEEPING_STRATEGIES
-from fibsem_maestro.autofocus.evaluation import SweepEvaluation
-from fibsem_maestro.autofocus.result import AutofocusResult
 from fibsem_maestro.autofocus.sweep_space import SweepSpace, make_sweep_space
 from fibsem_maestro.autofocus.sweep_step import SweepPoint, SweepStep
-from fibsem_maestro.logging.text.text_logger import TextLogger
-from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
-from fibsem_maestro.settings.sweeping_settings import SweepingSettings
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from fibsem_maestro.autofocus.evaluation import SweepEvaluation
+    from fibsem_maestro.autofocus.result import AutofocusResult
+    from fibsem_maestro.logging.text.text_logger import TextLogger
+    from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
+    from fibsem_maestro.settings.sweeping_settings import SweepingSettings
 
 
 class Sweeping:

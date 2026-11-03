@@ -4,12 +4,15 @@
 
 import builtins
 import inspect
-from collections.abc import Iterable
+from typing import TYPE_CHECKING
 
 from fibsem_maestro.microscope.abstract_control.manufacturer_props import (
     ManufacturerPropertiesRegistry,
     ManufacturerProperty,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 _SHARED_MEMBERS = frozenset({"application_client"})
 """

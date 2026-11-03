@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import cast
 
 import pytest
-from pydantic import ValidationError
+from pydantic import ConfigDict, Field, ValidationError
 
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.settings.base_settings import BaseSettings
@@ -20,13 +20,13 @@ class SampleSettings(BaseSettings):
     beam_type: BeamType = BeamType.ELECTRON
     sharpness_limit: float | None = None
     output_dir: Path = Path("/data/scan")
-    labels: list[str] = []
+    labels: list[str] = Field(default_factory=list)
 
 
 class StrictOtherSettings(BaseSettings):
     """A different settings model, to check `read` honours the requested class."""
 
-    model_config = {"extra": "forbid"}
+    model_config = ConfigDict(extra="forbid")
 
     passes: int = 1
 

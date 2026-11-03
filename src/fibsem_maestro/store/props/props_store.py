@@ -3,9 +3,10 @@
 
 
 from abc import ABC, abstractmethod
-from typing import Self, TypeVar
+from typing import TYPE_CHECKING, Self, TypeVar
 
-from fibsem_maestro.properties.global_properties import GlobalProperties
+if TYPE_CHECKING:
+    from fibsem_maestro.properties.global_properties import GlobalProperties
 
 TSelf = TypeVar("TSelf", bound="PropsStore")
 

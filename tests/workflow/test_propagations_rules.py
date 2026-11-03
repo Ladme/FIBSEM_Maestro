@@ -1,13 +1,18 @@
 # Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
-from collections.abc import Callable
 
-from fibsem_maestro.action.action import Action
+from typing import TYPE_CHECKING
+
 from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.workflow.propagations import PropagationRule, Propagations
-from fibsem_maestro.workflow.workflow import Workflow
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from fibsem_maestro.action.action import Action
+    from fibsem_maestro.workflow.workflow import Workflow
 
 
 def test_propagations_rename_action_rewrites_parent_and_dependents_in_place() -> None:

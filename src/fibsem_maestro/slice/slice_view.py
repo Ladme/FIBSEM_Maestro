@@ -2,7 +2,10 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
-from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class SliceView:

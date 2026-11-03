@@ -2,16 +2,18 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
-from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import pytest
 import yaml
-from pydantic import Field, ValidationError
+from pydantic import ConfigDict, Field, ValidationError
 
 from fibsem_maestro.action.state import ActionState
 from fibsem_maestro.slice.slice_view import SliceView
 from fibsem_maestro.store.state.file import FileStateStore
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class SampleState(ActionState):
@@ -26,7 +28,7 @@ class SampleState(ActionState):
 class StrictOtherState(ActionState):
     """A different state model, to check `read` honours the requested class."""
 
-    model_config = {"extra": "forbid"}
+    model_config = ConfigDict(extra="forbid")
 
     passes: int = 1
 

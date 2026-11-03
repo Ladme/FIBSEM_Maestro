@@ -2,7 +2,7 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
-from collections.abc import Iterator
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -13,6 +13,9 @@ from fibsem_maestro.logging.logging import (
 )
 from fibsem_maestro.logging.text.contextual import ContextualTextLogger
 from fibsem_maestro.logging.text.memory import MemoryTextLogger
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 
 class SlicePointer:

@@ -2,11 +2,14 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
-from collections.abc import Callable
-from typing import Self
+from typing import TYPE_CHECKING, Self
 
-from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.store.props.props_store import PropsStore
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from fibsem_maestro.properties.global_properties import GlobalProperties
 
 
 class MemoryPropsStore(PropsStore):

@@ -6,11 +6,13 @@ import sys
 import threading
 import traceback
 from datetime import datetime
-from pathlib import Path
-from types import TracebackType
-from typing import TextIO
+from typing import TYPE_CHECKING, TextIO
 
 from PyQt6.QtCore import QMessageLogContext, QtMsgType, qInstallMessageHandler
+
+if TYPE_CHECKING:
+    from pathlib import Path
+    from types import TracebackType
 
 _lock = threading.Lock()
 _file: TextIO | None = None

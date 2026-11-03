@@ -218,7 +218,7 @@ class GlobalProperties(BaseSettings):
     @staticmethod
     def _properties_class(
         props_attr_name: str,
-    ) -> type[BeamProperties] | type[MicroscopeProperties]:
+    ) -> type[BeamProperties | MicroscopeProperties]:
         """
         Return the properties model stored under an attribute name.
 

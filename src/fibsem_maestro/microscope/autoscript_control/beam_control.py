@@ -5,7 +5,8 @@ import math
 import time
 from abc import abstractmethod
 from functools import cached_property
-from typing import Any, Generic, TypeVar
+from types import MappingProxyType
+from typing import TYPE_CHECKING, Any, ClassVar, TypeVar
 
 from autoscript_sdb_microscope_client.enumerations import (
     ImageFileFormat,
@@ -19,7 +20,6 @@ from autoscript_sdb_microscope_client.sdb_microscope.beams._electron_beam import
 from autoscript_sdb_microscope_client.sdb_microscope.beams._ion_beam import (
     IonBeam as IonBeamAs,
 )
-from autoscript_sdb_microscope_client.sdb_microscope_client import SdbMicroscopeClient
 from autoscript_sdb_microscope_client.structures import AdornedImage, GrabFrameSettings
 
 from fibsem_maestro.core.area import NMArea, RelativeArea
@@ -29,18 +29,26 @@ from fibsem_maestro.core.detector_mode import DetectorMode
 from fibsem_maestro.core.direction import Direction
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
-from fibsem_maestro.core.pattern_type import PatternType
 from fibsem_maestro.core.provenance import Provenance
 from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
-from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
 from fibsem_maestro.microscope.autoscript_control.manufacturer_props import (
     AutoscriptManufacturerPropertiesRegistry,
 )
 from fibsem_maestro.microscope.error import MicroscopeError
-from fibsem_maestro.store.frame.frame_store import FrameStore
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from autoscript_sdb_microscope_client.sdb_microscope_client import (
+        SdbMicroscopeClient,
+    )
+
+    from fibsem_maestro.core.pattern_type import PatternType
+    from fibsem_maestro.logging.text.text_logger import TextLogger
+    from fibsem_maestro.store.frame.frame_store import FrameStore
 
 BeamT = TypeVar(
     "BeamT",
@@ -49,21 +57,29 @@ BeamT = TypeVar(
 )
 
 
-class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
-    _LIMITED_VARIABLES: dict[str, tuple[str, int | None, float]] = {
-        # variable: (Autoscript attribute, axis of a 2D value or None, scale to Maestro units)
-        "working_distance": ("working_distance", None, 1e9),  # m -> nm
-        "horizontal_field_width": ("horizontal_field_width", None, 1e9),  # m -> nm
-        "beam_current": ("beam_current", None, 1e9),  # A -> nA
-        "stigmator_x": ("stigmator", 0, 1.0),
-        "stigmator_y": ("stigmator", 1, 1.0),
-        "lens_alignment_x": ("lens_alignment", 0, 1e9),  # m -> nm
-        "lens_alignment_y": ("lens_alignment", 1, 1e9),  # m -> nm
-        "source_tilt_x": ("source_tilt", 0, math.degrees(1.0)),  # rad -> deg
-        "source_tilt_y": ("source_tilt", 1, math.degrees(1.0)),  # rad -> deg
-        "beam_shift_x": ("beam_shift", 0, 1e9),  # m -> nm
-        "beam_shift_y": ("beam_shift", 1, 1e9),  # m -> nm
-    }
+class AutoscriptBeamControl[BeamT: (ElectronBeamAs, IonBeamAs)](BeamControl):
+    _LIMITED_VARIABLES: ClassVar[Mapping[str, tuple[str, int | None, float]]] = (
+        MappingProxyType(
+            {
+                # variable: (Autoscript attribute, axis of a 2D value or None, scale to Maestro units)
+                "working_distance": ("working_distance", None, 1e9),  # m -> nm
+                "horizontal_field_width": (
+                    "horizontal_field_width",
+                    None,
+                    1e9,
+                ),  # m -> nm
+                "beam_current": ("beam_current", None, 1e9),  # A -> nA
+                "stigmator_x": ("stigmator", 0, 1.0),
+                "stigmator_y": ("stigmator", 1, 1.0),
+                "lens_alignment_x": ("lens_alignment", 0, 1e9),  # m -> nm
+                "lens_alignment_y": ("lens_alignment", 1, 1e9),  # m -> nm
+                "source_tilt_x": ("source_tilt", 0, math.degrees(1.0)),  # rad -> deg
+                "source_tilt_y": ("source_tilt", 1, math.degrees(1.0)),  # rad -> deg
+                "beam_shift_x": ("beam_shift", 0, 1e9),  # m -> nm
+                "beam_shift_y": ("beam_shift", 1, 1e9),  # m -> nm
+            }
+        )
+    )
 
     def __init__(
         self,
@@ -116,7 +132,6 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
 
         The Electron Beam mode is always in Quad 1, while the Ion Beam mode is always in Quad 2.
         """
-        pass
 
     @property
     def stigmator(self) -> Stigmator:
@@ -314,7 +329,7 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
             pattern_fn = self._microscope.patterning.create_regular_cross_section
         else:
             self._txt_log.debug(
-                f"Pattern type {str(pattern_type)} not recognized, using rectangle pattern."
+                f"Pattern type {pattern_type!s} not recognized, using rectangle pattern."
             )
             pattern_fn = self._microscope.patterning.create_rectangle
 
@@ -485,7 +500,7 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         pixel_size = self.pixel_size
         self.resolution = Resolution(self.resolution.width, round(value / pixel_size))
         self._txt_log.info(
-            f"Extended resolution set to: {str(self.resolution)} (via setting vertical field width)."
+            f"Extended resolution set to: {self.resolution!s} (via setting vertical field width)."
         )
 
     @property
@@ -503,7 +518,7 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
             round(self.vertical_field_width / value),
         )
         self._txt_log.info(
-            f"Extended resolution set to: {str(self.resolution)} (via setting pixel size)."
+            f"Extended resolution set to: {self.resolution!s} (via setting pixel size)."
         )
 
     @property

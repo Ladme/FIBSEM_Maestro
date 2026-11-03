@@ -23,4 +23,3 @@ class NotificationService(ABC):
                 Implementations may raise an exception if notification
                 delivery fails.
         """
-        pass

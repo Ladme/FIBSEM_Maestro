@@ -2,26 +2,29 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 import logging
-from pathlib import Path
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from fibsem_maestro.action_context.action_context import ActionContext
 from fibsem_maestro.core.image import _ImageBase
 from fibsem_maestro.logging.image.file import FileImageLogger
-from fibsem_maestro.logging.image.image_logger import ImageLogger
 from fibsem_maestro.logging.text.file import FileTextLogger
-from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.slice.slice_view import SliceView
 from fibsem_maestro.store.frame.file import FileFrameStore
-from fibsem_maestro.store.frame.frame_store import FrameStore
 from fibsem_maestro.store.image.file import FileImageStore
-from fibsem_maestro.store.image.image_store import ImageStore
 from fibsem_maestro.store.props.file import FilePropsStore
-from fibsem_maestro.store.props.props_store import PropsStore
 from fibsem_maestro.store.settings.file import FileSettingsStore
-from fibsem_maestro.store.settings.settings_store import SettingsStore
 from fibsem_maestro.store.state.file import FileStateStore
-from fibsem_maestro.store.state.state_store import StateStore
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from fibsem_maestro.logging.image.image_logger import ImageLogger
+    from fibsem_maestro.logging.text.text_logger import TextLogger
+    from fibsem_maestro.store.frame.frame_store import FrameStore
+    from fibsem_maestro.store.image.image_store import ImageStore
+    from fibsem_maestro.store.props.props_store import PropsStore
+    from fibsem_maestro.store.settings.settings_store import SettingsStore
+    from fibsem_maestro.store.state.state_store import StateStore
 
 T = TypeVar("T", bound=_ImageBase[Any])
 

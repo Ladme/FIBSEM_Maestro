@@ -67,10 +67,13 @@ class IconButton(QToolButton):
 
         self._refresh_icon()
 
-    def changeEvent(self, a0: QEvent) -> None:
+    def changeEvent(self, a0: QEvent | None) -> None:
         """Re-render the icon when the palette or style changes."""
         super().changeEvent(a0)
-        if a0.type() in (QEvent.Type.PaletteChange, QEvent.Type.StyleChange):
+        if a0 is not None and a0.type() in (
+            QEvent.Type.PaletteChange,
+            QEvent.Type.StyleChange,
+        ):
             self._refresh_icon()
 
     def _refresh_icon(self) -> None:

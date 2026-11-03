@@ -6,5 +6,3 @@ class AdjustPropsError(Exception):
     """
     Exception raised for errors related to the adjust props action.
     """
-
-    pass

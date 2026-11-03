@@ -2,7 +2,7 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import cv2
 import numpy as np
@@ -14,6 +14,9 @@ from fibsem_maestro.core.format import ImageFormat
 from fibsem_maestro.core.image import Image, Image8Bit, ImageError
 from fibsem_maestro.core.point import PixelPoint, RelativePoint
 from fibsem_maestro.core.provenance import Provenance
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def test_image_base_pixel_size_preserved_on_slice():
@@ -76,8 +79,8 @@ def test_crop_center():
 
     cropped_image = image.crop(relative_area)
 
-    expected_height = int(round(0.5 * image.shape[0]))
-    expected_width = int(round(0.5 * image.shape[1]))
+    expected_height = round(0.5 * image.shape[0])
+    expected_width = round(0.5 * image.shape[1])
 
     assert cropped_image.shape == (expected_height, expected_width)
     assert cropped_image.pixel_size == pixel_size
@@ -97,8 +100,8 @@ def test_crop_upper_left_edge():
 
     cropped_image = image.crop(relative_area)
 
-    expected_height = int(round(0.1 * image.shape[0]))
-    expected_width = int(round(0.3 * image.shape[1]))
+    expected_height = round(0.1 * image.shape[0])
+    expected_width = round(0.3 * image.shape[1])
     assert cropped_image.shape == (expected_height, expected_width)
     assert cropped_image.pixel_size == pixel_size
 

@@ -6,5 +6,3 @@ class DriftCorrectionError(Exception):
     """
     Exception raised for errors related to drift correction.
     """
-
-    pass

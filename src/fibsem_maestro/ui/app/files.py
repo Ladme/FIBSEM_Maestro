@@ -4,10 +4,13 @@
 """Filesystem operations on workflow and action directories."""
 
 import shutil
-from collections.abc import Callable
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from fibsem_maestro.logging.text.file import close_all_log_files
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from pathlib import Path
 
 
 def delete_path(path: Path) -> None:

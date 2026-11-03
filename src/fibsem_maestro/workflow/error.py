@@ -2,7 +2,10 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
-from fibsem_maestro.action.action import Action
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from fibsem_maestro.action.action import Action
 
 
 class WorkflowError(Exception):

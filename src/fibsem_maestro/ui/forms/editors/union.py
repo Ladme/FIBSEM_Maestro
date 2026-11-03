@@ -3,8 +3,7 @@
 
 """Editor of a discriminated union: one radio button and one page per variant."""
 
-from collections.abc import Callable
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from pydantic import ValidationError
 from PyQt6.QtWidgets import (
@@ -18,9 +17,13 @@ from PyQt6.QtWidgets import (
 from fibsem_maestro.ui.forms.editor import FieldEditor
 from fibsem_maestro.ui.forms.editors.object import ObjectWidget
 from fibsem_maestro.ui.forms.issues import FieldValidationError
-from fibsem_maestro.ui.schema.field_info import FieldInfo
 from fibsem_maestro.ui.schema.labels import class_name_to_label
 from fibsem_maestro.ui.schema.schema import get_field_infos
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from fibsem_maestro.ui.schema.field_info import FieldInfo
 
 
 class DiscriminatedUnionWidget(QWidget, FieldEditor[Any]):

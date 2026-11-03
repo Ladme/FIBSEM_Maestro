@@ -2,7 +2,7 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -14,6 +14,9 @@ from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.properties.microscope_properties import MicroscopeProperties
 from fibsem_maestro.slice.slice_view import SliceView
 from fibsem_maestro.store.props.file import FilePropsStore
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class SliceCursor:

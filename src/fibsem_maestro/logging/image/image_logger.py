@@ -3,13 +3,15 @@
 
 
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
-from typing import Any, Self
+from typing import TYPE_CHECKING, Any, Self
 
-from numpy.typing import NDArray
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
-from fibsem_maestro.logging.image.overlay import Overlay
-from fibsem_maestro.logging.image.plot import Plot
+    from numpy.typing import NDArray
+
+    from fibsem_maestro.logging.image.overlay import Overlay
+    from fibsem_maestro.logging.image.plot import Plot
 
 
 class ImageLogger(ABC):

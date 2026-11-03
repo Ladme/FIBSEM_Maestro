@@ -3,7 +3,7 @@
 
 
 from abc import ABC, abstractmethod
-from typing import Annotated, Literal, TypeAlias
+from typing import Annotated, Literal
 
 from pydantic import Field
 
@@ -73,5 +73,5 @@ class Every(_FrequencyBase):
         return "every slice" if self.n == 1 else f"every {self.n} slices"
 
 
-Frequency: TypeAlias = Annotated[Every | Never, Field(discriminator="type")]
+type Frequency = Annotated[Every | Never, Field(discriminator="type")]
 """How often an action runs, counted in slices from 1."""

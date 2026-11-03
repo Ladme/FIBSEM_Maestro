@@ -6,21 +6,24 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Annotated, Any
 
 import pytest
 from gui_testkit.sample_settings import (
     PATTERN_TYPES,
     VENDOR_PROPERTIES,
+    CircleShape,
     Color,
     KitchenSink,
     Leaf,
     Optionals,
+    PointShape,
     SquareShape,
 )
-from pydantic import ValidationError
+from pydantic import Field, ValidationError
 
 from fibsem_maestro.action.registry import ACTION_REGISTRY
+from fibsem_maestro.settings.base_settings import BaseSettings
 from fibsem_maestro.settings.form_utils import WidgetType
 from fibsem_maestro.ui.schema.choices import ChoiceContext, choices_for, has_choices
 from fibsem_maestro.ui.schema.constraints import Bound, NumericBounds
@@ -241,3 +244,27 @@ def test_validator_messages_lose_their_error_type_prefix() -> None:
     ]
     assert short_message("Assertion failed, low is high") == "low is high"
     assert short_message("Field required") == "Field required"
+
+
+type _Count = Annotated[int, Field(gt=0)]
+type _Counts = list[int]
+type _AnyShape = Annotated[
+    CircleShape | SquareShape | PointShape, Field(discriminator="kind")
+]
+
+
+class _Aliased(BaseSettings):
+    count: _Count = 1
+    maybe: _Count | None = None
+    counts: _Counts = Field(default_factory=list)
+    shape: _AnyShape = Field(default_factory=CircleShape)
+
+
+def test_type_statement_aliases_are_classified_like_their_values() -> None:
+    count = _info(_Aliased, "count")
+    maybe = _info(_Aliased, "maybe")
+
+    assert isinstance(count.type, IntType) and count.bounds is not None
+    assert maybe.optional and isinstance(maybe.type, IntType)
+    assert _info(_Aliased, "counts").type == ListType(item=IntType())
+    assert isinstance(_info(_Aliased, "shape").type, DiscriminatedUnionType)

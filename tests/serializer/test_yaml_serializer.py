@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import Enum, StrEnum
 from pathlib import Path
 
 import pytest
@@ -77,7 +77,7 @@ class Raising:
         raise RuntimeError("not available without a connection")
 
 
-class StrBeam(str, Enum):
+class StrBeam(StrEnum):
     ELECTRON = "electron"
     ION = "ion"
 

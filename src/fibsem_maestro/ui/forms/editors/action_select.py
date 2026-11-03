@@ -4,15 +4,20 @@
 """Editor selecting one of the workflow's actions by name."""
 
 import contextlib
-from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import QSignalBlocker
-from PyQt6.QtWidgets import QWidget
 
-from fibsem_maestro.action.action import Action
 from fibsem_maestro.ui.forms.editor import FieldEditor
 from fibsem_maestro.ui.forms.editors._no_scroll import NoScrollComboBox
-from fibsem_maestro.ui.ports import ActionCatalog
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from PyQt6.QtWidgets import QWidget
+
+    from fibsem_maestro.action.action import Action
+    from fibsem_maestro.ui.ports import ActionCatalog
 
 
 class ActionSelectWidget(NoScrollComboBox, FieldEditor[str | None]):

@@ -40,6 +40,7 @@ def _run_without_autoscript(home: Path, body: str) -> subprocess.CompletedProces
         capture_output=True,
         text=True,
         timeout=300,
+        check=False,
     )
 
 

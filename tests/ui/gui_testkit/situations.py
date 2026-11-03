@@ -17,7 +17,7 @@ from fibsem_maestro.ui.app.microscope_tasks import MicroscopeTask
 from gui_testkit import TIMEOUT_MS
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Generator
 
     from pytestqt.qtbot import QtBot
 
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
 
 @contextmanager
-def busy_tasks(qtbot: QtBot, tasks: MicroscopeTasks) -> Iterator[TaskHandle]:
+def busy_tasks(qtbot: QtBot, tasks: MicroscopeTasks) -> Generator[TaskHandle]:
     """
     Keep the microscope task runner busy with a blocking task for the duration of the block.
 

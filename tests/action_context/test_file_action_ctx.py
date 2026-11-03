@@ -2,7 +2,7 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 import logging
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pytest
@@ -18,6 +18,9 @@ from fibsem_maestro.store.image.file import FileImageStore
 from fibsem_maestro.store.props.file import FilePropsStore
 from fibsem_maestro.store.settings.file import FileSettingsStore
 from fibsem_maestro.store.state.file import FileStateStore
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.fixture(autouse=True)

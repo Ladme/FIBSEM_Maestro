@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     from fibsem_maestro.ui.views.action_panel.propagations import PropagationsEditor
     from fibsem_maestro.ui.views.action_panel.rule_editor import RuleEditor
 
-ANY_TYPE = sorted(ACTION_REGISTRY)[0]
+ANY_TYPE = min(ACTION_REGISTRY)
 """Any action type: rules work alike for every type."""
 
 

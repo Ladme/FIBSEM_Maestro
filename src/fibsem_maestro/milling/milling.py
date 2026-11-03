@@ -3,18 +3,21 @@
 
 
 import copy
+from typing import TYPE_CHECKING
 
 from fibsem_maestro.action.action import Action
 from fibsem_maestro.action.outcome import Produced, StepOutcome
 from fibsem_maestro.action.registry import ACTION_REGISTRY
 from fibsem_maestro.action.state import ActionState
-from fibsem_maestro.action_context.action_context import ActionContext
 from fibsem_maestro.core.area import NMArea, RelativeArea
 from fibsem_maestro.core.direction import Direction
-from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.milling.error import MillingError
 from fibsem_maestro.settings.milling_settings import MillingSettings
-from fibsem_maestro.workflow.actions import Actions
+
+if TYPE_CHECKING:
+    from fibsem_maestro.action_context.action_context import ActionContext
+    from fibsem_maestro.microscope.microscope import Microscope
+    from fibsem_maestro.workflow.actions import Actions
 
 
 class MillingState(ActionState):

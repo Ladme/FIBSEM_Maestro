@@ -3,6 +3,8 @@
 
 """A dialog showing stored properties in an editable form."""
 
+from typing import TYPE_CHECKING
+
 from PyQt6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -12,10 +14,12 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from fibsem_maestro.properties.global_properties import GlobalProperties
-from fibsem_maestro.ui.forms.builder import FormBuilder
-from fibsem_maestro.ui.forms.context import FormContext
 from fibsem_maestro.ui.widgets.form_style import FORM_STYLESHEET
+
+if TYPE_CHECKING:
+    from fibsem_maestro.properties.global_properties import GlobalProperties
+    from fibsem_maestro.ui.forms.builder import FormBuilder
+    from fibsem_maestro.ui.forms.context import FormContext
 
 
 class PropertiesDialog(QDialog):
@@ -48,7 +52,8 @@ class PropertiesDialog(QDialog):
 
         self.setWindowTitle(title)
         self.setModal(True)
-        self.setGeometry(self.screen().availableGeometry())
+        if (screen := self.screen()) is not None:
+            self.setGeometry(screen.availableGeometry())
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)

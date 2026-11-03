@@ -7,7 +7,7 @@ import logging
 import sys
 import threading
 import weakref
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, ClassVar, Self
 
 from fibsem_maestro.logging.text.text_logger import TextLogger
 
@@ -196,7 +196,7 @@ class _FileTextLoggerRoot:
     # registry of all live roots, so close_all() can release every open file handle at once
     # weak refs let unused roots (e.g. throwaway ones from at()/next)
     # be garbage-collected normally instead of being pinned here
-    _instances: weakref.WeakSet[_FileTextLoggerRoot] = weakref.WeakSet()
+    _instances: ClassVar[weakref.WeakSet[_FileTextLoggerRoot]] = weakref.WeakSet()
 
     def __init__(self, filename: str, level: int, name: str) -> None:
         self._filename = filename

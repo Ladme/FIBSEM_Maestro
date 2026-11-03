@@ -3,7 +3,8 @@
 
 from dataclasses import dataclass
 
-from fibsem_maestro.autofocus.sweep_step import SweepStep
+# Pydantic evaluates this dataclass's annotations (it is a field of AutofocusState)
+from fibsem_maestro.autofocus.sweep_step import SweepStep  # noqa: TC001
 
 
 @dataclass(frozen=True)

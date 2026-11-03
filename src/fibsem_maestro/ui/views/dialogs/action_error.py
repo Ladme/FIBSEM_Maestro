@@ -3,8 +3,9 @@
 
 """The dialog shown when an action or the whole workflow fails during a run."""
 
+from typing import TYPE_CHECKING
+
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QCloseEvent
 from PyQt6.QtWidgets import (
     QDialog,
     QHBoxLayout,
@@ -23,6 +24,9 @@ from fibsem_maestro.ui.widgets.icons import (
     svg_icon,
 )
 from fibsem_maestro.workflow.error_choice import ErrorChoice
+
+if TYPE_CHECKING:
+    from PyQt6.QtGui import QCloseEvent
 
 _HEADER_ICON_SIZE = 24  # px
 

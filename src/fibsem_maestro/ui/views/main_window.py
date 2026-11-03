@@ -90,7 +90,8 @@ class MainWindow(QMainWindow):
         self._terminating = False
 
         self.setWindowTitle("FIBSEM Maestro")
-        self.setGeometry(self.screen().availableGeometry())
+        if (screen := self.screen()) is not None:
+            self.setGeometry(screen.availableGeometry())
 
         root = QWidget()
         self.setCentralWidget(root)

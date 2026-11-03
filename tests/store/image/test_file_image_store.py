@@ -1,7 +1,8 @@
 # Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
-from pathlib import Path
+
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pytest
@@ -10,6 +11,9 @@ import tifffile
 from fibsem_maestro.core.image import Image, ImageError
 from fibsem_maestro.slice.slice_view import SliceView
 from fibsem_maestro.store.image.file import FileImageStore
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class SliceCursor:

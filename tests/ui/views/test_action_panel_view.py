@@ -52,7 +52,7 @@ if TYPE_CHECKING:
     from fibsem_maestro.action.action import Action
     from fibsem_maestro.ui.composition import Composition
 
-ANY_TYPE = sorted(ACTION_REGISTRY)[0]
+ANY_TYPE = min(ACTION_REGISTRY)
 """Any action type: the panel treats every type alike."""
 
 
@@ -331,7 +331,11 @@ def test_action_panel_shows_the_registered_tool_and_sections(
     assert container is not None
     layout = container.layout()
     assert layout is not None
-    order = [layout.itemAt(i).widget() for i in range(layout.count())]
+    order = [
+        item.widget()
+        for i in range(layout.count())
+        if (item := layout.itemAt(i)) is not None
+    ]
     labels = {w.text(): w for w in order if isinstance(w, QLabel)}
     assert (
         order.index(panel.form.widget)

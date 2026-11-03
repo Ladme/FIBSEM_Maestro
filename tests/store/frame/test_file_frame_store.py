@@ -1,7 +1,8 @@
 # Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
-from pathlib import Path
+
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pytest
@@ -11,6 +12,9 @@ from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.provenance import Provenance
 from fibsem_maestro.slice.slice_view import SliceView
 from fibsem_maestro.store.frame.file import FileFrameStore
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class SliceCursor:

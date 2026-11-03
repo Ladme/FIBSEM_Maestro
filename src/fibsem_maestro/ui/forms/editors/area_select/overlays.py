@@ -15,7 +15,7 @@ import math
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from PyQt6.QtCore import QMarginsF, QRectF, Qt
 from PyQt6.QtGui import QBrush, QPainterPath, QTransform
@@ -163,7 +163,7 @@ class DirectionDecoration(AreaDecoration):
         direction: The direction the arrow points.
     """
 
-    _ANGLES = {
+    _ANGLES: ClassVar[Mapping[Direction, float]] = {
         Direction.RIGHT: 0.0,
         Direction.DOWN: 90.0,
         Direction.LEFT: 180.0,

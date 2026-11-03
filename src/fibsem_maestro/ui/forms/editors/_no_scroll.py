@@ -3,24 +3,30 @@
 
 """Spin boxes and combo boxes that ignore the mouse wheel."""
 
-from PyQt6.QtGui import QWheelEvent
+from typing import TYPE_CHECKING
+
 from PyQt6.QtWidgets import QComboBox, QDoubleSpinBox, QSpinBox
+
+if TYPE_CHECKING:
+    from PyQt6.QtGui import QWheelEvent
 
 
 class NoScrollSpinBox(QSpinBox):
     """A QSpinBox that ignores mouse wheel events."""
 
-    def wheelEvent(self, e: QWheelEvent) -> None:
+    def wheelEvent(self, e: QWheelEvent | None) -> None:
         """Ignore the wheel event so it propagates to the parent widget."""
-        e.ignore()
+        if e is not None:
+            e.ignore()
 
 
 class NoScrollDoubleSpinBox(QDoubleSpinBox):
     """A QDoubleSpinBox that ignores mouse wheel events."""
 
-    def wheelEvent(self, e: QWheelEvent) -> None:
+    def wheelEvent(self, e: QWheelEvent | None) -> None:
         """Ignore the wheel event so it propagates to the parent widget."""
-        e.ignore()
+        if e is not None:
+            e.ignore()
 
     def textFromValue(self, v: float) -> str:
         """
@@ -54,6 +60,7 @@ class NoScrollDoubleSpinBox(QDoubleSpinBox):
 class NoScrollComboBox(QComboBox):
     """A QComboBox that ignores mouse wheel events."""
 
-    def wheelEvent(self, e: QWheelEvent) -> None:
+    def wheelEvent(self, e: QWheelEvent | None) -> None:
         """Ignore the wheel event so it propagates to the parent widget."""
-        e.ignore()
+        if e is not None:
+            e.ignore()

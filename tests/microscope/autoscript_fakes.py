@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from autoscript_sdb_microscope_client.enumerations import ScanningMode
 from autoscript_sdb_microscope_client.structures import (
@@ -12,6 +12,9 @@ from autoscript_sdb_microscope_client.structures import (
     Rectangle,
     StagePosition,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 
 class _Value:
@@ -36,7 +39,7 @@ class _WorkingDistance(_Value):
 
 
 class _Resolution:
-    available_values = [
+    available_values: ClassVar[Sequence[str]] = [
         "512x442",
         "768x512",
         "1024x884",

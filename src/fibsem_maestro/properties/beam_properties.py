@@ -3,7 +3,7 @@
 
 from typing import Annotated
 
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.detector_mode import DetectorMode
@@ -16,7 +16,7 @@ from fibsem_maestro.settings.form_utils import FieldUnit
 
 
 class BeamProperties(BaseSettings):
-    model_config = {"extra": "allow"}
+    model_config = ConfigDict(extra="allow")
 
     stigmator: Stigmator | None = Field(
         default=None,

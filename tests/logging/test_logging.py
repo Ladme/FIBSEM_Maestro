@@ -3,8 +3,8 @@
 
 import logging
 import re
-from collections.abc import Iterator
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -17,8 +17,12 @@ from fibsem_maestro.logging.logging import (
 )
 from fibsem_maestro.logging.text.contextual import ContextualTextLogger
 from fibsem_maestro.logging.text.file import FileTextLogger, close_all_log_files
-from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.slice.slice_view import SliceView
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from fibsem_maestro.logging.text.text_logger import TextLogger
 
 LINE = re.compile(r"^\S+ \S+ \[(?P<name>[^\]]*)\] (?P<level>\w+): (?P<message>.*)$")
 

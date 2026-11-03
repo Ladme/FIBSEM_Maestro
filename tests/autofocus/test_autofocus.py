@@ -2,9 +2,8 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 import threading
-from collections.abc import Callable
 from concurrent.futures import Executor
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fibsem_maestro.autofocus import InterleavedSweepingStrategy
 from fibsem_maestro.autofocus.jobs_manager import JobsManager
@@ -14,6 +13,9 @@ from fibsem_maestro.autofocus.sweep_step import SweepPoint, SweepStep
 from fibsem_maestro.settings.sweeping_settings import (
     InterleavedStrategy as InterleavedStrategySettings,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 SPACE = LinearSweepSpace("working_distance", (-2.0, 2.0), 3)
 BASE: SweepPoint = (0.0,)

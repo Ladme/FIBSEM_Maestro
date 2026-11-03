@@ -2,15 +2,16 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 from dataclasses import dataclass
-from typing import Generic, TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
-from cv2.typing import MatLike
+if TYPE_CHECKING:
+    from cv2.typing import MatLike
 
 ShiftPrecision = TypeVar("ShiftPrecision", int, float)
 
 
 @dataclass(frozen=True)
-class TemplateMatchResult(Generic[ShiftPrecision]):
+class TemplateMatchResult[ShiftPrecision: (int, float)]:
     """
     Result of a single template matching operation.
 

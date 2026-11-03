@@ -3,15 +3,18 @@
 
 
 import shutil
-from collections.abc import Callable
-from pathlib import Path
-from typing import Self
+from typing import TYPE_CHECKING, Self
 
 import yaml
 
-from fibsem_maestro.action.state import ActionState
 from fibsem_maestro.slice.slice_view import SliceView
 from fibsem_maestro.store.state.state_store import StateStore
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from pathlib import Path
+
+    from fibsem_maestro.action.state import ActionState
 
 
 class FileStateStore(StateStore):

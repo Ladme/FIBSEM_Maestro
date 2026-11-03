@@ -4,9 +4,8 @@
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -25,6 +24,9 @@ from fibsem_maestro.logging.image.overlay import (
 from fibsem_maestro.logging.image.plot import Plot
 from fibsem_maestro.logging.image.plot_element import Curve, VerticalLine
 from fibsem_maestro.slice.slice_view import SliceView
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class SliceCursor:

@@ -11,5 +11,3 @@ class ActionState(BaseSettings):
     In other words, this should contain everything needed
     to resume a workflow after interruption or crash.
     """
-
-    pass

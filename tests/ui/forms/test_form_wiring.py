@@ -162,10 +162,14 @@ def test_unresolved_references_are_warned_about_and_skipped(
     mode.select("engine")
 
     assert warnings_of(log) == [
-        "Variant 'engine mode' follows 'absent', which was not found in this form; "
-        "'fast' is used.",
-        "Overlay source 'missing' for field 'area' was not found in this form; "
-        "show_margin will not be drawn.",
+        (
+            "Variant 'engine mode' follows 'absent', which was not found in this form; "
+            "'fast' is used."
+        ),
+        (
+            "Overlay source 'missing' for field 'area' was not found in this form; "
+            "show_margin will not be drawn."
+        ),
     ]
     assert settings.mode.kind == "engine"
     assert not form.has_errors()

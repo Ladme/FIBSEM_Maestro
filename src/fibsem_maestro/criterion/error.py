@@ -6,5 +6,3 @@ class CriterionError(Exception):
     """
     Exception raised for errors related to criterion registration or usage.
     """
-
-    pass

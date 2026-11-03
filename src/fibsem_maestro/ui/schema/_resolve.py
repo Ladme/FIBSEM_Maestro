@@ -4,9 +4,12 @@
 """Resolving a raw field's description, default and union discriminator."""
 
 import dataclasses
+from typing import TYPE_CHECKING
 
-from fibsem_maestro.ui.schema._raw_field import RawField
 from fibsem_maestro.ui.schema.default import Default
+
+if TYPE_CHECKING:
+    from fibsem_maestro.ui.schema._raw_field import RawField
 
 
 def pydantic_discriminator(extras: tuple) -> str | None:

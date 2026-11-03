@@ -1,10 +1,12 @@
 # Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
-from numpy.typing import NDArray
+
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
 
 FRC_THRESHOLD = 1.0 / 7.0
 """FRC value below which a ring counts as noise (the 1/7 criterion)."""

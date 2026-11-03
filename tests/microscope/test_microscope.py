@@ -1,10 +1,14 @@
 # Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
+from typing import TYPE_CHECKING
+
 from fibsem_maestro.core.beam_shift import BeamShift
-from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.properties.beam_properties import BeamProperties
 from fibsem_maestro.properties.global_properties import GlobalProperties
+
+if TYPE_CHECKING:
+    from fibsem_maestro.microscope.microscope import Microscope
 
 
 def test_set_properties_leaves_its_argument_unchanged(

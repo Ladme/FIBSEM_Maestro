@@ -4,22 +4,17 @@
 
 import re
 import threading
-from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
-from pathlib import Path
-from typing import Any, BinaryIO, Self
+from typing import TYPE_CHECKING, Any, BinaryIO, Self
 
 import matplotlib as mpl
 from matplotlib.figure import Figure
 
-from fibsem_maestro.logging.image.plot import Plot
 from fibsem_maestro.logging.image.plot_renderer import render_plot
 from fibsem_maestro.slice.slice_view import SliceView
 
 mpl.use("Agg")
-from matplotlib.axes import Axes
 from matplotlib.patches import Rectangle
-from numpy.typing import NDArray
 
 from fibsem_maestro.logging.image.image_logger import ImageLogger
 from fibsem_maestro.logging.image.overlay import (
@@ -29,6 +24,15 @@ from fibsem_maestro.logging.image.overlay import (
     RectangleOverlay,
     VerticalLineOverlay,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Generator, Sequence
+    from pathlib import Path
+
+    from matplotlib.axes import Axes
+    from numpy.typing import NDArray
+
+    from fibsem_maestro.logging.image.plot import Plot
 
 # serialize matplotlib layout and rasterisation across all logger instances
 _RENDER_LOCK = threading.Lock()
@@ -198,7 +202,7 @@ class FileImageLogger(ImageLogger):
 
     @classmethod
     @contextmanager
-    def _reserve(cls, path: Path) -> Iterator[BinaryIO]:
+    def _reserve(cls, path: Path) -> Generator[BinaryIO]:
         """
         Atomically claim a unique output path and yield it opened for writing.
 

@@ -133,4 +133,3 @@ class ManufacturerPropertiesRegistry(ABC):
         Args:
             root (object): Root microscope/beam object from which writable properties will be discovered.
         """
-        pass

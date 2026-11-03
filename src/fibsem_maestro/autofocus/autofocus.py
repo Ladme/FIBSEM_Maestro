@@ -13,22 +13,22 @@ from fibsem_maestro.action.action import Action
 from fibsem_maestro.action.outcome import Produced, StepOutcome
 from fibsem_maestro.action.registry import ACTION_REGISTRY
 from fibsem_maestro.action.state import ActionState
-from fibsem_maestro.action_context.action_context import ActionContext
 from fibsem_maestro.autofocus import AUTOFOCUS_MODES, LineMode, StepMode
 from fibsem_maestro.autofocus.af_chart import af_chart
 from fibsem_maestro.autofocus.autofocus_context import AutofocusContext
 from fibsem_maestro.autofocus.error import AutofocusError
 from fibsem_maestro.autofocus.jobs_manager import JobsManager
 from fibsem_maestro.autofocus.result import AutofocusResult
-from fibsem_maestro.autofocus.sweep_step import SweepDirection, SweepPoint, SweepStep
+from fibsem_maestro.autofocus.sweep_step import (
+    SweepDirection,
+    SweepPoint,
+)
 from fibsem_maestro.autofocus.sweeping import Sweeping
-from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.point import PixelPoint
 from fibsem_maestro.imaging.imaging import Imaging
 from fibsem_maestro.logging.image.overlay import PolylineOverlay
 from fibsem_maestro.logging.logging import with_logging_context
-from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.autofocus_settings import (
     AutofocusSettings,
@@ -37,11 +37,18 @@ from fibsem_maestro.settings.autofocus_settings import (
 from fibsem_maestro.settings.autofocus_settings import BasicMode as BasicModeSettings
 from fibsem_maestro.settings.autofocus_settings import LineMode as LineModeSettings
 from fibsem_maestro.settings.autofocus_settings import StepMode as StepModeSettings
-from fibsem_maestro.settings.reactive import ChangePath
-from fibsem_maestro.workflow.actions import Actions
 
 if TYPE_CHECKING:
     from collections.abc import Generator
+
+    from fibsem_maestro.action_context.action_context import ActionContext
+    from fibsem_maestro.autofocus.sweep_step import (
+        SweepStep,
+    )
+    from fibsem_maestro.core.area import RelativeArea
+    from fibsem_maestro.microscope.microscope import Microscope
+    from fibsem_maestro.settings.reactive import ChangePath
+    from fibsem_maestro.workflow.actions import Actions
 
 # another sweep follows only if the best value moved within this angle of the
 # previous move's direction (2D); in 1D the directions are +-1, so it only
@@ -103,7 +110,7 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
         self._executor = ThreadPoolExecutor(self._executor_workers)
         self._jobs = JobsManager(executor=self._executor)
 
-        self._active_gen: Generator[SweepStep, None, None] | None = None
+        self._active_gen: Generator[SweepStep] | None = None
 
         self._sweep_base_value: SweepPoint | None = None
         self._current_step_index = 0
@@ -183,10 +190,8 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
         """
         match self._settings.mode:
             case (
-                (
-                    BasicModeSettings() | LineModeSettings() | AutoscriptFunctionBase()
-                ) as mode
-            ) if mode.scanning_area:
+                BasicModeSettings() | LineModeSettings() | AutoscriptFunctionBase()
+            ) as mode if mode.scanning_area:
                 return mode.scanning_area[0]
             case _:
                 return None

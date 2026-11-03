@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import PurePath
-from typing import Any, Generic, Self, TypeVar
+from typing import Any, Self, TypeVar
 
 from fibsem_maestro.core.image import _ImageBase
 
@@ -15,7 +15,7 @@ TSelf = TypeVar("TSelf", bound="ImageStore[Any]")
 _IMAGE_SUFFIXES = frozenset({".tif", ".tiff", ".png", ".jpg", ".jpeg", ".bmp"})
 
 
-class ImageStore(ABC, Generic[T]):
+class ImageStore[T: _ImageBase[Any]](ABC):
     """Abstract interface for a readable/writable store of image files."""
 
     @abstractmethod

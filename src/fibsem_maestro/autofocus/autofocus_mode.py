@@ -62,7 +62,7 @@ class AutofocusMode(ABC):
         jobs: JobsManager,
         imaging: Imaging | None,
         resume_from: int = 0,
-    ) -> Generator[SweepStep, None, None]:
+    ) -> Generator[SweepStep]:
         """
         Drive the autofocus sweep and submit sharpness evaluation jobs.
 
@@ -105,7 +105,7 @@ class BasicMode(AutofocusMode):
         jobs: JobsManager,
         imaging: Imaging | None,
         resume_from: int = 0,
-    ) -> Generator[SweepStep, None, None]:
+    ) -> Generator[SweepStep]:
         _ = imaging, resume_from
 
         if (sweeping := ctx.sweeping) is None:
@@ -135,7 +135,7 @@ class LineMode(AutofocusMode):
         jobs: JobsManager,
         imaging: Imaging | None,
         resume_from: int = 0,
-    ) -> Generator[SweepStep, None, None]:
+    ) -> Generator[SweepStep]:
         _ = imaging, resume_from
 
         if (sweeping := ctx.sweeping) is None:
@@ -382,7 +382,7 @@ class StepMode(AutofocusMode):
         jobs: JobsManager,
         imaging: Imaging | None,
         resume_from: int = 0,
-    ) -> Generator[SweepStep, None, None]:
+    ) -> Generator[SweepStep]:
         if not imaging:
             raise AutofocusError(
                 "Linking imaging to autofocus is required for step mode autofocus."
@@ -491,7 +491,7 @@ class AutoscriptMode(AutofocusMode):
         jobs: JobsManager,
         imaging: Imaging | None,
         resume_from: int = 0,
-    ) -> Generator[SweepStep, None, None]:
+    ) -> Generator[SweepStep]:
         _ = jobs, imaging, resume_from
 
         try:

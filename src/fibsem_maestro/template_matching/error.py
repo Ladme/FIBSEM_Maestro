@@ -6,5 +6,3 @@ class TemplateMatchingError(Exception):
     """
     Exception raised for errors related to template matching.
     """
-
-    pass

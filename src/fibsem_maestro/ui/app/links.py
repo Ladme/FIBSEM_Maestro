@@ -8,12 +8,16 @@ A link is a top-level settings field edited with an action selector
 (`WidgetType.ACTION_SELECTOR`); it holds the name of another action.
 """
 
-from collections.abc import Iterator
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from fibsem_maestro.action.action import Action
 from fibsem_maestro.settings.form_utils import WidgetType
 from fibsem_maestro.ui.schema.schema import get_field_infos
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from fibsem_maestro.action.action import Action
 
 
 @dataclass(frozen=True)

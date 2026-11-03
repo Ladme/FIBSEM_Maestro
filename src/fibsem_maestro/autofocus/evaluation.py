@@ -2,10 +2,13 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
-from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from fibsem_maestro.autofocus.sweep_step import SweepPoint
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from fibsem_maestro.autofocus.sweep_step import SweepPoint
 
 
 @dataclass(frozen=True)
