@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import time
 from abc import ABC, abstractmethod
-from contextlib import contextmanager
 from itertools import groupby
 from typing import TYPE_CHECKING
 
@@ -32,7 +31,7 @@ from fibsem_maestro.settings.autofocus_settings import BasicMode as BasicModeSet
 from fibsem_maestro.settings.autofocus_settings import LineMode as LineModeSettings
 
 if TYPE_CHECKING:
-    from collections.abc import Generator, Iterator
+    from collections.abc import Generator
 
     from autoscript_sdb_microscope_client.sdb_microscope_client import (
         SdbMicroscopeClient,
@@ -574,8 +573,7 @@ class AutoscriptMode(AutofocusMode):
                     number_of_frames=mode.number_of_frames,  # ty:ignore[invalid-argument-type]
                 )
 
-                with self._secondary_electrons(autoscript_microscope):
-                    autoscript_microscope.auto_functions.run_auto_focus(settings)
+                autoscript_microscope.auto_functions.run_auto_focus(settings)
 
     def _run_autostigmator(
         self,
@@ -697,31 +695,4 @@ class AutoscriptMode(AutofocusMode):
             resolution=str(beam.resolution),
         )
 
-        with self._secondary_electrons(autoscript_microscope):
-            autoscript_microscope.auto_functions.run_auto_source_tilt(settings)
-
-    @staticmethod
-    @contextmanager
-    def _secondary_electrons(
-        microscope: SdbMicroscopeClient,
-    ) -> Iterator[None]:
-        """
-        Temporarily switch the detector to TLD in secondary electron mode, restoring it on exit.
-
-        Args:
-            microscope: Autoscript microscope client.
-
-        Yields:
-            None. The original detector settings are restored even if the body raises.
-        """
-        from autoscript_sdb_microscope_client.enumerations import DetectorMode
-
-        type_backup = microscope.detector.type.value
-        mode_backup = microscope.detector.mode.value
-        microscope.detector.type.value = "TLD"
-        microscope.detector.mode.value = DetectorMode.SECONDARY_ELECTRONS
-        try:
-            yield
-        finally:
-            microscope.detector.type.value = type_backup
-            microscope.detector.mode.value = mode_backup
+        autoscript_microscope.auto_functions.run_auto_source_tilt(settings)
