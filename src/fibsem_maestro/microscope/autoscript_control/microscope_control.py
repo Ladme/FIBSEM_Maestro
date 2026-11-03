@@ -22,10 +22,8 @@ from fibsem_maestro.microscope.autoscript_control.beam_control import (
 from fibsem_maestro.microscope.autoscript_control.manufacturer_props import (
     AutoscriptManufacturerPropertiesRegistry,
 )
-from fibsem_maestro.microscope.registry import MICROSCOPE_CONTROLS
 
 
-@MICROSCOPE_CONTROLS.register("autoscript")
 class AutoscriptMicroscopeControl(MicroscopeControl):
     def __init__(self, ip_address: str, port: int | None, txt_log: TextLogger):
         self._txt_log = txt_log

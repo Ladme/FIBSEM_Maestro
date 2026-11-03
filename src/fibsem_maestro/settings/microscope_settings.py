@@ -6,7 +6,7 @@ from typing import Annotated
 
 from pydantic import AfterValidator, Field
 
-from fibsem_maestro.microscope.microscope import MICROSCOPE_CONTROLS
+from fibsem_maestro.microscope.registry import MICROSCOPE_CONTROLS
 from fibsem_maestro.settings.base_settings import BaseSettings
 from fibsem_maestro.settings.form_utils import FieldUnit, FormHint, WidgetType
 

@@ -64,6 +64,9 @@ ignore = ["E501"]
 [tool.ty.src]
 exclude = ["src/fibsem_maestro_original", "src/criterion_playground.py"]
 
+[tool.ty.analysis]
+allowed-unresolved-imports = ["autoscript_sdb_microscope_client.**"]
+
 [tool.uv]
 package = true
 

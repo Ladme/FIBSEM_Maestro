@@ -153,7 +153,12 @@ class _ImageBase(np.ndarray[Any, np.dtype[TDType]], Generic[TDType]):
                 except (OSError, TiffFileError) as exc:
                     raise ImageError(f"Could not load TIFF: {path}") from exc
             case Provenance.AUTOSCRIPT:
-                from autoscript_sdb_microscope_client.structures import AdornedImage
+                try:
+                    from autoscript_sdb_microscope_client.structures import (
+                        AdornedImage,
+                    )
+                except ImportError as e:
+                    raise AutoscriptNotAvailableError() from e
 
                 try:
                     adorned = AdornedImage.load(str(path))
