@@ -7,7 +7,7 @@ from __future__ import annotations
 import time
 from abc import ABC, abstractmethod
 from itertools import groupby
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -460,6 +460,16 @@ class StepMode(AutofocusMode):
         jobs.submit(ctx.make_sharpness_job(image, step))
 
 
+def _given(**kwargs: Any) -> dict[str, Any]:
+    """
+    Drop the arguments that are None, so Autoscript applies its own defaults.
+
+    Autoscript's settings structures default every parameter to None but
+    annotate them as non-optional, so an explicit None fails type checking.
+    """
+    return {name: value for name, value in kwargs.items() if value is not None}
+
+
 @AUTOFOCUS_MODES.register("autoscript")
 class AutoscriptMode(AutofocusMode):
     """
@@ -546,9 +556,7 @@ class AutoscriptMode(AutofocusMode):
 
         match mode.method:
             case AutoscriptAutoFocusMethod.STANDARD:
-                settings = RunAutoFocusSettings(
-                    reduced_area=reduced_area  # ty:ignore[invalid-argument-type]
-                )
+                settings = RunAutoFocusSettings(**_given(reduced_area=reduced_area))
 
                 autoscript_microscope.auto_functions.run_auto_focus(settings)
 
@@ -565,12 +573,12 @@ class AutoscriptMode(AutofocusMode):
                     horizontal_field_width=beam.horizontal_field_width * 1e-9,
                     line_integration=beam.line_integration,
                     resolution=str(beam.resolution),
-                    # None is a valid value for all these fields
-                    # Autoscript is just badly typed
-                    reduced_area=reduced_area,  # ty:ignore[invalid-argument-type]
-                    maximum_iterations=mode.maximum_iterations,  # ty:ignore[invalid-argument-type]
-                    working_distance_step=wd_step_as,  # ty:ignore[invalid-argument-type]
-                    number_of_frames=mode.number_of_frames,  # ty:ignore[invalid-argument-type]
+                    **_given(
+                        reduced_area=reduced_area,
+                        maximum_iterations=mode.maximum_iterations,
+                        working_distance_step=wd_step_as,
+                        number_of_frames=mode.number_of_frames,
+                    ),
                 )
 
                 autoscript_microscope.auto_functions.run_auto_focus(settings)
@@ -599,9 +607,7 @@ class AutoscriptMode(AutofocusMode):
 
         match mode.method:
             case AutoscriptAutoStigmatorMethod.STANDARD:
-                settings = RunAutoStigmatorSettings(
-                    reduced_area=reduced_area  # ty:ignore[invalid-argument-type]
-                )
+                settings = RunAutoStigmatorSettings(**_given(reduced_area=reduced_area))
             case AutoscriptAutoStigmatorMethod.ONGETAL:
                 settings = RunAutoStigmatorSettings(
                     method="OngEtAl",
@@ -609,11 +615,12 @@ class AutoscriptMode(AutofocusMode):
                     resolution=str(beam.resolution),
                     horizontal_field_width=beam.horizontal_field_width * 1e-9,
                     line_integration=beam.line_integration,
-                    # None is a valid value for all these fields
-                    reduced_area=reduced_area,  # ty:ignore[invalid-argument-type]
-                    maximum_iterations=mode.maximum_iterations,  # ty:ignore[invalid-argument-type]
-                    stigmation_step=mode.stigmation_step,  # ty:ignore[invalid-argument-type]
-                    number_of_frames=mode.number_of_frames,  # ty:ignore[invalid-argument-type]
+                    **_given(
+                        reduced_area=reduced_area,
+                        maximum_iterations=mode.maximum_iterations,
+                        stigmation_step=mode.stigmation_step,
+                        number_of_frames=mode.number_of_frames,
+                    ),
                 )
 
         autoscript_microscope.auto_functions.run_auto_stigmator(settings)
@@ -655,9 +662,10 @@ class AutoscriptMode(AutofocusMode):
             dwell_time=beam.dwell_time * 1e-9,
             resolution=str(beam.resolution),
             line_integration=beam.line_integration,
-            # None is a valid value for all these fields
-            reduced_area=reduced_area,  # ty:ignore[invalid-argument-type]
-            number_of_frames=mode.number_of_frames,  # ty:ignore[invalid-argument-type]
+            **_given(
+                reduced_area=reduced_area,
+                number_of_frames=mode.number_of_frames,
+            ),
         )
 
         autoscript_microscope.auto_functions.run_auto_lens_alignment(settings)
