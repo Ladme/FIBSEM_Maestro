@@ -1,3 +1,6 @@
+# Released under GPL-3.0 License.
+# Copyright (c) 2024-2026 CEMCOF
+
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.properties.beam_properties import BeamProperties

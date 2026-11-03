@@ -1,4 +1,10 @@
+# Released under GPL-3.0 License.
+# Copyright (c) 2024-2026 CEMCOF
+
 import pytest
+
+pytest.importorskip("autoscript_sdb_microscope_client")
+
 from autoscript_sdb_microscope_client.sdb_microscope_client import SdbMicroscopeClient
 
 from fibsem_maestro.autofocus.sweeping import Sweeping
