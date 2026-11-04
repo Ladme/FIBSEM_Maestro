@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import threading
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from PyQt6.QtCore import QObject, Qt, QTimer
 from PyQt6.QtWidgets import (
@@ -29,7 +29,7 @@ from gui_testkit.app import shut_down, wait_for_task
 from gui_testkit.workflows import seed_for
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator
+    from collections.abc import Callable, Generator
     from pathlib import Path
 
     import pytest
@@ -56,9 +56,9 @@ property would do.
 """
 
 
-def children(parent: QObject, cls: type[T]) -> list[T]:
+def children[T: QObject](parent: QObject, cls: type[T]) -> list[T]:
     """The descendants of `parent` of type `cls`, in creation order."""
-    return [cast("T", child) for child in parent.findChildren(cls)]
+    return list(parent.findChildren(cls))
 
 
 def button(parent: QWidget, text: str) -> QPushButton:
@@ -89,7 +89,9 @@ def editable(field: QWidget) -> bool:
 
 
 @contextmanager
-def answering(cls: type[D], handle: Callable[[D], None]) -> Iterator[list[D]]:
+def answering[D: QDialog](
+    cls: type[D], handle: Callable[[D], None]
+) -> Generator[list[D]]:
     """
     Answer the next modal dialog of type `cls` opened inside the block, as a user would.
 
@@ -295,7 +297,7 @@ def interrupt_run(
 
 
 @contextmanager
-def task_running(qtbot: QtBot, app: Composition, action: Action) -> Iterator[None]:
+def task_running(qtbot: QtBot, app: Composition, action: Action) -> Generator[None]:
     """Keep the microscope task runner busy for the block (a task waiting for it to end)."""
     release = threading.Event()
     handle = app.commands.run_microscope_task(action, "Waiting", release.wait)

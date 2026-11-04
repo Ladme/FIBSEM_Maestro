@@ -3,9 +3,13 @@
 
 """The label of a form field, highlighting its editor on hover."""
 
-from PyQt6.QtCore import QEvent
-from PyQt6.QtGui import QEnterEvent
+from typing import TYPE_CHECKING
+
 from PyQt6.QtWidgets import QLabel, QWidget
+
+if TYPE_CHECKING:
+    from PyQt6.QtCore import QEvent
+    from PyQt6.QtGui import QEnterEvent
 
 
 class FieldLabel(QLabel):
@@ -27,7 +31,7 @@ class FieldLabel(QLabel):
         super().__init__(text, parent)
         self._paired = paired_widget
 
-    def enterEvent(self, event: QEnterEvent) -> None:
+    def enterEvent(self, event: QEnterEvent | None) -> None:
         """
         Highlight the paired widget when the pointer enters the label.
 
@@ -39,7 +43,7 @@ class FieldLabel(QLabel):
         self._refresh_style(self._paired)
         super().enterEvent(event)
 
-    def leaveEvent(self, a0: QEvent) -> None:
+    def leaveEvent(self, a0: QEvent | None) -> None:
         """
         Remove the highlight when the pointer leaves the label.
 
@@ -59,6 +63,7 @@ class FieldLabel(QLabel):
         Args:
             widget: The widget whose style to refresh.
         """
-        widget.style().unpolish(widget)
-        widget.style().polish(widget)
+        if (style := widget.style()) is not None:
+            style.unpolish(widget)
+            style.polish(widget)
         widget.update()

@@ -7,20 +7,20 @@ from fibsem_maestro.action.action import Action
 from fibsem_maestro.action.outcome import Produced, StepOutcome
 from fibsem_maestro.action.registry import ACTION_REGISTRY
 from fibsem_maestro.action.state import ActionState
-from fibsem_maestro.action_context.action_context import ActionContext
 from fibsem_maestro.core.beam_shift import BeamShift
-from fibsem_maestro.core.drift import Drift
 from fibsem_maestro.core.image import Image8Bit
 from fibsem_maestro.drift_correction import DRIFT_CALCULATION_MODES
 from fibsem_maestro.drift_correction.error import DriftCorrectionError
-from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.drift_correction_settings import DriftCorrectionSettings
-from fibsem_maestro.workflow.actions import Actions
 
 if TYPE_CHECKING:
+    from fibsem_maestro.action_context.action_context import ActionContext
+    from fibsem_maestro.core.drift import Drift
     from fibsem_maestro.drift_correction.drift_calculation_mode import (
         DriftCalculationMode,
     )
+    from fibsem_maestro.microscope.microscope import Microscope
+    from fibsem_maestro.workflow.actions import Actions
 
 
 class DriftCorrectionState(ActionState):

@@ -2,10 +2,10 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
-from collections import defaultdict
+import math
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import field
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -13,22 +13,22 @@ from fibsem_maestro.action.action import Action
 from fibsem_maestro.action.outcome import Produced, StepOutcome
 from fibsem_maestro.action.registry import ACTION_REGISTRY
 from fibsem_maestro.action.state import ActionState
-from fibsem_maestro.action_context.action_context import ActionContext
 from fibsem_maestro.autofocus import AUTOFOCUS_MODES, LineMode, StepMode
+from fibsem_maestro.autofocus.af_chart import af_chart
 from fibsem_maestro.autofocus.autofocus_context import AutofocusContext
 from fibsem_maestro.autofocus.error import AutofocusError
 from fibsem_maestro.autofocus.jobs_manager import JobsManager
 from fibsem_maestro.autofocus.result import AutofocusResult
-from fibsem_maestro.autofocus.sweep_step import SweepStep
+from fibsem_maestro.autofocus.sweep_step import (
+    SweepDirection,
+    SweepPoint,
+)
 from fibsem_maestro.autofocus.sweeping import Sweeping
-from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.point import PixelPoint
 from fibsem_maestro.imaging.imaging import Imaging
 from fibsem_maestro.logging.image.overlay import PolylineOverlay
-from fibsem_maestro.logging.image.plot_element import Curve, PlotElement, VerticalLine
 from fibsem_maestro.logging.logging import with_logging_context
-from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.autofocus_settings import (
     AutofocusSettings,
@@ -37,20 +37,44 @@ from fibsem_maestro.settings.autofocus_settings import (
 from fibsem_maestro.settings.autofocus_settings import BasicMode as BasicModeSettings
 from fibsem_maestro.settings.autofocus_settings import LineMode as LineModeSettings
 from fibsem_maestro.settings.autofocus_settings import StepMode as StepModeSettings
-from fibsem_maestro.settings.reactive import ChangePath
-from fibsem_maestro.workflow.actions import Actions
 
 if TYPE_CHECKING:
     from collections.abc import Generator
 
+    from fibsem_maestro.action_context.action_context import ActionContext
+    from fibsem_maestro.autofocus.sweep_step import (
+        SweepStep,
+    )
+    from fibsem_maestro.core.area import RelativeArea
+    from fibsem_maestro.microscope.microscope import Microscope
+    from fibsem_maestro.settings.reactive import ChangePath
+    from fibsem_maestro.workflow.actions import Actions
+
+# another sweep follows only if the best value moved within this angle of the
+# previous move's direction (2D); in 1D the directions are +-1, so it only
+# matters whether the edge is the same
+_MAX_DIRECTION_CHANGE_DEG = 45.0
+
 
 class AutofocusState(ActionState):
-    sweep_base_value: Any | None = None
+    sweep_base_value: SweepPoint | None = None
     sweep_in_progress: bool = False
     current_step_index: int = 0
     collected_results: list[AutofocusResult] = field(default_factory=list)
     sweeps_done: int = 0
-    last_edge: Literal[-1, 1] | None = None
+    last_direction: SweepDirection | None = None
+
+
+def _with_point_value(result: Any) -> Any:
+    """Wrap the scalar sweep value of a stored result into a one-element sweep point."""
+    if (
+        isinstance(result, dict)
+        and isinstance(sweep := result.get("sweep"), dict)
+        and isinstance(value := sweep.get("value"), int | float)
+    ):
+        return {**result, "sweep": {**sweep, "value": (float(value),)}}
+
+    return result
 
 
 @ACTION_REGISTRY.register("autofocus")
@@ -69,9 +93,7 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
     exhausted.
     """
 
-    _STATE_FIELDS = frozenset(
-        {"mode", "target_attribute", "beam_type", "linked_imaging"}
-    )
+    _STATE_FIELDS = frozenset({"mode", "beam_type", "linked_imaging"})
 
     def __init__(
         self,
@@ -88,15 +110,15 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
         self._executor = ThreadPoolExecutor(self._executor_workers)
         self._jobs = JobsManager(executor=self._executor)
 
-        self._active_gen: Generator[SweepStep, None, None] | None = None
+        self._active_gen: Generator[SweepStep] | None = None
 
-        self._sweep_base_value: Any | None = None
+        self._sweep_base_value: SweepPoint | None = None
         self._current_step_index = 0
 
         # sweeps completed in the current autofocus run
         self._sweeps_done = 0
-        # the edge the best value last reached (-1 lower, 1 upper)
-        self._last_edge: Literal[-1, 1] | None = None
+        # direction of the edge the best value last reached
+        self._last_direction: SweepDirection | None = None
 
         # build mode/sweeping/context from current settings
         self._rebuild()
@@ -128,13 +150,11 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
                 if self._settings.beam_type is BeamType.ELECTRON
                 else self._microscope.ion_beam,
                 self._settings.mode.sweeping,
-                self._settings.target_attribute,
                 self._ctx.text_logger.derive("sweeping"),
             )
 
         self._autofocus_ctx = AutofocusContext(
             self._microscope,
-            self._settings.target_attribute,
             self._sweeping,
             self._settings,
             self._ctx,
@@ -158,7 +178,7 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
             if self._active_gen is not None
             else [],
             sweeps_done=self._sweeps_done,
-            last_edge=self._last_edge,
+            last_direction=self._last_direction,
         )
 
     @property
@@ -170,10 +190,8 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
         """
         match self._settings.mode:
             case (
-                (
-                    BasicModeSettings() | LineModeSettings() | AutoscriptFunctionBase()
-                ) as mode
-            ) if mode.scanning_area:
+                BasicModeSettings() | LineModeSettings() | AutoscriptFunctionBase()
+            ) as mode if mode.scanning_area:
                 return mode.scanning_area[0]
             case _:
                 return None
@@ -186,7 +204,7 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
         self._sweep_base_value = state.sweep_base_value
         self._current_step_index = state.current_step_index
         self._sweeps_done = state.sweeps_done
-        self._last_edge = state.last_edge
+        self._last_direction = state.last_direction
 
         if not state.sweep_in_progress:
             self._active_gen = None
@@ -285,8 +303,10 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
             return Produced(props)
 
         # mid-sweep: the linked imaging must acquire its next frame at the trial value
+        assert self._sweeping is not None
         patch = GlobalProperties()
-        patch.set_property(self._settings.target_attribute, trial.value, self.beam_type)
+        for name, value in zip(self._sweeping.attributes, trial.value, strict=True):
+            patch.set_property(name, value, self.beam_type)
         return Produced(props, patches={self._settings.linked_imaging: patch})
 
     def _start_sweep(self) -> None:
@@ -362,16 +382,13 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
                 results = self._jobs.wait_and_collect()
                 sweep_number = self._sweeps_done + 1
                 best = self._apply_best_and_log(results)
-                edge = self._edge_reached(results, best)
+                direction = self._edge_direction(results, best)
                 self._sweeps_done = sweep_number
-                if not self._should_sweep_again(edge):
+                if not self._should_sweep_again(direction):
                     return
 
-                self._last_edge = edge
-                self._ctx.text_logger.info(
-                    f"Best value lies at the {'upper' if edge == 1 else 'lower'} edge of the "
-                    f"sweep. Starting sweep {sweep_number + 1} of at most {self._max_sweeps()}."
-                )
+                self._last_direction = direction
+                self._log_sweeping_again(sweep_number)
                 self._reset_jobs()
         finally:
             self._end_run()
@@ -416,7 +433,7 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
         try:
             results = self._jobs.wait_and_collect()
             best = self._apply_best_and_log(results)
-            edge = self._edge_reached(results, best)
+            direction = self._edge_direction(results, best)
         finally:
             # clear even if evaluation fails, so the next slice starts afresh
             self._active_gen = None
@@ -424,12 +441,9 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
             self._sweep_base_value = None
 
         self._sweeps_done = sweep_number
-        if self._should_sweep_again(edge):
-            self._last_edge = edge
-            self._ctx.text_logger.info(
-                f"Best value lies at the {'upper' if edge == 1 else 'lower'} edge of the "
-                f"sweep. Starting sweep {sweep_number + 1} of at most {self._max_sweeps()}."
-            )
+        if self._should_sweep_again(direction):
+            self._last_direction = direction
+            self._log_sweeping_again(sweep_number)
             try:
                 self._start_sweep()
             except Exception:
@@ -472,57 +486,59 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
         self._executor = ThreadPoolExecutor(self._executor_workers)
         self._jobs = JobsManager(executor=self._executor)
 
-    def _edge_reached(
-        self, results: list[AutofocusResult], best: float | None
-    ) -> Literal[-1, 1] | None:
+    def _edge_direction(
+        self, results: list[AutofocusResult], best: SweepPoint | None
+    ) -> SweepDirection | None:
         """
-        Return the edge of the swept range the best value lies at.
-
-        Both strategies return one of the swept values, so the edges are found
-        by comparison with the lowest and highest values in the results.
+        Return the direction of the edge of the swept region the best value lies at.
 
         Args:
             results: The finished sweep's results.
             best: The best value applied, or None if nothing was swept (Autoscript).
 
         Returns:
-            1 for the highest swept value, -1 for the lowest, or None if the
-            best lies inside the range or equals the base value: nothing moved,
-            so sweeping again around it would repeat the same sweep.
+            A unit vector pointing past that edge, or None if the best value
+            lies inside the swept region or equals the base value: nothing
+            moved, so sweeping again around it would repeat the same sweep.
         """
-        if best is None or not results:
+        if best is None or self._sweeping is None or self._sweep_base_value is None:
             return None
 
-        if self._sweep_base_value is not None and np.isclose(
-            best, self._sweep_base_value
-        ):
-            return None
+        return self._sweeping.space.edge_direction(
+            best, self._sweep_base_value, [r.sweep.value for r in results]
+        )
 
-        values = [r.sweep.value for r in results]
-        if best == max(values):
-            return 1
-        if best == min(values):
-            return -1
-        return None
-
-    def _should_sweep_again(self, edge: Literal[-1, 1] | None) -> bool:
+    def _should_sweep_again(self, direction: SweepDirection | None) -> bool:
         """
         Decide whether the autofocus run continues with another sweep.
 
-        Another sweep follows while the best value keeps hitting the same edge
-        of the swept range, i.e. while the optimum probably lies beyond it, and
-        `max_sweeps` has not been reached.
+        Another sweep follows while the best value keeps reaching the edge of
+        the swept region in a consistent direction, i.e. while the optimum
+        probably lies beyond it, and `max_sweeps` has not been reached. In 1D
+        that is the same edge again; in 2D a direction within 90° of the last
+        one. A reversal means the optimum was bracketed, so the run stops.
 
         Args:
-            edge: The edge the finished sweep's best value lies at, if any.
+            direction: Direction of the edge the finished sweep's best value
+                lies at, if any.
 
         Returns:
             True if another sweep should start.
         """
-        return (
-            edge is not None
-            and (self._last_edge is None or edge == self._last_edge)
-            and self._sweeps_done < self._max_sweeps()
+        if direction is None or self._sweeps_done >= self._max_sweeps():
+            return False
+
+        if self._last_direction is None:
+            return True
+
+        cosine = float(np.dot(direction, self._last_direction))
+        return cosine >= math.cos(math.radians(_MAX_DIRECTION_CHANGE_DEG)) - 1e-9
+
+    def _log_sweeping_again(self, sweep_number: int) -> None:
+        """Log that another sweep follows the finished sweep `sweep_number`."""
+        self._ctx.text_logger.info(
+            "Best value lies at the edge of the swept region. Starting sweep "
+            f"{sweep_number + 1} of at most {self._max_sweeps()}."
         )
 
     def _max_sweeps(self) -> int:
@@ -541,11 +557,11 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
     def _end_run(self) -> None:
         """Reset the sweep count and edge, so that the next autofocus run starts afresh."""
         self._sweeps_done = 0
-        self._last_edge = None
+        self._last_direction = None
 
-    def _apply_best_and_log(self, results: list[AutofocusResult]) -> float | None:
+    def _apply_best_and_log(self, results: list[AutofocusResult]) -> SweepPoint | None:
         """
-        Apply the best sweep value to the microscope and log the focus curve.
+        Apply the best sweep value to the microscope and log the autofocus chart.
 
         Does nothing if no sweeping is configured (Autoscript mode).
 
@@ -558,74 +574,21 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
         if self._sweeping is None:
             return None
 
-        best = self._sweeping.evaluate_best_sweep(results)
-        self._ctx.text_logger.info(f"Best sweep attribute value: {best}.")
+        evaluation = self._sweeping.evaluate(results)
+        best = evaluation.best
+        self._ctx.text_logger.info(
+            f"Best sweep value: {self._sweeping.describe(best)}."
+        )
         self._sweeping.set_attribute_value(best)
 
-        self._log_af_curve(results, best, self._sweep_base_value)
+        self._ctx.image_logger.save_plot(
+            "af_curve.png",
+            af_chart(evaluation, self._sweeping.space, self._sweep_base_value),
+        )
         if isinstance(self._mode, LineMode):
             self._log_line_focus_image(results)
 
         return best
-
-    def _log_af_curve(
-        self, results: list[AutofocusResult], best: float, base: Any | None
-    ) -> None:
-        """
-        Log the autofocus criterion curve with markers for the base sweep and best value.
-
-        Args:
-            results: Autofocus results collected during the sweep.
-            best: The sweep value selected as optimal.
-        """
-        if not results:
-            return
-
-        sorted_results = sorted(results, key=lambda r: r.sweep.index)
-
-        # average sharpness per (repetition, sweep value) to handle line mode
-        # where multiple results share the same sweep value
-        averaged: dict[tuple[int, float], list[float]] = defaultdict(list)
-        for r in sorted_results:
-            averaged[(r.sweep.repetition, r.sweep.value)].append(r.sharpness)
-
-        repetitions: dict[int, list[tuple[float, float]]] = defaultdict(list)
-        for (rep, value), sharpnesses in averaged.items():
-            repetitions[rep].append((value, float(np.mean(sharpnesses))))
-
-        _CURVE_COLORS = [
-            "#0000FF",
-            "#3355DD",
-            "#6699BB",
-            "#BB6699",
-            "#DD5533",
-            "#FF0000",
-        ]
-
-        # plot the criterion values
-        elements: list[PlotElement] = [
-            Curve(
-                x=[v for v, _ in sorted(rep_points, key=lambda p: p[0])],
-                y=[s for _, s in sorted(rep_points, key=lambda p: p[0])],
-                color=_CURVE_COLORS[rep % len(_CURVE_COLORS)],
-                linewidth=1.0,
-            )
-            for rep, rep_points in repetitions.items()
-        ]
-
-        # mark the base value
-        if base is not None:
-            elements.append(VerticalLine(x=float(base), color="orange", linewidth=1.0))
-        # mark the best value
-        elements.append(VerticalLine(x=best, color="green", linewidth=1.0))
-
-        self._ctx.image_logger.save_plot(
-            filename="af_curve.png",
-            elements=elements,
-            title="Focus criterion",
-            xlabel=self._settings.target_attribute,
-            ylabel="Sharpness",
-        )
 
     def _log_line_focus_image(self, results: list[AutofocusResult]) -> None:
         """

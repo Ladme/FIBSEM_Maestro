@@ -84,11 +84,12 @@ class AddActionDialog(QDialog):
         name = self._name_edit.text().strip()
         error = validate_action_name(name, self._existing_names)
         self._error_label.setText(error or "")
-        self._ok_btn.setEnabled(error is None)
+        if self._ok_btn is not None:
+            self._ok_btn.setEnabled(error is None)
 
     def _on_accept(self) -> None:
         self._validate()
-        if self._ok_btn.isEnabled():
+        if self._ok_btn is not None and self._ok_btn.isEnabled():
             self.accept()
 
     @property

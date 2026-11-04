@@ -5,12 +5,12 @@ from __future__ import annotations
 
 import copy
 from collections.abc import Callable, Hashable, Iterable
-from typing import Any, Generic, Self, SupportsIndex, TypeAlias, TypeVar
+from typing import Any, Self, SupportsIndex, TypeVar
 
 from pydantic import BaseModel, PrivateAttr
 from pydantic_core import core_schema
 
-ChangePath: TypeAlias = tuple[Hashable, ...]
+type ChangePath = tuple[Hashable, ...]
 """
 Location of a change, relative to the node a hook is registered on.
 
@@ -19,7 +19,7 @@ Items of a list contribute `None`, since list positions shift. An empty path
 means the node changed as a whole, e.g. through `update` or `patch`.
 """
 
-Unsubscribe: TypeAlias = Callable[[], None]
+type Unsubscribe = Callable[[], None]
 """Removes the hook it was returned for. Calling it more than once does nothing."""
 
 
@@ -254,7 +254,7 @@ class ReactiveModel(BaseModel, ReactiveNode):
             propagate_parent(self, self)
             self._call_hooks((name,))
 
-    def model_post_init(self, __context: Any):
+    def model_post_init(self, __context: Any, /):
         """
         Initialization hook called by Pydantic.
 
@@ -317,7 +317,7 @@ K = TypeVar("K", bound=Hashable)
 T = TypeVar("T", bound=Any)
 
 
-class ReactiveDict(dict[K, T], ReactiveNode, Generic[K, T]):
+class ReactiveDict[K: Hashable, T: Any](dict[K, T], ReactiveNode):
     """
     A reactive dictionary that behaves like a standard Python dictionary,
     but integrates with the reactive event system provided by `ReactiveNode`.
@@ -388,7 +388,7 @@ class ReactiveDict(dict[K, T], ReactiveNode, Generic[K, T]):
         )
 
 
-class ReactiveList(list[T], ReactiveNode, Generic[T]):
+class ReactiveList[T: Any](list[T], ReactiveNode):
     """
     A reactive list that behaves like a standard Python list
     but integrates with the reactive event system provided by `ReactiveNode`.

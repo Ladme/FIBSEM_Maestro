@@ -3,12 +3,13 @@
 
 
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from fibsem_maestro.core.area import PixelArea
-from fibsem_maestro.core.image import Image
+if TYPE_CHECKING:
+    from fibsem_maestro.core.area import PixelArea
+    from fibsem_maestro.core.image import Image
 
 
 class SharpnessMap(np.ndarray[Any, np.dtype[np.floating[Any]]]):

@@ -2,8 +2,10 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 from abc import ABC, abstractmethod
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class SerializerError(Exception):

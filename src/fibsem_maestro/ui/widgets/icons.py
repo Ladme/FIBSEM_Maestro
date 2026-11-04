@@ -92,7 +92,7 @@ def render_icon(
         A transparent pixmap of `size` logical pixels.
     """
     svg = _SVG_TEMPLATE.format(color=color.name(), body=body).encode()
-    renderer = QSvgRenderer(QByteArray(svg))  # ty: ignore[invalid-argument-type]
+    renderer = QSvgRenderer(QByteArray(svg))
 
     side = round(size * device_pixel_ratio)
     pixmap = QPixmap(side, side)

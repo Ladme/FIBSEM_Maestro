@@ -1,16 +1,30 @@
+# Released under GPL-3.0 License.
+# Copyright (c) 2024-2026 CEMCOF
+
 import pytest
+
+pytest.importorskip("autoscript_sdb_microscope_client")
+
 from autoscript_sdb_microscope_client.sdb_microscope_client import SdbMicroscopeClient
 
 from fibsem_maestro.autofocus.sweeping import Sweeping
+from fibsem_maestro.core.beam_type import BeamType
+from fibsem_maestro.core.detector_mode import DetectorMode
 from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.logging.text.memory import MemoryTextLogger
 from fibsem_maestro.microscope.autoscript_control.beam_control import (
     AutoscriptElectronBeamControl,
     AutoscriptIonBeamControl,
 )
+from fibsem_maestro.microscope.error import MicroscopeError
 from fibsem_maestro.microscope.microscope import Microscope
+from fibsem_maestro.properties.beam_properties import BeamProperties
+from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
-from fibsem_maestro.settings.sweeping_settings import SweepingSettings
+from fibsem_maestro.settings.property_names import PropertyNames
+from fibsem_maestro.settings.sweeping_settings import (
+    LinearSweeping as LinearSweepingSettings,
+)
 
 pytest.importorskip("autoscript_sdb_microscope_client")
 
@@ -45,8 +59,9 @@ def test_ion_beam_working_distance_can_be_swept(
 ) -> None:
     sweeping = Sweeping(
         autoscript_microscope.ion_beam,
-        SweepingSettings(range=(-1000.0, 1000.0), steps=3),
-        "working_distance",
+        LinearSweepingSettings(
+            target_attribute="working_distance", range=(-1000.0, 1000.0), steps=3
+        ),
         MemoryTextLogger(lambda: 0),
     )
     assert len(list(sweeping.sweep())) == 3
@@ -58,11 +73,12 @@ def test_sweep_values_outside_instrument_limits_are_skipped(
     # the fake ion beam allows 1-60 mm; 16.5 mm +- 50 mm leaves one valid value
     sweeping = Sweeping(
         autoscript_microscope.ion_beam,
-        SweepingSettings(range=(-50e6, 50e6), steps=3),
-        "working_distance",
+        LinearSweepingSettings(
+            target_attribute="working_distance", range=(-50e6, 50e6), steps=3
+        ),
         MemoryTextLogger(lambda: 0),
     )
-    assert [s.value for s in sweeping.sweep()] == pytest.approx([16.5e6])
+    assert [s.value[0] for s in sweeping.sweep()] == pytest.approx([16.5e6])
 
 
 def test_autoscript_reapplying_pixel_size_keeps_standard_resolution(
@@ -99,3 +115,42 @@ def test_microscope_manufacturer_properties_have_one_path_each() -> None:
     names = AutoscriptManufacturerPropertiesRegistry(SdbMicroscopeClient()).allowed()
     assert not [n for n in names if "application_client" in n]
     assert "beams.ion_beam.beam_current.value" in names
+
+
+def test_detector_mode_is_applied_before_contrast_and_brightness(
+    autoscript_microscope: Microscope, fake_client: FakeSdbClient
+) -> None:
+    """Switching the mode resets contrast and brightness, so it must go first."""
+    props = GlobalProperties(
+        electron_beam=BeamProperties(
+            detector_contrast=0.8,
+            detector_brightness=0.3,
+            detector_mode=DetectorMode.BACKSCATTER_ELECTRONS,
+        )
+    )
+
+    autoscript_microscope.set_properties(props, BeamType.ELECTRON)
+
+    detector = fake_client.detector
+    assert detector.mode.value == "BackscatterElectrons"
+    assert (detector.contrast.value, detector.brightness.value) == (0.8, 0.3)
+
+
+def test_unavailable_detector_mode_is_rejected(
+    autoscript_microscope: Microscope, fake_client: FakeSdbClient
+) -> None:
+    with pytest.raises(MicroscopeError, match="not available"):
+        autoscript_microscope.electron_beam.detector_mode = DetectorMode.SEGMENT_A
+
+    assert fake_client.detector.mode.value == "SecondaryElectrons"
+
+
+def test_detector_mode_is_collected_as_a_beam_property(
+    autoscript_microscope: Microscope,
+) -> None:
+    props = autoscript_microscope.collect_properties(
+        PropertyNames(electron_beam=["detector_mode"])
+    )
+
+    assert props.electron_beam is not None
+    assert props.electron_beam.detector_mode is DetectorMode.SECONDARY_ELECTRONS

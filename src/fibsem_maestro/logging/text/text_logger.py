@@ -10,6 +10,9 @@ from typing import Self
 class TextLogger(ABC):
     """Abstract interface for text-based logging."""
 
+    def __init__(self) -> None:
+        self._warned_keys: set[str] = set()
+
     @abstractmethod
     def info(self, msg: str) -> None:
         """
@@ -27,6 +30,22 @@ class TextLogger(ABC):
         Args:
             msg: The message to log.
         """
+
+    def warning_once(self, key: str, msg: str) -> None:
+        """
+        Log a warning the first time `key` is seen on this logger; repeats go to debug.
+
+        Use it for conditions that persist and would otherwise flood the log.
+
+        Args:
+            key: Identifies the condition being warned about.
+            msg: The message to log.
+        """
+        if key in self._warned_keys:
+            self.debug(msg)
+            return
+        self._warned_keys.add(key)
+        self.warning(msg)
 
     @abstractmethod
     def error(self, msg: str) -> None:

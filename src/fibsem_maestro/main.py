@@ -80,7 +80,7 @@ def main() -> None:
     sys.exit(app.exec())
 
 
-def _main_window(paths: AppPaths) -> "QMainWindow":
+def _main_window(paths: AppPaths) -> QMainWindow:
     """
     Run the start-up dialog and build the main window of the new GUI.
 

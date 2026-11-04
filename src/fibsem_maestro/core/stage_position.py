@@ -70,13 +70,6 @@ class StagePosition:
         Raises:
             AutoscriptNotAvailableError: If the Autoscript library is not installed.
         """
-        try:
-            from autoscript_sdb_microscope_client.structures import (
-                StagePosition,  # noqa: F401
-            )
-        except ImportError as e:
-            raise AutoscriptNotAvailableError() from e
-
         # TODO: all fields can be None - how should we handle that?
         return cls(
             x=(stage_position_autoscript.x or 0) * 1e9,
@@ -135,17 +128,18 @@ class StagePosition:
         except ImportError as e:
             raise AutoscriptNotAvailableError() from e
 
-        def changed(value: float, scale: float) -> float | None:
-            return value * scale if value != 0.0 else None
+        changes = {
+            "x": self.x * 1e-9,
+            "y": self.y * 1e-9,
+            "z": self.z * 1e-9,
+            "r": math.radians(self.rotation),
+            "t": math.radians(self.tilt),
+        }
 
-        # type-checker ignores: autoscript's stage position does allow None, but it's type hints say otherwise
+        # unchanged axes are omitted rather than passed as None
         return StagePositionAs(
-            x=changed(self.x, 1e-9),  # ty: ignore[invalid-argument-type]
-            y=changed(self.y, 1e-9),  # ty: ignore[invalid-argument-type]
-            z=changed(self.z, 1e-9),  # ty: ignore[invalid-argument-type]
-            r=changed(math.radians(self.rotation), 1.0),  # ty: ignore[invalid-argument-type]
-            t=changed(math.radians(self.tilt), 1.0),  # ty: ignore[invalid-argument-type]
             coordinate_system="Specimen",
+            **{axis: value for axis, value in changes.items() if value != 0.0},
         )
 
     def __add__(self, other: StagePosition) -> StagePosition:

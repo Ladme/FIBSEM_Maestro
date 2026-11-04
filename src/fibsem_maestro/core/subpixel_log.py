@@ -2,9 +2,11 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-import numpy as np
-from numpy.typing import NDArray
+if TYPE_CHECKING:
+    import numpy as np
+    from numpy.typing import NDArray
 
 
 @dataclass(frozen=True)

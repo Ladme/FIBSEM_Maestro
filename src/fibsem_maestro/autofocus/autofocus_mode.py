@@ -1,13 +1,13 @@
 # Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
+
 from __future__ import annotations
 
 import time
 from abc import ABC, abstractmethod
-from contextlib import contextmanager
 from itertools import groupby
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -17,9 +17,6 @@ from fibsem_maestro.autofocus.sweep_step import SweepStep
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.image_tools import get_stripes
 from fibsem_maestro.core.registry import Registry
-from fibsem_maestro.microscope.autoscript_control.microscope_control import (
-    AutoscriptMicroscopeControl,
-)
 from fibsem_maestro.settings.autofocus_settings import (
     AutoscriptAutoFocus,
     AutoscriptAutoFocusMethod,
@@ -34,7 +31,7 @@ from fibsem_maestro.settings.autofocus_settings import BasicMode as BasicModeSet
 from fibsem_maestro.settings.autofocus_settings import LineMode as LineModeSettings
 
 if TYPE_CHECKING:
-    from collections.abc import Generator, Iterator
+    from collections.abc import Generator
 
     from autoscript_sdb_microscope_client.sdb_microscope_client import (
         SdbMicroscopeClient,
@@ -65,7 +62,7 @@ class AutofocusMode(ABC):
         jobs: JobsManager,
         imaging: Imaging | None,
         resume_from: int = 0,
-    ) -> Generator[SweepStep, None, None]:
+    ) -> Generator[SweepStep]:
         """
         Drive the autofocus sweep and submit sharpness evaluation jobs.
 
@@ -108,7 +105,7 @@ class BasicMode(AutofocusMode):
         jobs: JobsManager,
         imaging: Imaging | None,
         resume_from: int = 0,
-    ) -> Generator[SweepStep, None, None]:
+    ) -> Generator[SweepStep]:
         _ = imaging, resume_from
 
         if (sweeping := ctx.sweeping) is None:
@@ -121,7 +118,7 @@ class BasicMode(AutofocusMode):
             for sweep in sweeping.sweep():
                 ctx.ctx.text_logger.info(
                     f"Autofunction step {sweep.index + 1} "
-                    f"(repetition {sweep.repetition + 1}): value {sweep.value}"
+                    f"(repetition {sweep.repetition + 1}): {sweeping.describe(sweep.value)}"
                 )
                 sweeping.set_attribute_value(sweep.value)
                 image = ctx.microscope.beam.grab_frame()
@@ -138,7 +135,7 @@ class LineMode(AutofocusMode):
         jobs: JobsManager,
         imaging: Imaging | None,
         resume_from: int = 0,
-    ) -> Generator[SweepStep, None, None]:
+    ) -> Generator[SweepStep]:
         _ = imaging, resume_from
 
         if (sweeping := ctx.sweeping) is None:
@@ -385,7 +382,7 @@ class StepMode(AutofocusMode):
         jobs: JobsManager,
         imaging: Imaging | None,
         resume_from: int = 0,
-    ) -> Generator[SweepStep, None, None]:
+    ) -> Generator[SweepStep]:
         if not imaging:
             raise AutofocusError(
                 "Linking imaging to autofocus is required for step mode autofocus."
@@ -406,7 +403,7 @@ class StepMode(AutofocusMode):
 
             ctx.ctx.text_logger.info(
                 f"Autofunction step {sweep.index + 1} "
-                f"(repetition {sweep.repetition + 1}): value {sweep.value}"
+                f"(repetition {sweep.repetition + 1}): {sweeping.describe(sweep.value)}"
             )
 
             # score the frame from the previous slice, taken at the previous step's value
@@ -463,6 +460,16 @@ class StepMode(AutofocusMode):
         jobs.submit(ctx.make_sharpness_job(image, step))
 
 
+def _given(**kwargs: Any) -> dict[str, Any]:
+    """
+    Drop the arguments that are None, so Autoscript applies its own defaults.
+
+    Autoscript's settings structures default every parameter to None but
+    annotate them as non-optional, so an explicit None fails type checking.
+    """
+    return {name: value for name, value in kwargs.items() if value is not None}
+
+
 @AUTOFOCUS_MODES.register("autoscript")
 class AutoscriptMode(AutofocusMode):
     """
@@ -484,8 +491,17 @@ class AutoscriptMode(AutofocusMode):
         jobs: JobsManager,
         imaging: Imaging | None,
         resume_from: int = 0,
-    ) -> Generator[SweepStep, None, None]:
+    ) -> Generator[SweepStep]:
         _ = jobs, imaging, resume_from
+
+        try:
+            from fibsem_maestro.microscope.autoscript_control.microscope_control import (
+                AutoscriptMicroscopeControl,
+            )
+        except ImportError as e:
+            raise AutofocusError(
+                "Autoscript auto-functions need Autoscript, which is not available."
+            ) from e
 
         if not isinstance(ctx.microscope.control, AutoscriptMicroscopeControl):
             raise AutofocusError(
@@ -540,9 +556,7 @@ class AutoscriptMode(AutofocusMode):
 
         match mode.method:
             case AutoscriptAutoFocusMethod.STANDARD:
-                settings = RunAutoFocusSettings(
-                    reduced_area=reduced_area  # ty:ignore[invalid-argument-type]
-                )
+                settings = RunAutoFocusSettings(**_given(reduced_area=reduced_area))
 
                 autoscript_microscope.auto_functions.run_auto_focus(settings)
 
@@ -559,15 +573,15 @@ class AutoscriptMode(AutofocusMode):
                     horizontal_field_width=beam.horizontal_field_width * 1e-9,
                     line_integration=beam.line_integration,
                     resolution=str(beam.resolution),
-                    # None is a valid value for all these fields
-                    # Autoscript is just badly typed
-                    reduced_area=reduced_area,  # ty:ignore[invalid-argument-type]
-                    maximum_iterations=mode.maximum_iterations,  # ty:ignore[invalid-argument-type]
-                    working_distance_step=wd_step_as,  # ty:ignore[invalid-argument-type]
+                    **_given(
+                        reduced_area=reduced_area,
+                        maximum_iterations=mode.maximum_iterations,
+                        working_distance_step=wd_step_as,
+                        number_of_frames=mode.number_of_frames,
+                    ),
                 )
 
-                with self._secondary_electrons(autoscript_microscope):
-                    autoscript_microscope.auto_functions.run_auto_focus(settings)
+                autoscript_microscope.auto_functions.run_auto_focus(settings)
 
     def _run_autostigmator(
         self,
@@ -593,7 +607,7 @@ class AutoscriptMode(AutofocusMode):
 
         match mode.method:
             case AutoscriptAutoStigmatorMethod.STANDARD:
-                settings = RunAutoStigmatorSettings()
+                settings = RunAutoStigmatorSettings(**_given(reduced_area=reduced_area))
             case AutoscriptAutoStigmatorMethod.ONGETAL:
                 settings = RunAutoStigmatorSettings(
                     method="OngEtAl",
@@ -601,10 +615,12 @@ class AutoscriptMode(AutofocusMode):
                     resolution=str(beam.resolution),
                     horizontal_field_width=beam.horizontal_field_width * 1e-9,
                     line_integration=beam.line_integration,
-                    # None is a valid value for all these fields
-                    reduced_area=reduced_area,  # ty:ignore[invalid-argument-type]
-                    maximum_iterations=mode.maximum_iterations,  # ty:ignore[invalid-argument-type]
-                    stigmation_step=mode.stigmation_step,  # ty:ignore[invalid-argument-type]
+                    **_given(
+                        reduced_area=reduced_area,
+                        maximum_iterations=mode.maximum_iterations,
+                        stigmation_step=mode.stigmation_step,
+                        number_of_frames=mode.number_of_frames,
+                    ),
                 )
 
         autoscript_microscope.auto_functions.run_auto_stigmator(settings)
@@ -646,9 +662,10 @@ class AutoscriptMode(AutofocusMode):
             dwell_time=beam.dwell_time * 1e-9,
             resolution=str(beam.resolution),
             line_integration=beam.line_integration,
-            # None is a valid value for all these fields
-            reduced_area=reduced_area,  # ty:ignore[invalid-argument-type]
-            number_of_frames=mode.number_of_frames,  # ty:ignore[invalid-argument-type]
+            **_given(
+                reduced_area=reduced_area,
+                number_of_frames=mode.number_of_frames,
+            ),
         )
 
         autoscript_microscope.auto_functions.run_auto_lens_alignment(settings)
@@ -686,31 +703,4 @@ class AutoscriptMode(AutofocusMode):
             resolution=str(beam.resolution),
         )
 
-        with self._secondary_electrons(autoscript_microscope):
-            autoscript_microscope.auto_functions.run_auto_source_tilt(settings)
-
-    @staticmethod
-    @contextmanager
-    def _secondary_electrons(
-        microscope: SdbMicroscopeClient,
-    ) -> Iterator[None]:
-        """
-        Temporarily switch the detector to TLD in secondary electron mode, restoring it on exit.
-
-        Args:
-            microscope: Autoscript microscope client.
-
-        Yields:
-            None. The original detector settings are restored even if the body raises.
-        """
-        from autoscript_sdb_microscope_client.enumerations import DetectorMode
-
-        type_backup = microscope.detector.type.value
-        mode_backup = microscope.detector.mode.value
-        microscope.detector.type.value = "TLD"
-        microscope.detector.mode.value = DetectorMode.SECONDARY_ELECTRONS
-        try:
-            yield
-        finally:
-            microscope.detector.type.value = type_backup
-            microscope.detector.mode.value = mode_backup
+        autoscript_microscope.auto_functions.run_auto_source_tilt(settings)

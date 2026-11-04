@@ -1,10 +1,10 @@
 # Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
-from enum import Enum
+from enum import StrEnum
 
 
-class Direction(str, Enum):
+class Direction(StrEnum):
     """
     Represents direction in the image.
     """

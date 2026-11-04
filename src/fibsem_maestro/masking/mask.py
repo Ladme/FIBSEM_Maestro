@@ -1,10 +1,13 @@
 # Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
-from fibsem_maestro.core.image import Image
-from fibsem_maestro.logging.image.image_logger import ImageLogger
-from fibsem_maestro.logging.text.text_logger import TextLogger
-from fibsem_maestro.settings.mask_settings import MaskSettings
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from fibsem_maestro.core.image import Image
+    from fibsem_maestro.logging.image.image_logger import ImageLogger
+    from fibsem_maestro.logging.text.text_logger import TextLogger
+    from fibsem_maestro.settings.mask_settings import MaskSettings
 
 
 class Mask:

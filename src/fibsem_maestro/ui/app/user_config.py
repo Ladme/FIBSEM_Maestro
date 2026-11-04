@@ -8,7 +8,7 @@ from __future__ import annotations
 import contextlib
 from typing import TYPE_CHECKING, Annotated, Literal
 
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
 from fibsem_maestro.serializer.yaml_serializer import YamlSerializer
 from fibsem_maestro.settings.base_settings import BaseSettings
@@ -38,7 +38,7 @@ class EmailProfile(BaseSettings):
     ignored, so a profile saved by a version with more fields still loads.
     """
 
-    model_config = {"extra": "ignore"}
+    model_config = ConfigDict(extra="ignore")
 
     type: Literal["SMTP"] = "SMTP"
     host: Annotated[

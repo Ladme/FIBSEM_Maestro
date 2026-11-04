@@ -10,10 +10,11 @@ values and word problems identically.
 """
 
 import copy
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from pydantic import ValidationError
-from pydantic_core import ErrorDetails
+if TYPE_CHECKING:
+    from pydantic import ValidationError
+    from pydantic_core import ErrorDetails
 
 REQUIRED_MESSAGE = "A value is required."
 """The message for None in a field that requires a value."""

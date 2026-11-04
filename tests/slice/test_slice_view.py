@@ -2,11 +2,14 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
 from fibsem_maestro.slice.slice_view import SliceView
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.fixture
@@ -133,7 +136,7 @@ def test_expected_path_names_the_slice_folder(tmp_path: Path) -> None:
 def test_expected_path_does_not_create_anything(tmp_path: Path) -> None:
     view = SliceView(tmp_path / "milling", 3)
 
-    view.expected_path
+    view.expected_path  # noqa: B018
 
     assert not (tmp_path / "milling").exists()
 

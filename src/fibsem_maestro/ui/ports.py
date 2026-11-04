@@ -8,15 +8,17 @@ The forms depend on these small protocols instead of on the application
 services, so they can be built without a workflow (start-up dialog, tests).
 """
 
-from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from PyQt6.QtCore import QObject, pyqtBoundSignal, pyqtSignal
 
-from fibsem_maestro.action.action import Action
-from fibsem_maestro.core.area import RelativeArea
-from fibsem_maestro.core.beam_type import BeamType
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from fibsem_maestro.action.action import Action
+    from fibsem_maestro.core.area import RelativeArea
+    from fibsem_maestro.core.beam_type import BeamType
 
 
 @dataclass(frozen=True)

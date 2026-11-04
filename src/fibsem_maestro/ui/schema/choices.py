@@ -8,15 +8,18 @@ Shared by the field editors and the settings audit, so that "which values can
 this editor show" has a single definition.
 """
 
-from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from fibsem_maestro.action.action import Action
-from fibsem_maestro.core.pattern_type import PatternType
 from fibsem_maestro.settings.form_utils import WidgetType
-from fibsem_maestro.ui.schema.field_info import FieldInfo
 from fibsem_maestro.ui.schema.field_type import EnumType, LiteralType
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from fibsem_maestro.action.action import Action
+    from fibsem_maestro.core.pattern_type import PatternType
+    from fibsem_maestro.ui.schema.field_info import FieldInfo
 
 CHOICE_WIDGETS: frozenset[WidgetType] = frozenset(
     {

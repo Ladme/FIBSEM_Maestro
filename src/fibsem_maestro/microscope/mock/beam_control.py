@@ -2,26 +2,29 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from fibsem_maestro.core.area import NMArea, RelativeArea
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
-from fibsem_maestro.core.direction import Direction
+from fibsem_maestro.core.detector_mode import DetectorMode
 from fibsem_maestro.core.format import ImageFormat
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
-from fibsem_maestro.core.pattern_type import PatternType
 from fibsem_maestro.core.provenance import Provenance
 from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
-from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
 from fibsem_maestro.microscope.error import MicroscopeError
-from fibsem_maestro.store.frame.frame_store import FrameStore
+
+if TYPE_CHECKING:
+    from fibsem_maestro.core.direction import Direction
+    from fibsem_maestro.core.pattern_type import PatternType
+    from fibsem_maestro.logging.text.text_logger import TextLogger
+    from fibsem_maestro.store.frame.frame_store import FrameStore
 
 
 class MockBeamControl(BeamControl):
@@ -37,6 +40,8 @@ class MockBeamControl(BeamControl):
         self._lens_alignment = LensAlignment(0.0, 0.0)
         self._beam_shift = BeamShift(0.0, 0.0)
         self._beam_current: float = 0.0
+
+        self._detector_mode = DetectorMode.DEFAULT
 
         self._detector_contrast: float = 0.0
         self._detector_brightness: float = 0.0
@@ -101,6 +106,14 @@ class MockBeamControl(BeamControl):
     @beam_shift.setter
     def beam_shift(self, value: BeamShift) -> None:
         self._beam_shift = value
+
+    @property
+    def detector_mode(self) -> DetectorMode:
+        return self._detector_mode
+
+    @detector_mode.setter
+    def detector_mode(self, value: DetectorMode) -> None:
+        self._detector_mode = value
 
     @property
     def detector_contrast(self) -> float:

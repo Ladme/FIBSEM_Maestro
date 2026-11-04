@@ -3,11 +3,13 @@
 
 
 from pathlib import Path
-from typing import Any, ClassVar, Self
+from typing import TYPE_CHECKING, Any, ClassVar, Self
 
 from fibsem_maestro.serializer.serializer import Serializer
 from fibsem_maestro.settings.base_settings import BaseSettings
-from fibsem_maestro.settings.reactive import ReactiveNode
+
+if TYPE_CHECKING:
+    from fibsem_maestro.settings.reactive import ReactiveNode
 
 
 class FakeSerializer(Serializer):

@@ -1,39 +1,23 @@
-# FIBSEM_Maestro
+# FIBSEM Maestro 2
 
 > [!CAUTION]
 > This software is under development and many features are missing. Be cautious when using it!
 
 Software for (cryo/RT) volume-EM acquisition. It allows to acquire the big volume in constant high quality.
 
-Key features:
-
-- Usage of deep learning model for segmentation of region of interest. The segmented region is used for:
-  - Resolution calculation ([siFRC](https://github.com/prabhatkc/siFRC) or others)
-  - Autofocusing, autostigmator, auto-lens alignment (multiple criterions and sweeping strategies)
-  - Drift correction & FoV optimization (template matching, or segmented region centering)
-  - Auto contrast-brightness (whole image or segmented region)
-- Email attention
-- Works with ThermoFisher Autoscript. Support of [OpenFIBSEM](https://github.com/DeMarcoLab/fibsem) for other vendors (Tescan, Zeiss) is planned.
-
-Drift correction with segmentation aid
-
-https://github.com/user-attachments/assets/45ff2652-db7e-494b-bb37-505d80c9be56
-
-FoV optimization with segmentation aid
-
-https://github.com/user-attachments/assets/0c56cf67-b3c6-4034-a15c-69c574f1049c
-
 ## Installation
 
-FIBSEM Maestro can be installed using the [**FIBSEM Maestro Installer**](https://github.com/Ladme/FIBSEM_Maestro_Installer).
+FIBSEM Maestro 2 can be installed using the [**FIBSEM Maestro 2 Installer**](https://github.com/cemcof/FIBSEM_Maestro2_Installer).
 
 ## Before you start
 
-You need an existing **Autoscript** installation on the computer. Autoscript is licensed separately by ThermoFisher and is not included with FIBSEM Maestro.
+To control a microscope, FIBSEM Maestro needs the manufacturer's library installed on the computer.
 
-Make a note of the folder where Autoscript is installed. You will be asked for it during installation. It is the folder that contains a subfolder named `autoscript_sdb_microscope_client`.
+For ThermoFisher microscopes this is **Autoscript**, which is licensed separately by ThermoFisher and is not included with FIBSEM Maestro. Linking the library is **optional**: without it, FIBSEM Maestro runs with a simulated microscope. You can link it during installation or at any time later.
 
-Administrator rights are not required. Everything is installed for the current user only.
+If you want to link Autoscript, make a note of the folder where it is installed. It is the folder that contains a subfolder named `autoscript_sdb_microscope_client`.
+
+Administrator rights are not required. Everything, including a private Python interpreter, is installed for the current user only.
 
 ---
 
@@ -45,7 +29,7 @@ Use this if the computer has internet access.
 
 1. Open the releases page of the installer repository in your browser:
 
-   `https://github.com/Ladme/fibsem_maestro_installer/releases/latest`
+   `https://github.com/cemcof/fibsem_maestro2_installer/releases/latest`
 
 2. Under **Assets**, download
    `fibsem-maestro-installer-windows-x86_64.exe`.
@@ -56,8 +40,9 @@ Use this if the computer has internet access.
 
 4. Follow the wizard:
    - Confirm the installation folder (the default is fine).
-   - Select your **Autoscript folder**.
-   - Click through to start the installation.
+   - Wait for the installation to finish.
+   - On the **Microscope libraries** page, select your **Autoscript folder**, or leave it empty to skip.
+     The wizard checks the folder right away and shows the Autoscript version when it works.
 
 5. When it finishes, FIBSEM Maestro is available from the **Start Menu**.
 
@@ -67,11 +52,11 @@ Use this if the microscope computer has no internet access. You will need a seco
 
 **On the computer with internet access:**
 
-1. Download the installer as described in step 1-2 above.
+1. Download the installer as described in steps 1–2 above.
 
 2. Open the releases page of the application repository:
 
-   `https://github.com/Ladme/fibsem_maestro/releases/latest`
+   `https://github.com/cemcof/fibsem_maestro2/releases/latest`
 
 3. Under **Assets**, download `fibsem-maestro-bundle-windows-x86_64.tar.gz`.
 
@@ -88,6 +73,7 @@ Use this if the microscope computer has no internet access. You will need a seco
    ├── fibsem-maestro-installer-windows-x86_64.exe
    └── bundle\
        ├── uv.exe
+       ├── manifest.json
        ├── python\
        └── wheels\
 ```
@@ -102,6 +88,15 @@ Use this if the microscope computer has no internet access. You will need a seco
 
 ## Linux
 
+> [!IMPORTANT]
+> FIBSEM Maestro 2 and its installer need the `libxcb-cursor0` system library. Install it first:
+>
+> ```bash
+> sudo apt install libxcb-cursor0
+> ```
+>
+> Without it, neither program starts (they exit without showing a window).
+
 ### Online installation
 
 Use this if the computer has internet access.
@@ -110,7 +105,7 @@ Use this if the computer has internet access.
 
 ```bash
    curl -L -o fibsem-maestro-installer \
-     https://github.com/Ladme/fibsem_maestro_installer/releases/latest/download/fibsem-maestro-installer-linux-x86_64
+     https://github.com/cemcof/fibsem_maestro2_installer/releases/latest/download/fibsem-maestro-installer-linux-x86_64
    chmod +x fibsem-maestro-installer
 ```
 
@@ -122,8 +117,8 @@ Use this if the computer has internet access.
 
 3. Follow the wizard:
    - Confirm the installation folder (the default is fine).
-   - Select your **Autoscript folder**.
-   - Click through to start the installation.
+   - Wait for the installation to finish.
+   - On the **Microscope libraries** page, select your **Autoscript folder**, or leave it empty to skip.
 
 4. When it finishes, FIBSEM Maestro appears in your applications menu. You can also start it from a terminal with:
 
@@ -143,10 +138,10 @@ Use this if the microscope computer has no internet access. You will need a seco
    mkdir maestro && cd maestro
 
    curl -L -o fibsem-maestro-installer \
-     https://github.com/Ladme/fibsem_maestro_installer/releases/latest/download/fibsem-maestro-installer-linux-x86_64
+     https://github.com/cemcof/fibsem_maestro2_installer/releases/latest/download/fibsem-maestro-installer-linux-x86_64
 
    curl -L -O \
-     https://github.com/Ladme/fibsem_maestro/releases/latest/download/fibsem-maestro-bundle-linux-x86_64.tar.gz
+     https://github.com/cemcof/fibsem_maestro2/releases/latest/download/fibsem-maestro-bundle-linux-x86_64.tar.gz
 ```
 
 2. Copy the whole `maestro` folder to the USB drive.
@@ -169,6 +164,7 @@ You should end up with:
    ├── fibsem-maestro-installer
    └── bundle/
        ├── uv
+       ├── manifest.json
        ├── python/
        └── wheels/
 ```
@@ -193,10 +189,10 @@ Run the installer again at any time to:
 
 - **Update** to the latest version
 - **Repair** a damaged installation
-- **Change the Autoscript location**
+- **Manage microscope libraries**: link, change or unlink Autoscript
 - **Uninstall** FIBSEM Maestro
 
-The wizard detects the existing installation and offers these options instead of installing again.
+The wizard detects the existing installation, shows which libraries are linked and offers these options instead of installing again.
 
 ---
 
@@ -204,15 +200,27 @@ The wizard detects the existing installation and offers these options instead of
 
 **"This folder does not contain `autoscript_sdb_microscope_client`"**
 
-You selected the wrong folder. Look one level up or down from what you chose - you need the folder that _contains_ `autoscript_sdb_microscope_client`, not the subfolder itself.
+You selected the wrong folder. Look one level up or down from what you chose: you need the folder that _contains_ `autoscript_sdb_microscope_client`, not the subfolder itself.
+
+**"✘ Does not work" with "Autoscript could not be imported"**
+
+The folder was found, but Autoscript could not be loaded from it. The details below the folder show the reason. This usually means the Autoscript installation is incomplete or does not work with FIBSEM Maestro's Python version. Fix or reinstall Autoscript, or leave the field empty to install without it.
+
+**After an update, the wizard says a linked library does not work**
+
+The update itself has finished and FIBSEM Maestro is usable. The linked library, however, no longer loads with the new version, e.g. because the update moved FIBSEM Maestro to a newer Python. Select the correct folder or unlink the library. Without it, FIBSEM Maestro runs with the simulated microscope only.
+
+**"FIBSEM Maestro ... requires Python ..., but this installer provides Python ..."**
+
+The installer is older than the FIBSEM Maestro release it tried to install. Download the latest installer and run it again. Your current installation was not changed.
 
 **"The installer says it cannot reach GitHub"**
 
 The computer has no internet access, or it is blocked by a firewall. Use the offline installation instructions instead.
 
-**"Autoscript could not be imported"**
+**On Linux, the installer or FIBSEM Maestro does not start at all**
 
-The folder was found, but Autoscript could not be loaded from it. This usually means the Autoscript installation is incomplete or was built for a different Python version. Reinstall Autoscript and try again.
+Install `libxcb-cursor0` (see [Linux](#linux)). FIBSEM Maestro writes start-up errors to `~/.local/share/fibsem-maestro/logs/crash.log`.
 
 **"Uninstall fails saying the folder is in use"**
 

@@ -3,28 +3,31 @@
 
 
 import math
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from fibsem_maestro.core.area import NMArea, RelativeArea
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
-from fibsem_maestro.core.direction import Direction
+from fibsem_maestro.core.detector_mode import DetectorMode
 from fibsem_maestro.core.format import ImageFormat
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
-from fibsem_maestro.core.pattern_type import PatternType
 from fibsem_maestro.core.provenance import Provenance
 from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.source_tilt import SourceTilt
-from fibsem_maestro.core.stage_position import StagePosition
 from fibsem_maestro.core.stigmator import Stigmator
-from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
 from fibsem_maestro.microscope.error import MicroscopeError
 from fibsem_maestro.microscope.simulated.sample import SimulatedSample
-from fibsem_maestro.store.frame.frame_store import FrameStore
+
+if TYPE_CHECKING:
+    from fibsem_maestro.core.direction import Direction
+    from fibsem_maestro.core.pattern_type import PatternType
+    from fibsem_maestro.core.stage_position import StagePosition
+    from fibsem_maestro.logging.text.text_logger import TextLogger
+    from fibsem_maestro.store.frame.frame_store import FrameStore
 
 
 class SimulatedBeamControl(BeamControl):
@@ -51,6 +54,8 @@ class SimulatedBeamControl(BeamControl):
         self._lens_alignment = LensAlignment(x=0.0, y=0.0)  # nm
         self._beam_shift = BeamShift(x=0.0, y=0.0)  # nm
         self._beam_current: float = 0.0  # nm
+
+        self._detector_mode = DetectorMode.DEFAULT
 
         self._detector_contrast = 0.5
         self._detector_brightness = 0.5
@@ -157,6 +162,17 @@ class SimulatedBeamControl(BeamControl):
             raise MicroscopeError(
                 f"Beam shift out of range: {self._beam_shift} (limits: x {limit_x}, y {limit_y})"
             )
+
+    @property
+    def detector_mode(self) -> DetectorMode:
+        value = self._detector_mode
+        self._txt_log.debug(f"Getting detector mode: {value}.")
+        return value
+
+    @detector_mode.setter
+    def detector_mode(self, value: DetectorMode) -> None:
+        self._txt_log.debug(f"Setting detector mode: {value}.")
+        self._detector_mode = value
 
     @property
     def detector_contrast(self) -> float:
@@ -421,7 +437,7 @@ class SimulatedBeamControl(BeamControl):
         pixel_size = self.pixel_size
         self.resolution = Resolution(self.resolution.width, int(value / pixel_size))
         self._txt_log.info(
-            f"Resolution set to: {str(self.resolution)} (via setting vertical field width)."
+            f"Resolution set to: {self.resolution!s} (via setting vertical field width)."
         )
 
     @property
@@ -437,7 +453,7 @@ class SimulatedBeamControl(BeamControl):
             int(self.vertical_field_width / value),
         )
         self._txt_log.info(
-            f"Extended resolution set to: {str(self.resolution)} (via setting pixel size)."
+            f"Extended resolution set to: {self.resolution!s} (via setting pixel size)."
         )
 
     @property

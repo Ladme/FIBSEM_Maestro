@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 
     from fibsem_maestro.ui.composition import Composition
 
-ANY_TYPE = sorted(ACTION_REGISTRY)[0]
+ANY_TYPE = min(ACTION_REGISTRY)
 
 
 def test_main_window_shows_its_parts(app: Composition) -> None:

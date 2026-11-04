@@ -71,7 +71,8 @@ class MultiSelectWidget(QListWidget, FieldEditor[list[str]]):
         """
 
         for i in range(self.count()):
-            self.item(i).setSelected(self.item(i).text() in value)
+            if (item := self.item(i)) is not None:
+                item.setSelected(item.text() in value)
 
     def set_read_only(self, read_only: bool) -> None:
         """

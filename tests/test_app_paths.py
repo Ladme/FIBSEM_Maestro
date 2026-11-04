@@ -3,10 +3,12 @@
 
 import sys
 from pathlib import Path
-
-import pytest
+from typing import TYPE_CHECKING
 
 from fibsem_maestro.app_paths import HOME_VARIABLE, AppPaths
+
+if TYPE_CHECKING:
+    import pytest
 
 
 def test_app_paths_env_override(

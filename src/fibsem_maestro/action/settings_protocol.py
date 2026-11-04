@@ -1,13 +1,15 @@
 # Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
-from collections.abc import Callable
-from typing import Protocol, TypeVar
+from typing import TYPE_CHECKING, Protocol, TypeVar
 
-from fibsem_maestro.core.beam_type import BeamType
-from fibsem_maestro.core.frequency import Frequency
-from fibsem_maestro.settings.property_names import PropertyNames
-from fibsem_maestro.settings.reactive import ChangePath, Unsubscribe
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from fibsem_maestro.core.beam_type import BeamType
+    from fibsem_maestro.core.frequency import Frequency
+    from fibsem_maestro.settings.property_names import PropertyNames
+    from fibsem_maestro.settings.reactive import ChangePath, Unsubscribe
 
 
 class ActionSettingsLike(Protocol):

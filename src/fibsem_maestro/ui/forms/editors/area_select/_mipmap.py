@@ -90,11 +90,14 @@ class MipmapPixmapItem(QGraphicsPixmapItem):
 
     def paint(
         self,
-        painter: QPainter,
-        option: QStyleOptionGraphicsItem,
-        widget: QWidget,
+        painter: QPainter | None,
+        option: QStyleOptionGraphicsItem | None,
+        widget: QWidget | None,
     ) -> None:
         """Paint the appropriate pyramid level over the item's full rectangle."""
+        assert painter is not None
+        assert option is not None
+
         scale = option.levelOfDetailFromTransform(painter.worldTransform())
         level = self._level_for_scale(scale)
 

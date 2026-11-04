@@ -4,30 +4,34 @@
 
 import contextvars
 import threading
-from collections.abc import Iterator
 from contextlib import ExitStack, contextmanager
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from fibsem_maestro.action.action import Action
 from fibsem_maestro.action.outcome import Produced, StepOutcome
 from fibsem_maestro.action.registry import ACTION_REGISTRY
 from fibsem_maestro.action.state import ActionState
-from fibsem_maestro.action_context.action_context import ActionContext
 from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.format import ImageFormat
-from fibsem_maestro.core.image import Image
 from fibsem_maestro.criterion.criterion import Criterion
 from fibsem_maestro.imaging.error import ImagingError
 from fibsem_maestro.logging.logging import with_logging_context
 from fibsem_maestro.microscope.error import MicroscopeError
-from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.imaging_settings import (
     ExtendedResolution,
     ImagingSettings,
 )
-from fibsem_maestro.slice.slice_view import SliceView
-from fibsem_maestro.workflow.actions import Actions
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
+    from fibsem_maestro.action_context.action_context import ActionContext
+    from fibsem_maestro.core.image import Image
+    from fibsem_maestro.microscope.microscope import Microscope
+    from fibsem_maestro.slice.slice_view import SliceView
+    from fibsem_maestro.workflow.actions import Actions
 
 
 class ImagingState(ActionState):
@@ -290,7 +294,7 @@ class Imaging(Action[ImagingSettings, ImagingState]):
             text_logger.warning(f"Could not calculate image sharpness: {e}")
 
     @contextmanager
-    def _extended_geometry(self) -> Iterator[None]:
+    def _extended_geometry(self) -> Generator[None]:
         """
         Image the scanning area at the extended-resolution pixel size for the enclosed block.
 

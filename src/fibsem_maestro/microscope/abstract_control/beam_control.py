@@ -2,25 +2,29 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 from abc import ABC, abstractmethod
-from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from fibsem_maestro.core.area import NMArea, RelativeArea
-from fibsem_maestro.core.beam_shift import BeamShift
-from fibsem_maestro.core.beam_type import BeamType
-from fibsem_maestro.core.direction import Direction
-from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
-from fibsem_maestro.core.pattern_type import PatternType
-from fibsem_maestro.core.provenance import Provenance
-from fibsem_maestro.core.resolution import Resolution
-from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
-from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.error import MicroscopeError
 from fibsem_maestro.properties.beam_properties import BeamProperties
-from fibsem_maestro.store.frame.frame_store import FrameStore
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
+    from fibsem_maestro.core.area import NMArea, RelativeArea
+    from fibsem_maestro.core.beam_shift import BeamShift
+    from fibsem_maestro.core.beam_type import BeamType
+    from fibsem_maestro.core.detector_mode import DetectorMode
+    from fibsem_maestro.core.direction import Direction
+    from fibsem_maestro.core.image import Image
+    from fibsem_maestro.core.pattern_type import PatternType
+    from fibsem_maestro.core.provenance import Provenance
+    from fibsem_maestro.core.resolution import Resolution
+    from fibsem_maestro.core.source_tilt import SourceTilt
+    from fibsem_maestro.logging.text.text_logger import TextLogger
+    from fibsem_maestro.store.frame.frame_store import FrameStore
 
 
 class BeamControl(ABC):
@@ -156,6 +160,21 @@ class BeamControl(ABC):
 
         Args:
             value: New beam shift in nanometers.
+        """
+
+    @property
+    @abstractmethod
+    def detector_mode(self) -> DetectorMode:
+        """Signal the active detector of this beam records."""
+
+    @detector_mode.setter
+    @abstractmethod
+    def detector_mode(self, value: DetectorMode) -> None:
+        """
+        Set the signal the active detector of this beam records.
+
+        Args:
+            value: The detector mode; must be available on the active detector.
         """
 
     @property
@@ -485,7 +504,7 @@ class BeamControl(ABC):
         """Logger for diagnostic and status messages."""
 
     @contextmanager
-    def total_blanked(self) -> Iterator[None]:
+    def total_blanked(self) -> Generator[None]:
         """
         Context manager that fully blanks the beam during the enclosed block.
 

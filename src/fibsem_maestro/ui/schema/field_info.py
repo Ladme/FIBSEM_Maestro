@@ -4,11 +4,13 @@
 """Everything the forms need to know about one field of a settings class."""
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from fibsem_maestro.settings.form_utils import FieldUnit, FormHint
-from fibsem_maestro.ui.schema.constraints import NumericBounds
-from fibsem_maestro.ui.schema.default import Default
-from fibsem_maestro.ui.schema.field_type import FieldType
+if TYPE_CHECKING:
+    from fibsem_maestro.settings.form_utils import FieldUnit, FormHint
+    from fibsem_maestro.ui.schema.constraints import NumericBounds
+    from fibsem_maestro.ui.schema.default import Default
+    from fibsem_maestro.ui.schema.field_type import FieldType
 
 
 @dataclass(frozen=True)

@@ -15,23 +15,23 @@ import os
 # GUI tests never need a display; set before anything creates a QApplication
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from typing import TYPE_CHECKING  # noqa: E402
+from typing import TYPE_CHECKING
 
-import pytest  # noqa: E402
-from gui_testkit.app import Services, build_services, shut_down  # noqa: E402
-from gui_testkit.dialogs import DirectoryChoices, ExitCalls, MessageBoxes  # noqa: E402
-from gui_testkit.workflows import seed_for, simulated_workflow  # noqa: E402
-from PyQt6.QtWidgets import QFileDialog, QMessageBox  # noqa: E402
+import pytest
+from gui_testkit.app import Services, build_services, shut_down
+from gui_testkit.dialogs import DirectoryChoices, ExitCalls, MessageBoxes
+from gui_testkit.workflows import seed_for, simulated_workflow
+from PyQt6.QtWidgets import QFileDialog, QMessageBox
 
-from fibsem_maestro.app_paths import HOME_VARIABLE, AppPaths  # noqa: E402
-from fibsem_maestro.logging.text.file import close_all_log_files  # noqa: E402
-from fibsem_maestro.ui.app.files import WorkflowFiles  # noqa: E402
-from fibsem_maestro.ui.app.session import WorkflowSession  # noqa: E402
-from fibsem_maestro.ui.app.user_config import UserConfig  # noqa: E402
-from fibsem_maestro.ui.composition import Composition, compose  # noqa: E402
-from fibsem_maestro.ui.forms.builder import FormBuilder  # noqa: E402
-from fibsem_maestro.ui.forms.context import FormContext  # noqa: E402
-from fibsem_maestro.ui.forms.registry import default_registry  # noqa: E402
+from fibsem_maestro.app_paths import HOME_VARIABLE, AppPaths
+from fibsem_maestro.logging.text.file import close_all_log_files
+from fibsem_maestro.ui.app.files import WorkflowFiles
+from fibsem_maestro.ui.app.session import WorkflowSession
+from fibsem_maestro.ui.app.user_config import UserConfig
+from fibsem_maestro.ui.composition import Composition, compose
+from fibsem_maestro.ui.forms.builder import FormBuilder
+from fibsem_maestro.ui.forms.context import FormContext
+from fibsem_maestro.ui.forms.registry import default_registry
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator

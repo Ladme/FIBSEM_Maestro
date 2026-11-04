@@ -1,16 +1,21 @@
 # Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
-from collections.abc import Callable
+
+from typing import TYPE_CHECKING
 
 import pytest
 
-from fibsem_maestro.action.action import Action
 from fibsem_maestro.core.area import RelativeArea
 from fibsem_maestro.core.point import RelativePoint
 from fibsem_maestro.milling.error import MillingError
 from fibsem_maestro.milling.milling import Milling, MillingState
 from fibsem_maestro.workflow.workflow import Workflow
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from fibsem_maestro.action.action import Action
 
 # The simulated microscope images 1024 x 768 px at 1.953125 nm/px, so the frame
 # is 1500 nm high: an area 0.2 high holds exactly three 100 nm slices.

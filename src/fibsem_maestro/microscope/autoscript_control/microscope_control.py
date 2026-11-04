@@ -2,7 +2,7 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 from functools import cached_property
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from autoscript_sdb_microscope_client.enumerations import CoordinateSystem
 from autoscript_sdb_microscope_client.sdb_microscope_client import SdbMicroscopeClient
@@ -10,8 +10,6 @@ from autoscript_sdb_microscope_client.sdb_microscope_client import SdbMicroscope
 from fibsem_maestro.core.pattern_type import PatternType
 from fibsem_maestro.core.provenance import Provenance
 from fibsem_maestro.core.stage_position import StagePosition
-from fibsem_maestro.logging.text.text_logger import TextLogger
-from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
 from fibsem_maestro.microscope.abstract_control.microscope_control import (
     MicroscopeControl,
 )
@@ -22,10 +20,12 @@ from fibsem_maestro.microscope.autoscript_control.beam_control import (
 from fibsem_maestro.microscope.autoscript_control.manufacturer_props import (
     AutoscriptManufacturerPropertiesRegistry,
 )
-from fibsem_maestro.microscope.registry import MICROSCOPE_CONTROLS
+
+if TYPE_CHECKING:
+    from fibsem_maestro.logging.text.text_logger import TextLogger
+    from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
 
 
-@MICROSCOPE_CONTROLS.register("autoscript")
 class AutoscriptMicroscopeControl(MicroscopeControl):
     def __init__(self, ip_address: str, port: int | None, txt_log: TextLogger):
         self._txt_log = txt_log

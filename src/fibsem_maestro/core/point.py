@@ -2,16 +2,17 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
-from typing import Any, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from pydantic import BaseModel
 
-from fibsem_maestro.core.resolution import Resolution
+if TYPE_CHECKING:
+    from fibsem_maestro.core.resolution import Resolution
 
 T = TypeVar("T", int, float)
 
 
-class Point(BaseModel, Generic[T]):
+class Point[T: (int, float)](BaseModel):
     """
     Represents a point in two-dimensional space.
 
@@ -76,7 +77,7 @@ class PixelPoint(Point[int]):
         # pydantic BaseModel requires keyword arguments
         super().__init__(x=x, y=y)
 
-    def to_relative(self, resolution: Resolution) -> "RelativePoint":
+    def to_relative(self, resolution: Resolution) -> RelativePoint:
         """
         Convert pixel coordinates to relative (0-1) coordinates.
 
@@ -88,7 +89,7 @@ class PixelPoint(Point[int]):
         """
         return RelativePoint(self.x / resolution.width, self.y / resolution.height)
 
-    def to_nanometers(self, pixel_size_nm: float) -> "NMPoint":
+    def to_nanometers(self, pixel_size_nm: float) -> NMPoint:
         """
         Convert pixel coordinates to nanometer coordinates.
 
@@ -100,7 +101,7 @@ class PixelPoint(Point[int]):
         """
         return NMPoint(self.x * pixel_size_nm, self.y * pixel_size_nm)
 
-    def to_meters(self, pixel_size_m: float) -> "MPoint":
+    def to_meters(self, pixel_size_m: float) -> MPoint:
         """
         Convert pixel coordinates to meter coordinates.
 
@@ -120,7 +121,7 @@ class NMPoint(Point[float]):
         # pydantic BaseModel requires keyword arguments
         super().__init__(x=x, y=y)
 
-    def to_meters(self) -> "MPoint":
+    def to_meters(self) -> MPoint:
         """
         Convert nanometers to meters.
 
@@ -129,7 +130,7 @@ class NMPoint(Point[float]):
         """
         return MPoint(self.x * 1e-9, self.y * 1e-9)
 
-    def to_pixels(self, pixel_size_nm: float) -> "PixelPoint":
+    def to_pixels(self, pixel_size_nm: float) -> PixelPoint:
         """
         Convert nanometer coordinates to pixel coordinates.
 
@@ -139,13 +140,11 @@ class NMPoint(Point[float]):
         Returns:
             PixelPoint: Point expressed in pixels.
         """
-        return PixelPoint(
-            int(round(self.x / pixel_size_nm)), int(round(self.y / pixel_size_nm))
-        )
+        return PixelPoint(round(self.x / pixel_size_nm), round(self.y / pixel_size_nm))
 
     def to_relative(
         self, resolution: Resolution, pixel_size_nm: float
-    ) -> "RelativePoint":
+    ) -> RelativePoint:
         """
         Convert nanometer coordinates to relative (0-1) coordinates.
 
@@ -166,7 +165,7 @@ class MPoint(Point[float]):
         # pydantic BaseModel requires keyword arguments
         super().__init__(x=x, y=y)
 
-    def to_nanometers(self) -> "NMPoint":
+    def to_nanometers(self) -> NMPoint:
         """
         Convert meters to nanometers.
 
@@ -175,7 +174,7 @@ class MPoint(Point[float]):
         """
         return NMPoint(self.x * 1e9, self.y * 1e9)
 
-    def to_pixels(self, pixel_size_m: float) -> "PixelPoint":
+    def to_pixels(self, pixel_size_m: float) -> PixelPoint:
         """
         Convert meter coordinates to pixel coordinates.
 
@@ -185,13 +184,9 @@ class MPoint(Point[float]):
         Returns:
             PixelPoint: Point expressed in pixels.
         """
-        return PixelPoint(
-            int(round(self.x / pixel_size_m)), int(round(self.y / pixel_size_m))
-        )
+        return PixelPoint(round(self.x / pixel_size_m), round(self.y / pixel_size_m))
 
-    def to_relative(
-        self, resolution: Resolution, pixel_size_m: float
-    ) -> "RelativePoint":
+    def to_relative(self, resolution: Resolution, pixel_size_m: float) -> RelativePoint:
         """
         Convert meters to relative (0-1) coordinates.
 
@@ -212,7 +207,7 @@ class RelativePoint(Point[float]):
         # pydantic BaseModel requires keyword arguments
         super().__init__(x=x, y=y)
 
-    def to_pixels(self, resolution: Resolution) -> "PixelPoint":
+    def to_pixels(self, resolution: Resolution) -> PixelPoint:
         """Convert relative coordinates (0-1) to pixel coordinates.
 
         Args:
@@ -222,11 +217,11 @@ class RelativePoint(Point[float]):
             PixelPoint: Point expressed in pixels.
         """
         return PixelPoint(
-            int(round(self.x * resolution.width)),
-            int(round(self.y * resolution.height)),
+            round(self.x * resolution.width),
+            round(self.y * resolution.height),
         )
 
-    def to_nanometers(self, resolution: Resolution, pixel_size_nm: float) -> "NMPoint":
+    def to_nanometers(self, resolution: Resolution, pixel_size_nm: float) -> NMPoint:
         """Convert relative coordinates (0-1) to nanometers.
 
         Args:
@@ -238,7 +233,7 @@ class RelativePoint(Point[float]):
         """
         return self.to_pixels(resolution).to_nanometers(pixel_size_nm)
 
-    def to_meters(self, resolution: Resolution, pixel_size_m: float) -> "MPoint":
+    def to_meters(self, resolution: Resolution, pixel_size_m: float) -> MPoint:
         """Convert relative coordinates (0-1) to meters.
 
         Args:

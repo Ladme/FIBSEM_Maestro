@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, ClassVar, Generic, TypeVar, final
+from typing import TYPE_CHECKING, ClassVar, TypeVar, final
 
 from fibsem_maestro.action.outcome import CarriedOver, Produced, StepOutcome
 from fibsem_maestro.action.settings_protocol import ActionSettingsLike
@@ -16,7 +16,7 @@ from fibsem_maestro.core.format import ImageFormat
 from fibsem_maestro.logging.logging import with_logging_context
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Generator
 
     from fibsem_maestro.action_context.action_context import ActionContext
     from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
@@ -36,7 +36,7 @@ TSettings = TypeVar("TSettings", bound=ActionSettingsLike)
 TState = TypeVar("TState", bound=ActionState)
 
 
-class Action(ABC, Generic[TSettings, TState]):
+class Action[TSettings: ActionSettingsLike, TState: ActionState](ABC):
     """
     A step of the acquisition workflow, executed at most once per slice.
 
@@ -274,7 +274,6 @@ class Action(ABC, Generic[TSettings, TState]):
 
         The default does nothing; override if the action spawns threads.
         """
-        pass
 
     def reset(self) -> None:
         """Reset the action to slice 0 and its default state."""
@@ -493,7 +492,7 @@ class Action(ABC, Generic[TSettings, TState]):
         )
 
     @contextmanager
-    def _scanning_area_applied(self) -> Iterator[None]:
+    def _scanning_area_applied(self) -> Generator[None]:
         """
         Scan the action's scanning area for the enclosed block, then the full frame again.
 

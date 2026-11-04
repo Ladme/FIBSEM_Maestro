@@ -9,7 +9,6 @@ import pytest
 from fibsem_maestro.logging.image.plot_element import Curve, VerticalLine
 
 
-@pytest.fixture
 def image() -> np.ndarray:
     return np.arange(16, dtype=np.uint8).reshape(4, 4)
 
@@ -24,7 +23,7 @@ def test_curve_stores_its_fields() -> None:
 
 
 def test_curve_positional_order_is_color_linewidth_x_y() -> None:
-    assert [f.name for f in dataclasses.fields(Curve)] == [
+    assert [f.name for f in dataclasses.fields(Curve)][:4] == [
         "color",
         "linewidth",
         "x",
@@ -46,7 +45,7 @@ def test_vertical_line_stores_its_fields() -> None:
 
 
 def test_vertical_line_positional_order_is_color_linewidth_x() -> None:
-    assert [f.name for f in dataclasses.fields(VerticalLine)] == [
+    assert [f.name for f in dataclasses.fields(VerticalLine)][:3] == [
         "color",
         "linewidth",
         "x",

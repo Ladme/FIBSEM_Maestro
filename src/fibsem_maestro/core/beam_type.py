@@ -2,10 +2,10 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
-from enum import Enum
+from enum import StrEnum
 
 
-class BeamType(str, Enum):
+class BeamType(StrEnum):
     ELECTRON = "electron"
     ION = "ion"
 

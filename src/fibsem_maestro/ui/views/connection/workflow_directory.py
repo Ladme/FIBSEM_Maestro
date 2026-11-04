@@ -10,11 +10,14 @@ the same texts and handle failures the same way.
 """
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from PyQt6.QtWidgets import QFileDialog, QMessageBox, QWidget
 
 from fibsem_maestro.ui.app.errors import DirectoryNotClearedError
-from fibsem_maestro.ui.app.files import WorkflowFiles
+
+if TYPE_CHECKING:
+    from fibsem_maestro.ui.app.files import WorkflowFiles
 
 
 def choose_new(parent: QWidget, files: WorkflowFiles) -> Path | None:

@@ -3,8 +3,7 @@
 
 """Editor of a list: one item editor per element, with add and remove buttons."""
 
-from collections.abc import Callable
-from typing import TypeVar, cast
+from typing import TYPE_CHECKING, TypeVar, cast
 
 from PyQt6.QtWidgets import (
     QGroupBox,
@@ -16,6 +15,9 @@ from PyQt6.QtWidgets import (
 )
 
 from fibsem_maestro.ui.forms.editor import FieldEditor
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 T = TypeVar("T")
 
@@ -112,9 +114,10 @@ class ListWidget(QWidget, FieldEditor[list[T]]):
         self._remove_buttons.pop(id(widget), None)
 
         while row.count():
-            item = row.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+            if (item := row.takeAt(0)) is not None and (
+                item_widget := item.widget()
+            ) is not None:
+                item_widget.deleteLater()
         self._items_layout.removeItem(row)
         self._emit()
 

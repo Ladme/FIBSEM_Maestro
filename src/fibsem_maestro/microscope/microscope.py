@@ -2,28 +2,31 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
-from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from scipy.spatial import distance  # pyright: ignore[reportMissingTypeStubs]
 
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
-from fibsem_maestro.core.provenance import Provenance
 from fibsem_maestro.core.stage_position import StagePosition
-from fibsem_maestro.logging.text.text_logger import TextLogger
-from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
-from fibsem_maestro.microscope.abstract_control.microscope_control import (
-    MicroscopeControl,
-)
 from fibsem_maestro.microscope.error import MicroscopeError
 from fibsem_maestro.microscope.registry import MICROSCOPE_CONTROLS
-from fibsem_maestro.properties.beam_properties import BeamProperties
 from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.properties.microscope_properties import MicroscopeProperties
-from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
 from fibsem_maestro.settings.property_names import PropertyNames
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
+    from fibsem_maestro.core.provenance import Provenance
+    from fibsem_maestro.logging.text.text_logger import TextLogger
+    from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
+    from fibsem_maestro.microscope.abstract_control.microscope_control import (
+        MicroscopeControl,
+    )
+    from fibsem_maestro.properties.beam_properties import BeamProperties
+    from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
 
 
 class Microscope:
@@ -462,7 +465,7 @@ class Microscope:
         )
 
     @contextmanager
-    def set_temporary_properties(self, props: GlobalProperties) -> Iterator[None]:
+    def set_temporary_properties(self, props: GlobalProperties) -> Generator[None]:
         """
         Temporarily set the microscope properties to the given values, and restore them when done.
         """
@@ -476,7 +479,7 @@ class Microscope:
     @contextmanager
     def set_temporary_beam_property(
         self, property: str, value: Any, beam: BeamType | None = None
-    ) -> Iterator[None]:
+    ) -> Generator[None]:
         """
         Temporarily set a single property of the given beam to the given value, and restore it when done.
 
@@ -507,7 +510,7 @@ class Microscope:
     @contextmanager
     def add_temporary_beam_shift(
         self, offset: BeamShift, beam: BeamControl | None = None
-    ) -> Iterator[None]:
+    ) -> Generator[None]:
         """
         Temporarily shift the beam by the specified offset.
 
@@ -569,7 +572,7 @@ class Microscope:
                 self._txt_log.warning(f"Could not restore beam shift: {e}")
 
     @contextmanager
-    def add_temporary_stage_offset(self, offset: StagePosition) -> Iterator[None]:
+    def add_temporary_stage_offset(self, offset: StagePosition) -> Generator[None]:
         """
         Temporarily move the stage by the specified offset.
 

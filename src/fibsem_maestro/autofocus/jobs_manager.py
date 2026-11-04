@@ -3,11 +3,13 @@
 
 
 import threading
-from collections.abc import Callable
 from concurrent.futures import Executor, Future, ThreadPoolExecutor
-from typing import Self
+from typing import TYPE_CHECKING, Self
 
-from fibsem_maestro.autofocus.result import AutofocusResult
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from fibsem_maestro.autofocus.result import AutofocusResult
 
 
 class JobsManager:

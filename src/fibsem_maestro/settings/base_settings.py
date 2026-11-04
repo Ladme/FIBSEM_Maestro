@@ -1,13 +1,18 @@
 # Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
-from pathlib import Path
-from typing import Self
+from typing import TYPE_CHECKING, Self
 
-from fibsem_maestro.serializer.serializer import Serializer
+from pydantic import ConfigDict
+
 from fibsem_maestro.serializer.yaml_serializer import YamlSerializer
 
 from .reactive import ReactiveModel
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from fibsem_maestro.serializer.serializer import Serializer
 
 
 class BaseSettings(ReactiveModel):
@@ -16,7 +21,7 @@ class BaseSettings(ReactiveModel):
     """
 
     # forbid extra fields
-    model_config = {"extra": "forbid"}
+    model_config = ConfigDict(extra="forbid")
 
     @classmethod
     def from_file(

@@ -4,12 +4,11 @@
 """Classifying the fields of a settings class into `FieldInfo`s; the entry point of the schema package."""
 
 import types
-from collections.abc import Sequence
 from dataclasses import replace
 from enum import Enum
 from pathlib import Path
 from types import NoneType
-from typing import Any, Literal, Union, get_args, get_origin
+from typing import TYPE_CHECKING, Any, Literal, Union, get_args, get_origin
 
 from fibsem_maestro.settings.form_utils import NestedUnion
 from fibsem_maestro.ui.schema._annotated import split_annotated
@@ -48,6 +47,9 @@ from fibsem_maestro.ui.schema.field_type import (
     UnknownType,
 )
 from fibsem_maestro.ui.schema.labels import field_name_to_label
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 
 def classify_type(t: Any, discriminator: str | None = None) -> FieldType:

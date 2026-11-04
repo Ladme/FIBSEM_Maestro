@@ -4,24 +4,26 @@
 import re
 from pathlib import Path
 from time import sleep
-from typing import ClassVar, Protocol, Self
+from typing import TYPE_CHECKING, ClassVar, Protocol, Self
 
-from fibsem_maestro.action.action import Action
 from fibsem_maestro.action.outcome import Produced, StepOutcome
 from fibsem_maestro.action.registry import ACTION_REGISTRY
 from fibsem_maestro.action.state import ActionState
-from fibsem_maestro.action_context.action_context import ActionContext
 from fibsem_maestro.action_context.file import FileActionContext
 from fibsem_maestro.logging.logging import logging_context
 from fibsem_maestro.logging.text.contextual import ContextualTextLogger
 from fibsem_maestro.microscope.microscope import Microscope
-from fibsem_maestro.notifications.notification_service import NotificationService
 from fibsem_maestro.notifications.null_notifier import NullNotifier
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
 from fibsem_maestro.workflow.actions import Actions
 from fibsem_maestro.workflow.error import ActionError, WorkflowError
 from fibsem_maestro.workflow.error_choice import ErrorChoice
 from fibsem_maestro.workflow.propagations import PropagationRule, Propagations
+
+if TYPE_CHECKING:
+    from fibsem_maestro.action.action import Action
+    from fibsem_maestro.action_context.action_context import ActionContext
+    from fibsem_maestro.notifications.notification_service import NotificationService
 
 
 class WorkflowState(ActionState):
@@ -50,7 +52,7 @@ class Workflow:
         actions: Actions,
         propagations: Propagations,
         context: ActionContext,
-        notifier: NotificationService = NullNotifier(),
+        notifier: NotificationService | None = None,
     ):
         """
         Orchestrates sequential execution of actions across multiple slices.
@@ -64,14 +66,18 @@ class Workflow:
             actions: The sequence of actions to execute each slice.
             propagations: The synchronization rules for property propagation.
             context: The action context for managing slice state.
-            notifier: The service for sending notifications.
+            notifier: The service for sending notifications; notifications
+                are discarded if None.
         """
 
         self.microscope = microscope
         self.actions = actions
         self.propagations = propagations
         self.ctx = context
-        self.notifier = notifier
+        self.notifier: NotificationService = (
+            notifier if notifier is not None else NullNotifier()
+        )
+
         self.callbacks: WorkflowCallbacks | None = None
 
     def set_callbacks(self, callbacks: WorkflowCallbacks) -> None:

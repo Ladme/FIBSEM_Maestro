@@ -6,5 +6,3 @@ class ImagingError(Exception):
     """
     Exception raised for errors related to image acquisition.
     """
-
-    pass

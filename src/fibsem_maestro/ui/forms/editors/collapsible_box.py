@@ -3,9 +3,13 @@
 
 """A group box whose body collapses with a toggle at its top-left."""
 
+from typing import TYPE_CHECKING
+
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QMouseEvent, QResizeEvent
 from PyQt6.QtWidgets import QGroupBox, QLabel, QWidget
+
+if TYPE_CHECKING:
+    from PyQt6.QtGui import QMouseEvent, QResizeEvent
 
 
 class ClickableLabel(QLabel):
@@ -17,7 +21,7 @@ class ClickableLabel(QLabel):
 
     clicked = pyqtSignal()
 
-    def mousePressEvent(self, ev: QMouseEvent) -> None:
+    def mousePressEvent(self, ev: QMouseEvent | None) -> None:
         """
         Emit `clicked` and forward the event to the base class.
 
@@ -62,7 +66,7 @@ class CollapsibleGroupBox(QGroupBox):
         """
         raise NotImplementedError
 
-    def resizeEvent(self, a0: QResizeEvent) -> None:
+    def resizeEvent(self, a0: QResizeEvent | None) -> None:
         """Keep the toggle pinned to the top-left of the group box."""
         self._toggle.move(-2, 5)
         super().resizeEvent(a0)

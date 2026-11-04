@@ -4,10 +4,13 @@
 """Incremental reading of the per-slice `run.log` files of a workflow's sources."""
 
 import contextlib
-from collections.abc import Sequence
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from fibsem_maestro.ui.views.log_panel.parsing import LogLine, level_value, parse_line
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from pathlib import Path
 
 WORKFLOW_SOURCE = "workflow"
 """Name of the workflow's own log source; every other source is an action name."""

@@ -85,7 +85,8 @@ class ActionListView(QWidget):
         self._list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self._list.customContextMenuRequested.connect(self._on_context_menu)
         self._list.currentRowChanged.connect(self._on_current_row_changed)
-        self._list.model().rowsMoved.connect(self._on_rows_moved)
+        if (model := self._list.model()) is not None:
+            model.rowsMoved.connect(self._on_rows_moved)
         self._list.setStyleSheet("""
             QListWidget::item:selected {
                 background: #36678f;

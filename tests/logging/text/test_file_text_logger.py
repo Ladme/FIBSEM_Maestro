@@ -534,3 +534,84 @@ def test_concurrent_writes_produce_complete_records(logger, cursor):
     records = parsed(cursor.log_path(0))
     assert len(records) == 8 * 50
     assert all(record["message"].endswith(payload) for record in records)
+
+
+def test_warning_once_writes_the_first_occurrence_as_a_warning(logger, cursor):
+    logger.warning_once("old-autoscript", "fallback used")
+    logger.close()
+
+    records = parsed(cursor.log_path(0))
+    assert [(r["level"], r["message"]) for r in records] == [
+        ("WARNING", "fallback used")
+    ]
+
+
+def test_warning_once_writes_repeats_as_debug(logger, cursor):
+    logger.warning_once("old-autoscript", "fallback used")
+    logger.warning_once("old-autoscript", "fallback used")
+    logger.warning_once("old-autoscript", "fallback used")
+    logger.close()
+
+    levels = [r["level"] for r in parsed(cursor.log_path(0))]
+    assert levels == ["WARNING", "DEBUG", "DEBUG"]
+
+
+def test_warning_once_repeats_are_dropped_above_debug_level(cursor):
+    """With the usual INFO threshold, a repeated condition adds nothing to the log."""
+    logger = FileTextLogger(cursor, "run", level=logging.INFO)
+
+    logger.warning_once("old-autoscript", "fallback used")
+    logger.warning_once("old-autoscript", "fallback used")
+    logger.close()
+
+    assert [r["level"] for r in parsed(cursor.log_path(0))] == ["WARNING"]
+
+
+def test_warning_once_deduplicates_by_key_not_by_message(logger, cursor):
+    logger.warning_once("get", "fallback used")
+    logger.warning_once("set", "fallback used")
+    logger.warning_once("get", "a different text for the same condition")
+    logger.close()
+
+    levels = [r["level"] for r in parsed(cursor.log_path(0))]
+    assert levels == ["WARNING", "WARNING", "DEBUG"]
+
+
+def test_plain_warning_is_never_deduplicated(logger, cursor):
+    logger.warning_once("old-autoscript", "fallback used")
+    logger.warning("fallback used")
+    logger.warning("fallback used")
+    logger.close()
+
+    assert [r["level"] for r in parsed(cursor.log_path(0))] == ["WARNING"] * 3
+
+
+def test_warning_once_is_remembered_across_slices(logger, cursor):
+    """A persistent condition warns once per run, not once per slice."""
+    logger.warning_once("old-autoscript", "fallback used")
+    cursor.advance_to(1)
+    logger.warning_once("old-autoscript", "fallback used")
+    logger.close()
+
+    assert [r["level"] for r in parsed(cursor.log_path(0))] == ["WARNING"]
+    assert [r["level"] for r in parsed(cursor.log_path(1))] == ["DEBUG"]
+
+
+def test_warning_once_is_remembered_across_close(logger, cursor):
+    """Closing releases the file, not what the logger has already reported."""
+    logger.warning_once("old-autoscript", "fallback used")
+    close_all_log_files()
+    logger.warning_once("old-autoscript", "fallback used")
+    logger.close()
+
+    assert [r["level"] for r in parsed(cursor.log_path(0))] == ["WARNING", "DEBUG"]
+
+
+def test_derived_logger_warns_once_on_its_own(logger, cursor):
+    """Each component derives its own logger; one component's warning must not hide another's."""
+    logger.warning_once("old-autoscript", "fallback used")
+    logger.derive("ion").warning_once("old-autoscript", "fallback used")
+    logger.close()
+
+    records = [(r["name"], r["level"]) for r in parsed(cursor.log_path(0))]
+    assert records == [("run", "WARNING"), ("run.ion", "WARNING")]

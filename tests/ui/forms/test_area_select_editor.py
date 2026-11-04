@@ -269,12 +269,18 @@ def test_detached_area_selector_warns_that_its_context_cannot_be_resolved(
     qtbot.addWidget(form.widget)
 
     assert warnings_of(log) == [
-        "Field 'area' requests beam 'beam' but is not bound to live settings; "
-        "the active beam is used.",
-        "Field 'area' declares crop sources but is not bound to live settings; "
-        "the whole frame is shown.",
-        "Field 'area' declares an acquisition offset but is not bound to live "
-        "settings; images are grabbed at the current beam position.",
+        (
+            "Field 'area' requests beam 'beam' but is not bound to live settings; "
+            "the active beam is used."
+        ),
+        (
+            "Field 'area' declares crop sources but is not bound to live settings; "
+            "the whole frame is shown."
+        ),
+        (
+            "Field 'area' declares an acquisition offset but is not bound to live "
+            "settings; images are grabbed at the current beam position."
+        ),
     ]
 
 
@@ -283,7 +289,9 @@ def _expanded_viewer(
 ) -> QGraphicsView:
     """Load an image into the area selector, expand it and return its viewer."""
     widget = _widget(area)
-    widget.window().show()
+    window = widget.window()
+    assert window is not None
+    window.show()
     _load(area)
     previews.handles[-1].succeeded.emit(_image(400, 300))
     button(widget, "▼ Expand").click()

@@ -3,15 +3,18 @@
 
 """Problems reported on form fields, and their attribution to field editors."""
 
-from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Self
+from typing import TYPE_CHECKING, Any, Self
 
-from pydantic import ValidationError
-
-from fibsem_maestro.ui.forms.editor import FieldEditor
 from fibsem_maestro.ui.schema.validation import detail_message
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable, Sequence
+
+    from pydantic import ValidationError
+
+    from fibsem_maestro.ui.forms.editor import FieldEditor
 
 
 class Severity(Enum):

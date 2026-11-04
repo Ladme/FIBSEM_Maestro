@@ -6,5 +6,3 @@ class PostMillingCorrectionError(Exception):
     """
     Exception raised for errors in post milling correction.
     """
-
-    pass

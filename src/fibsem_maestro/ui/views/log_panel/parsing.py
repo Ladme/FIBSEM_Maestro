@@ -33,7 +33,7 @@ class LogLine:
         raw: The whole line, without the line break.
     """
 
-    __slots__ = ("timestamp", "name", "level", "message", "raw")
+    __slots__ = ("level", "message", "name", "raw", "timestamp")
 
     def __init__(
         self, timestamp: str, name: str, level: str, message: str, raw: str

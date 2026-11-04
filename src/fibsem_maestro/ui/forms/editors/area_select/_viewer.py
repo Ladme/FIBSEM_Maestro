@@ -2,7 +2,7 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
-from collections.abc import Callable, Sequence
+from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import QPointF, QRectF, Qt, QTimer
 from PyQt6.QtGui import QGuiApplication, QKeyEvent, QMouseEvent, QPainter, QWheelEvent
@@ -18,7 +18,11 @@ from fibsem_maestro.ui.forms.editors.area_select._constants import (
 from fibsem_maestro.ui.forms.editors.area_select._rectangle import (
     ResizableRect,
 )
-from fibsem_maestro.ui.forms.editors.area_select.overlays import AreaDecoration
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
+
+    from fibsem_maestro.ui.forms.editors.area_select.overlays import AreaDecoration
 
 
 class AreaViewer(QGraphicsView):
@@ -103,10 +107,16 @@ class AreaViewer(QGraphicsView):
 
     def _rect_count(self) -> int:
         """Return the number of area rectangles currently in the scene."""
-        return sum(1 for i in self.scene().items() if isinstance(i, ResizableRect))
+        scene = self.scene()
+        if scene is not None:
+            return sum(1 for i in scene.items() if isinstance(i, ResizableRect))
 
-    def wheelEvent(self, event: QWheelEvent) -> None:
+        return 0
+
+    def wheelEvent(self, event: QWheelEvent | None) -> None:
         """Zoom the view around the cursor."""
+        assert event is not None
+
         factor = 1.25 if event.angleDelta().y() > 0 else 1 / 1.25
         self._zoom *= factor
         self.scale(factor, factor)
@@ -119,8 +129,10 @@ class AreaViewer(QGraphicsView):
         self._zoom = 1.0
         self.fitInView(self.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
-    def mousePressEvent(self, event: QMouseEvent) -> None:
+    def mousePressEvent(self, event: QMouseEvent | None) -> None:
         """Start panning, forward to an item, or begin drawing a new rect."""
+        assert event is not None
+
         if event.button() == Qt.MouseButton.LeftButton:
             self._last_left_press_ms = event.timestamp()
 
@@ -138,7 +150,9 @@ class AreaViewer(QGraphicsView):
             return
 
         if event.button() == Qt.MouseButton.LeftButton:
-            self.scene().clearSelection()
+            if (scene := self.scene()) is not None:
+                scene.clearSelection()
+
             if self._read_only:
                 return
 
@@ -154,10 +168,12 @@ class AreaViewer(QGraphicsView):
 
         super().mousePressEvent(event)
 
-    def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
+    def mouseDoubleClickEvent(self, event: QMouseEvent | None) -> None:
         """
         Expand the area under the cursor to the frame, or else reset the zoom.
         """
+        assert event is not None
+
         if event.button() != Qt.MouseButton.LeftButton:
             super().mouseDoubleClickEvent(event)
             return
@@ -190,20 +206,22 @@ class AreaViewer(QGraphicsView):
         if self._last_left_press_ms is None:
             return False
 
-        interval = QGuiApplication.styleHints().mouseDoubleClickInterval()
+        style_hints = QGuiApplication.styleHints()
+        assert style_hints is not None
+        interval = style_hints.mouseDoubleClickInterval()
         return event.timestamp() - self._last_left_press_ms <= interval
 
-    def mouseMoveEvent(self, event: QMouseEvent) -> None:
+    def mouseMoveEvent(self, event: QMouseEvent | None) -> None:
         """Pan, grow the rect being drawn, or update the coordinate readout."""
+        assert event is not None
+
         if self._panning:
-            delta = event.position() - self._pan_start  # type: ignore
+            delta = event.position() - self._pan_start
             self._pan_start = event.position()
-            self.horizontalScrollBar().setValue(
-                self.horizontalScrollBar().value() - int(delta.x())
-            )
-            self.verticalScrollBar().setValue(
-                self.verticalScrollBar().value() - int(delta.y())
-            )
+            if (hscrollbar := self.horizontalScrollBar()) is not None:
+                hscrollbar.setValue(hscrollbar.value() - int(delta.x()))
+            if (vscrollbar := self.verticalScrollBar()) is not None:
+                vscrollbar.setValue(vscrollbar.value() - int(delta.y()))
             event.accept()
             return
 
@@ -230,7 +248,8 @@ class AreaViewer(QGraphicsView):
                     self._current_rect = ResizableRect(
                         rect, on_edit_finished=self._on_edit_finished
                     )
-                    self.scene().addItem(self._current_rect)
+                    if (scene := self.scene()) is not None:
+                        scene.addItem(self._current_rect)
                     # decorate before the first fit, so the footprint of the
                     # overlays constrains the area while it is being drawn
                     if self._decoration_factory is not None:
@@ -252,8 +271,10 @@ class AreaViewer(QGraphicsView):
             )
         super().mouseMoveEvent(event)
 
-    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+    def mouseReleaseEvent(self, event: QMouseEvent | None) -> None:
         """Finish panning or committing a freshly drawn rectangle."""
+        assert event is not None
+
         if event.button() == Qt.MouseButton.RightButton and self._panning:
             self._panning = False
             self.setCursor(Qt.CursorShape.ArrowCursor)
@@ -277,18 +298,22 @@ class AreaViewer(QGraphicsView):
 
         super().mouseReleaseEvent(event)
 
-    def keyPressEvent(self, event: QKeyEvent) -> None:
+    def keyPressEvent(self, event: QKeyEvent | None) -> None:
         """
         Delete selected areas, notifying once if anything was removed.
 
         A deletion that would leave fewer than `min_areas` areas is refused
         as a whole, with a status message.
         """
+        assert event is not None
+        scene = self.scene()
+        assert scene is not None
+
         if event.key() == Qt.Key.Key_Delete:
             event.accept()
             selected = [
                 item
-                for item in self.scene().selectedItems()
+                for item in scene.selectedItems()
                 if isinstance(item, ResizableRect)
             ]
             if not selected:
@@ -304,7 +329,7 @@ class AreaViewer(QGraphicsView):
                 return
 
             for item in selected:
-                self.scene().removeItem(item)
+                scene.removeItem(item)
             self._notify_edit_finished()
             return
 

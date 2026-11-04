@@ -4,9 +4,8 @@
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -22,8 +21,12 @@ from fibsem_maestro.logging.image.overlay import (
     RectangleOverlay,
     VerticalLineOverlay,
 )
+from fibsem_maestro.logging.image.plot import Plot
 from fibsem_maestro.logging.image.plot_element import Curve, VerticalLine
 from fibsem_maestro.slice.slice_view import SliceView
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class SliceCursor:
@@ -224,7 +227,7 @@ def test_collisions_are_counted_across_images_and_plots(
     logger: FileImageLogger, cursor: SliceCursor, image: np.ndarray
 ) -> None:
     logger.save_image("out.png", image)
-    logger.save_plot("out.png", [])
+    logger.save_plot("out.png", Plot.single([]))
 
     assert cursor.names() == ["out.png", "out_2.png"]
 
@@ -410,7 +413,9 @@ def test_next_of_next_advances_twice(
 def test_save_plot_writes_a_valid_png(
     logger: FileImageLogger, cursor: SliceCursor
 ) -> None:
-    logger.save_plot("sharpness.png", [Curve("red", 1.0, None, [1.0, 2.0, 3.0])])
+    logger.save_plot(
+        "sharpness.png", Plot.single([Curve("red", 1.0, None, [1.0, 2.0, 3.0])])
+    )
 
     assert is_png(cursor.dir(0) / "sharpness.png")
 
@@ -420,7 +425,7 @@ def test_save_plot_with_explicit_x_values(
 ) -> None:
     curve = Curve("red", 1.0, [0.0, 1.0, 2.0], [3.0, 4.0, 5.0])
 
-    logger.save_plot("sharpness.png", [curve])
+    logger.save_plot("sharpness.png", Plot.single([curve]))
 
     assert is_png(cursor.dir(0) / "sharpness.png")
 
@@ -432,13 +437,13 @@ def test_save_plot_with_mismatched_x_and_y_lengths_raises(
     curve = Curve("red", 1.0, [0.0, 1.0], [3.0, 4.0, 5.0])
 
     with pytest.raises(ValueError):
-        logger.save_plot("sharpness.png", [curve])
+        logger.save_plot("sharpness.png", Plot.single([curve]))
 
 
 def test_save_plot_with_vertical_line(
     logger: FileImageLogger, cursor: SliceCursor
 ) -> None:
-    logger.save_plot("sharpness.png", [VerticalLine("black", 1.0, 1.5)])
+    logger.save_plot("sharpness.png", Plot.single([VerticalLine("black", 1.0, 1.5)]))
 
     assert is_png(cursor.dir(0) / "sharpness.png")
 
@@ -452,7 +457,7 @@ def test_save_plot_with_mixed_elements(
         VerticalLine("black", 0.5, 1.0),
     ]
 
-    logger.save_plot("sharpness.png", elements)
+    logger.save_plot("sharpness.png", Plot.single(elements))
 
     assert is_png(cursor.dir(0) / "sharpness.png")
 
@@ -460,7 +465,7 @@ def test_save_plot_with_mixed_elements(
 def test_save_plot_with_no_elements_still_writes_a_file(
     logger: FileImageLogger, cursor: SliceCursor
 ) -> None:
-    logger.save_plot("empty.png", [])
+    logger.save_plot("empty.png", Plot.single([]))
 
     assert is_png(cursor.dir(0) / "empty.png")
 
@@ -468,10 +473,12 @@ def test_save_plot_with_no_elements_still_writes_a_file(
 def test_save_plot_accepts_labels(logger: FileImageLogger, cursor: SliceCursor) -> None:
     logger.save_plot(
         "sharpness.png",
-        [Curve("red", 1.0, None, [1.0])],
-        title="Sharpness",
-        xlabel="working distance [nm]",
-        ylabel="sharpness",
+        Plot.single(
+            [Curve("red", 1.0, None, [1.0])],
+            title="Sharpness",
+            xlabel="working distance [nm]",
+            ylabel="sharpness",
+        ),
     )
 
     assert is_png(cursor.dir(0) / "sharpness.png")
@@ -480,16 +487,16 @@ def test_save_plot_accepts_labels(logger: FileImageLogger, cursor: SliceCursor) 
 def test_save_plot_follows_the_slice(
     logger: FileImageLogger, cursor: SliceCursor
 ) -> None:
-    logger.save_plot("zero.png", [])
+    logger.save_plot("zero.png", Plot.single([]))
     cursor.advance_to(3)
-    logger.save_plot("three.png", [])
+    logger.save_plot("three.png", Plot.single([]))
 
     assert cursor.names(0) == ["zero.png"]
     assert cursor.names(3) == ["three.png"]
 
 
 def test_save_plot_closes_its_figure(logger: FileImageLogger) -> None:
-    logger.save_plot("sharpness.png", [Curve("red", 1.0, None, [1.0])])
+    logger.save_plot("sharpness.png", Plot.single([Curve("red", 1.0, None, [1.0])]))
 
     assert plt.get_fignums() == []
 
@@ -499,7 +506,7 @@ def test_save_plot_closes_its_figure_on_failure(logger: FileImageLogger) -> None
     curve = Curve("red", 1.0, [0.0, 1.0], [3.0, 4.0, 5.0])
 
     with pytest.raises(ValueError):
-        logger.save_plot("sharpness.png", [curve])
+        logger.save_plot("sharpness.png", Plot.single([curve]))
 
     assert plt.get_fignums() == []
 

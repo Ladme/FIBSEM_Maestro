@@ -2,11 +2,14 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
-from collections.abc import Callable
-from typing import Self
+from typing import TYPE_CHECKING, Self
 
-from fibsem_maestro.action.state import ActionState
 from fibsem_maestro.store.state.state_store import StateStore
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from fibsem_maestro.action.state import ActionState
 
 
 class MemoryStateStore(StateStore):

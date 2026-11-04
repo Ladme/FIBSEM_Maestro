@@ -2,11 +2,13 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
-from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import TypeAlias
+from typing import TYPE_CHECKING
 
-from fibsem_maestro.properties.global_properties import GlobalProperties
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from fibsem_maestro.properties.global_properties import GlobalProperties
 
 
 @dataclass(frozen=True)
@@ -42,4 +44,4 @@ class CarriedOver:
     reason: str
 
 
-StepOutcome: TypeAlias = Produced | CarriedOver
+type StepOutcome = Produced | CarriedOver

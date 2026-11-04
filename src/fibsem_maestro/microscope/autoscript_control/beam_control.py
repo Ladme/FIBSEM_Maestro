@@ -5,7 +5,8 @@ import math
 import time
 from abc import abstractmethod
 from functools import cached_property
-from typing import Any, Generic, TypeVar
+from types import MappingProxyType
+from typing import TYPE_CHECKING, Any, ClassVar, TypeVar
 
 from autoscript_sdb_microscope_client.enumerations import (
     ImageFileFormat,
@@ -19,27 +20,35 @@ from autoscript_sdb_microscope_client.sdb_microscope.beams._electron_beam import
 from autoscript_sdb_microscope_client.sdb_microscope.beams._ion_beam import (
     IonBeam as IonBeamAs,
 )
-from autoscript_sdb_microscope_client.sdb_microscope_client import SdbMicroscopeClient
 from autoscript_sdb_microscope_client.structures import AdornedImage, GrabFrameSettings
 
 from fibsem_maestro.core.area import NMArea, RelativeArea
 from fibsem_maestro.core.beam_shift import BeamShift
 from fibsem_maestro.core.beam_type import BeamType
+from fibsem_maestro.core.detector_mode import DetectorMode
 from fibsem_maestro.core.direction import Direction
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.lens_alignment import LensAlignment
-from fibsem_maestro.core.pattern_type import PatternType
 from fibsem_maestro.core.provenance import Provenance
 from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.source_tilt import SourceTilt
 from fibsem_maestro.core.stigmator import Stigmator
-from fibsem_maestro.logging.text.text_logger import TextLogger
 from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
 from fibsem_maestro.microscope.autoscript_control.manufacturer_props import (
     AutoscriptManufacturerPropertiesRegistry,
 )
 from fibsem_maestro.microscope.error import MicroscopeError
-from fibsem_maestro.store.frame.frame_store import FrameStore
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from autoscript_sdb_microscope_client.sdb_microscope_client import (
+        SdbMicroscopeClient,
+    )
+
+    from fibsem_maestro.core.pattern_type import PatternType
+    from fibsem_maestro.logging.text.text_logger import TextLogger
+    from fibsem_maestro.store.frame.frame_store import FrameStore
 
 BeamT = TypeVar(
     "BeamT",
@@ -48,21 +57,29 @@ BeamT = TypeVar(
 )
 
 
-class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
-    _LIMITED_VARIABLES: dict[str, tuple[str, int | None, float]] = {
-        # variable: (Autoscript attribute, axis of a 2D value or None, scale to Maestro units)
-        "working_distance": ("working_distance", None, 1e9),  # m -> nm
-        "horizontal_field_width": ("horizontal_field_width", None, 1e9),  # m -> nm
-        "beam_current": ("beam_current", None, 1e9),  # A -> nA
-        "stigmator_x": ("stigmator", 0, 1.0),
-        "stigmator_y": ("stigmator", 1, 1.0),
-        "lens_alignment_x": ("lens_alignment", 0, 1e9),  # m -> nm
-        "lens_alignment_y": ("lens_alignment", 1, 1e9),  # m -> nm
-        "source_tilt_x": ("source_tilt", 0, math.degrees(1.0)),  # rad -> deg
-        "source_tilt_y": ("source_tilt", 1, math.degrees(1.0)),  # rad -> deg
-        "beam_shift_x": ("beam_shift", 0, 1e9),  # m -> nm
-        "beam_shift_y": ("beam_shift", 1, 1e9),  # m -> nm
-    }
+class AutoscriptBeamControl[BeamT: (ElectronBeamAs, IonBeamAs)](BeamControl):
+    _LIMITED_VARIABLES: ClassVar[Mapping[str, tuple[str, int | None, float]]] = (
+        MappingProxyType(
+            {
+                # variable: (Autoscript attribute, axis of a 2D value or None, scale to Maestro units)
+                "working_distance": ("working_distance", None, 1e9),  # m -> nm
+                "horizontal_field_width": (
+                    "horizontal_field_width",
+                    None,
+                    1e9,
+                ),  # m -> nm
+                "beam_current": ("beam_current", None, 1e9),  # A -> nA
+                "stigmator_x": ("stigmator", 0, 1.0),
+                "stigmator_y": ("stigmator", 1, 1.0),
+                "lens_alignment_x": ("lens_alignment", 0, 1e9),  # m -> nm
+                "lens_alignment_y": ("lens_alignment", 1, 1e9),  # m -> nm
+                "source_tilt_x": ("source_tilt", 0, math.degrees(1.0)),  # rad -> deg
+                "source_tilt_y": ("source_tilt", 1, math.degrees(1.0)),  # rad -> deg
+                "beam_shift_x": ("beam_shift", 0, 1e9),  # m -> nm
+                "beam_shift_y": ("beam_shift", 1, 1e9),  # m -> nm
+            }
+        )
+    )
 
     def __init__(
         self,
@@ -115,7 +132,6 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
 
         The Electron Beam mode is always in Quad 1, while the Ion Beam mode is always in Quad 2.
         """
-        pass
 
     @property
     def stigmator(self) -> Stigmator:
@@ -138,6 +154,36 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
     def beam_shift(self, value: BeamShift) -> None:
         self._txt_log.debug(f"Setting beam shift ({self._modality}): {value}.")
         self._beam.beam_shift.value = value.to_point_autoscript()
+
+    @property
+    def detector_mode(self) -> DetectorMode:
+        self.select_modality()
+
+        raw = self._microscope.detector.mode.value
+        try:
+            value = DetectorMode(raw)
+        except ValueError as e:
+            raise MicroscopeError(
+                f"Unknown detector mode '{raw}' reported by the microscope ({self._modality})."
+            ) from e
+
+        self._txt_log.debug(f"Getting detector mode ({self._modality}): {value}.")
+        return value
+
+    @detector_mode.setter
+    def detector_mode(self, value: DetectorMode) -> None:
+        self.select_modality()
+
+        # the available modes depend on the active detector
+        available = self._microscope.detector.mode.available_values
+        if value.value not in available:
+            raise MicroscopeError(
+                f"Detector mode '{value.value}' is not available on the active "
+                f"detector ({self._modality}); available: {', '.join(available)}."
+            )
+
+        self._txt_log.debug(f"Setting detector mode ({self._modality}) to: {value}.")
+        self._microscope.detector.mode.value = value.value
 
     @property
     def detector_contrast(self) -> float:
@@ -283,7 +329,7 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
             pattern_fn = self._microscope.patterning.create_regular_cross_section
         else:
             self._txt_log.debug(
-                f"Pattern type {str(pattern_type)} not recognized, using rectangle pattern."
+                f"Pattern type {pattern_type!s} not recognized, using rectangle pattern."
             )
             pattern_fn = self._microscope.patterning.create_rectangle
 
@@ -333,10 +379,11 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         try:
             li = self._beam.scanning.line_integration
         except Exception:
-            self._txt_log.warning(
+            self._txt_log.warning_once(
+                "get-line-integration-old-autoscript",
                 "Linked autoscript version does not support getting line_integration via scanning. "
                 "Cannot get line_integration from Thermofisher's Microscope Control - "
-                "Line integration must be specified externally in FIBSEM Maestro!"
+                "Line integration must be specified externally in FIBSEM Maestro!",
             )
             li = self._line_integration
 
@@ -351,8 +398,9 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         try:
             self._beam.scanning.line_integration = value
         except Exception:
-            self._txt_log.warning(
-                "Linked autoscript version does not support setting line_integration via scanning. Using a fallback."
+            self._txt_log.warning_once(
+                "set-line-integration-old-autoscript",
+                "Linked autoscript version does not support setting line_integration via scanning. Using a fallback.",
             )
 
         self._line_integration = value
@@ -454,7 +502,7 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
         pixel_size = self.pixel_size
         self.resolution = Resolution(self.resolution.width, round(value / pixel_size))
         self._txt_log.info(
-            f"Extended resolution set to: {str(self.resolution)} (via setting vertical field width)."
+            f"Extended resolution set to: {self.resolution!s} (via setting vertical field width)."
         )
 
     @property
@@ -472,7 +520,7 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
             round(self.vertical_field_width / value),
         )
         self._txt_log.info(
-            f"Extended resolution set to: {str(self.resolution)} (via setting pixel size)."
+            f"Extended resolution set to: {self.resolution!s} (via setting pixel size)."
         )
 
     @property
@@ -498,10 +546,11 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
             else:
                 area = RelativeArea.full()
         except Exception:
-            self._txt_log.warning(
+            self._txt_log.warning_once(
+                "get-scanning-area-old-autoscript",
                 "Linked autoscript version does not support getting reduced_area via scanning.mode. "
                 "Cannot get scanning area from Thermofisher's Microscope Control - "
-                "Scanning area must be specified externally in FIBSEM Maestro!"
+                "Scanning area must be specified externally in FIBSEM Maestro!",
             )
 
             area = self._scanning_area
@@ -516,8 +565,9 @@ class AutoscriptBeamControl(BeamControl, Generic[BeamT]):
             try:
                 self._beam.scanning.mode.reduced_area.value = value.to_autoscript()
             except Exception:
-                self._txt_log.warning(
-                    "Linked autoscript version does not support setting reduced_area via scanning.mode. Using a fallback."
+                self._txt_log.warning_once(
+                    "set-scanning-area-old-autoscript",
+                    "Linked autoscript version does not support setting reduced_area via scanning.mode. Using a fallback.",
                 )
             # used for acquisition started by start_acquisition()
             self._beam.scanning.mode.set_full_frame()

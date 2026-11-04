@@ -63,6 +63,8 @@ class MemoryTextLogger(TextLogger):
         _records: dict[int, list[LogRecord]] | None = None,
         _group: _GroupState | None = None,
     ) -> None:
+        super().__init__()
+
         self._slice_provider = slice_provider
         self._records: dict[int, list[LogRecord]] = (
             defaultdict(list) if _records is None else _records

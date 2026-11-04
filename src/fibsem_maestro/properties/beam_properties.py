@@ -3,9 +3,10 @@
 
 from typing import Annotated
 
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
 from fibsem_maestro.core.beam_shift import BeamShift
+from fibsem_maestro.core.detector_mode import DetectorMode
 from fibsem_maestro.core.lens_alignment import LensAlignment
 from fibsem_maestro.core.resolution import Resolution
 from fibsem_maestro.core.source_tilt import SourceTilt
@@ -15,7 +16,7 @@ from fibsem_maestro.settings.form_utils import FieldUnit
 
 
 class BeamProperties(BaseSettings):
-    model_config = {"extra": "allow"}
+    model_config = ConfigDict(extra="allow")
 
     stigmator: Stigmator | None = Field(
         default=None,
@@ -50,6 +51,13 @@ class BeamProperties(BaseSettings):
     beam_shift: BeamShift | None = Field(
         default=None,
         description="Beam shift.",
+    )
+
+    # declared before contrast and brightness: properties are applied in field
+    # order, and changing the mode can reset the detector's contrast and brightness
+    detector_mode: DetectorMode | None = Field(
+        default=None,
+        description="Signal the detector records.",
     )
 
     detector_contrast: float | None = Field(

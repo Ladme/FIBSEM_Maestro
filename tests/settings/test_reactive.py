@@ -6,7 +6,7 @@ import copy
 import threading
 from typing import Literal
 
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
 from fibsem_maestro.settings.reactive import (
     ChangePath,
@@ -1220,7 +1220,7 @@ def test_equality_compares_field_values():
 
 def test_equality_compares_extra_fields():
     class Loose(ReactiveModel):
-        model_config = {"extra": "allow"}
+        model_config = ConfigDict(extra="allow")
 
         value: int = 0
 

@@ -3,12 +3,10 @@
 
 """Fixtures building real workflows on the simulated microscope."""
 
-from collections.abc import Callable
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
-from fibsem_maestro.action.action import Action
 from fibsem_maestro.action.registry import ACTION_REGISTRY
 from fibsem_maestro.action_context.file import FileActionContext
 from fibsem_maestro.logging.text.contextual import ContextualTextLogger
@@ -17,6 +15,12 @@ from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
 from fibsem_maestro.workflow.actions import Actions
 from fibsem_maestro.workflow.propagations import Propagations
 from fibsem_maestro.workflow.workflow import Workflow
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from pathlib import Path
+
+    from fibsem_maestro.action.action import Action
 
 
 @pytest.fixture

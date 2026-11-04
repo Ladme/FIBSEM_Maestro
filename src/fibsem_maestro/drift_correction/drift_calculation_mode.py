@@ -83,7 +83,6 @@ class DriftCalculationMode(ABC):
         Args:
             store: Optional image store to write to. Defaults to the current slice.
         """
-        pass
 
     def is_set_up(self) -> bool:
         """
@@ -104,7 +103,6 @@ class DriftCalculationMode(ABC):
         Args:
             slice_number: The current slice index.
         """
-        pass
 
     def after_calculate_drift(self, slice_number: int) -> None:
         """
@@ -117,7 +115,6 @@ class DriftCalculationMode(ABC):
         Args:
             slice_number: The current slice index.
         """
-        pass
 
     def if_skipped(self, slice_number: int) -> None:
         """
@@ -130,7 +127,6 @@ class DriftCalculationMode(ABC):
         Args:
             slice_number: The current slice index.
         """
-        pass
 
     def copy_setup(
         self, source: ImageStore[Image8Bit], target: ImageStore[Image8Bit]
@@ -146,7 +142,6 @@ class DriftCalculationMode(ABC):
             source: Store holding the data written by `setup`.
             target: Store to copy it to.
         """
-        pass
 
 
 @DRIFT_CALCULATION_MODES.register("template_matching")

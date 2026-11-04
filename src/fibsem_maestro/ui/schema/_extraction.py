@@ -7,10 +7,19 @@ import dataclasses
 import types
 from functools import cache
 from types import NoneType
-from typing import Any, Union, get_args, get_origin, get_type_hints
+from typing import (
+    Any,
+    Literal,
+    TypeAliasType,
+    Union,
+    get_args,
+    get_origin,
+    get_type_hints,
+)
 
 from pydantic_core import PydanticUndefined
 
+from fibsem_maestro.ui.schema._annotated import Annotated
 from fibsem_maestro.ui.schema._predicates import is_pydantic_model
 from fibsem_maestro.ui.schema._raw_field import RawField
 
@@ -49,7 +58,9 @@ def _raw_fields_from_dataclass(cls: type) -> tuple[RawField, ...]:
     return tuple(
         RawField(
             name=f.name,
-            type_hint=hints.get(f.name, f.type),
+            type_hint=expand_type_aliases(
+                hints.get(f.name, f.type)
+            ),  # _raw_fields_from_dataclass
             default=f.default,
             default_factory=f.default_factory,
             description="",
@@ -77,7 +88,9 @@ def _raw_fields_from_pydantic(cls: type) -> tuple[RawField, ...]:
         result.append(
             RawField(
                 name=name,
-                type_hint=hints.get(name),
+                type_hint=expand_type_aliases(
+                    hints.get(name)
+                ),  # _raw_fields_from_pydantic
                 default=default,
                 default_factory=default_factory,
                 description=fi.description or "",
@@ -111,3 +124,33 @@ def unwrap_optional(hint: Any) -> tuple[bool, Any]:
             # multiple non-None arms: hand the whole union to classify_type
             return True, hint
     return False, hint
+
+
+def expand_type_aliases(hint: Any) -> Any:
+    """
+    Replace `type X = ...` aliases by their values, at any depth of the hint.
+
+    Args:
+        hint: A type hint, possibly with `Annotated[]` and unions.
+
+    Returns:
+        The same hint with every alias replaced by its value.
+    """
+    if isinstance(hint, TypeAliasType):
+        return expand_type_aliases(hint.__value__)
+
+    origin = get_origin(hint)
+    args = get_args(hint)
+    if origin is None or not args or origin is Literal:
+        return hint
+
+    if origin is Annotated:
+        inner, *metadata = args
+        return Annotated[expand_type_aliases(inner), *metadata]
+
+    expanded = tuple(expand_type_aliases(a) for a in args)
+    if expanded == args:
+        return hint
+    if origin is Union or origin is types.UnionType:
+        return Union[expanded]  # noqa: UP007
+    return origin[expanded]

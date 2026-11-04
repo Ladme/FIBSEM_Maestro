@@ -3,7 +3,7 @@
 
 """The area selector: an editor of acquisition areas drawn over a preview image."""
 
-from collections.abc import Callable, Sequence
+from typing import TYPE_CHECKING
 
 import numpy as np
 from PyQt6.QtCore import QRectF, Qt
@@ -19,10 +19,8 @@ from PyQt6.QtWidgets import (
 )
 
 from fibsem_maestro.core.area import RelativeArea
-from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.image import Image
 from fibsem_maestro.core.point import RelativePoint
-from fibsem_maestro.settings.form_utils import AreaOverlay
 from fibsem_maestro.ui.forms.editor import FieldEditor
 from fibsem_maestro.ui.forms.editors.area_select._mipmap import (
     MipmapPixmapItem,
@@ -39,6 +37,12 @@ from fibsem_maestro.ui.forms.editors.area_select.overlays import (
 )
 from fibsem_maestro.ui.forms.issues import FieldIssue, Severity
 from fibsem_maestro.ui.ports import PreviewPermission, PreviewPort, PreviewRequest
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
+
+    from fibsem_maestro.core.beam_type import BeamType
+    from fibsem_maestro.settings.form_utils import AreaOverlay
 
 _OVERLAY_ISSUE = "overlay"
 """Source key of the warning this widget reports when an overlay cannot be drawn."""

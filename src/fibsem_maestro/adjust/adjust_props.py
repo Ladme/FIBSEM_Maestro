@@ -7,16 +7,16 @@ from fibsem_maestro.action.action import Action
 from fibsem_maestro.action.outcome import Produced, StepOutcome
 from fibsem_maestro.action.registry import ACTION_REGISTRY
 from fibsem_maestro.action.state import ActionState
-from fibsem_maestro.action_context.action_context import ActionContext
 from fibsem_maestro.adjust.error import AdjustPropsError
 from fibsem_maestro.core.beam_type import BeamType
-from fibsem_maestro.microscope.microscope import Microscope
 from fibsem_maestro.settings.adjust_props_settings import AdjustPropsSettings
-from fibsem_maestro.workflow.actions import Actions
 
 if TYPE_CHECKING:
+    from fibsem_maestro.action_context.action_context import ActionContext
+    from fibsem_maestro.microscope.microscope import Microscope
     from fibsem_maestro.properties.beam_properties import BeamProperties
     from fibsem_maestro.properties.microscope_properties import MicroscopeProperties
+    from fibsem_maestro.workflow.actions import Actions
 
 
 class AdjustPropsState(ActionState):

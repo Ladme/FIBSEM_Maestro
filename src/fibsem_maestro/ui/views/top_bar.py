@@ -186,10 +186,13 @@ class _RunButton(QPushButton):
             self._icon_body = body
             self._refresh_icon()
 
-    def changeEvent(self, e: QEvent) -> None:
+    def changeEvent(self, e: QEvent | None) -> None:
         """Re-render the icon when the palette or style changes."""
         super().changeEvent(e)
-        if e.type() in (QEvent.Type.PaletteChange, QEvent.Type.StyleChange):
+        if e is not None and e.type() in (
+            QEvent.Type.PaletteChange,
+            QEvent.Type.StyleChange,
+        ):
             self._refresh_icon()
 
     def _refresh_icon(self) -> None:

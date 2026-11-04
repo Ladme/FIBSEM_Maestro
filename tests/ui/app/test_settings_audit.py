@@ -70,13 +70,15 @@ def audit(session: WorkflowSession) -> SettingsAudit:
 @pytest.mark.parametrize(
     ("key", "name"),
     registered_fields(
-        lambda fi, hint: not fi.optional
-        and isinstance(fi.type, StrType)
-        and hint.widget
-        in (
-            WidgetType.DROPDOWN,
-            WidgetType.PROPERTY_SELECTOR,
-            WidgetType.ACTION_SELECTOR,
+        lambda fi, hint: (
+            not fi.optional
+            and isinstance(fi.type, StrType)
+            and hint.widget
+            in (
+                WidgetType.DROPDOWN,
+                WidgetType.PROPERTY_SELECTOR,
+                WidgetType.ACTION_SELECTOR,
+            )
         )
     ),
 )

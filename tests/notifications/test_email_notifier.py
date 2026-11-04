@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import smtplib
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar, Self
 
 from fibsem_maestro.notifications.email_notifier import SMTPEmailNotifier
 from fibsem_maestro.settings.notification_settings import SMTPEmailSettings
@@ -13,12 +13,12 @@ if TYPE_CHECKING:
 class RecordingSmtp:
     """Records how the SMTP connection is opened; sends nothing."""
 
-    opened_with: dict[str, Any] = {}
+    opened_with: ClassVar[dict[str, Any]] = {}
 
     def __init__(self, host: str, port: int, **kwargs: Any) -> None:
         RecordingSmtp.opened_with = {"host": host, "port": port, **kwargs}
 
-    def __enter__(self) -> RecordingSmtp:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *_: object) -> None:

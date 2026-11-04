@@ -4,13 +4,14 @@
 
 from abc import ABC, abstractmethod
 from functools import cached_property
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from fibsem_maestro.core.pattern_type import PatternType
-from fibsem_maestro.core.provenance import Provenance
-from fibsem_maestro.core.stage_position import StagePosition
-from fibsem_maestro.logging.text.text_logger import TextLogger
-from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
+if TYPE_CHECKING:
+    from fibsem_maestro.core.pattern_type import PatternType
+    from fibsem_maestro.core.provenance import Provenance
+    from fibsem_maestro.core.stage_position import StagePosition
+    from fibsem_maestro.logging.text.text_logger import TextLogger
+    from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
 
 
 class MicroscopeControl(ABC):

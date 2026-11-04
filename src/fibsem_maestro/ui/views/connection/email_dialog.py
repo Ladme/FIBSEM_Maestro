@@ -4,6 +4,7 @@
 """The dialog collecting the SMTP settings of the run-failure e-mails."""
 
 import smtplib
+from typing import TYPE_CHECKING
 
 from PyQt6.QtWidgets import (
     QDialog,
@@ -19,7 +20,9 @@ from PyQt6.QtWidgets import (
 
 from fibsem_maestro.notifications.email_notifier import SMTPEmailNotifier
 from fibsem_maestro.settings.notification_settings import SMTPEmailSettings
-from fibsem_maestro.ui.app.user_config import EmailProfile
+
+if TYPE_CHECKING:
+    from fibsem_maestro.ui.app.user_config import EmailProfile
 
 
 class EmailSetupDialog(QDialog):

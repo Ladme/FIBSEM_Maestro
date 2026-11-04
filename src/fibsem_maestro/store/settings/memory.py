@@ -2,11 +2,14 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
-from collections.abc import Callable
-from typing import Self
+from typing import TYPE_CHECKING, Self
 
-from fibsem_maestro.settings.base_settings import BaseSettings
 from fibsem_maestro.store.settings.settings_store import SettingsStore
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from fibsem_maestro.settings.base_settings import BaseSettings
 
 
 class MemorySettingsStore(SettingsStore):

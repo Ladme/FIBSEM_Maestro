@@ -106,7 +106,7 @@ def fft_1d_criterion(
     band_i = np.where((freq < high_frequency) & (freq > low_frequency))[0]
 
     # sum of amplitudes of all filtered frequencies
-    return np.sum(abs(fft_line[band_i]))
+    return np.sum(np.float64(np.abs(fft_line[band_i])))
 
 
 @CRITERION_FUNCTIONS.register("fft_2d")
@@ -180,7 +180,7 @@ def fft_criterion(
 
 
 @CRITERION_FUNCTIONS.register("frc")
-def frc_criterion(img: Image, metric: FrcMetric, _logger: TextLogger) -> np.floating:
+def frc_criterion(img: Image, metric: FrcMetric, logger: TextLogger) -> np.floating:
     """
     Compute the single-image Fourier ring correlation cut-off frequency.
 
@@ -202,6 +202,7 @@ def frc_criterion(img: Image, metric: FrcMetric, _logger: TextLogger) -> np.floa
             or has no structure.
     """
     _ = metric
+    logger.debug("Starting frc criterion calculation.")
     return np.float64(frc_cutoff_frequency(img, img.pixel_size))
 
 

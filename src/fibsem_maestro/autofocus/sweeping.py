@@ -2,31 +2,35 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 
-from collections.abc import Iterator
-from typing import Any
+from typing import TYPE_CHECKING
 
 from fibsem_maestro.autofocus import SWEEPING_STRATEGIES
-from fibsem_maestro.autofocus.result import AutofocusResult
-from fibsem_maestro.autofocus.sweep_step import SweepStep
-from fibsem_maestro.logging.text.text_logger import TextLogger
-from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
-from fibsem_maestro.settings.sweeping_settings import SweepingSettings
+from fibsem_maestro.autofocus.sweep_space import SweepSpace, make_sweep_space
+from fibsem_maestro.autofocus.sweep_step import SweepPoint, SweepStep
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from fibsem_maestro.autofocus.evaluation import SweepEvaluation
+    from fibsem_maestro.autofocus.result import AutofocusResult
+    from fibsem_maestro.logging.text.text_logger import TextLogger
+    from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
+    from fibsem_maestro.settings.sweeping_settings import SweepingSettings
 
 
 class Sweeping:
     """
     Controller for parameter sweeping on a microscope beam.
 
-    Manages sweeping a single configurable attribute of a beam over a range
-    of values. A registered sweeping strategy generates candidate values for
-    each repetition cycle, and only values within the beam's hardware limits
-    are yielded. Out-of-range values are logged as warnings and skipped.
+    Sweeps one (1D) or two (2D) scalar beam attributes. The sweep space places
+    the candidates around the current values, the sweeping strategy orders them
+    for each cycle and chooses the best one. Only values within the beam's
+    hardware limits are yielded; out-of-range values are logged and skipped.
 
     Args:
-        beam: The beam control whose attribute will be swept.
-        settings: Sweeping configuration including the value
-            range, number of steps, number of cycles, and strategy.
-        sweep_attribute: Name of the microscope property that should be swept.
+        beam: The beam control whose attributes will be swept.
+        settings: Sweeping configuration: the swept attributes and their
+            geometry, the number of cycles, and the strategy.
         txt_log: Logger for sweep-related status and warning messages.
     """
 
@@ -34,31 +38,32 @@ class Sweeping:
         self,
         beam: BeamControl,
         settings: SweepingSettings,
-        sweep_attribute: str,
         txt_log: TextLogger,
     ):
         self._beam = beam
         self._txt_log = txt_log
-
-        self._settings = settings
-
-        self._sweep_attribute = sweep_attribute
-
-        self._sweeping_strategy = SWEEPING_STRATEGIES.get(self._settings.strategy.type)(
-            self._settings.strategy
+        self._cycles = settings.cycles
+        self._space = make_sweep_space(settings)
+        self._sweeping_strategy = SWEEPING_STRATEGIES.get(settings.strategy.type)(
+            settings.strategy
         )
 
     @property
-    def sweep_attribute(self) -> str:
-        """Name of the beam attribute being swept."""
-        return self._sweep_attribute
+    def attributes(self) -> tuple[str, ...]:
+        """Names of the swept beam attributes, in the order of a sweep point's values."""
+        return self._space.attributes
+
+    @property
+    def space(self) -> SweepSpace:
+        """Geometry of the sweep."""
+        return self._space
 
     def sweep(self) -> Iterator[SweepStep]:
         """
         Iterate over all sweep steps across all configured cycles.
 
-        Reads the current attribute value once before the sweep begins and
-        uses it as the base for all generated values. Each yielded step
+        Reads the current attribute values once before the sweep begins and
+        uses them as the base for all generated values. Each yielded step
         carries its repetition index, value, and global step index.
 
         Yields:
@@ -68,82 +73,86 @@ class Sweeping:
 
         steps = (
             (rep, s)
-            for rep in range(self._settings.cycles)
+            for rep in range(self._cycles)
             for s in self._sweep_inner(rep, base)
         )
 
         for index, (repetition, value) in enumerate(steps):
-            self._txt_log.info(f"Sweep cycle {repetition + 1}/{self._settings.cycles}.")
+            self._txt_log.info(f"Sweep cycle {repetition + 1}/{self._cycles}.")
             yield SweepStep(repetition, value, index)
 
-    def get_attribute_value(self) -> Any:
+    def get_attribute_value(self) -> SweepPoint:
         """
-        Return the current value of the sweeping attribute.
-
-        The value is retrieved dynamically from the selected beam using the
-        configured attribute name.
+        Return the current values of the swept attributes.
 
         Returns:
-            Current value of the beam attribute being swept.
+            One value per swept attribute, read from the beam.
         """
-        return getattr(self._beam, self._sweep_attribute)
+        return tuple(float(getattr(self._beam, name)) for name in self.attributes)
 
-    def set_attribute_value(self, value: Any) -> None:
+    def set_attribute_value(self, value: SweepPoint) -> None:
         """
-        Set the sweep target attribute on the beam to the given value.
+        Set the swept attributes on the beam.
 
         Args:
-            value: The value to assign to the beam attribute.
+            value: One value per swept attribute.
         """
-        setattr(self._beam, self._sweep_attribute, value)
+        for name, component in zip(self.attributes, value, strict=True):
+            setattr(self._beam, name, component)
 
-    def evaluate_best_sweep(self, results: list[AutofocusResult]) -> float:
+    def describe(self, value: SweepPoint) -> str:
         """
-        Determine the best sweep value from a list of autofocus results.
+        Return a readable `name=value` listing of a sweep point, for log messages.
 
-        Delegates to the configured sweeping strategy's evaluation method.
+        Args:
+            value: One value per swept attribute.
+        """
+        return ", ".join(
+            f"{name}={component:g}"
+            for name, component in zip(self.attributes, value, strict=True)
+        )
+
+    def evaluate(self, results: list[AutofocusResult]) -> SweepEvaluation:
+        """
+        Choose the best value from the results of a sweep.
+
+        Delegates to the configured sweeping strategy.
 
         Args:
             results: Autofocus results collected during the sweep, one per submitted job.
 
         Returns:
-            The beam attribute value corresponding to the best autofocus result,
-            as determined by the sweeping strategy.
+            The strategy's evaluation; its `best` is the value to apply.
         """
         return self._sweeping_strategy.evaluate(results)
 
-    def _sweep_inner(self, repetition: int, base: float) -> Iterator[Any]:
+    def _sweep_inner(self, repetition: int, base: SweepPoint) -> Iterator[SweepPoint]:
         """
         Generate valid sweep values for a single repetition cycle.
 
-        Produces candidate values via the sweeping strategy and filters out
-        any that fall outside the beam's hardware limits. Out-of-range values
-        are logged as warnings and skipped.
+        Produces values via the sweeping strategy and filters out any with a
+        component outside the beam's hardware limits. Out-of-range values are
+        logged as warnings and skipped.
 
         Args:
-            repetition: Index of the current sweep cycle, passed to the
-                sweeping strategy to allow direction-alternating strategies
-                such as zigzag.
-            base: The attribute value at the start of the sweep, used as the
-                centre point around which candidate values are generated.
+            repetition: Index of the current sweep cycle, passed to the strategy.
+            base: The attribute values at the start of the sweep.
 
         Yields:
             Valid sweep values that lie within the beam's hardware limits.
         """
-        sweep_space = self._sweeping_strategy.generate(
-            base,
-            self._settings.range,
-            self._settings.steps,
-            repetition,
-        )
-        limits = self._beam.limits(self._sweep_attribute)
+        limits = {name: self._beam.limits(name) for name in self.attributes}
 
-        for s in sweep_space:
-            if limits[0] <= s <= limits[1]:
-                yield float(s)
-            else:
+        for value in self._sweeping_strategy.generate(self._space, base, repetition):
+            out_of_range = [
+                f"'{name}' = {component} is out of range [{limits[name][0]} - {limits[name][1]}]"
+                for name, component in zip(self.attributes, value, strict=True)
+                if not limits[name][0] <= component <= limits[name][1]
+            ]
+
+            if out_of_range:
                 self._txt_log.warning(
-                    f"Sweeping value '{float(s)}' of an attribute '{self._sweep_attribute}' is out of range [{limits[0]} - {limits[1]}]."
+                    f"Skipping sweep value: {'; '.join(out_of_range)}."
                 )
-                # do not yield anything
                 continue
+            yield value

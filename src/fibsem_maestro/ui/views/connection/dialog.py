@@ -196,7 +196,7 @@ class ConnectionDialog(QDialog):
         try:
             settings = self._new_page.get_microscope_settings()
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Invalid settings: {str(e)}")
+            QMessageBox.critical(self, "Error", f"Invalid settings: {e!s}")
             return
 
         directory = workflow_directory.choose_new(self, self._files)
@@ -265,7 +265,7 @@ class ConnectionDialog(QDialog):
         if self._connect_seed is None:
             self._set_inputs_enabled(True)
             QMessageBox.critical(
-                self, "Error", f"{self._failure_text}: {str(self._connect_error)}"
+                self, "Error", f"{self._failure_text}: {self._connect_error!s}"
             )
             return
 

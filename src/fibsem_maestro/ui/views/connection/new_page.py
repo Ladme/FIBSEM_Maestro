@@ -3,12 +3,16 @@
 
 """The start-up dialog's page for starting a new workflow."""
 
+from typing import TYPE_CHECKING
+
 from PyQt6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
 from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
 from fibsem_maestro.ui.app.user_config import CONNECTION_FIELDS
-from fibsem_maestro.ui.forms.builder import FormBuilder
 from fibsem_maestro.ui.forms.context import FormContext
+
+if TYPE_CHECKING:
+    from fibsem_maestro.ui.forms.builder import FormBuilder
 
 
 class NewWorkflowPage(QWidget):

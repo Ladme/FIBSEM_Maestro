@@ -3,10 +3,9 @@
 
 
 from dataclasses import dataclass
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
-from numpy.typing import NDArray
 
 # from patchify import patchify, unpatchify  # pyright: ignore[reportMissingTypeStubs]
 from scipy.ndimage import (  # pyright: ignore[reportMissingTypeStubs]
@@ -14,7 +13,10 @@ from scipy.ndimage import (  # pyright: ignore[reportMissingTypeStubs]
     zoom,
 )
 
-from fibsem_maestro.core.image import Image
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
+
+    from fibsem_maestro.core.image import Image
 
 
 @dataclass

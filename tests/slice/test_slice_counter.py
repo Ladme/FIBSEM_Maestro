@@ -38,8 +38,8 @@ def test_advance_updates_current(counter: SliceCounter) -> None:
 
 
 def test_current_does_not_advance(counter: SliceCounter) -> None:
-    counter.current
-    counter.current
+    counter.current  # noqa: B018
+    counter.current  # noqa: B018
 
     assert counter.current == 0
 

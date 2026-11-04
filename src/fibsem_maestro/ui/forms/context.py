@@ -4,11 +4,14 @@
 """Everything a form may need beyond the object it edits."""
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from fibsem_maestro.core.pattern_type import PatternType
-from fibsem_maestro.logging.text.text_logger import TextLogger
-from fibsem_maestro.ui.ports import ActionCatalog, PreviewPermission, PreviewPort
 from fibsem_maestro.ui.schema.choices import ChoiceContext
+
+if TYPE_CHECKING:
+    from fibsem_maestro.core.pattern_type import PatternType
+    from fibsem_maestro.logging.text.text_logger import TextLogger
+    from fibsem_maestro.ui.ports import ActionCatalog, PreviewPermission, PreviewPort
 
 
 @dataclass(frozen=True)

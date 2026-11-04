@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import sys
 from pathlib import Path
 
 
@@ -41,17 +42,23 @@ def windows_like_delete(path: Path) -> None:
     """
     Delete a file or tree, refusing like Windows if this process holds a file in it open.
 
+    On Windows the operating system refuses by itself; elsewhere the refusal is
+    emulated from the open files in `/proc/self/fd` (Linux).
+
     Args:
         path: The file or directory to delete.
 
     Raises:
-        WindowsLikeLockError: If the file, or a file inside the directory, is open.
+        PermissionError: If the file, or a file inside the directory, is open
+            (a `WindowsLikeLockError` where emulated).
     """
-    target = path.resolve()
-    if blocking := sorted(
-        p for p in _open_paths() if p == target or target in p.parents
-    ):
-        raise WindowsLikeLockError(path, blocking)
+    if sys.platform != "win32":
+        target = path.resolve()
+        if blocking := sorted(
+            p for p in _open_paths() if p == target or target in p.parents
+        ):
+            raise WindowsLikeLockError(path, blocking)
+
     if path.is_dir() and not path.is_symlink():
         shutil.rmtree(path)
     else:

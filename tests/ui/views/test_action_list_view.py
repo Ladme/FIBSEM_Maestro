@@ -48,7 +48,7 @@ if TYPE_CHECKING:
     from fibsem_maestro.ui.composition import Composition
     from fibsem_maestro.workflow.workflow import Workflow
 
-ANY_TYPE = sorted(ACTION_REGISTRY)[0]
+ANY_TYPE = min(ACTION_REGISTRY)
 """Any action type: the list treats every type alike."""
 
 

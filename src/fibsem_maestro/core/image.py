@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Generic, Self, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Self, TypeVar, cast
 
 import cv2
 import numpy as np
@@ -34,10 +34,8 @@ class ImageError(Exception):
     Exception raised for errors related to images.
     """
 
-    pass
 
-
-class _ImageBase(np.ndarray[Any, np.dtype[TDType]], Generic[TDType]):
+class _ImageBase[TDType: np.generic](np.ndarray[Any, np.dtype[TDType]]):
     """
     Base class for microscope images backed by a NumPy array.
 
@@ -153,7 +151,12 @@ class _ImageBase(np.ndarray[Any, np.dtype[TDType]], Generic[TDType]):
                 except (OSError, TiffFileError) as exc:
                     raise ImageError(f"Could not load TIFF: {path}") from exc
             case Provenance.AUTOSCRIPT:
-                from autoscript_sdb_microscope_client.structures import AdornedImage
+                try:
+                    from autoscript_sdb_microscope_client.structures import (
+                        AdornedImage,
+                    )
+                except ImportError as e:
+                    raise AutoscriptNotAvailableError() from e
 
                 try:
                     adorned = AdornedImage.load(str(path))

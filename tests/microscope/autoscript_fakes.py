@@ -1,8 +1,9 @@
-"""
-An in-memory stand-in for the parts of the Autoscript client that Maestro uses.
-"""
+# Released under GPL-3.0 License.
+# Copyright (c) 2024-2026 CEMCOF
 
-from typing import Any
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from autoscript_sdb_microscope_client.enumerations import ScanningMode
 from autoscript_sdb_microscope_client.structures import (
@@ -11,6 +12,9 @@ from autoscript_sdb_microscope_client.structures import (
     Rectangle,
     StagePosition,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 
 class _Value:
@@ -35,7 +39,7 @@ class _WorkingDistance(_Value):
 
 
 class _Resolution:
-    available_values = [
+    available_values: ClassVar[Sequence[str]] = [
         "512x442",
         "768x512",
         "1024x884",
@@ -198,12 +202,31 @@ class _AutoFunctions:
         self.calls.append(("auto_stigmator", settings))
 
 
+class _DetectorMode(_Value):
+    """Detector mode; like xT, switching it restores the mode's contrast and brightness."""
+
+    def __init__(self, detector: _Detector) -> None:
+        super().__init__("SecondaryElectrons")
+        self._detector = detector
+        self.available_values = ["SecondaryElectrons", "BackscatterElectrons"]
+
+    @property
+    def value(self) -> Any:
+        return self._value
+
+    @value.setter
+    def value(self, value: Any) -> None:
+        self._value = value
+        self._detector.contrast.value = 0.5
+        self._detector.brightness.value = 0.5
+
+
 class _Detector:
     def __init__(self) -> None:
         self.type = _Value("ETD")
-        self.mode = _Value("SecondaryElectrons")
         self.contrast = _Value(0.5)
         self.brightness = _Value(0.5)
+        self.mode = _DetectorMode(self)
 
 
 class FakeSdbClient:
