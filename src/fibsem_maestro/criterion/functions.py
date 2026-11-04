@@ -106,7 +106,7 @@ def fft_1d_criterion(
     band_i = np.where((freq < high_frequency) & (freq > low_frequency))[0]
 
     # sum of amplitudes of all filtered frequencies
-    return np.sum(abs(fft_line[band_i]))
+    return np.sum(np.float64(np.abs(fft_line[band_i])))
 
 
 @CRITERION_FUNCTIONS.register("fft_2d")
