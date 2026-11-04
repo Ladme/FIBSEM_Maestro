@@ -34,6 +34,8 @@ class ContextualTextLogger(TextLogger):
     """
 
     def __init__(self, fallback: TextLogger, _suffix: str = "") -> None:
+        super().__init__()
+
         self._fallback = fallback
         self._suffix = _suffix
 

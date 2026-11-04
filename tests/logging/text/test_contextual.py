@@ -393,3 +393,118 @@ def test_close_does_not_prevent_further_logging(
     contextual.info("x")
 
     assert flat(fallback) == [(0, "fallback", "info", "x")]
+
+
+def levels(logger: MemoryTextLogger) -> list[str]:
+    """The levels of all records, ordered by slice."""
+    return [level for _, _, level, _ in flat(logger)]
+
+
+def test_warning_once_warns_then_logs_repeats_at_debug(
+    contextual: ContextualTextLogger, pointer: SlicePointer
+) -> None:
+    active = MemoryTextLogger(pointer, "action")
+
+    with logging_context(active):
+        contextual.warning_once("old-autoscript", "fallback used")
+        contextual.warning_once("old-autoscript", "fallback used")
+
+    assert flat(active) == [
+        (0, "action", "warning", "fallback used"),
+        (0, "action", "debug", "fallback used"),
+    ]
+
+
+def test_warning_once_is_remembered_across_a_context_switch(
+    contextual: ContextualTextLogger, pointer: SlicePointer
+) -> None:
+    """
+    The state lives on the contextual logger, not on the logger it forwards to.
+
+    `_active()` derives a fresh target on every call, so deduplication kept on
+    the target would never see a repeat.
+    """
+    first = MemoryTextLogger(pointer, "first")
+    second = MemoryTextLogger(pointer, "second")
+
+    with logging_context(first):
+        contextual.warning_once("old-autoscript", "fallback used")
+    with logging_context(second):
+        contextual.warning_once("old-autoscript", "fallback used")
+
+    assert levels(first) == ["warning"]
+    assert levels(second) == ["debug"]
+
+
+def test_warning_once_with_a_suffix_is_remembered_across_calls(
+    contextual: ContextualTextLogger, pointer: SlicePointer
+) -> None:
+    """A derived contextual logger kept by a component deduplicates its own calls."""
+    beam = contextual.derive("microscope").derive("beam")
+    active = MemoryTextLogger(pointer, "action")
+
+    with logging_context(active):
+        beam.warning_once("old-autoscript", "fallback used")
+        beam.warning_once("old-autoscript", "fallback used")
+
+    assert [(name, level) for _, name, level, _ in flat(active)] == [
+        ("action.microscope.beam", "warning"),
+        ("action.microscope.beam", "debug"),
+    ]
+
+
+def test_warning_once_falls_back_when_no_context_is_active(
+    contextual: ContextualTextLogger, fallback: MemoryTextLogger
+) -> None:
+    contextual.warning_once("old-autoscript", "fallback used")
+    contextual.warning_once("old-autoscript", "fallback used")
+
+    assert levels(fallback) == ["warning", "debug"]
+
+
+def test_warning_once_state_is_shared_between_context_and_fallback(
+    contextual: ContextualTextLogger,
+    fallback: MemoryTextLogger,
+    pointer: SlicePointer,
+) -> None:
+    active = MemoryTextLogger(pointer, "action")
+
+    contextual.warning_once("old-autoscript", "fallback used")
+    with logging_context(active):
+        contextual.warning_once("old-autoscript", "fallback used")
+
+    assert levels(fallback) == ["warning"]
+    assert levels(active) == ["debug"]
+
+
+def test_derived_contextual_logger_warns_once_on_its_own(
+    contextual: ContextualTextLogger, pointer: SlicePointer
+) -> None:
+    """Two components (e.g. the electron and the ion beam) each warn once."""
+    electron = contextual.derive("electron")
+    ion = contextual.derive("ion")
+    active = MemoryTextLogger(pointer, "action")
+
+    with logging_context(active):
+        electron.warning_once("old-autoscript", "fallback used")
+        ion.warning_once("old-autoscript", "fallback used")
+        electron.warning_once("old-autoscript", "fallback used")
+
+    assert [(name, level) for _, name, level, _ in flat(active)] == [
+        ("action.electron", "warning"),
+        ("action.ion", "warning"),
+        ("action.electron", "debug"),
+    ]
+
+
+def test_warning_once_deduplicates_by_key(
+    contextual: ContextualTextLogger, pointer: SlicePointer
+) -> None:
+    active = MemoryTextLogger(pointer, "action")
+
+    with logging_context(active):
+        contextual.warning_once("get", "fallback used")
+        contextual.warning_once("set", "fallback used")
+        contextual.warning_once("get", "fallback used")
+
+    assert levels(active) == ["warning", "warning", "debug"]

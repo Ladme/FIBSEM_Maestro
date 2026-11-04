@@ -53,6 +53,8 @@ class FileTextLogger(TextLogger):
         *,
         _root: _FileTextLoggerRoot | None = None,
     ) -> None:
+        super().__init__()
+
         self._view_provider = view_provider
         self._filename = filename
         self._level = level

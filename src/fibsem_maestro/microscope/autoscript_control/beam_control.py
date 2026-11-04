@@ -379,10 +379,11 @@ class AutoscriptBeamControl[BeamT: (ElectronBeamAs, IonBeamAs)](BeamControl):
         try:
             li = self._beam.scanning.line_integration
         except Exception:
-            self._txt_log.warning(
+            self._txt_log.warning_once(
+                "get-line-integration-old-autoscript",
                 "Linked autoscript version does not support getting line_integration via scanning. "
                 "Cannot get line_integration from Thermofisher's Microscope Control - "
-                "Line integration must be specified externally in FIBSEM Maestro!"
+                "Line integration must be specified externally in FIBSEM Maestro!",
             )
             li = self._line_integration
 
@@ -397,8 +398,9 @@ class AutoscriptBeamControl[BeamT: (ElectronBeamAs, IonBeamAs)](BeamControl):
         try:
             self._beam.scanning.line_integration = value
         except Exception:
-            self._txt_log.warning(
-                "Linked autoscript version does not support setting line_integration via scanning. Using a fallback."
+            self._txt_log.warning_once(
+                "set-line-integration-old-autoscript",
+                "Linked autoscript version does not support setting line_integration via scanning. Using a fallback.",
             )
 
         self._line_integration = value
@@ -544,10 +546,11 @@ class AutoscriptBeamControl[BeamT: (ElectronBeamAs, IonBeamAs)](BeamControl):
             else:
                 area = RelativeArea.full()
         except Exception:
-            self._txt_log.warning(
+            self._txt_log.warning_once(
+                "get-scanning-area-old-autoscript",
                 "Linked autoscript version does not support getting reduced_area via scanning.mode. "
                 "Cannot get scanning area from Thermofisher's Microscope Control - "
-                "Scanning area must be specified externally in FIBSEM Maestro!"
+                "Scanning area must be specified externally in FIBSEM Maestro!",
             )
 
             area = self._scanning_area
@@ -562,8 +565,9 @@ class AutoscriptBeamControl[BeamT: (ElectronBeamAs, IonBeamAs)](BeamControl):
             try:
                 self._beam.scanning.mode.reduced_area.value = value.to_autoscript()
             except Exception:
-                self._txt_log.warning(
-                    "Linked autoscript version does not support setting reduced_area via scanning.mode. Using a fallback."
+                self._txt_log.warning_once(
+                    "set-scanning-area-old-autoscript",
+                    "Linked autoscript version does not support setting reduced_area via scanning.mode. Using a fallback.",
                 )
             # used for acquisition started by start_acquisition()
             self._beam.scanning.mode.set_full_frame()
