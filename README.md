@@ -1,5 +1,13 @@
 # FIBSEM Maestro 2
 
+![Python](https://img.shields.io/badge/python-3.14-blue?logo=python&logoColor=white)
+![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey)
+[![Release](https://img.shields.io/github/v/release/cemcof/fibsem_maestro2?include_prereleases)](https://github.com/cemcof/fibsem_maestro2/releases)
+[![Installer](https://img.shields.io/github/v/release/cemcof/fibsem_maestro2_installer?include_prereleases&label=installer)](https://github.com/cemcof/fibsem_maestro2_installer/releases/latest)
+[![License: GPL v3](https://img.shields.io/badge/license-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![CI](https://github.com/cemcof/fibsem_maestro2/actions/workflows/ci.yml/badge.svg)](https://github.com/cemcof/fibsem_maestro2/actions/workflows/ci.yml)
+![Status](https://img.shields.io/badge/status-under%20development-orange)
+
 > [!CAUTION]
 > This software is under development and many features are missing. Be cautious when using it!
 
