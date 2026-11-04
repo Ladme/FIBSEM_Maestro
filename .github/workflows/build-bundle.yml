@@ -8,7 +8,9 @@ permissions:
   contents: write
 
 env:
-  PYTHON_VERSION: "3.11"
+  # interpreter shipped in the bundle; keep in sync with PYTHON_VERSION in the
+  # installer (paths.py), not with requires-python
+  PYTHON_VERSION: "3.14.7"
 
 jobs:
   bundle:
@@ -44,7 +46,10 @@ jobs:
           uv python install "$PYTHON_VERSION" \
             --install-dir python-staging --no-bin --no-registry
           mkdir -p bundle/python
-          real=$(find python-staging -maxdepth 1 -type d -name 'cpython-*' | head -1)
+          # the exact patch version: uv also creates a minor-version link
+          # (cpython-3.14-...), which on Windows is a junction that would be
+          # archived instead of the interpreter
+          real=$(find python-staging -maxdepth 1 -type d -name "cpython-${PYTHON_VERSION}-*" | head -1)
           test -n "$real" || { echo "::error::No interpreter installed"; exit 1; }
           tar -czf bundle/python/python.tar.gz \
             -C "$(dirname "$real")" "$(basename "$real")"
@@ -57,10 +62,10 @@ jobs:
       - name: Add the wheels
         run: |
           mkdir -p bundle/wheels
-          wheel=$(ls dist/*.whl | head -1)
-          "$BUNDLED_PYTHON" -m pip download "$wheel" \
+          uv export --frozen --no-dev --no-emit-project -o requirements.txt
+          "$BUNDLED_PYTHON" -m pip download -r requirements.txt \
             --dest bundle/wheels --only-binary=:all:
-          cp "$wheel" bundle/wheels/
+          cp "$(ls dist/*.whl | head -1)" bundle/wheels/
 
       - name: Record what is in the bundle
         run: |
