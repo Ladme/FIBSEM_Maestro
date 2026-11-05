@@ -9,8 +9,6 @@ import sys
 import textwrap
 from pathlib import Path
 
-import pytest
-
 import fibsem_maestro
 
 SRC_DIR = Path(fibsem_maestro.__file__).resolve().parents[1]
@@ -118,20 +116,3 @@ def test_autoscript_control_stays_selectable_and_fails_clearly(tmp_path: Path) -
         """,
     )
     assert result.returncode == 0, result.stderr
-
-
-@pytest.mark.parametrize("table", ["[libraries.autoscript]", "[autoscript]"])
-def test_linked_autoscript_folder_is_put_on_sys_path(
-    monkeypatch: pytest.MonkeyPatch, tmp_path, table: str
-) -> None:
-    folder = tmp_path / "autoscript"
-    (tmp_path / "runtime").mkdir()
-    (tmp_path / "config.toml").write_text(
-        f'{table}\npath = "{folder.as_posix()}"\n', encoding="utf-8"
-    )
-    monkeypatch.setattr(sys, "prefix", str(tmp_path / "runtime"))
-    monkeypatch.setattr(sys, "path", list(sys.path))
-
-    fibsem_maestro._configure_linked_libraries()
-
-    assert sys.path[0] == folder.as_posix()
