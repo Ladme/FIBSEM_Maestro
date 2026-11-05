@@ -9,6 +9,7 @@ import numpy as np
 from matplotlib.collections import PathCollection
 from matplotlib.colors import LinearSegmentedColormap, Normalize, TwoSlopeNorm
 from matplotlib.figure import Figure
+from matplotlib.markers import MarkerStyle
 from matplotlib.patches import Circle as CirclePatch
 
 from fibsem_maestro.logging.image.plot_element import (
@@ -26,6 +27,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from matplotlib.axes import Axes
+    from matplotlib.path import Path as MarkerPath
 
     from fibsem_maestro.logging.image.plot import Panel, Plot
 
@@ -199,11 +201,13 @@ def _draw_points(fig: Figure, ax: Axes, points: Points) -> None:
             points.x,
             points.y,
             s=points.size,
-            marker=points.marker,
-            color=points.color,
+            marker=_stroke_path(points.marker),
+            facecolors="none",
+            edgecolors=points.color,
             linewidths=points.linewidth,
             label=points.label,
             zorder=3,
+            snap=False,
         )
         return
 
@@ -236,6 +240,20 @@ def _draw_points(fig: Figure, ax: Axes, points: Points) -> None:
         zorder=3,
     )
     fig.colorbar(artist, ax=ax, label=points.scale.label)
+
+
+def _stroke_path(marker: str) -> MarkerPath:
+    """
+    Return the outline of a stroke marker, such as `+`, as a path.
+
+    Args:
+        marker: One of the stroke markers.
+
+    Returns:
+        The marker's path at Matplotlib's marker scale.
+    """
+    style = MarkerStyle(marker)
+    return style.get_path().transformed(style.get_transform())
 
 
 def _color_mapping(

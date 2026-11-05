@@ -112,8 +112,9 @@ class BasicSweepingStrategy(SweepingStrategy):
         """
         Select the value with the highest mean sharpness over all its results.
 
-        The base is not measured unless it is one of the candidates, so in a 2D
-        sweep the result always moves onto the circle.
+        The base can only be selected if the space includes it among the
+        candidates: the centre of a circle always, a linear sweep if it has an
+        odd number of steps over a symmetric range.
         """
         if not results:
             raise AutofocusError("No autofocus results provided")
@@ -153,8 +154,9 @@ class InterleavedSweepingStrategy(SweepingStrategy):
 
             [base, c0, base, c1, base, c2, ...]
 
-        The repetition index is ignored. A candidate coinciding with the base is
-        dropped to avoid redundant measurements.
+        The repetition index is ignored. A candidate coinciding with the base
+        (the center of a circle, the middle of a linear sweep) is dropped: the
+        base is measured anyway, and it is the default choice.
         """
         _ = repetition
         candidates = space.candidates(base, reverse=False)

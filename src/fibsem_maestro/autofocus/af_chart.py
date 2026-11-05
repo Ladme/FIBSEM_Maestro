@@ -37,6 +37,12 @@ _CANDIDATE_COLOR = "#2a78d6"
 _NOT_COUNTED_COLOR = "#b5b4ae"
 _GUIDE_COLOR = "#7a7974"
 
+_POINT_SIZE = 70.0
+"""Area of a swept point in the plane chart, in points squared."""
+
+_BASE_RING_SIZE = 120.0
+"""Area of the ring around a measured base."""
+
 
 def af_chart(
     evaluation: SweepEvaluation, space: SweepSpace, base: SweepPoint | None
@@ -113,11 +119,11 @@ def _circle_chart(
     evaluation: BasicEvaluation, space: CircularSweepSpace, base: SweepPoint | None
 ) -> Plot:
     """The swept plane colored by mean sharpness, and sharpness around the circle."""
-    centre = base if base is not None else _centroid(list(evaluation.mean_sharpness))
+    center = base if base is not None else _centroid(list(evaluation.mean_sharpness))
 
     plane = _plane_panel(
         space,
-        centre,
+        center,
         evaluation.best,
         evaluation.mean_sharpness,
         ColorScale("sequential", "Mean sharpness"),
@@ -125,10 +131,17 @@ def _circle_chart(
 
     profile: list[PlotElement] = []
     for rep, sharpness in evaluation.cycle_sharpness.items():
-        points = sorted((space.angle_of(v, centre), s) for v, s in sharpness.items())
+        points = sorted(
+            (space.angle_of(v, center), s)
+            for v, s in sharpness.items()
+            # exclude the center
+            if not space.is_center(v, center)
+        )
+
         # close the loop: the first point again at 360°
         if points and points[0][0] == 0.0:
             points.append((360.0, points[0][1]))
+
         profile.append(
             Curve(
                 x=[a for a, _ in points],
@@ -139,15 +152,38 @@ def _circle_chart(
                 label=f"cycle {rep + 1}",
             )
         )
-    profile.append(
-        VerticalLine(
-            x=space.angle_of(evaluation.best, centre),
-            color=_BEST_COLOR,
-            linewidth=1.0,
-            label="best",
+
+    kept = space.is_center(evaluation.best, center)
+    center_sharpness = [
+        s for v, s in evaluation.mean_sharpness.items() if space.is_center(v, center)
+    ]
+    if center_sharpness:
+        profile.append(
+            HorizontalLine(
+                y=center_sharpness[0],
+                color=_BEST_COLOR if kept else _BASE_COLOR,
+                linewidth=1.0,
+                linestyle="dashed",
+                label="center (best)" if kept else "center",
+            )
         )
+    if not kept:
+        profile.append(
+            VerticalLine(
+                x=space.angle_of(evaluation.best, center),
+                color=_BEST_COLOR,
+                linewidth=1.0,
+                label="best",
+            )
+        )
+
+    angles = sorted(
+        {
+            space.angle_of(v, center)
+            for v in evaluation.mean_sharpness
+            if not space.is_center(v, center)
+        }
     )
-    angles = sorted({space.angle_of(v, centre) for v in evaluation.mean_sharpness})
 
     return Plot(
         panels={
@@ -158,7 +194,7 @@ def _circle_chart(
                 xlabel=f"Angle clockwise from +{space.attributes[1]} [°]",
                 ylabel="Sharpness",
                 xticks=[Tick(a, f"{a:.0f}°") for a in [*angles, 360.0]],
-                legend=len(evaluation.cycle_sharpness) > 1,
+                legend=True,
             ),
         },
         layout=[["plane", "profile"]],
@@ -274,7 +310,7 @@ def _interleaved_chart(evaluation: InterleavedEvaluation, space: SweepSpace) -> 
 
 def _plane_panel(
     space: CircularSweepSpace,
-    centre: SweepPoint,
+    center: SweepPoint,
     best: SweepPoint,
     values: Mapping[SweepPoint, float],
     scale: ColorScale,
@@ -284,14 +320,14 @@ def _plane_panel(
 
     Args:
         space: Geometry of the sweep.
-        centre: The base value, at the centre of the circle.
+        center: The base value, at the center of the circle.
         best: The selected value.
         values: Value coloring each swept point.
         scale: How the values map to colors.
     """
     elements: list[PlotElement] = [
         Circle(
-            center=(centre[0], centre[1]),
+            center=(center[0], center[1]),
             radius=space.radius,
             color=_GUIDE_COLOR,
             linewidth=0.8,
@@ -306,20 +342,35 @@ def _plane_panel(
                 scale=scale,
                 color=_GUIDE_COLOR,
                 linewidth=0.5,
-                size=70.0,
+                size=_POINT_SIZE,
             )
         )
-    elements.append(
-        Points(
-            x=[centre[0]],
-            y=[centre[1]],
+
+    if any(space.is_center(v, center) for v in values):
+        # the centre was measured: a ring around its colored point keeps the color
+        # visible, where a `+` would cover it
+        base_marker = Points(
+            x=[center[0]],
+            y=[center[1]],
+            color=_BASE_COLOR,
+            linewidth=2.0,
+            size=_BASE_RING_SIZE,
+            filled=False,
+            label="base",
+        )
+    else:
+        # center was not measured, use + to indicate it
+        base_marker = Points(
+            x=[center[0]],
+            y=[center[1]],
             color=_BASE_COLOR,
             linewidth=2.0,
             marker="+",
             size=150.0,
             label="base",
         )
-    )
+    elements.append(base_marker)
+
     elements.append(
         Points(
             x=[best[0]],
@@ -369,5 +420,5 @@ def _mean_gain(comparisons: Sequence[CandidateComparison]) -> dict[SweepPoint, f
 
 
 def _centroid(values: Sequence[SweepPoint]) -> SweepPoint:
-    """Mean of the given points; the centre of a fully measured circle."""
+    """Mean of the given points; the center of a fully measured circle."""
     return tuple(float(c) for c in np.mean(np.asarray(values), axis=0))

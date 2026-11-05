@@ -42,6 +42,9 @@ class SweepSpace(ABC):
         """
         Return the candidate values around `base`, in measurement order.
 
+        The base itself may be one of them (the middle of an odd linear sweep, the
+        center of a circle). A strategy that measures the base separately drops it.
+
         Args:
             base: Current values of the swept attributes (absolute).
             reverse: Traverse the candidates in the opposite direction.
@@ -128,18 +131,24 @@ class LinearSweepSpace(SweepSpace):
 
 class CircularSweepSpace(SweepSpace):
     """
-    Candidates evenly spaced on a circle around the base value of two attributes.
+    Candidates evenly spaced on a circle around the base value of two attributes,
+    and the base itself at the center.
 
     The first candidate lies at `(0, +radius)` relative to the base; the others
     follow clockwise as seen with x to the right and y up, i.e. the k-th of `n`
-    candidates lies at angle `360° * k / n` measured clockwise from +y. Reversed
+    circle points lies at angle `360° * k / n` measured clockwise from +y. Reversed
     traversal starts at the same point and runs counter-clockwise.
+
+    The center is a candidate so that the base can win: without it, a sweep around
+    an already optimal base would always move by `radius`. It is measured halfway
+    through the circle, so that a slow drift during the sweep affects it as much
+    as the circle points on average.
 
     Args:
         attribute_x: Name of the attribute on the x-axis.
         attribute_y: Name of the attribute on the y-axis.
         radius: Radius of the circle, in units shared by both attributes.
-        steps: Number of candidates on the circle.
+        steps: Number of points on the circle; the center comes on top of them.
     """
 
     def __init__(
@@ -175,31 +184,50 @@ class CircularSweepSpace(SweepSpace):
                 )
             )
 
+        # base value - center of the circle
+        # in the middle of the list because of drift
+        points.insert(len(points) // 2, (bx, by))
+
         return points
+
+    def is_center(self, value: SweepPoint, base: SweepPoint) -> bool:
+        """
+        Return True if `value` is the center of the circle around `base`.
+
+        Args:
+            value: A swept value (absolute).
+            base: Center of the circle (absolute).
+        """
+        return math.dist(value, base) <= 1e-9 * self._radius
 
     def edge_direction(
         self, best: SweepPoint, base: SweepPoint, swept: Sequence[SweepPoint]
     ) -> SweepDirection | None:
-        # every candidate lies on the boundary of the swept disc
+        # every candidate but the center lies on the boundary of the swept disc
         _ = swept
-        dx, dy = best[0] - base[0], best[1] - base[1]
-        length = math.hypot(dx, dy)
-        if length <= 1e-9 * self._radius:
+        if self.is_center(best, base):
             return None
 
+        dx, dy = best[0] - base[0], best[1] - base[1]
+        length = math.hypot(dx, dy)
         return (dx / length, dy / length)
 
     def angle_of(self, value: SweepPoint, base: SweepPoint) -> float:
         """
         Return the angle of `value` around `base`, in degrees clockwise from +y, in [0, 360).
 
+        The center has no angle: the result is meaningless there, so callers
+        should exclude it with `is_center` first.
+
         Args:
             value: A swept value (absolute).
-            base: Centre of the circle (absolute).
+            base: Center of the circle (absolute).
         """
         return math.degrees(math.atan2(value[0] - base[0], value[1] - base[1])) % 360.0
 
     def offset_label(self, value: SweepPoint, base: SweepPoint) -> str:
+        if self.is_center(value, base):
+            return "center"
         return f"{self.angle_of(value, base):.0f}°"
 
 

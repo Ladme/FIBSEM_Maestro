@@ -74,13 +74,17 @@ def _sharpest_at(target: SweepPoint) -> Any:
 def test_circle_starts_at_plus_radius_on_y_and_spaces_points_evenly() -> None:
     points = CIRCLE.candidates(BASE_2D, reverse=False)
 
-    assert points == _approx_points([(1.0, 3.0), (3.0, 1.0), (1.0, -1.0), (-1.0, 1.0)])
+    assert points == _approx_points(
+        [(1.0, 3.0), (3.0, 1.0), BASE_2D, (1.0, -1.0), (-1.0, 1.0)]
+    )
 
 
 def test_circle_reversed_keeps_the_first_point_and_turns_the_other_way() -> None:
     points = CIRCLE.candidates(BASE_2D, reverse=True)
 
-    assert points == _approx_points([(1.0, 3.0), (-1.0, 1.0), (1.0, -1.0), (3.0, 1.0)])
+    assert points == _approx_points(
+        [(1.0, 3.0), (-1.0, 1.0), BASE_2D, (1.0, -1.0), (3.0, 1.0)]
+    )
 
 
 def test_linear_space_spans_the_range_around_the_base() -> None:
@@ -95,8 +99,10 @@ def test_interleaved_measures_the_base_before_every_circle_point() -> None:
 
     values = strategy.generate(CIRCLE, BASE_2D, 0)
 
+    # the center is not a candidate here: the base is measured anyway
+    circle = [p for p in CIRCLE.candidates(BASE_2D, reverse=False) if p != BASE_2D]
     assert values[0::2] == [BASE_2D] * 4
-    assert values[1::2] == _approx_points(CIRCLE.candidates(BASE_2D, reverse=False))
+    assert values[1::2] == _approx_points(circle)
 
 
 def test_basic_2d_picks_the_sharpest_circle_point() -> None:
@@ -183,8 +189,10 @@ def test_sweeping_skips_points_with_a_component_out_of_limits() -> None:
 
     values = [s.value for s in sweeping.sweep()]
 
-    # (0, 1.05) exceeds the y limit; the other three points remain
-    assert values == _approx_points([(0.1, 0.95), (0.0, 0.85), (-0.1, 0.95)])
+    # (0, 1.05) exceeds the y limit; the other three points and the center remain
+    assert values == _approx_points(
+        [(0.1, 0.95), (0.0, 0.95), (0.0, 0.85), (-0.1, 0.95)]
+    )
 
 
 def test_2d_sweep_rejects_the_same_attribute_on_both_axes() -> None:
@@ -273,3 +281,51 @@ def test_2d_autofocus_moves_the_stigmator_onto_the_circle(
     (saved,) = [p for plots in ctx.image_logger.plots.values() for p in plots]  # ty: ignore[unresolved-attribute]
     assert saved.filename == "af_curve.png"
     assert "plane" in saved.plot.panels
+
+
+@pytest.mark.parametrize("steps", [3, 4, 5, 8])
+def test_circle_measures_its_center_once_halfway(steps: int) -> None:
+    space = CircularSweepSpace("stigmator_x", "stigmator_y", radius=2.0, steps=steps)
+
+    for reverse in (False, True):
+        points = space.candidates(BASE_2D, reverse=reverse)
+        centers = [i for i, p in enumerate(points) if space.is_center(p, BASE_2D)]
+        assert centers == [steps // 2]
+        assert len(points) == steps + 1
+
+
+def test_circle_labels_its_center() -> None:
+    assert CIRCLE.offset_label(BASE_2D, BASE_2D) == "center"
+    assert CIRCLE.offset_label((3.0, 1.0), BASE_2D) == "90°"
+
+
+def test_basic_2d_keeps_the_base_when_the_center_is_sharpest() -> None:
+    """Without the center among the candidates, the base would always move away."""
+    strategy = BasicSweepingStrategy(BasicStrategySettings())
+    results = _results(strategy, CIRCLE, BASE_2D, _sharpest_at(BASE_2D), cycles=2)
+
+    evaluation = strategy.evaluate(results)
+
+    assert evaluation.best == BASE_2D
+    assert CIRCLE.edge_direction(evaluation.best, BASE_2D, []) is None
+
+
+@pytest.mark.parametrize(
+    ("sharpest", "label"), [((4.0, 1.0), "center"), (BASE_2D, "center (best)")]
+)
+def test_basic_2d_chart_draws_the_center_as_a_line(
+    sharpest: SweepPoint, label: str
+) -> None:
+    strategy = BasicSweepingStrategy(BasicStrategySettings())
+    evaluation = strategy.evaluate(
+        _results(strategy, CIRCLE, BASE_2D, _sharpest_at(sharpest))
+    )
+
+    profile = af_chart(evaluation, CIRCLE, BASE_2D).panels["profile"]
+
+    (curve,) = [e for e in profile.elements if isinstance(e, Curve)]
+    # four circle points, the first again at 360°; the center has no angle
+    assert curve.x == pytest.approx([0.0, 90.0, 180.0, 270.0, 360.0])
+    (line,) = [e for e in profile.elements if isinstance(e, HorizontalLine)]
+    assert line.y == pytest.approx(evaluation.mean_sharpness[BASE_2D])
+    assert line.label == label
