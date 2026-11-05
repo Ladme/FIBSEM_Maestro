@@ -5,44 +5,36 @@ import importlib
 import pkgutil
 import sys
 import tomllib
-import warnings
 from pathlib import Path
-
-from fibsem_maestro.app_paths import AppPaths
 
 _ON_DEMAND_PACKAGES = ("fibsem_maestro.microscope.autoscript_control",)
 """Packages that need an optional dependency; imported only when used."""
 
 
-def _configure_autoscript() -> None:
+def _configure_linked_libraries() -> None:
     """
-    Make the linked Autoscript installation importable, if one is configured.
+    Make the manufacturer libraries linked by the installer importable.
 
-    Reads `[autoscript] path` from `config.toml` in the FIBSEM Maestro folder
-    (see `AppPaths`). A missing file or entry is not an error: Maestro then runs
-    without Autoscript, and selecting the Autoscript control fails with
-    `AutoscriptNotAvailableError` when connecting.
+    Raises:
+        RuntimeError: If the installation has no `config.toml`.
     """
-    config = AppPaths.default().root / "config.toml"
+    config = Path(sys.prefix).parent / "config.toml"
     if not config.is_file():
-        return
+        raise RuntimeError(f"No configuration found at {config}.")
 
     with config.open("rb") as handle:
         data = tomllib.load(handle)
 
-    path = data.get("autoscript", {}).get("path")
-    if not path:
-        return
+    tables = data.get("libraries", {})
+    tables = dict(tables) if isinstance(tables, dict) else {}
+    legacy = data.get("autoscript")
+    if isinstance(legacy, dict):
+        tables.setdefault("autoscript", legacy)
 
-    if not Path(path).is_dir():
-        warnings.warn(
-            f"Autoscript folder '{path}' named in {config} does not exist.",
-            stacklevel=2,
-        )
-        return
-
-    if path not in sys.path:
-        sys.path.insert(0, path)
+    for table in tables.values():
+        path = table.get("path") if isinstance(table, dict) else None
+        if isinstance(path, str) and path:
+            sys.path.insert(0, path)
 
 
 def _import_all_modules() -> None:
@@ -56,5 +48,5 @@ def _import_all_modules() -> None:
         importlib.import_module(module_info.name)
 
 
-_configure_autoscript()
+_configure_linked_libraries()
 _import_all_modules()
