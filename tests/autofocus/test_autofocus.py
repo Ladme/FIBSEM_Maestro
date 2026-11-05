@@ -1,21 +1,46 @@
 # Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
+import dataclasses
 import threading
 from concurrent.futures import Executor
 from typing import TYPE_CHECKING, Any
 
-from fibsem_maestro.autofocus import InterleavedSweepingStrategy
+import pytest
+
+from fibsem_maestro.action.registry import ACTION_REGISTRY
+from fibsem_maestro.action_context.file import FileActionContext
+from fibsem_maestro.autofocus import (
+    BasicSweepingStrategy,
+    InterleavedSweepingStrategy,
+)
+from fibsem_maestro.autofocus.autofocus import Autofocus, AutofocusState
 from fibsem_maestro.autofocus.jobs_manager import JobsManager
 from fibsem_maestro.autofocus.result import AutofocusResult
 from fibsem_maestro.autofocus.sweep_space import LinearSweepSpace
 from fibsem_maestro.autofocus.sweep_step import SweepPoint, SweepStep
+from fibsem_maestro.core.frequency import Every
+from fibsem_maestro.logging.text.contextual import ContextualTextLogger
+from fibsem_maestro.microscope.microscope import Microscope
+from fibsem_maestro.settings.autofocus_settings import BasicMode as BasicModeSettings
+from fibsem_maestro.settings.autofocus_settings import StepMode as StepModeSettings
+from fibsem_maestro.settings.microscope_settings import MicroscopeSettings
 from fibsem_maestro.settings.sweeping_settings import (
     InterleavedStrategy as InterleavedStrategySettings,
 )
+from fibsem_maestro.settings.sweeping_settings import (
+    LinearSweeping,
+)
+from fibsem_maestro.workflow.actions import Actions
+from fibsem_maestro.workflow.propagations import Propagations
+from fibsem_maestro.workflow.workflow import Workflow
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from pathlib import Path
+
+    from fibsem_maestro.action.action import Action
+    from fibsem_maestro.autofocus.evaluation import BasicEvaluation
 
 SPACE = LinearSweepSpace("working_distance", (-2.0, 2.0), 3)
 BASE: SweepPoint = (0.0,)
@@ -116,3 +141,253 @@ def test_jobs_manager_drops_failed_jobs() -> None:
     jobs.submit(fail)
     jobs.submit(lambda: AutofocusResult(1.0, SweepStep(0, (1.0,), 1)))
     assert [r.sharpness for r in jobs.wait_and_collect()] == [1.0]
+
+
+# steps of every sweep; a single sweep keeps its run in progress for this many slices
+STEPS = 3
+
+# triggers on slice 1 only, within the length of these tests
+ONCE = Every(n=1000)
+
+
+@pytest.fixture
+def workflow(tmp_path: Path) -> Workflow:
+    ctx = FileActionContext(tmp_path / "workflow", "workflow")
+    microscope = Microscope(
+        MicroscopeSettings(control="simulated", ip_address="localhost"),
+        ContextualTextLogger(fallback=ctx.text_logger).derive("microscope"),
+    )
+    return Workflow(microscope, Actions(), Propagations(), ctx)
+
+
+@pytest.fixture
+def add_action(workflow: Workflow, tmp_path: Path) -> Callable[..., Action]:
+    """Add an action, prepared to run, at the end of the workflow or at `index`."""
+
+    def add(type_key: str, name: str, index: int | None = None, **settings: object):
+        action_cls = ACTION_REGISTRY.get(type_key)
+        action = action_cls(
+            name=name,
+            microscope=workflow.microscope,
+            settings=action_cls.settings_cls()(**settings),
+            ctx=FileActionContext(tmp_path / name, name, slice=workflow.ctx.slice),
+            actions=workflow.actions,
+        )
+
+        action.write_properties(action.collect_properties())
+        action.ctx.state_store.write("state.yaml", action.state)
+        action.ctx.settings_store.write("settings.yaml", action.settings)
+        workflow.actions.insert(
+            len(workflow.actions) if index is None else index, action
+        )
+        return action
+
+    return add
+
+
+@pytest.fixture
+def add_step_af(add_action: Callable[..., Action]) -> Callable[..., Autofocus]:
+    """Add a step-mode working-distance autofocus linked to `imaging`."""
+
+    def add(
+        name: str,
+        imaging: str = "imaging",
+        frequency: Every = ONCE,
+        max_sweeps: int = 1,
+        index: int | None = None,
+    ) -> Autofocus:
+        mode = StepModeSettings(
+            sweeping=LinearSweeping(
+                target_attribute="working_distance",
+                range=(-1000.0, 1000.0),
+                steps=STEPS,
+            ),
+            max_sweeps=max_sweeps,
+        )
+        action = add_action(
+            "autofocus",
+            name,
+            index=index,
+            linked_imaging=imaging,
+            mode=mode,
+            execution_frequency=frequency,
+        )
+        assert isinstance(action, Autofocus)
+        return action
+
+    return add
+
+
+def _run_slice(workflow: Workflow) -> None:
+    """Run the next slice of the workflow."""
+    # before the first slice the counter is still 0
+    workflow.run(last_slice=max(workflow.ctx.slice, 1))
+
+
+def _run(workflow: Workflow, slices: int, *afs: Autofocus) -> list[list[bool]]:
+    """Run `slices` more slices; per slice, whether each autofocus has a run in progress."""
+    history = []
+    for _ in range(slices):
+        _run_slice(workflow)
+        history.append([af.run_in_progress for af in afs])
+    return history
+
+
+def _running_slices(history: list[list[bool]], which: int) -> list[int]:
+    """Indices of the slices after which autofocus `which` had a run in progress."""
+    return [i for i, row in enumerate(history) if row[which]]
+
+
+def test_step_autofocuses_on_one_imaging_run_one_at_a_time(
+    workflow: Workflow,
+    add_action: Callable[..., Action],
+    add_step_af: Callable[..., Autofocus],
+) -> None:
+    add_action("imaging", "imaging")
+    first = add_step_af("first")
+    second = add_step_af("second")
+
+    history = _run(workflow, 2 * STEPS + 2, first, second)
+
+    assert not any(all(row) for row in history)
+    first_slices = _running_slices(history, 0)
+    second_slices = _running_slices(history, 1)
+    assert len(first_slices) == len(second_slices) == STEPS
+    # the second starts on the slice the first finishes (it comes later in the list)
+    assert second_slices[0] == first_slices[-1] + 1
+
+
+def test_waiting_request_keeps_its_slice_and_ignores_new_triggers(
+    workflow: Workflow,
+    add_action: Callable[..., Action],
+    add_step_af: Callable[..., Autofocus],
+) -> None:
+    add_action("imaging", "imaging")
+    first = add_step_af("first")
+    # triggered on every slice while it waits
+    second = add_step_af("second", frequency=Every(n=1))
+
+    for _ in range(STEPS):
+        _run_slice(workflow)
+        assert first.run_in_progress
+        assert second.queued_since == 1
+        assert not second.run_in_progress
+
+
+def test_step_autofocus_waits_for_every_sweep_of_the_run(
+    workflow: Workflow,
+    add_action: Callable[..., Action],
+    add_step_af: Callable[..., Autofocus],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original = BasicSweepingStrategy.evaluate
+
+    def best_at_upper_edge(
+        self: BasicSweepingStrategy, results: list[AutofocusResult]
+    ) -> BasicEvaluation:
+        evaluation = original(self, results)
+        return dataclasses.replace(evaluation, best=max(evaluation.mean_sharpness))
+
+    # the best value always lies at the same edge, so every run takes max_sweeps sweeps
+    monkeypatch.setattr(BasicSweepingStrategy, "evaluate", best_at_upper_edge)
+
+    add_action("imaging", "imaging")
+    first = add_step_af("first", max_sweeps=2)
+    second = add_step_af("second")
+
+    history = _run(workflow, 3 * STEPS + 2, first, second)
+
+    assert not any(all(row) for row in history)
+    first_slices = _running_slices(history, 0)
+    second_slices = _running_slices(history, 1)
+    assert len(first_slices) == 2 * STEPS
+    assert second_slices[0] == first_slices[-1] + 1
+
+
+def test_step_autofocuses_on_different_imagings_run_together(
+    workflow: Workflow,
+    add_action: Callable[..., Action],
+    add_step_af: Callable[..., Autofocus],
+) -> None:
+    add_action("imaging", "imaging")
+    add_action("imaging", "other imaging")
+    first = add_step_af("first")
+    second = add_step_af("second", imaging="other imaging")
+
+    history = _run(workflow, 1, first, second)
+
+    assert history == [[True, True]]
+
+
+def test_waiting_requests_start_in_the_order_they_were_made(
+    workflow: Workflow,
+    add_action: Callable[..., Action],
+    add_step_af: Callable[..., Autofocus],
+) -> None:
+    add_action("imaging", "imaging")
+    running = add_step_af("running")
+    early = add_step_af("early")  # requested on slice 1
+    workflow.run(last_slice=2)
+    # added later but placed before `early` in the workflow; requested on slice 3
+    late = add_step_af("late", frequency=Every(n=1), index=2)
+
+    history = _run(workflow, 3 * STEPS, running, late, early)
+
+    assert not any(sum(row) > 1 for row in history)
+    late_slices = _running_slices(history, 1)
+    early_slices = _running_slices(history, 2)
+    assert early_slices[-1] < late_slices[0]
+
+
+def test_removing_the_running_autofocus_frees_the_imaging(
+    workflow: Workflow,
+    add_action: Callable[..., Action],
+    add_step_af: Callable[..., Autofocus],
+) -> None:
+    add_action("imaging", "imaging")
+    first = add_step_af("first")
+    second = add_step_af("second")
+    workflow.run(last_slice=1)
+    assert second.queued_since == 1
+
+    # removed while the workflow is paused
+    workflow.actions.remove(first)
+    workflow.run(last_slice=2)
+
+    assert second.run_in_progress
+    assert second.queued_since is None
+
+
+def test_basic_autofocus_is_not_blocked_by_a_step_run(
+    workflow: Workflow,
+    add_action: Callable[..., Action],
+    add_step_af: Callable[..., Autofocus],
+) -> None:
+    add_action("imaging", "imaging")
+    step = add_step_af("step")
+    workflow.run(last_slice=1)
+    assert step.run_in_progress
+
+    basic = add_action(
+        "autofocus",
+        "basic",
+        linked_imaging="imaging",
+        mode=BasicModeSettings(),
+        execution_frequency=Every(n=1),
+    )
+
+    assert basic.should_execute()
+
+
+def test_waiting_request_survives_saving_the_state(tmp_path: Path) -> None:
+    file = tmp_path / "state.yaml"
+    AutofocusState(queued_since=7).to_file(file)
+
+    assert AutofocusState.from_file(file).queued_since == 7
+
+
+def test_state_saved_without_a_waiting_request_still_loads(tmp_path: Path) -> None:
+    file = tmp_path / "state.yaml"
+    file.write_text("sweeps_done: 0\n", encoding="utf-8")
+
+    assert AutofocusState.from_file(file).queued_since is None

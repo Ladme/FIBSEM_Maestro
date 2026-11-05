@@ -63,6 +63,9 @@ class AutofocusState(ActionState):
     collected_results: list[AutofocusResult] = field(default_factory=list)
     sweeps_done: int = 0
     last_direction: SweepDirection | None = None
+    # slice on which a step-mode run was requested that is still waiting for
+    # the linked imaging to be free; None if no request is waiting
+    queued_since: int | None = None
 
 
 def _with_point_value(result: Any) -> Any:
@@ -119,6 +122,8 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
         self._sweeps_done = 0
         # direction of the edge the best value last reached
         self._last_direction: SweepDirection | None = None
+        # slice of the step-mode run request waiting for the linked imaging
+        self._queued_since: int | None = None
 
         # build mode/sweeping/context from current settings
         self._rebuild()
@@ -179,7 +184,29 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
             else [],
             sweeps_done=self._sweeps_done,
             last_direction=self._last_direction,
+            queued_since=self._queued_since,
         )
+
+    @property
+    def run_in_progress(self) -> bool:
+        """
+        True while an autofocus run is in progress.
+
+        A run lasts from its first sweep to the end of its last sweep, including
+        the sweeps that follow because the best value reached the edge. Between
+        slices only a step-mode run can be in progress.
+        """
+        return self._active_gen is not None
+
+    @property
+    def is_step_mode(self) -> bool:
+        """True if the autofocus is configured for step mode."""
+        return isinstance(self._settings.mode, StepModeSettings)
+
+    @property
+    def queued_since(self) -> int | None:
+        """Slice the waiting step-mode run was requested on; None if no run waits."""
+        return self._queued_since
 
     @property
     def scanning_area(self) -> RelativeArea | None:
@@ -205,6 +232,7 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
         self._current_step_index = state.current_step_index
         self._sweeps_done = state.sweeps_done
         self._last_direction = state.last_direction
+        self._queued_since = state.queued_since
 
         if not state.sweep_in_progress:
             self._active_gen = None
@@ -229,10 +257,15 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
         """
         Decide whether autofocus runs on the current slice.
 
-        A sweep in progress always continues. Otherwise autofocus runs if the
-        slice matches the execution frequency, or if the sharpness of the
+        A run in progress always continues. Otherwise autofocus is triggered if
+        the slice matches the execution frequency, or if the sharpness of the
         linked imaging's latest frame is below `settings.sharpness_limit`.
-        Blocks until that sharpness is available.
+
+        A triggered step-mode autofocus may have to wait: per linked imaging,
+        only one step-mode run may be in progress, since each one varies that
+        imaging's frames. The request then waits in first-come order and the
+        run starts as soon as the imaging is free; triggers that arrive while
+        it waits are ignored.
 
         Returns:
             `True` if autofocus should run for this slice.
@@ -240,6 +273,40 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
         if self._active_gen is not None:
             return True
 
+        if not self.is_step_mode:
+            # a request left from before a switch away from step mode runs now
+            triggered = self._queued_since is not None or self._is_triggered()
+            self._queued_since = None
+            return triggered
+
+        if self._queued_since is None:
+            if not self._is_triggered():
+                return False
+            self._queued_since = self._ctx.slice
+
+        if (blocker := _blocking_step_autofocus(self, self._actions)) is not None:
+            self._log_waiting(blocker)
+            return False
+
+        if self._queued_since < self._ctx.slice:
+            self._ctx.text_logger.info(
+                f"'{self.name}' starts the step-mode run requested on slice "
+                f"{self._queued_since}; autofocus queue of '{self._settings.linked_imaging}' is free."
+            )
+        self._queued_since = None
+        return True
+
+    def _is_triggered(self) -> bool:
+        """
+        Check the triggers of a new autofocus run.
+
+        Blocks until the sharpness of the linked imaging's latest frame is
+        available, if a sharpness limit is set.
+
+        Returns:
+            True if the slice matches the execution frequency, or the latest
+            frame's sharpness is below the sharpness limit.
+        """
         if self._settings.execution_frequency.matches(self._ctx.slice):
             self._ctx.text_logger.info(
                 f"'{self.name}' triggered: slice {self._ctx.slice} matches "
@@ -260,6 +327,30 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
                 return True
 
         return False
+
+    def _log_waiting(self, blocker: Autofocus) -> None:
+        """
+        Log that the waiting step-mode run cannot start yet.
+
+        Logged at info level on the slice the request was made, at debug level
+        on the slices it keeps waiting.
+
+        Args:
+            blocker: The autofocus the run waits for.
+        """
+        reason = (
+            "has a step-mode run in progress"
+            if blocker.run_in_progress
+            else f"has been waiting since slice {blocker.queued_since}"
+        )
+        message = (
+            f"'{self.name}' waits: '{blocker.name}' {reason} on "
+            f"'{self._settings.linked_imaging}'."
+        )
+        if self._queued_since == self._ctx.slice:
+            self._ctx.text_logger.info(message)
+        else:
+            self._ctx.text_logger.debug(message)
 
     @with_logging_context
     def test(self) -> None:
@@ -637,6 +728,50 @@ class Autofocus(Action[AutofocusSettings, AutofocusState]):
             ],
             title="Line focus plot",
         )
+
+
+def _blocking_step_autofocus(
+    candidate: Autofocus, actions: Actions
+) -> Autofocus | None:
+    """
+    Return the step-mode autofocus that `candidate` has to wait for, if any.
+
+    Step-mode autofocuses linked to the same imaging run one at a time. A run in
+    progress blocks the others until it ends, including the sweeps that follow
+    it. Waiting requests start in the order of the slice they were made on;
+    ties go to the autofocus earlier in the workflow.
+
+    Args:
+        candidate: A step-mode autofocus with a waiting request.
+        actions: Every action of the workflow, in workflow order.
+
+    Returns:
+        The autofocus with a run in progress on the same imaging, else the
+        first one waiting ahead of `candidate`; None if `candidate` may start.
+    """
+    assert candidate.queued_since is not None
+
+    imaging = candidate.settings.linked_imaging
+    position = {id(action): i for i, action in enumerate(actions)}
+    rivals = [
+        action
+        for action in actions
+        if isinstance(action, Autofocus)
+        and action is not candidate
+        and action.settings.linked_imaging == imaging
+    ]
+
+    if (running := next((a for a in rivals if a.run_in_progress), None)) is not None:
+        return running
+
+    own_place = (candidate.queued_since, position[id(candidate)])
+    waiting = [
+        ((rival.queued_since, position[id(rival)]), rival)
+        for rival in rivals
+        if rival.is_step_mode and rival.queued_since is not None
+    ]
+    ahead = [(place, rival) for place, rival in waiting if place < own_place]
+    return min(ahead, key=lambda item: item[0])[1] if ahead else None
 
 
 def _get_line_index(result: AutofocusResult) -> int:
