@@ -388,7 +388,13 @@ class WorkflowSession(QObject):
 
         Returns:
             The new rule.
+
+        Raises:
+            ValueError: If the action takes no part in propagation.
         """
+        if not parent.PROPAGATION_RULES_ALLOWED:
+            raise ValueError(f"'{parent.name}' takes no part in propagation")
+
         rule = PropagationRule(
             parent_name=parent.name,
             dependent_names=[],
@@ -409,8 +415,21 @@ class WorkflowSession(QObject):
 
         Raises:
             ValueError: If the rule is not one of this workflow's rules.
+
+        Raises:
+            ValueError: If the rule is not one of this workflow's rules, or a
+                dependent takes no part in propagation.
         """
         self._require_rule(rule)
+        if excluded := [
+            action.name
+            for action in self._workflow.actions
+            if action.name in names and not action.PROPAGATION_RULES_ALLOWED
+        ]:
+            raise ValueError(
+                f"{', '.join(repr(n) for n in excluded)} take no part in propagation"
+            )
+
         rule.dependent_names[:] = list(names)
         self._write_workflow_state()
         self.rules_changed.emit()

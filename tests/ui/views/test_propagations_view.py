@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import pytest
 from gui_testkit.app import wait_for_state
 from gui_testkit.driving import (
     add_prepared,
@@ -38,7 +39,9 @@ ANY_TYPE = min(ACTION_REGISTRY)
 
 def rules_editor(app: Composition, action: Action) -> PropagationsEditor:
     app.window.action_list.select(action)
-    return panel_of(app, action).propagations
+    editor = panel_of(app, action).propagations
+    assert editor is not None
+    return editor
 
 
 def dependents_list(editor: RuleEditor) -> QListWidget:
@@ -219,3 +222,20 @@ def test_propagations_are_read_only_while_running(
     wait_for_state(qtbot, app.run, AppState.PAUSED)
     assert editor.add_button.isEnabled()
     assert dependents_list(rule_editor).isEnabled()
+
+
+def test_propagations_leave_out_an_action_that_takes_no_part(
+    app: Composition,
+) -> None:
+    parent = app.commands.add_action(ANY_TYPE, "parent")
+    refocus = app.commands.add_action("refocus", "refocus")
+    editor = rules_editor(app, parent)
+
+    editor.add_button.click()
+
+    (rule_editor,) = editor.rule_editors
+    assert "refocus" not in listed(rule_editor)
+    app.window.action_list.select(refocus)
+    assert panel_of(app, refocus).propagations is None
+    with pytest.raises(ValueError, match="takes no part in propagation"):
+        app.session.add_rule(refocus)

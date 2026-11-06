@@ -129,7 +129,9 @@ def test_flow_action_error_recovers_after_editing_settings_while_interrupted(
     field = first_spin_box(panel.form.widget)
     # V24: settings, rules and tools stay available; the structure is locked
     assert editable(field)
-    assert panel.propagations.add_button.isEnabled()
+    rules = panel.propagations
+    assert rules is not None
+    assert rules.add_button.isEnabled()
     assert panel.header.button("prepare").isEnabled()
     assert not app.window.action_list.add_button.isEnabled()
 

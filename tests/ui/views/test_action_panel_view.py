@@ -186,17 +186,19 @@ def test_action_panel_settings_are_read_only_while_running_unless_danger_mode(
     shown(app, action)
     panel = panel_of(app, action)
     field = first_spin_box(panel.form.widget)
+    rules = panel.propagations
+    assert rules is not None
     assert editable(field)
 
     app.window.top_bar.run_button.click()
     assert not editable(field)
-    assert not panel.propagations.add_button.isEnabled()
+    assert not rules.add_button.isEnabled()
     assert not any(tools_enabled(app, action).values())
 
     app.commands.set_danger_mode(True)
     assert editable(field)
     # danger mode unlocks the settings only
-    assert not panel.propagations.add_button.isEnabled()
+    assert not rules.add_button.isEnabled()
     assert not any(tools_enabled(app, action).values())
 
     app.commands.set_danger_mode(False)
@@ -222,14 +224,16 @@ def test_action_panel_cache_keeps_a_panel_and_its_state_across_selection(
     second = app.commands.add_action(ANY_TYPE, "second")
     shown(app, first)
     panel = panel_of(app, first)
-    panel.propagations.set_collapsed(True)
+    rules = panel.propagations
+    assert rules is not None
+    rules.set_collapsed(True)
 
     shown(app, second)
     shown(app, first)
 
     assert panel_of(app, first) is panel
     assert app.window.panel_host.currentWidget() is panel
-    assert not panel.propagations.add_button.isVisible()
+    rules.add_button.isVisible()
 
 
 def test_action_panel_is_discarded_with_its_action(app: Composition) -> None:

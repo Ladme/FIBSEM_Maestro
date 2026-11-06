@@ -49,7 +49,9 @@ def test_flow_danger_mode_edits_the_settings_of_a_running_workflow(
         field.stepBy(1)
     edited = action.settings.model_copy(deep=True)
     # only the settings: rules, tools and the structure still follow the run
-    assert not panel.propagations.add_button.isEnabled()
+    rules = panel.propagations
+    assert rules is not None
+    assert not rules.add_button.isEnabled()
     assert not panel.header.button("prepare").isEnabled()
     assert not app.window.action_list.add_button.isEnabled()
 

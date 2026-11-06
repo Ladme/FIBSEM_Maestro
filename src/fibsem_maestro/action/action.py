@@ -60,6 +60,15 @@ class Action[TSettings: ActionSettingsLike, TState: ActionState](ABC):
     _STATE_FIELDS: ClassVar[frozenset[str]] = frozenset()
     """Top-level settings fields whose change invalidates the internal state of the action."""
 
+    PROPAGATION_RULES_ALLOWED: ClassVar[bool] = True
+    """
+    False for actions that may be neither the parent nor a dependent of a propagation rule.
+
+    Such an action's properties must not spread to other actions, nor be
+    overwritten from them. Explicit patches (`Produced.patches`) are not rules
+    and are unaffected.
+    """
+
     def __init__(
         self,
         name: str,

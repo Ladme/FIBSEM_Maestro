@@ -64,6 +64,10 @@ class Refocus(Action[RefocusSettings, RefocusState]):
 
     _STATE_FIELDS = frozenset({"mode", "linked_imaging"})
 
+    # it stores no properties: nothing to propagate, and anything propagated
+    # to it would impose values on the refocus frames
+    PROPAGATION_RULES_ALLOWED = False
+
     def __init__(
         self,
         name: str,

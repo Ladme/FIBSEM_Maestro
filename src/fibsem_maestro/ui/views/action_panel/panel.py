@@ -129,14 +129,16 @@ class ActionPanel(QWidget):
                 layout.addWidget(section.build(section_context))
 
         # propagations
-        self._propagations = PropagationsEditor(
-            action=action,
-            session=session,
-            commands=commands,
-            form_builder=form_builder,
-            form_context=form_contexts.for_rules(),
-        )
-        layout.addWidget(self._propagations)
+        self._propagations: PropagationsEditor | None = None
+        if action.PROPAGATION_RULES_ALLOWED:
+            self._propagations = PropagationsEditor(
+                action=action,
+                session=session,
+                commands=commands,
+                form_builder=form_builder,
+                form_context=form_contexts.for_rules(),
+            )
+            layout.addWidget(self._propagations)
 
         for section in ui_spec.sections:
             if section.position == "after_propagations":
@@ -169,8 +171,8 @@ class ActionPanel(QWidget):
         return self._header
 
     @property
-    def propagations(self) -> PropagationsEditor:
-        """The propagation rules editor."""
+    def propagations(self) -> PropagationsEditor | None:
+        """The propagation rules editor; None if the action takes no part in propagation."""
         return self._propagations
 
     def dispose(self) -> None:
@@ -220,7 +222,8 @@ class ActionPanel(QWidget):
     def _on_permissions_changed(self, permissions: Permissions) -> None:
         # danger mode unlocks the settings only; propagations and tools follow the state
         self._form.set_read_only(not permissions.settings_editable)
-        self._propagations.set_read_only(not permissions.rules_editable)
+        if self._propagations is not None:
+            self._propagations.set_read_only(not permissions.rules_editable)
         self._render_header()
 
     def _on_settings_committed(self, path: str) -> None:

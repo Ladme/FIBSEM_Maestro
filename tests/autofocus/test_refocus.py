@@ -17,6 +17,8 @@ from fibsem_maestro.settings.autofocus_settings import BasicMode as BasicModeSet
 from fibsem_maestro.settings.autofocus_settings import StepMode as StepModeSettings
 from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.settings.sweeping_settings import CircularSweeping, LinearSweeping
+from fibsem_maestro.workflow.propagations import PropagationRule, Propagations
+from fibsem_maestro.workflow.workflow import Workflow
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -25,7 +27,6 @@ if TYPE_CHECKING:
     from fibsem_maestro.action.action import Action
     from fibsem_maestro.autofocus.evaluation import BasicEvaluation
     from fibsem_maestro.autofocus.result import AutofocusResult
-    from fibsem_maestro.workflow.workflow import Workflow
 
 # the refocus sweeps the working distance by up to this much (nm) and picks the top
 REFOCUS_STEP = 100.0
@@ -264,3 +265,28 @@ def test_pending_final_refocus_survives_saving_the_state(tmp_path: Path) -> None
     RefocusState(final_refocus_pending=True).to_file(file)
 
     assert RefocusState.from_file(file).final_refocus_pending
+
+
+def test_workflow_drops_propagation_rules_from_or_to_a_refocus(
+    workflow: Workflow,
+    add_action: Callable[..., Action],
+    add_refocus: Callable[..., Refocus],
+) -> None:
+    add_action("imaging", "imaging")
+    add_action("imaging", "other")
+    add_refocus()
+    wd = PropertyNames(electron_beam=["working_distance"])
+    rules = [
+        PropagationRule("refocus", ["imaging"], wd),
+        PropagationRule("imaging", ["refocus", "other"], wd),
+    ]
+
+    # e.g. loaded from a workflow saved before the refocus excluded itself
+    loaded = Workflow(
+        workflow.microscope,
+        workflow.actions,
+        Propagations.from_rules(rules),
+        workflow.ctx,
+    )
+
+    assert loaded.propagations.rules == [PropagationRule("imaging", ["other"], wd)]

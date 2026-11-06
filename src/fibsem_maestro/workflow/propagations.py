@@ -12,7 +12,7 @@ from fibsem_maestro.settings.property_names import PropertyNames  # noqa: TC001
 from fibsem_maestro.workflow.error import WorkflowError
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Collection, Mapping
 
     from fibsem_maestro.action.action import Action
     from fibsem_maestro.logging.text.text_logger import TextLogger
@@ -217,6 +217,32 @@ class Propagations:
             if rule.parent_name == source_name
         ]
         self.rules.extend(copies)
+
+    def discard_rules_of(self, names: Collection[str]) -> bool:
+        """
+        Remove the named actions from every rule.
+
+        Rules whose parent is one of them are deleted; the names are dropped
+        from the other rules' dependents (a rule left without dependents stays).
+
+        Args:
+            names: Names of the actions to remove from the rules.
+
+        Returns:
+            True if any rule changed.
+        """
+        excluded = set(names)
+        kept = [rule for rule in self.rules if rule.parent_name not in excluded]
+        changed = len(kept) != len(self.rules)
+        self.rules[:] = kept
+
+        for rule in self.rules:
+            dependents = [n for n in rule.dependent_names if n not in excluded]
+            if len(dependents) != len(rule.dependent_names):
+                rule.dependent_names[:] = dependents
+                changed = True
+
+        return changed
 
     def _propagate_to_dependents(
         self,

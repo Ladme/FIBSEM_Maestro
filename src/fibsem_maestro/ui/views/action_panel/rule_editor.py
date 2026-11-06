@@ -210,13 +210,17 @@ class RuleEditor(QFrame):
             return
 
     def _populate_dep_list(self, *_: object) -> None:
-        """List the other actions, selecting the rule's dependents."""
+        """List the other actions that take part in propagation, selecting the rule's dependents."""
         self._dep_list.blockSignals(True)
         try:
             self._dep_list.clear()
             for action in self._session.actions:
-                if action is self._parent_action:
+                if (
+                    action is self._parent_action
+                    or not action.PROPAGATION_RULES_ALLOWED
+                ):
                     continue
+
                 item = QListWidgetItem(action.name)
                 item.setData(Qt.ItemDataRole.UserRole, action.name)
                 self._dep_list.addItem(item)

@@ -80,6 +80,8 @@ class Workflow:
 
         self.callbacks: WorkflowCallbacks | None = None
 
+        self._discard_forbidden_rules()
+
     def set_callbacks(self, callbacks: WorkflowCallbacks) -> None:
         self.callbacks = callbacks
 
@@ -375,6 +377,23 @@ class Workflow:
             for action in self.actions
             for issue in action.preparation_issues()
         ]
+
+    def _discard_forbidden_rules(self) -> None:
+        """
+        Remove the actions that take no part in propagation from every rule.
+        """
+        excluded = sorted(
+            action.name
+            for action in self.actions
+            if not action.PROPAGATION_RULES_ALLOWED
+        )
+
+        if self.propagations.discard_rules_of(excluded):
+            self.ctx.text_logger.warning(
+                "Removed propagation rules from or to "
+                + ", ".join(f"'{name}'" for name in excluded)
+                + ": these actions take no part in propagation."
+            )
 
     def completion_reasons(self) -> list[str]:
         """
