@@ -72,7 +72,8 @@ class ToolSpec:
     One button of an action's header.
 
     A tool is enabled iff the run state and microscope tasks allow microscope
-    work (if `uses_microscope`), the action has props stored for its current
+    work (if `uses_microscope`) or danger mode is on (if
+    `usable_in_danger_mode`), the action has props stored for its current
     slice (if `requires_props`), and `enabled_when(action)` holds (if given).
 
     Attributes:
@@ -84,6 +85,10 @@ class ToolSpec:
         invoke: Called on the GUI thread when the button is clicked.
         uses_microscope: If False, not disabled by runs or tasks (e.g. a viewer).
         enabled_when: Extra, tool-specific condition; None for none.
+        usable_in_danger_mode: If True, also enabled in danger mode while the
+            workflow runs or a microscope task runs. The commands the tool calls
+            must allow it too: a microscope task is refused whenever the
+            workflow runs, whatever this says.
     """
 
     key: str
@@ -94,6 +99,7 @@ class ToolSpec:
     invoke: Callable[[ToolContext], None]
     uses_microscope: bool = True
     enabled_when: Callable[[Action], bool] | None = None
+    usable_in_danger_mode: bool = False
 
 
 @dataclass(frozen=True)

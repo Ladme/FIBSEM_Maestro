@@ -8,7 +8,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from fibsem_maestro.logging.text.file import close_all_log_files
-from fibsem_maestro.ui.app.errors import DirectoryNotClearedError, NotAllowedError
+from fibsem_maestro.ui.app.errors import (
+    DirectoryNotClearedError,
+    NotAllowedError,
+    PropertiesChangedError,
+)
 from fibsem_maestro.ui.app.microscope_tasks import MicroscopeTask
 from fibsem_maestro.ui.app.run_state import AppState
 
@@ -291,20 +295,46 @@ class AppCommands:
             return
         self._session.commit_settings(action)
 
-    def save_properties(self, action: Action, props: GlobalProperties) -> None:
+    def save_properties(
+        self,
+        action: Action,
+        props: GlobalProperties,
+        *,
+        opened_slice: int,
+        opened: GlobalProperties | None,
+    ) -> None:
         """
-        Store edited props for the action's current slice.
+        Store edited props for the action's current slice, unless they changed meanwhile.
+
+        In danger mode the workflow may run while the props are edited; it
+        may execute the action (moving it to the next slice) or propagate to
+        it. Saving edits of props that are no longer the stored ones would
+        silently undo that, so they are refused.
 
         Args:
             action: The action.
-            props: The properties.
+            props: The edited properties.
+            opened_slice: The action's slice when the props were opened.
+            opened: The props stored for that slice when they were opened
+                (unedited), or None if none were stored.
 
         Raises:
-            NotAllowedError: If `action_tools_enabled` is false.
+            NotAllowedError: If `danger_tools_enabled` is false (Edit is
+                usable in danger mode).
+            PropertiesChangedError: If the action's slice or its stored props
+                differ from what was opened. Nothing is written.
         """
         self._check(
-            self._permissions().action_tools_enabled, "Cannot save properties now."
+            self._permissions().danger_tools_enabled, "Cannot save properties now."
         )
+
+        stored = action.read_properties() if action.has_stored_properties() else None
+        if action.ctx.slice != opened_slice or stored != opened:
+            raise PropertiesChangedError(
+                f"The properties of '{action.name}' changed after they were opened "
+                "(e.g. the workflow ran it); the edits were not saved. Open them "
+                "again to edit the current ones."
+            )
         self._session.write_properties(action, props)
 
     def apply_microscope_settings(self, save_profile: bool) -> None:

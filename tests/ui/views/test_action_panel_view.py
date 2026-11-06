@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 from typing import TYPE_CHECKING
 
 import pytest
@@ -28,8 +29,10 @@ from PyQt6.QtWidgets import QDialogButtonBox, QLabel, QWidget
 
 from fibsem_maestro.action.registry import ACTION_REGISTRY
 from fibsem_maestro.core.registry import Registry
+from fibsem_maestro.properties.beam_properties import BeamProperties
+from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.ui.actions_ui import spec as actions_ui_spec
-from fibsem_maestro.ui.actions_ui.default_tools import DEFAULT_TOOLS
+from fibsem_maestro.ui.actions_ui.default_tools import DEFAULT_TOOLS, TEST_TOOL
 from fibsem_maestro.ui.actions_ui.spec import (
     ActionUiSpec,
     SectionContext,
@@ -37,16 +40,18 @@ from fibsem_maestro.ui.actions_ui.spec import (
     ToolContext,
     ToolSpec,
 )
+from fibsem_maestro.ui.app.edit_policy import permissions_for
 from fibsem_maestro.ui.app.files import WorkflowFiles
 from fibsem_maestro.ui.app.run_state import AppState
 from fibsem_maestro.ui.app.session import WorkflowSession
+from fibsem_maestro.ui.views.action_panel.header import action_header_view
 from fibsem_maestro.ui.widgets.icons import ICON_TEST
 from fibsem_maestro.ui.widgets.properties_dialog import PropertiesDialog
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from gui_testkit.dialogs import DirectoryChoices
+    from gui_testkit.dialogs import DirectoryChoices, MessageBoxes
     from pytestqt.qtbot import QtBot
 
     from fibsem_maestro.action.action import Action
@@ -148,6 +153,28 @@ def test_action_panel_edit_tool_saves_the_reviewed_props_unless_cancelled(
     assert saved.args == [action]
 
 
+def test_action_panel_edit_tool_saves_edited_values(
+    qtbot: QtBot, app: Composition, boxes: MessageBoxes
+) -> None:
+    action = app.commands.add_action(ANY_TYPE, "first")
+    prepare_with_tool(qtbot, app, action)
+    before = GlobalProperties(electron_beam=BeamProperties(working_distance=4.0e6))
+    action.write_properties(before)
+
+    def edit_and_save(dialog: PropertiesDialog) -> None:
+        first_spin_box(dialog).stepBy(1)
+        press(dialog, QDialogButtonBox.StandardButton.Save)
+
+    with (
+        qtbot.waitSignal(app.session.action_props_changed),
+        answering(PropertiesDialog, edit_and_save),
+    ):
+        click_tool(app, action, "edit")
+
+    assert boxes.calls == []
+    assert action.read_properties() != before
+
+
 def test_action_panel_edit_tool_refreshes_when_the_props_vanished(
     qtbot: QtBot, app: Composition
 ) -> None:
@@ -197,9 +224,14 @@ def test_action_panel_settings_are_read_only_while_running_unless_danger_mode(
 
     app.commands.set_danger_mode(True)
     assert editable(field)
-    # danger mode unlocks the settings only
+    # danger mode unlocks the settings and Edit only
     assert not rules.add_button.isEnabled()
-    assert not any(tools_enabled(app, action).values())
+    assert tools_enabled(app, action) == {
+        "prepare": False,
+        "edit": True,
+        "apply": False,
+        "test": False,
+    }
 
     app.commands.set_danger_mode(False)
     assert not editable(field)
@@ -351,6 +383,24 @@ def test_action_panel_shows_the_registered_tool_and_sections(
     panel.header.button("viewer").click()
     assert [ctx.action for ctx in custom_ui.tools] == [action]
     assert custom_ui.tools[0].parent is panel
+
+
+@pytest.mark.parametrize("usable", [False, True])
+def test_action_header_enables_a_tool_in_danger_mode_only_if_it_says_so(
+    app: Composition, usable: bool
+) -> None:
+    action = app.commands.add_action(ANY_TYPE, "first")
+    tool = dataclasses.replace(TEST_TOOL, usable_in_danger_mode=usable)
+
+    def enabled(state: AppState, danger: bool, busy: bool = False) -> bool:
+        permissions = permissions_for(state, danger, busy)
+        view = action_header_view(action, permissions, False, [tool])
+        return view.tools_enabled[tool.key]
+
+    assert enabled(AppState.RUNNING, danger=True) is usable
+    assert enabled(AppState.EDITING, danger=True, busy=True) is usable
+    assert not enabled(AppState.RUNNING, danger=False)
+    assert enabled(AppState.EDITING, danger=False)
 
 
 def test_action_panel_registered_tool_follows_its_own_conditions(

@@ -33,6 +33,7 @@ def spec_table(state: AppState, danger: bool, busy: bool) -> Permissions:
         settings_editable=not_running or danger,
         rules_editable=not_running,
         action_tools_enabled=not_running and not busy,
+        danger_tools_enabled=(not_running and not busy) or danger,
         preview_enabled=not_running and not busy,
         import_enabled=state is S.EDITING and not busy,
         new_enabled=not_running and not busy,

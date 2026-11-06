@@ -19,11 +19,14 @@ from gui_testkit.situations import busy_tasks, store_unappliable_props
 from gui_testkit.windows_lock import windows_like_delete
 
 from fibsem_maestro.logging.text.file import close_all_log_files
+from fibsem_maestro.properties.beam_properties import BeamProperties
+from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.ui.app import commands as commands_module
 from fibsem_maestro.ui.app.errors import (
     DirectoryNotClearedError,
     NotAllowedError,
+    PropertiesChangedError,
     WorkflowResetError,
 )
 from fibsem_maestro.ui.app.files import WorkflowFiles
@@ -208,9 +211,7 @@ def test_commands_whole_workflow_refused_while_task_busy(
             lambda: commands.new_workflow(tmp_path / "new"),
             lambda: commands.import_workflow(tmp_path / "source"),
             commands.reset_workflow,
-            lambda: commands.save_properties(
-                prepared[0], prepared[0].read_properties()
-            ),
+            lambda: save_unchanged(commands, prepared[0]),
             commands.run_pressed,
         ):
             with pytest.raises(NotAllowedError):
@@ -439,13 +440,78 @@ def test_commands_settings_committed_ignores_removed_action(
     assert changed == []
 
 
+def save_unchanged(commands: AppCommands, action: Action) -> None:
+    """Save the action's stored props as opened just now, unchanged."""
+    props = action.read_properties()
+    commands.save_properties(
+        action, props, opened_slice=action.ctx.slice, opened=props.model_copy()
+    )
+
+
+EDITED = GlobalProperties(electron_beam=BeamProperties(working_distance=4.0e6))
+"""Edited props, unlike anything the tests store otherwise."""
+
+
 def test_commands_save_properties_writes_props(
     services: Services, add_action: Callable[..., Action]
 ) -> None:
     source = add_action(KEY, "source", prepare=True)
     target = add_action(KEY, "target")
-    services.commands.save_properties(target, source.read_properties())
+    services.commands.save_properties(
+        target, source.read_properties(), opened_slice=target.ctx.slice, opened=None
+    )
     assert target.has_stored_properties()
+
+
+def test_commands_save_properties_refuses_props_changed_since_opened(
+    services: Services, prepared: tuple[Action, Action]
+) -> None:
+    action = prepared[0]
+    opened = action.read_properties()
+    # e.g. the running workflow propagated to the action meanwhile
+    meanwhile = GlobalProperties(electron_beam=BeamProperties(working_distance=1.0e6))
+    action.write_properties(meanwhile)
+
+    with pytest.raises(PropertiesChangedError):
+        services.commands.save_properties(
+            action, EDITED, opened_slice=action.ctx.slice, opened=opened
+        )
+
+    assert action.read_properties() == meanwhile
+
+
+def test_commands_save_properties_refuses_props_of_an_earlier_slice(
+    services: Services, prepared: tuple[Action, Action]
+) -> None:
+    action = prepared[0]
+    opened_slice, opened = action.ctx.slice, action.read_properties()
+    # e.g. the running workflow executed the action meanwhile
+    action.ctx.props_store.copy_to("props.yaml", action.ctx.props_store.next)
+    action.ctx.advance()
+
+    with pytest.raises(PropertiesChangedError):
+        services.commands.save_properties(
+            action, EDITED, opened_slice=opened_slice, opened=opened
+        )
+
+    assert action.read_properties() == opened
+
+
+def test_commands_save_properties_allowed_in_danger_mode_while_busy(
+    qtbot: QtBot, services: Services, prepared: tuple[Action, Action]
+) -> None:
+    action = prepared[0]
+    services.commands.set_danger_mode(True)
+
+    with busy_tasks(qtbot, services.tasks):
+        services.commands.save_properties(
+            action,
+            EDITED,
+            opened_slice=action.ctx.slice,
+            opened=action.read_properties(),
+        )
+
+    assert action.read_properties() == EDITED
 
 
 def test_commands_apply_microscope_settings_saves_profile_on_request(

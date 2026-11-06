@@ -3,7 +3,10 @@
 
 """The tools every action's header shows by default: Prepare, Edit, Apply and Test."""
 
+from PyQt6.QtWidgets import QMessageBox
+
 from fibsem_maestro.ui.actions_ui.spec import ToolContext, ToolSpec
+from fibsem_maestro.ui.app.errors import PropertiesChangedError
 from fibsem_maestro.ui.widgets.icons import (
     ICON_APPLY,
     ICON_EDIT,
@@ -27,7 +30,10 @@ def edit_properties(ctx: ToolContext) -> None:
     """
     Open the props stored for the action's current slice for editing, and save them.
 
-    Failures to read or save are logged on the action's logger.
+    In danger mode this works while the workflow runs. If the stored props
+    change before the user saves (the workflow executed the action, or
+    propagated to it), the edits are not saved and the user is told so.
+    Other failures to read or save are logged on the action's logger.
 
     Args:
         ctx: The tool's context.
@@ -38,6 +44,7 @@ def edit_properties(ctx: ToolContext) -> None:
         ctx.refresh()
         return
 
+    opened_slice = action.ctx.slice
     try:
         props = action.read_properties()
     except Exception as e:
@@ -45,6 +52,8 @@ def edit_properties(ctx: ToolContext) -> None:
             f"Reading properties for '{action.name}' failed: {e}"
         )
         return
+    # the dialog edits `props` in place
+    opened = props.model_copy(deep=True)
 
     edited = PropertiesDialog.review(
         properties=props,
@@ -52,7 +61,7 @@ def edit_properties(ctx: ToolContext) -> None:
         form_context=ctx.form_context,
         title=f"Properties of '{action.name}'",
         hint=(
-            f"Properties stored for slice {action.ctx.slice}. "
+            f"Properties stored for slice {opened_slice}. "
             "Edit them if needed, then save."
         ),
         parent=ctx.parent,
@@ -61,7 +70,12 @@ def edit_properties(ctx: ToolContext) -> None:
         return
 
     try:
-        ctx.commands.save_properties(action, edited)
+        ctx.commands.save_properties(
+            action, edited, opened_slice=opened_slice, opened=opened
+        )
+    except PropertiesChangedError as e:
+        QMessageBox.warning(ctx.parent, "Properties not saved", str(e))
+        ctx.refresh()
     except Exception as e:
         action.ctx.text_logger.error(
             f"Saving properties for '{action.name}' failed: {e}"
@@ -114,11 +128,13 @@ EDIT_TOOL = ToolSpec(
     tooltip=(
         "<b>Edit</b><br>"
         "View and edit the properties stored for the current slice.<br>"
-        "Unavailable until properties are stored."
+        "Unavailable until properties are stored. Also available while the "
+        "workflow runs, in danger mode."
     ),
     accessible_name="Edit properties",
     requires_props=True,
     invoke=edit_properties,
+    usable_in_danger_mode=True,
 )
 
 APPLY_TOOL = ToolSpec(

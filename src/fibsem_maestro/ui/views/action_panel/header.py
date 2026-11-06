@@ -47,8 +47,9 @@ def action_header_view(
     Decide what an action panel's header shows.
 
     A tool is enabled iff microscope work is allowed (if it uses the
-    microscope), props are stored for the action's current slice (if it needs
-    them) and its own condition holds (if it has one).
+    microscope) or danger mode is on (if it is usable in danger mode), props
+    are stored for the action's current slice (if it needs them) and its own
+    condition holds (if it has one).
 
     Args:
         action: The action.
@@ -66,7 +67,11 @@ def action_header_view(
         beam_text=f"   > beam: {beam}",
         tools_enabled={
             tool.key: (
-                (permissions.action_tools_enabled or not tool.uses_microscope)
+                (
+                    permissions.action_tools_enabled
+                    or not tool.uses_microscope
+                    or (permissions.danger_tools_enabled and tool.usable_in_danger_mode)
+                )
                 and (has_props or not tool.requires_props)
                 and (tool.enabled_when is None or tool.enabled_when(action))
             )

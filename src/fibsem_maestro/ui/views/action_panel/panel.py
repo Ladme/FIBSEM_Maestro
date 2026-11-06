@@ -220,7 +220,8 @@ class ActionPanel(QWidget):
             self._render_header()
 
     def _on_permissions_changed(self, permissions: Permissions) -> None:
-        # danger mode unlocks the settings only; propagations and tools follow the state
+        # danger mode unlocks the settings and the tools usable in danger mode;
+        # propagations and the other tools follow the state
         self._form.set_read_only(not permissions.settings_editable)
         if self._propagations is not None:
             self._propagations.set_read_only(not permissions.rules_editable)

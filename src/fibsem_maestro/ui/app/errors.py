@@ -13,6 +13,14 @@ class NotAllowedError(Exception):
     """A command was refused because the current state does not allow it."""
 
 
+class PropertiesChangedError(Exception):
+    """
+    Edited props were not saved: the stored props changed after they were opened.
+
+    E.g. the running workflow executed the action, or propagated to it.
+    """
+
+
 class InvalidActionNameError(ValueError):
     """A proposed action name is empty, taken or reserved; the message says which."""
 

@@ -28,6 +28,9 @@ class Permissions:
         rules_editable: Edit propagation rules.
         action_tools_enabled: Use Prepare / Edit / Apply / Test (Edit and Apply
             also need stored props).
+        danger_tools_enabled: Use the tools usable in danger mode
+            (`ToolSpec.usable_in_danger_mode`, e.g. Edit): whenever
+            `action_tools_enabled`, and in any state in danger mode.
         preview_enabled: Load an area-selector image (also needs an editable form).
         import_enabled: Import a workflow.
         new_enabled: Create a new workflow.
@@ -42,6 +45,7 @@ class Permissions:
     settings_editable: bool
     rules_editable: bool
     action_tools_enabled: bool
+    danger_tools_enabled: bool
     preview_enabled: bool
     import_enabled: bool
     new_enabled: bool
@@ -57,7 +61,8 @@ def permissions_for(state: AppState, danger_mode: bool, task_busy: bool) -> Perm
 
     Args:
         state: The run state.
-        danger_mode: Whether settings may be edited in any state.
+        danger_mode: Whether settings, and the tools usable in danger mode,
+            may be used in any state.
         task_busy: Whether a microscope task is running.
 
     Returns:
@@ -71,6 +76,7 @@ def permissions_for(state: AppState, danger_mode: bool, task_busy: bool) -> Perm
         settings_editable=settings_editable,
         rules_editable=not_running,
         action_tools_enabled=idle,
+        danger_tools_enabled=idle or danger_mode,
         preview_enabled=idle,
         import_enabled=state is AppState.EDITING and not task_busy,
         new_enabled=idle,
@@ -124,7 +130,8 @@ class EditPolicy(QObject):
         """
         Whether settings can be edited in any state, including while the workflow runs.
 
-        Only settings are unlocked; microscope access from the GUI and the
+        Only settings and the tools usable in danger mode (e.g. editing stored
+        properties) are unlocked; microscope access from the GUI and the
         structure of the workflow still follow the state.
         """
         return self._danger_mode
@@ -134,7 +141,8 @@ class EditPolicy(QObject):
         Turn danger mode on or off.
 
         Args:
-            enabled: True to allow editing settings in any state.
+            enabled: True to allow editing settings, and using the tools
+                usable in danger mode, in any state.
         """
         if enabled == self._danger_mode:
             return
