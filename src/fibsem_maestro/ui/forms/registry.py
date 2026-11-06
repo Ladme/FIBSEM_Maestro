@@ -20,6 +20,9 @@ from typing import TYPE_CHECKING, Any, Protocol
 from fibsem_maestro.core.registry import RegistryError
 from fibsem_maestro.settings.form_utils import WidgetType
 from fibsem_maestro.ui.forms.editor import FieldEditor, OnChange, noop
+from fibsem_maestro.ui.forms.editors.action_multi_select import (
+    ActionMultiSelectWidget,
+)
 from fibsem_maestro.ui.forms.editors.action_select import ActionSelectWidget
 from fibsem_maestro.ui.forms.editors.bool import BoolWidget
 from fibsem_maestro.ui.forms.editors.detail_band import DetailBandWidget
@@ -409,6 +412,28 @@ def _action_select(request: EditorRequest) -> FieldEditor[Any]:
     return optional_wrap(editor, request, inline=True)
 
 
+def _action_multi_select(request: EditorRequest) -> FieldEditor[Any]:
+    """
+    MULTI_ACTION_SELECTOR.
+
+    Raises:
+        ValueError: If the form context has no action catalog.
+    """
+    fi = request.field
+    if request.ctx.actions is None:
+        raise ValueError(
+            f"field {fi.name!r} needs an action catalog, but the form context has none"
+        )
+    hint = fi.hint
+    editor = ActionMultiSelectWidget(
+        actions=request.ctx.actions,
+        type_filter=hint.action_type_filter if hint is not None else [],
+        default=request.value,
+    )
+    request.scope.context.disposers.append(editor.detach)
+    return optional_wrap(editor, request, inline=True)
+
+
 def _hinted_text_area(request: EditorRequest) -> FieldEditor[Any]:
     """STRING and any hint without a registered editor."""
     editor = TextAreaWidget(fallback_type(request.field.type), default=request.value)
@@ -579,6 +604,7 @@ def default_registry() -> EditorRegistry:
     registry.register_hint(WidgetType.RANGE_PAIR, _range_pair)
     registry.register_hint(WidgetType.DETAIL_BAND, _detail_band)
     registry.register_hint(WidgetType.ACTION_SELECTOR, _action_select)
+    registry.register_hint(WidgetType.MULTI_ACTION_SELECTOR, _action_multi_select)
     registry.register_hint(WidgetType.STRING, _hinted_text_area)
 
     registry.register_type(BoolType, _bool)

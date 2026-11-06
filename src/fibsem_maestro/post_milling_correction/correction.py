@@ -1,6 +1,7 @@
 # Released under GPL-3.0 License.
 # Copyright (c) 2024-2026 CEMCOF
 
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -9,17 +10,26 @@ from fibsem_maestro.action.outcome import Produced, StepOutcome
 from fibsem_maestro.action.registry import ACTION_REGISTRY
 from fibsem_maestro.action.state import ActionState
 from fibsem_maestro.core.beam_shift import BeamShift
+from fibsem_maestro.core.beam_type import BeamType
 from fibsem_maestro.core.direction import Direction
 from fibsem_maestro.milling.milling import Milling
 from fibsem_maestro.post_milling_correction.error import PostMillingCorrectionError
+from fibsem_maestro.properties.beam_properties import BeamProperties
+from fibsem_maestro.properties.global_properties import GlobalProperties
 from fibsem_maestro.settings.post_milling_correction_settings import (
     DynamicFocusMode,
     ManualMode,
     PostMillingCorrectionSettings,
 )
 
+if TYPE_CHECKING:
+    from fibsem_maestro.microscope.abstract_control.beam_control import BeamControl
+
 _ION_ELECTRON_ANGLE_RAD = float(np.deg2rad(52.0))
 """Angle between the ion and electron beams."""
+
+_WORKING_DISTANCE = "working_distance"
+_BEAM_SHIFT = "beam_shift"
 
 
 class PostMillingCorrectionState(ActionState):
@@ -34,8 +44,23 @@ class PostMillingCorrection(
     ]
 ):
     """
-    Compensates for the cross-section face receding after each milling step.
+    Keeps the corrected actions on the cross-section face as it recedes with milling.
+
+    Every run adds the shifts of one milling step to the upcoming properties of
+    each corrected action, on the action's beam: the vertical image shift (as
+    beam shift) and the working-distance change. Any action working on a beam
+    can be corrected, as long as it collects the corrected properties. The
+    dynamic mode assumes the corrected actions image with the electron beam.
+
+    The corrections accumulate, since every action carries its properties on to the next slice.
+
+    The correction never changes the microscope (it does not even select a
+    beam) and stores no properties of its own. It takes no part in propagation
+    rules: its changes are relative, and reach exactly the corrected actions.
     """
+
+    # it stores no properties, and its corrections go to the corrected actions only
+    PROPAGATION_RULES_ALLOWED = False
 
     @classmethod
     def settings_cls(cls) -> type[PostMillingCorrectionSettings]:
@@ -62,31 +87,135 @@ class PostMillingCorrection(
     def test(self) -> None:
         raise PostMillingCorrectionError(f"Testing is not implemented for {self.name}")
 
-    def _run_step(self) -> StepOutcome:
+    def preparation_issues(self) -> list[str]:
+        """
+        Report a missing milling, and corrected actions that cannot take the correction.
+
+        Returns:
+            Human-readable problems; empty if the correction is ready.
+        """
+        issues: list[str] = []
+        if isinstance(self._settings.correction_mode, DynamicFocusMode):
+            issues.extend(self._milling_issues())
+
+        names = self._settings.corrected_actions
+        if not names:
+            issues.append("No actions to correct are selected.")
+
+        by_name = {action.name: action for action in self._actions}
+        for name in dict.fromkeys(names):
+            target = by_name.get(name)
+            if target is None:
+                issues.append(f"The corrected action '{name}' does not exist.")
+            else:
+                issues.extend(self._target_issues(target))
+        return issues
+
+    def _milling_issues(self) -> list[str]:
+        name = self._settings.linked_milling
+        if not name:
+            return ["No milling is linked."]
+        linked = next((a for a in self._actions if a.name == name), None)
+        if linked is None:
+            return [f"The linked milling '{name}' does not exist."]
+        if not isinstance(linked, Milling):
+            return [f"The linked action '{name}' is not a milling."]
+        return []
+
+    def _target_issues(self, target: Action) -> list[str]:
+        """
+        The reasons a corrected action cannot take the correction.
+
+        Args:
+            target: The corrected action.
+
+        Returns:
+            Human-readable problems; empty if it can.
+        """
+        beam = target.beam_type
+        if beam is None:
+            return [_no_beam_message(target)]
+
+        collected = _collected(target, beam)
+        return [
+            f"'{target.name}' does not collect '{name}', so it cannot be corrected."
+            for name in self._corrected_property_names()
+            if name not in collected
+        ]
+
+    def _corrected_property_names(self) -> list[str]:
+        """The properties every run may change: those of the non-zero corrections."""
         match self._settings.correction_mode:
             case ManualMode() as mode:
-                self._apply_correction(mode.y_correction, mode.wd_correction)
+                names: list[str] = []
+                if mode.y_correction:
+                    names.append(_BEAM_SHIFT)
+                if mode.wd_correction:
+                    names.append(_WORKING_DISTANCE)
+                return names
             case DynamicFocusMode():
-                self._apply_correction(*self._geometric_correction())
-        return Produced(self.collect_properties())
+                return [_BEAM_SHIFT, _WORKING_DISTANCE]
+
+    def _run_step(self) -> StepOutcome:
+        y_correction, wd_correction = self._correction()
+        self._ctx.text_logger.info(
+            f"Correcting {', '.join(repr(n) for n in self._settings.corrected_actions)}"
+            f" by y_correction={y_correction} nm, wd_correction={wd_correction} nm."
+        )
+
+        patches: dict[str, GlobalProperties] = {}
+        if y_correction or wd_correction:
+            for target in self._resolve_targets():
+                patches[target.name] = self._corrected_properties(
+                    target, y_correction, wd_correction
+                )
+
+        # it stores no properties; empty ones also replace any stored by an older version
+        return Produced(GlobalProperties(), patches=patches)
+
+    def _correction(self) -> tuple[float, float]:
+        """
+        The shifts of one run.
+
+        Returns:
+            The vertical image shift and the working-distance change, both in nm.
+        """
+        match self._settings.correction_mode:
+            case ManualMode() as mode:
+                return mode.y_correction, mode.wd_correction
+            case DynamicFocusMode():
+                return self._geometric_correction()
 
     def _resolve_milling(self) -> Milling:
-        milling = self._actions.named(self._settings.linked_milling)
+        name = self._settings.linked_milling
+        try:
+            milling = self._actions.named(name)
+        except KeyError as e:
+            raise PostMillingCorrectionError(
+                f"The linked milling '{name}' does not exist."
+            ) from e
         if not isinstance(milling, Milling):
             raise PostMillingCorrectionError(
                 f"Linked action is not a Milling action: {milling.name}"
             )
         return milling
 
-    def _perform_manual_correction(self, mode: ManualMode) -> None:
-        self._ctx.text_logger.info(
-            f"Performing manual post milling correction: y_correction={mode.y_correction}, wd_correction={mode.wd_correction}."
-        )
+    def _resolve_targets(self) -> list[Action]:
+        """
+        The corrected actions, each once, in the order they are listed.
 
-        self._microscope.add_beam_shift_with_verification(
-            delta=BeamShift(0, mode.y_correction)
-        )
-        self._microscope.beam.working_distance += mode.wd_correction
+        Raises:
+            PostMillingCorrectionError: If a corrected action does not exist.
+        """
+        targets: list[Action] = []
+        for name in dict.fromkeys(self._settings.corrected_actions):
+            try:
+                targets.append(self._actions.named(name))
+            except KeyError as e:
+                raise PostMillingCorrectionError(
+                    f"The corrected action '{name}' does not exist."
+                ) from e
+        return targets
 
     def _geometric_correction(self) -> tuple[float, float]:
         """
@@ -105,20 +234,88 @@ class PostMillingCorrection(
 
         return y_correction, wd_correction
 
-    def _apply_correction(self, y_correction: float, wd_correction: float) -> None:
+    def _corrected_properties(
+        self, target: Action, y_correction: float, wd_correction: float
+    ) -> GlobalProperties:
         """
-        Apply a vertical image shift and a working-distance change.
+        The target's upcoming beam shift and working distance, with the correction added.
+
+        The target's props file for its current slice holds its upcoming
+        properties: those of this slice if it has not run yet, of the next one
+        if it has. Patches are written to the same file.
 
         Args:
+            target: The corrected action.
             y_correction: Vertical shift in image coordinates, in nm.
             wd_correction: Working-distance change, in nm.
+
+        Returns:
+            Only the corrected properties, those of the non-zero corrections,
+            on the target's beam.
+
+        Raises:
+            PostMillingCorrectionError: If the target works on no beam, or stores
+                no value of a property to correct.
         """
-        self._ctx.text_logger.info(
-            f"Performing post milling correction: y_correction={y_correction} nm, "
-            f"wd_correction={wd_correction} nm."
-        )
-        image_to_beam_shift = self._microscope.beam.image_to_beam_shift
-        self._microscope.add_beam_shift_with_verification(
-            delta=BeamShift(0.0, image_to_beam_shift[1] * y_correction)
-        )
-        self._microscope.beam.working_distance += wd_correction
+        beam = target.beam_type
+        if beam is None:
+            raise PostMillingCorrectionError(_no_beam_message(target))
+
+        props = target.read_properties()
+        stored = getattr(props, props.get_properties_attr_name(beam))
+        if stored is None:
+            stored = BeamProperties()
+
+        patch = GlobalProperties()
+        if y_correction:
+            if stored.beam_shift is None:
+                raise _not_stored(target, _BEAM_SHIFT, beam)
+            to_beam_shift = self._beam_control_of(beam).image_to_beam_shift
+            delta = BeamShift(0.0, to_beam_shift[1] * y_correction)
+            patch.set_property(_BEAM_SHIFT, stored.beam_shift + delta, beam)
+
+        if wd_correction:
+            if stored.working_distance is None:
+                raise _not_stored(target, _WORKING_DISTANCE, beam)
+            patch.set_property(
+                _WORKING_DISTANCE, stored.working_distance + wd_correction, beam
+            )
+
+        return patch
+
+    def _beam_control_of(self, beam: BeamType) -> BeamControl:
+        """
+        The control of a corrected action's beam, for its image-to-beam-shift factors.
+
+        Args:
+            beam: The beam.
+
+        Returns:
+            Its control.
+        """
+        match beam:
+            case BeamType.ELECTRON:
+                return self._microscope.electron_beam
+            case BeamType.ION:
+                return self._microscope.ion_beam
+
+
+def _no_beam_message(target: Action) -> str:
+    """The problem of a corrected action that works on no beam (e.g. an adjust-props)."""
+    return f"'{target.name}' works on no beam, so it cannot be corrected."
+
+
+def _collected(target: Action, beam: BeamType) -> list[str]:
+    """The names of the properties an action collects on a beam."""
+    names = target.props_to_collect
+    return getattr(names, GlobalProperties().get_properties_attr_name(beam))
+
+
+def _not_stored(
+    target: Action, name: str, beam: BeamType
+) -> PostMillingCorrectionError:
+    """The error for a corrected action that stores no value of a corrected property."""
+    return PostMillingCorrectionError(
+        f"'{target.name}' stores no '{name}' of the {beam.value} beam to correct; "
+        "prepare it again."
+    )

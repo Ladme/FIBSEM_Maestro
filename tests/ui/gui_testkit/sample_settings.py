@@ -204,6 +204,10 @@ class KitchenSink(BaseSettings):
         str | None,
         FormHint(widget=WidgetType.ACTION_SELECTOR, action_type_filter=[Action]),
     ] = Field(default=None, description="Another action.")
+    linked_many: Annotated[
+        list[str],
+        FormHint(widget=WidgetType.MULTI_ACTION_SELECTOR, action_type_filter=[Action]),
+    ] = Field(default_factory=list, description="Other actions.")
     area: Annotated[
         list[RelativeArea],
         FormHint(
@@ -253,8 +257,8 @@ def filled_kitchen_sink() -> KitchenSink:
     """
     A valid `KitchenSink` in which every field differs from its default.
 
-    Its `linked` field names `LINKED_NAME`, so the form's action catalog must
-    hold an action of that name.
+    Its `linked` and `linked_many` fields name `LINKED_NAME`, so the form's
+    action catalog must hold an action of that name.
 
     Returns:
         The instance.
@@ -273,6 +277,7 @@ def filled_kitchen_sink() -> KitchenSink:
         property_names=["contrast", VENDOR_PROPERTIES[0]],
         pattern=PATTERN_TYPES[1],
         linked=LINKED_NAME,
+        linked_many=[LINKED_NAME],
         area=[QUARTER],
         overlap=0.25,
         window=(3.0, 8.0),

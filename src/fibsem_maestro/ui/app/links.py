@@ -19,6 +19,11 @@ if TYPE_CHECKING:
 
     from fibsem_maestro.action.action import Action
 
+_LINK_WIDGETS = frozenset(
+    {WidgetType.ACTION_SELECTOR, WidgetType.MULTI_ACTION_SELECTOR}
+)
+"""The widgets of link fields."""
+
 
 @dataclass(frozen=True)
 class ActionLink:
@@ -26,14 +31,32 @@ class ActionLink:
     One link field of a settings object.
 
     Attributes:
-        field_name: Name of the settings field holding the linked action's name.
+        field_name: Name of the settings field holding the linked action's name
+            (or names).
         allowed_types: Action classes the link may name.
         optional: True if the field may hold None (no link).
+        many: True if the field holds a list of names.
     """
 
     field_name: str
     allowed_types: tuple[type[Action], ...]
     optional: bool
+    many: bool = False
+
+    def names(self, settings: object) -> list[str]:
+        """
+        The names the link holds on a settings object.
+
+        Args:
+            settings: The settings object holding the field.
+
+        Returns:
+            The linked names, in order; empty if there is no link.
+        """
+        value = getattr(settings, self.field_name)
+        if value is None:
+            return []
+        return list(value) if self.many else [value]
 
 
 def iter_links(settings: object) -> Iterator[ActionLink]:
@@ -49,12 +72,13 @@ def iter_links(settings: object) -> Iterator[ActionLink]:
         One `ActionLink` per action-selector field.
     """
     for fi in get_field_infos(type(settings)):
-        if fi.hint is None or fi.hint.widget is not WidgetType.ACTION_SELECTOR:
+        if fi.hint is None or fi.hint.widget not in _LINK_WIDGETS:
             continue
         yield ActionLink(
             field_name=fi.name,
             allowed_types=tuple(fi.hint.action_type_filter),
             optional=fi.optional,
+            many=fi.hint.widget is WidgetType.MULTI_ACTION_SELECTOR,
         )
 
 
@@ -62,7 +86,9 @@ def retarget_links(settings: object, old_name: str, new_name: str) -> list[str]:
     """
     Point every link holding `old_name` at `new_name`.
 
-    The fields are assigned on `settings` itself, so its change hooks fire.
+    The fields are assigned on `settings` itself, so its change hooks fire. A
+    list of names is assigned as a new list, with the name replaced wherever
+    it occurs.
 
     Args:
         settings: A settings object (pydantic model or dataclass).
@@ -74,9 +100,12 @@ def retarget_links(settings: object, old_name: str, new_name: str) -> list[str]:
     """
     changed: list[str] = []
     for link in iter_links(settings):
-        if getattr(settings, link.field_name) == old_name:
-            setattr(settings, link.field_name, new_name)
-            changed.append(link.field_name)
+        names = link.names(settings)
+        if old_name not in names:
+            continue
+        renamed = [new_name if name == old_name else name for name in names]
+        setattr(settings, link.field_name, renamed if link.many else new_name)
+        changed.append(link.field_name)
     return changed
 
 

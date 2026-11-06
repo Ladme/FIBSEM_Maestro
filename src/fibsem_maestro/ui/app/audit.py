@@ -19,7 +19,11 @@ from pydantic import ValidationError
 
 from fibsem_maestro.settings.form_utils import WidgetType
 from fibsem_maestro.settings.property_names import PropertyNames
-from fibsem_maestro.ui.schema.choices import ChoiceContext, choices_for
+from fibsem_maestro.ui.schema.choices import (
+    ChoiceContext,
+    choices_for,
+    unavailable_action_message,
+)
 from fibsem_maestro.ui.schema.field_type import (
     DataclassType,
     DiscriminatedUnionType,
@@ -238,6 +242,12 @@ def _hinted_problem(
             return f"At least {minimum} area(s) required."
         return None
 
+    # the editor keeps the names it does not offer, marked, until they are deselected
+    if hint.widget is WidgetType.MULTI_ACTION_SELECTOR:
+        available = choices_for(fi, ctx)
+        missing = [name for name in dict.fromkeys(value or ()) if name not in available]
+        return "\n".join(unavailable_action_message(name) for name in missing) or None
+
     if hint.widget not in _SINGLE_CHOICE_WIDGETS or value in choices_for(fi, ctx):
         return None
 
@@ -248,7 +258,7 @@ def _hinted_problem(
     # an optional link shows "(none)" without an error, but a link to a removed
     # action still blocks the run
     if hint.widget is WidgetType.ACTION_SELECTOR and value is not None:
-        return f"'{value}' is not an available action."
+        return unavailable_action_message(value)
 
     return None
 

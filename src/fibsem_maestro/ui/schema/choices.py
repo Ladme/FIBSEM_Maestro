@@ -27,6 +27,7 @@ CHOICE_WIDGETS: frozenset[WidgetType] = frozenset(
         WidgetType.PROPERTY_SELECTOR,
         WidgetType.PATTERN_TYPE_SELECTOR,
         WidgetType.ACTION_SELECTOR,
+        WidgetType.MULTI_ACTION_SELECTOR,
         WidgetType.MULTI_SELECT,
         WidgetType.MULTI_PROPERTY_SELECTOR,
     }
@@ -48,6 +49,19 @@ class ChoiceContext:
     actions: Sequence[Action] | None = None
     manufacturer_property_names: tuple[str, ...] = ()
     pattern_types: tuple[PatternType, ...] = field(default_factory=tuple)
+
+
+def unavailable_action_message(name: str) -> str:
+    """
+    The error shown for a link to an action that is not offered.
+
+    Args:
+        name: The linked name.
+
+    Returns:
+        The message, e.g. "'imaging' is not an available action.".
+    """
+    return f"'{name}' is not an available action."
 
 
 def has_choices(fi: FieldInfo) -> bool:
@@ -89,7 +103,7 @@ def choices_for(fi: FieldInfo, ctx: ChoiceContext) -> list[Any]:
                 return list(listed) + list(ctx.manufacturer_property_names)
             case WidgetType.PATTERN_TYPE_SELECTOR:
                 return list(ctx.pattern_types)
-            case WidgetType.ACTION_SELECTOR:
+            case WidgetType.ACTION_SELECTOR | WidgetType.MULTI_ACTION_SELECTOR:
                 allowed = tuple(hint.action_type_filter)
                 return [
                     action.name

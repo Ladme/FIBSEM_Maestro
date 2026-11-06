@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
-from gui_testkit.situations import link_pairs
+from gui_testkit.situations import link_pairs, link_to, linked_names
 from gui_testkit.windows_lock import windows_like_delete
 
 from fibsem_maestro.action_context.file import FileActionContext
@@ -207,15 +207,15 @@ def test_session_rename_retargets_and_persists_links(
 ) -> None:
     target = add_action(target_key, "target")
     linker = add_action(linker_key, "linker")
-    setattr(linker.settings, field, "target")
+    link_to(linker.settings, field, "target")
     changed: list[Action] = []
     session.action_settings_changed.connect(changed.append)
 
     session.rename_action(target, "renamed target")
 
-    assert getattr(linker.settings, field) == "renamed target"
+    assert linked_names(linker.settings, field) == ["renamed target"]
     stored = linker.ctx.settings_store.read("settings.yaml", type(linker.settings))
-    assert getattr(stored, field) == "renamed target"
+    assert linked_names(stored, field) == ["renamed target"]
     assert changed == [linker]
 
 
@@ -275,12 +275,12 @@ def test_session_remove_keeps_links_to_removed_action(
     linker_key, field, target_key = link_pairs()[0]
     target = add_action(target_key, "target")
     linker = add_action(linker_key, "linker")
-    setattr(linker.settings, field, "target")
+    link_to(linker.settings, field, "target")
 
     session.remove_action(target)
 
     # a broken link is shown and blocks Run; it is never cleared silently
-    assert getattr(linker.settings, field) == "target"
+    assert linked_names(linker.settings, field) == ["target"]
 
 
 def test_session_remove_reports_directory_error_and_still_removes(

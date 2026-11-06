@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Annotated
 
 import pytest
-from gui_testkit.situations import link_pairs
+from gui_testkit.situations import link_field, link_pairs, link_to
 from pydantic import BaseModel, Field
 
 from fibsem_maestro.action.registry import ACTION_REGISTRY
@@ -26,7 +26,11 @@ from fibsem_maestro.settings.form_utils import FormHint, WidgetType
 from fibsem_maestro.settings.property_names import PropertyNames
 from fibsem_maestro.ui.app.audit import RULE_WHERE, AuditIssue, SettingsAudit
 from fibsem_maestro.ui.app.catalogs import MicroscopeCatalogs
-from fibsem_maestro.ui.schema.choices import ChoiceContext, choices_for
+from fibsem_maestro.ui.schema.choices import (
+    ChoiceContext,
+    choices_for,
+    unavailable_action_message,
+)
 from fibsem_maestro.ui.schema.field_type import StrType
 from fibsem_maestro.ui.schema.labels import field_name_to_label
 from fibsem_maestro.ui.schema.schema import get_field_infos
@@ -163,8 +167,10 @@ def test_audit_reports_link_to_removed_action(
 ) -> None:
     target = add_action(target_key, "target")
     linker = add_action(linker_key, "linker")
-    setattr(linker.settings, field, "target")
-    issue = (field_name_to_label(field), REQUIRED)
+    link_to(linker.settings, field, "target")
+    many = link_field(linker.settings, field).many
+    message = unavailable_action_message("target") if many else REQUIRED
+    issue = (field_name_to_label(field), message)
     assert issue not in problems(audit, linker)
 
     session.remove_action(target)
@@ -190,13 +196,19 @@ class LinkingSettings(AdjustPropsSettings):
         str | None,
         FormHint(widget=WidgetType.ACTION_SELECTOR, action_type_filter=[AdjustProps]),
     ] = Field(default=None, description="An optional link.")
+    many_links: Annotated[
+        list[str],
+        FormHint(
+            widget=WidgetType.MULTI_ACTION_SELECTOR, action_type_filter=[AdjustProps]
+        ),
+    ] = Field(default_factory=list, description="Several links.")
     letters: list[Letter] = Field(
         default_factory=list, description="Choices in a list."
     )
 
 
 class LinkingAction(AdjustProps):
-    """An adjust-props action with an optional link and a list of models (never registered)."""
+    """An adjust-props action with links and a list of models (never registered)."""
 
     @classmethod
     def settings_cls(cls) -> type[LinkingSettings]:
@@ -238,6 +250,21 @@ def test_audit_reports_optional_link_to_unknown_action(
     linking.settings.optional_link = "gone"
     assert problems(audit, linking) == {
         ("optional link", "'gone' is not an available action.")
+    }
+
+
+def test_audit_reports_each_unknown_name_of_a_multiple_link_once(
+    audit: SettingsAudit, linking: Action
+) -> None:
+    linking.settings.many_links = ["linking"]
+    assert problems(audit, linking) == set()
+
+    linking.settings.many_links = ["gone", "linking", "lost", "gone"]
+    assert problems(audit, linking) == {
+        (
+            "many links",
+            "'gone' is not an available action.\n'lost' is not an available action.",
+        )
     }
 
 

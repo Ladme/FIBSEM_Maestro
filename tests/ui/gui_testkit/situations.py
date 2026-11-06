@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 from fibsem_maestro.action.registry import ACTION_REGISTRY
 from fibsem_maestro.properties.beam_properties import BeamProperties
 from fibsem_maestro.properties.global_properties import GlobalProperties
-from fibsem_maestro.ui.app.links import iter_links
+from fibsem_maestro.ui.app.links import ActionLink, iter_links
 from fibsem_maestro.ui.app.microscope_tasks import MicroscopeTask
 from gui_testkit import TIMEOUT_MS
 
@@ -75,7 +75,8 @@ def link_pairs() -> list[tuple[str, str, str]]:
 
     Returns:
         `(linking type key, link field name, linked type key)` for every
-        action-selector field and every registered type it accepts.
+        action-selector field (single or multiple) and every registered type
+        it accepts. Set and read such a link with `link_to` and `linked_names`.
     """
     pairs: list[tuple[str, str, str]] = []
     for key in ACTION_REGISTRY:
@@ -87,3 +88,44 @@ def link_pairs() -> list[tuple[str, str, str]]:
                 if issubclass(ACTION_REGISTRY.get(target), link.allowed_types)
             )
     return pairs
+
+
+def link_field(settings: object, field: str) -> ActionLink:
+    """
+    The link a settings field is.
+
+    Args:
+        settings: The settings object.
+        field: The name of a link field.
+
+    Returns:
+        The link.
+    """
+    return next(link for link in iter_links(settings) if link.field_name == field)
+
+
+def link_to(settings: object, field: str, name: str) -> None:
+    """
+    Link one action, whether the field holds one name or a list of them.
+
+    Args:
+        settings: The settings object.
+        field: The name of a link field.
+        name: The name to link.
+    """
+    many = link_field(settings, field).many
+    setattr(settings, field, [name] if many else name)
+
+
+def linked_names(settings: object, field: str) -> list[str]:
+    """
+    The names a link field holds.
+
+    Args:
+        settings: The settings object.
+        field: The name of a link field.
+
+    Returns:
+        The linked names, in order.
+    """
+    return link_field(settings, field).names(settings)
