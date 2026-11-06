@@ -2,19 +2,18 @@
 # Copyright (c) 2024-2026 CEMCOF
 
 import contextvars
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 import numpy as np
 
 from fibsem_maestro.autofocus.error import AutofocusError
 from fibsem_maestro.autofocus.result import AutofocusResult
 from fibsem_maestro.criterion.criterion import Criterion
+from fibsem_maestro.settings.autofocus_settings import BasicMode as BasicModeSettings
 from fibsem_maestro.settings.autofocus_settings import (
-    AutofocusSettings,
     CustomCriterion,
     ImagingCriterion,
 )
-from fibsem_maestro.settings.autofocus_settings import BasicMode as BasicModeSettings
 from fibsem_maestro.settings.autofocus_settings import LineMode as LineModeSettings
 from fibsem_maestro.settings.autofocus_settings import StepMode as StepModeSettings
 
@@ -27,7 +26,26 @@ if TYPE_CHECKING:
     from fibsem_maestro.core.area import RelativeArea
     from fibsem_maestro.core.image import Image
     from fibsem_maestro.microscope.microscope import Microscope
+    from fibsem_maestro.settings.autofocus_settings import AutofocusMode
     from fibsem_maestro.settings.criterion_settings import CriterionSettings
+
+
+class SweepSettingsLike(Protocol):
+    """
+    What sweeping an attribute requires of an action's settings.
+
+    Satisfied structurally by the settings of `Autofocus` and `Refocus`.
+    """
+
+    @property
+    def mode(self) -> AutofocusMode:
+        """The autofocus mode and its sweep."""
+        ...
+
+    @property
+    def max_workers(self) -> int:
+        """Most threads calculating sharpness at once."""
+        ...
 
 
 class AutofocusContext:
@@ -35,7 +53,7 @@ class AutofocusContext:
         self,
         microscope: Microscope,
         sweeping: Sweeping | None,
-        settings: AutofocusSettings,
+        settings: SweepSettingsLike,
         ctx: ActionContext,
     ):
         """
@@ -44,7 +62,7 @@ class AutofocusContext:
         Args:
             microscope: The microscope instance.
             sweeping: Controller for sweeping the target beam attributes.
-            settings: Autofocus configuration.
+            settings: Settings of the action that sweeps.
             ctx: Context providing slice navigation and access logging and storage.
         """
         self.microscope = microscope
